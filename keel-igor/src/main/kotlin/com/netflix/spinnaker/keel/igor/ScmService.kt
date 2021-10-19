@@ -13,10 +13,6 @@ import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 
-data class RawDeliveryConfigResult(
-  val manifest: String
-)
-
 /**
  * Igor methods related to Source Control Management (SCM) operations.
  */
@@ -43,6 +39,29 @@ interface ScmService: ScmInfo {
     @Query("ref") ref: String? = null,
     @Query("raw") raw: Boolean = true,
     ): RawDeliveryConfigResult
+
+
+  /**
+   * Retrieve GraphQL schema files from a source control repository.
+   *
+   * @param repoType The type of SCM repository (e.g. "stash", "github")
+   * @param projectKey The "project" within the SCM system where the repository exists, which can be a user's personal
+   *        area (e.g. "SPKR", "~lpollo")
+   * @param repositorySlug The repository name (e.g. "myapp")
+   * @param ref The git reference at which to retrieve the file (e.g. a commit hash, or a reference like "refs/heads/mybranch").
+   * @param schemaPath The path of the GraphQL schema file or directory, relative to the project root. If given a
+   *        directory, will return all schema files in the directory and recursively descend into sub-directories.
+   *        Only returns the contents of files that have .graphql or .graphqls extensions
+   */
+  @GET("/graphql-schema")
+  suspend fun getGraphqlSchema(
+    @Query("scmType") repoType: String,
+    @Path("project") projectKey: String,
+    @Path("repository") repositorySlug: String,
+    @Query("ref") ref: String,
+    @Query("schemaPath") schemaPath: String
+  ) : GraphqlSchemaResult
+
 
   /**
    * Retrieves all SCM base links, as defined in Igor
