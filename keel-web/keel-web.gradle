@@ -3,17 +3,10 @@ plugins {
   id "com.github.hauner.jarTest" version "1.0.1"
 }
 
-apply plugin: "com.netflix.dgs.codegen"
 apply plugin: "com.github.hauner.jarTest"
 
 repositories {
   mavenCentral() // for graphql-java-extended-scalars
-}
-
-generateJava {
-  schemaPaths = ["${projectDir}/src/main/resources/schema"]
-  packageName = "com.netflix.spinnaker.keel.graphql"
-  typeMapping = ["InstantTime": "java.time.Instant", "JSON": "kotlin.Any"]
 }
 
 dependencies {
@@ -35,6 +28,7 @@ dependencies {
   implementation(project(":keel-schema-generator"))
   implementation(project(":keel-scm"))
   implementation(project(":keel-retrofit"))
+  implementation(project(":keel-graphql-schema"))
 
   implementation("com.netflix.spinnaker.kork.internal:kork-web")
   implementation("com.netflix.spinnaker.kork.internal:kork-artifacts")

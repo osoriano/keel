@@ -53,7 +53,8 @@ include(
   "keel-test",
   "keel-titus-api",
   "keel-titus-plugin",
-  "keel-web"
+  "keel-web",
+  "keel-graphql-schema"
 )
 
 rootProject.name = "keel"

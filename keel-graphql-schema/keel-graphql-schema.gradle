@@ -1,0 +1,7 @@
+apply(plugin: "com.netflix.dgs.codegen")
+
+generateJava {
+  schemaPaths = ["${projectDir}/src/main/resources/schema"]
+  packageName = "com.netflix.spinnaker.keel.graphql"
+  typeMapping = ["InstantTime": "java.time.Instant", "JSON": "kotlin.Any"]
+}
