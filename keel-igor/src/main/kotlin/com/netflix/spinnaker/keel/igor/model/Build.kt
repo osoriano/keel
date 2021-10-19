@@ -22,8 +22,8 @@ data class Build(
   val url: String? = null,
   val id: String? = null,
 
-  val scm: List<GenericGitRevision>? = null,
-  val properties: Map<String, Any?>? = null
+  val scm: List<GenericGitRevision> = emptyList(),
+  val properties: Map<String, Any?> = emptyMap()
 )
 
 @JsonInclude(JsonInclude.Include.NON_NULL)

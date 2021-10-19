@@ -226,47 +226,6 @@ internal class DebianArtifactSupplierTests : JUnit5Minutests {
           .isNull()
       }
 
-      context("returns artifact metadata based on ci provider") {
-        test("regular commit") {
-          val results = runBlocking {
-            debianArtifactSupplier.getArtifactMetadata(latestArtifact)
-          }
-          expectThat(results)
-            .isEqualTo(artifactMetadata)
-        }
-        context("with merge commit") {
-          val prCommitId = "12a45a"
-          before {
-            every {
-              artifactMetadataService.getArtifactMetadata("1", prCommitId)
-            } returns artifactMetadata
-          }
-
-          test("merge commit is used") {
-            val results = runBlocking {
-              debianArtifactSupplier.getArtifactMetadata(
-                latestArtifact.copy(
-                  metadata = latestArtifact.metadata + mapOf(
-                    "prCommitId" to prCommitId
-                  )
-                )
-              )
-            }
-            expectThat(results)
-              .isEqualTo(artifactMetadata)
-
-            verify(exactly = 1) {
-              artifactMetadataService.getArtifactMetadata("1", prCommitId)
-            }
-
-            verify(exactly = 0) {
-              artifactMetadataService.getArtifactMetadata("1", commitId)
-            }
-          }
-        }
-
-      }
-
       test("should process artifact successfully") {
         expectThat(debianArtifactSupplier.shouldProcessArtifact(latestArtifact))
           .isTrue()

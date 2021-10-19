@@ -212,20 +212,10 @@ internal class DockerArtifactSupplierTests : JUnit5Minutests {
     context("DockerArtifactSupplier with metadata") {
       before {
         every {
-          artifactMetadataService.getArtifactMetadata("1", any())
-        } returns artifactMetadata
-        every {
           clouddriverService.findDockerImages(account = "*", repository = dockerArtifact.name, tag = null, includeDetails = true)
         } returns listOf(dockerImageWithMetaData)
       }
 
-       test("returns artifact metadata based on CI provider") {
-        val results = runBlocking {
-          dockerArtifactSupplier.getArtifactMetadata(latestArtifactWithMetadata)
-        }
-        expectThat(results)
-          .isEqualTo(artifactMetadata)
-      }
       test("returns artifact with metadata from Docker image") {
         val results = runBlocking {
           dockerArtifactSupplier.getLatestArtifact(deliveryConfig, dockerArtifact)

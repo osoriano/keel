@@ -148,14 +148,6 @@ internal class NpmArtifactSupplierTests : JUnit5Minutests {
         expectThat(npmArtifactSupplier.parseDefaultBuildMetadata(latestArtifact, npmArtifact.sortingStrategy))
           .isEqualTo(buildMeta)
       }
-
-      test("returns artifact metadata based on ci provider") {
-        val results = runBlocking {
-          npmArtifactSupplier.getArtifactMetadata(latestArtifact)
-        }
-        expectThat(results)
-          .isEqualTo(artifactMetadata)
-      }
     }
   }
 }

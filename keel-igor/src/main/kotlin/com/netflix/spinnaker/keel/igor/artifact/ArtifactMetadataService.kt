@@ -36,22 +36,80 @@ class ArtifactMetadataService(
    */
   suspend fun getArtifactMetadata(
     buildNumber: String,
-    commitId: String,
+    commitHash: String,
     maxAttempts: Int = DEFAULT_MAX_ATTEMPTS
   ): ArtifactMetadata? {
+    if (commitHash.length < 7) {
+      error("Invalid commit hash: $commitHash (min length is 7 characters, got ${commitHash.length})")
+    }
 
-    val buildList = getArtifactMetadataWithRetries(commitId, buildNumber)
+    val artifactMetadata = getArtifactMetadataWithRetries(buildNumber, commitHash, maxAttempts)
+      ?.firstOrNull {
+        // filter out any builds that don't match the build number and commit hash known to Keel
+        it.number.toString() == buildNumber && it.scm.firstOrNull()?.sha1?.shortHash == commitHash.shortHash
+      }
+      ?.toArtifactMetadata()
 
-    if (buildList.isNullOrEmpty()) {
-      log.debug("artifact metadata buildList is null or empty, for build $buildNumber and commit $commitId")
+    if (artifactMetadata == null) {
+      log.debug("artifact metadata is null for build $buildNumber and commit $commitHash")
       return null
     }
 
-    log.debug("received artifact metadata $buildList for build $buildNumber and commit $commitId")
-    return buildList.first().toArtifactMetadata(commitId)
+    log.debug("received artifact metadata for build $buildNumber and commit $commitHash: $artifactMetadata")
+    return artifactMetadata
   }
 
-  private fun Build.toArtifactMetadata(commitId: String) =
+  /**
+   * Attempts to retrieve the [ArtifactMetadata] for the specified [commitHash] and [buildNumber] from the 
+   * [buildService]. This function will retry up to [maxAttempts] before returning a null result.
+   */
+  private suspend fun getArtifactMetadataWithRetries(
+    buildNumber: String,
+    commitHash: String,
+    maxAttempts: Int = DEFAULT_MAX_ATTEMPTS
+  ): List<Build>? {
+    val retry = Retry.of(
+      "get artifact metadata",
+      RetryConfig.custom<List<Build>?>()
+        // retry 20 times over a total of 90 seconds
+        .maxAttempts(maxAttempts)
+        .waitDuration(Duration.ofMillis(4500))
+        .retryOnResult{ result ->
+          if (result.isNullOrEmpty()) {
+            log.debug("Retrying artifact metadata retrieval due to empty response (commit=$commitHash, build=$buildNumber)")
+          }
+          result.isNullOrEmpty()
+        }
+        .retryOnException { t: Throwable ->
+          // https://github.com/resilience4j/resilience4j/issues/688
+          val retryFilter = when (t) {
+            is TimeoutCancellationException -> true
+            else -> t is HttpException
+          }
+          log.debug(if (retryFilter) "Retrying " else "Not retrying " +
+            "artifact metadata retrieval (commit=$commitHash, build=$buildNumber) on exception: ${t::class.java.name}")
+          retryFilter
+        }
+        .build()
+    )
+
+    return retry.executeSuspendFunction {
+      buildService.getArtifactMetadata(
+        commitId = commitHash.trim(),
+        buildNumber = buildNumber.trim(),
+        completionStatus = CompletionStatus.values().joinToString(",") { it.name }
+      )
+    }
+  }
+
+  private val String.shortHash: String
+    get() = substring(0, 7)
+
+  private val log by lazy { LoggerFactory.getLogger(javaClass) }
+}
+
+internal fun Build.toArtifactMetadata() =
+  run {
     ArtifactMetadata(
       BuildMetadata(
         id = number,
@@ -63,22 +121,22 @@ class ArtifactMetadataService(
         startedAt = properties?.get("startedAt") as String?,
         completedAt = properties?.get("completedAt") as String?,
         number = number.toString(),
-        status = result.toString()
+        status = result?.toString()
       ),
       GitMetadata(
-        commit = let {
-          if (commitId.length > 7)
-            commitId.substring(0, 7)
-          else {
-            commitId
+        commit = scm.first().sha1.let {
+          when {
+            it == null -> error("Cannot parse git metadata from Build object with missing commit hash")
+            it.length > 7 -> it.substring(0, 7)
+            else -> it
           }
         },
         commitInfo = Commit(
-          sha = scm?.first()?.sha1,
-          link = scm?.first()?.compareUrl,
-          message = scm?.first()?.message,
+          sha = scm.first().sha1,
+          link = scm.first().compareUrl,
+          message = scm.first().message,
         ),
-        author = scm?.first()?.committer,
+        author = scm.first().committer,
         pullRequest = PullRequest(
           number = properties?.get("pullRequestNumber") as String?,
           url = properties?.get("pullRequestUrl") as String?
@@ -88,47 +146,8 @@ class ArtifactMetadataService(
           //TODO[gyardeni]: add link (will come from Igor)
           link = ""
         ),
-        branch = scm?.first()?.branch,
+        branch = scm.first().branch,
         project = properties?.get("projectKey") as String?,
       )
     )
-
-  //This will not be used for now, until we will figure out what is wrong!
-  private suspend fun getArtifactMetadataWithRetries(
-    commitId: String,
-    buildNumber: String,
-    maxAttempts: Int = DEFAULT_MAX_ATTEMPTS
-  ): List<Build>? {
-    val retry = Retry.of(
-      "get artifact metadata",
-      RetryConfig.custom<List<Build>?>()
-        // retry 20 times over a total of 90 seconds
-        .maxAttempts(maxAttempts)
-        .waitDuration(Duration.ofMillis(4500))
-        .retryOnResult{ result ->
-          if (result.isNullOrEmpty()) {
-            log.debug("Retrying artifact metadata retrieval due to empty response (commit=$commitId, build=$buildNumber)")
-          }
-          result.isNullOrEmpty()
-        }
-        .retryOnException { t: Throwable ->
-          // https://github.com/resilience4j/resilience4j/issues/688
-          val retryFilter = when (t) {
-            is TimeoutCancellationException -> true
-            else -> t is HttpException
-          }
-          log.debug(if (retryFilter) "Retrying " else "Not retrying " +
-            "artifact metadata retrieval (commit=$commitId, build=$buildNumber) on exception: ${t::class.java.name}")
-          retryFilter
-        }
-        .build()
-    )
-
-    return retry.executeSuspendFunction {
-      buildService.getArtifactMetadata(commitId = commitId.trim(), buildNumber = buildNumber.trim(), completionStatus = CompletionStatus.values().joinToString { it.name })
-    }
   }
-
-
-  private val log by lazy { LoggerFactory.getLogger(javaClass) }
-}

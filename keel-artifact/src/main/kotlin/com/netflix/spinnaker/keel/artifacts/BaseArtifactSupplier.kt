@@ -16,10 +16,12 @@ abstract class BaseArtifactSupplier<A : DeliveryArtifact, V : SortingStrategy>(
     val buildNumber = artifact.buildNumber
     // We first try to use the PR commit hash (for merge commits) and fall back to the commit hash
     val commitId = artifact.prCommitHash ?: artifact.commitHash
-    if (commitId == null || buildNumber == null) {
+
+    if (commitId.isNullOrEmpty() || buildNumber.isNullOrEmpty()) {
       log.debug("Either commit id: $commitId or build number $buildNumber is missing, returning null")
       return null
     }
+
     if (artifact.prCommitHash != null) {
       log.debug("Using PR commit hash to fetch git metadata of artifact $artifact")
     }

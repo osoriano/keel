@@ -1,18 +1,11 @@
 package com.netflix.spinnaker.keel.services
 
 import com.netflix.spinnaker.keel.igor.BuildService
-import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
-import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
-import com.netflix.spinnaker.keel.api.artifacts.Commit
-import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
-import com.netflix.spinnaker.keel.api.artifacts.Job
-import com.netflix.spinnaker.keel.api.artifacts.PullRequest
-import com.netflix.spinnaker.keel.api.artifacts.Repo
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
+import com.netflix.spinnaker.keel.igor.artifact.toArtifactMetadata
 import com.netflix.spinnaker.keel.igor.model.Build
-import com.netflix.spinnaker.keel.igor.model.CompletionStatus
 import com.netflix.spinnaker.keel.igor.model.GenericGitRevision
-import com.netflix.spinnaker.keel.igor.model.Result
+import com.netflix.spinnaker.keel.igor.model.Result.SUCCESS
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import io.mockk.coEvery
@@ -24,119 +17,87 @@ import strikt.api.expectCatching
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo
 import strikt.assertions.isFailure
+import strikt.assertions.isNull
 
 class ArtifactMetadataServiceTests : JUnit5Minutests {
   object Fixture {
     val buildService: BuildService = mockk()
     val artifactMetadataService = ArtifactMetadataService(buildService)
-    val buildsList: List<Build> = listOf(
-      Build(
-        number = 1,
-        name = "job bla bla",
-        id = "1234",
-        building = false,
-        fullDisplayName = "job bla bla",
-        url = "jenkins.com",
-        result = Result.SUCCESS,
-        scm = listOf(
-          GenericGitRevision(
-            sha1 = "a15p0",
-            message = "this is a commit message",
-            committer = "keel-user",
-            compareUrl = "https://github.com/spinnaker/keel/commit/a15p0"
-          )
-        ),
-        properties = mapOf(
-          "startedAt" to "yesterday",
-          "completedAt" to "today",
-          "projectKey" to "spkr",
-          "repoSlug" to "keel",
-          "author" to "keel-user",
-          "message" to "this is a commit message",
-          "pullRequestNumber" to "111",
-          "pullRequestUrl" to "www.github.com/pr/111"
+    val longHash = "970318968feb640da723b8826861e41f0718a487"
+    val shortHash = longHash.substring(0, 7)
+    val matchingBuild = Build(
+      number = 1,
+      name = "job bla bla",
+      id = "1234",
+      building = false,
+      fullDisplayName = "job bla bla",
+      url = "jenkins.com",
+      result = SUCCESS,
+      scm = listOf(
+        GenericGitRevision(
+          sha1 = longHash,
+          message = "this is a commit message",
+          committer = "keel-user",
+          compareUrl = "https://github.com/spinnaker/keel/commit/a15p0"
         )
+      ),
+      properties = mapOf(
+        "startedAt" to "yesterday",
+        "completedAt" to "today",
+        "projectKey" to "spkr",
+        "repoSlug" to "keel",
+        "author" to "keel-user",
+        "message" to "this is a commit message",
+        "pullRequestNumber" to "111",
+        "pullRequestUrl" to "www.github.com/pr/111"
       )
     )
+
+    val buildsList: List<Build> = listOf(matchingBuild)
+
+    val expectedMetadata = matchingBuild.toArtifactMetadata()
   }
 
   fun tests() = rootContext<Fixture> {
     context("get artifact metadata") {
       fixture { Fixture }
 
-
       context("with valid commit id and build number") {
         before {
           coEvery {
-            buildService.getArtifactMetadata(commitId = any(), buildNumber = any(), completionStatus = CompletionStatus.values().joinToString { it.name })
+            buildService.getArtifactMetadata(commitId = any(), buildNumber = any(), completionStatus = any())
           } returns buildsList
         }
 
-        test("succeeds and converted the results correctly") {
-          val results = runBlocking {
-            artifactMetadataService.getArtifactMetadata("1", "a15p0")
+        test("succeeds and converts the results correctly") {
+          val result = runBlocking {
+            artifactMetadataService.getArtifactMetadata("1", shortHash)
           }
-
-          expectThat(results).isEqualTo(
-            ArtifactMetadata(
-              BuildMetadata(
-                id = 1,
-                uid = "1234",
-                startedAt = "yesterday",
-                completedAt = "today",
-                job = Job(
-                  name = "job bla bla",
-                  link = "jenkins.com"
-                ),
-                number = "1",
-                status = Result.SUCCESS.toString()
-              ),
-              GitMetadata(
-                commit = "a15p0",
-                author = "keel-user",
-                repo = Repo(
-                  name = "keel",
-                  link = ""
-                ),
-                pullRequest = PullRequest(
-                  number = "111",
-                  url = "www.github.com/pr/111"
-                ),
-                commitInfo = Commit(
-                  sha = "a15p0",
-                  message = "this is a commit message",
-                  link = "https://github.com/spinnaker/keel/commit/a15p0"
-                ),
-                project = "spkr"
-              )
-            )
-          )
+          expectThat(result).isEqualTo(expectedMetadata)
         }
 
         test("commit id length is long, expect short commit in return") {
-          val results = runBlocking {
-            artifactMetadataService.getArtifactMetadata("1", "a15p0a15p0a15p0")
+          val result = runBlocking {
+            artifactMetadataService.getArtifactMetadata("1", longHash)
           }
-          expectThat(results).get {
-              results?.gitMetadata?.commit
-            }.isEqualTo("a15p0a1")
-          }
+          expectThat(result).get {
+            result?.gitMetadata?.commit
+          }.isEqualTo(shortHash)
         }
+      }
 
-
-      context("return an empty results from the CI provider") {
+      context("with empty results from the CI provider") {
         before {
           coEvery {
-            buildService.getArtifactMetadata(commitId = any(), buildNumber = any(), completionStatus = CompletionStatus.values().joinToString { it.name })
+            buildService.getArtifactMetadata(commitId = any(), buildNumber = any(), completionStatus = any())
           } returns listOf()
         }
 
-        test("return null") {
+        test("returns null") {
           val results = runBlocking {
-            artifactMetadataService.getArtifactMetadata("1", "a15p0")
+            artifactMetadataService.getArtifactMetadata("1", shortHash, maxAttempts = 1)
           }
-
-          expectThat(results).isEqualTo(null)
+          expectThat(results).isNull()
         }
       }
 
@@ -155,10 +116,49 @@ class ArtifactMetadataServiceTests : JUnit5Minutests {
 
         test("throw an http error from fallback method") {
           expectCatching {
-            artifactMetadataService.getArtifactMetadata("1", "a15p0")
+            artifactMetadataService.getArtifactMetadata("1", shortHash)
           }
             .isFailure()
             .isEqualTo(retrofitError)
+        }
+      }
+
+      context("with non-matching builds in the response") {
+        context("when at least one build matches keel's metadata") {
+          before {
+            coEvery {
+              buildService.getArtifactMetadata(commitId = any(), buildNumber = any(), completionStatus = any())
+            } returns listOf(
+              matchingBuild.copy(scm = listOf(matchingBuild.scm.first().copy(sha1 = "nomatch"))),
+              matchingBuild.copy(number = -1),
+              matchingBuild
+            )
+          }
+
+          test("ignores non-matching builds and returns the metadata based on the first applicable build") {
+            val results = runBlocking {
+              artifactMetadataService.getArtifactMetadata("1", shortHash, maxAttempts = 1)
+            }
+            expectThat(results).isEqualTo(expectedMetadata)
+          }
+        }
+
+        context("when no builds match keel's metadata") {
+          before {
+            coEvery {
+              buildService.getArtifactMetadata(commitId = any(), buildNumber = any(), completionStatus = any())
+            } returns listOf(
+              matchingBuild.copy(scm = listOf(matchingBuild.scm.first().copy(sha1 = "nomatch"))),
+              matchingBuild.copy(number = -1)
+            )
+          }
+
+          test("returns null") {
+            val results = runBlocking {
+              artifactMetadataService.getArtifactMetadata("1", shortHash, maxAttempts = 1)
+            }
+            expectThat(results).isNull()
+          }
         }
       }
     }
