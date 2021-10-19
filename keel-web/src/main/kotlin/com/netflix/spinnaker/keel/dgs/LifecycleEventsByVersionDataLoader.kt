@@ -2,10 +2,10 @@ package com.netflix.spinnaker.keel.dgs
 
 import com.netflix.graphql.dgs.DgsDataLoader
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
-import com.netflix.spinnaker.keel.graphql.types.MdLifecycleEventScope
-import com.netflix.spinnaker.keel.graphql.types.MdLifecycleEventStatus
-import com.netflix.spinnaker.keel.graphql.types.MdLifecycleEventType
-import com.netflix.spinnaker.keel.graphql.types.MdLifecycleStep
+import com.netflix.spinnaker.keel.graphql.types.MD_LifecycleEventScope
+import com.netflix.spinnaker.keel.graphql.types.MD_LifecycleEventStatus
+import com.netflix.spinnaker.keel.graphql.types.MD_LifecycleEventType
+import com.netflix.spinnaker.keel.graphql.types.MD_LifecycleStep
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventRepository
 import com.netflix.spinnaker.keel.lifecycle.LifecycleStep
 import org.dataloader.MappedBatchLoader
@@ -18,24 +18,24 @@ import java.util.concurrent.CompletionStage
 @DgsDataLoader(name = LifecycleEventsByVersionDataLoader.Descriptor.name)
 class LifecycleEventsByVersionDataLoader(
   private val lifecycleEventRepository: LifecycleEventRepository
-) : MappedBatchLoader<ArtifactAndVersion, List<MdLifecycleStep>> {
+) : MappedBatchLoader<ArtifactAndVersion, List<MD_LifecycleStep>> {
 
   object Descriptor {
     const val name = "artifact-lifecycle-events-version"
   }
 
-  override fun load(keys: MutableSet<ArtifactAndVersion>): CompletionStage<MutableMap<ArtifactAndVersion, List<MdLifecycleStep>>> {
+  override fun load(keys: MutableSet<ArtifactAndVersion>): CompletionStage<MutableMap<ArtifactAndVersion, List<MD_LifecycleStep>>> {
     return CompletableFuture.supplyAsync {
-      val result: MutableMap<ArtifactAndVersion, List<MdLifecycleStep>> = mutableMapOf()
+      val result: MutableMap<ArtifactAndVersion, List<MD_LifecycleStep>> = mutableMapOf()
       keys
         .map { it.artifact }
         .toSet()
         .forEach { artifact ->
-          val allVersions: List<MdLifecycleStep> = lifecycleEventRepository
+          val allVersions: List<MD_LifecycleStep> = lifecycleEventRepository
             .getSteps(artifact)
             .map { it.toDgs() }
 
-          val byVersion: Map<String, List<MdLifecycleStep>> = allVersions
+          val byVersion: Map<String, List<MD_LifecycleStep>> = allVersions
             .filter { it.artifactVersion != null }
             .groupBy { it.artifactVersion!! }
 
@@ -51,11 +51,11 @@ class LifecycleEventsByVersionDataLoader(
 }
 
 fun LifecycleStep.toDgs() =
-  MdLifecycleStep(
-    scope = MdLifecycleEventScope.valueOf(scope.name),
-    type = MdLifecycleEventType.valueOf(type.name),
+  MD_LifecycleStep(
+    scope = MD_LifecycleEventScope.valueOf(scope.name),
+    type = MD_LifecycleEventType.valueOf(type.name),
     id = id,
-    status = MdLifecycleEventStatus.valueOf(status.name),
+    status = MD_LifecycleEventStatus.valueOf(status.name),
     text = text,
     link = link,
     startedAt = startedAt,

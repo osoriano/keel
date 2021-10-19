@@ -14,16 +14,15 @@ import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactVeto
 import com.netflix.spinnaker.keel.exceptions.InvalidConstraintException
 import com.netflix.spinnaker.keel.graphql.DgsConstants
 import com.netflix.spinnaker.keel.graphql.types.MD_ConstraintStatusPayload
-import com.netflix.spinnaker.keel.graphql.types.MdAction
-import com.netflix.spinnaker.keel.graphql.types.MdArtifactVersionActionPayload
-import com.netflix.spinnaker.keel.graphql.types.MdConstraintStatus
-import com.netflix.spinnaker.keel.graphql.types.MdConstraintStatusPayload
-import com.netflix.spinnaker.keel.graphql.types.MdDismissNotificationPayload
-import com.netflix.spinnaker.keel.graphql.types.MdMarkArtifactVersionAsGoodPayload
-import com.netflix.spinnaker.keel.graphql.types.MdRestartConstraintEvaluationPayload
-import com.netflix.spinnaker.keel.graphql.types.MdRetryArtifactActionPayload
-import com.netflix.spinnaker.keel.graphql.types.MdToggleResourceManagementPayload
-import com.netflix.spinnaker.keel.graphql.types.MdUnpinArtifactVersionPayload
+import com.netflix.spinnaker.keel.graphql.types.MD_Action
+import com.netflix.spinnaker.keel.graphql.types.MD_ArtifactVersionActionPayload
+import com.netflix.spinnaker.keel.graphql.types.MD_ConstraintStatus
+import com.netflix.spinnaker.keel.graphql.types.MD_DismissNotificationPayload
+import com.netflix.spinnaker.keel.graphql.types.MD_MarkArtifactVersionAsGoodPayload
+import com.netflix.spinnaker.keel.graphql.types.MD_RestartConstraintEvaluationPayload
+import com.netflix.spinnaker.keel.graphql.types.MD_RetryArtifactActionPayload
+import com.netflix.spinnaker.keel.graphql.types.MD_ToggleResourceManagementPayload
+import com.netflix.spinnaker.keel.graphql.types.MD_UnpinArtifactVersionPayload
 import com.netflix.spinnaker.keel.pause.ActuationPauser
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
@@ -51,16 +50,13 @@ class Mutations(
     private val log by lazy { LoggerFactory.getLogger(Mutations::class.java) }
   }
 
-  @DgsData.List(
-    DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.RestartConstraintEvaluation),
-    DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_restartConstraintEvaluation),
-  )
+  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_restartConstraintEvaluation)
   @PreAuthorize(
     """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
     and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
   )
   fun restartConstraintEvaluation(
-    @InputArgument payload: MdRestartConstraintEvaluationPayload,
+    @InputArgument payload: MD_RestartConstraintEvaluationPayload,
   ): Boolean {
     val config = deliveryConfigRepository.getByApplication(payload.application)
     if (deliveryConfigRepository.getConstraintState(config.name, payload.environment, payload.version, payload.type, payload.reference) == null) {
@@ -69,16 +65,13 @@ class Mutations(
     return deliveryConfigRepository.deleteConstraintState(config.name, payload.environment, payload.reference, payload.version, payload.type) > 0
   }
 
-  @DgsData.List(
-    DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.UpdateConstraintStatus),
-    DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_updateConstraintStatus),
-  )
+  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_updateConstraintStatus)
   @PreAuthorize(
     """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
     and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
   )
   fun updateConstraintStatus(
-    @InputArgument payload: MdConstraintStatusPayload,
+    @InputArgument payload: MD_ConstraintStatusPayload,
     @RequestHeader("X-SPINNAKER-USER") user: String
   ): Boolean {
 
@@ -94,10 +87,7 @@ class Mutations(
     }
   }
 
-  @DgsData.List(
-    DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.ToggleManagement),
-    DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_toggleManagement)
-  )
+  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_toggleManagement)
   @PreAuthorize("@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #application)")
   fun toggleManagement(
     @InputArgument application: String,
@@ -113,32 +103,26 @@ class Mutations(
     return true
   }
 
-  @DgsData.List(
-    DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.PinArtifactVersion),
-    DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_pinArtifactVersion),
-  )
+  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_pinArtifactVersion)
   @PreAuthorize(
     """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
     and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
   )
   fun pinArtifactVersion(
-    @InputArgument payload: MdArtifactVersionActionPayload,
+    @InputArgument payload: MD_ArtifactVersionActionPayload,
     @RequestHeader("X-SPINNAKER-USER") user: String
   ): Boolean {
     applicationService.pin(user, payload.application, payload.toEnvironmentArtifactPin())
     return true
   }
 
-  @DgsData.List(
-    DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.UnpinArtifactVersion),
-    DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_unpinArtifactVersion),
-  )
+  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_unpinArtifactVersion)
   @PreAuthorize(
     """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
     and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
   )
   fun unpinArtifactVersion(
-    @InputArgument payload: MdUnpinArtifactVersionPayload,
+    @InputArgument payload: MD_UnpinArtifactVersionPayload,
     @RequestHeader("X-SPINNAKER-USER") user: String
   ): Boolean {
     applicationService.deletePin(
@@ -150,32 +134,26 @@ class Mutations(
     return true
   }
 
-  @DgsData.List(
-    DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.MarkArtifactVersionAsBad),
-    DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_markArtifactVersionAsBad),
-  )
+  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_markArtifactVersionAsBad)
   @PreAuthorize(
     """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
     and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
   )
   fun markArtifactVersionAsBad(
-    @InputArgument payload: MdArtifactVersionActionPayload,
+    @InputArgument payload: MD_ArtifactVersionActionPayload,
     @RequestHeader("X-SPINNAKER-USER") user: String
   ): Boolean {
     applicationService.markAsVetoedIn(user, payload.application, payload.toEnvironmentArtifactVeto(), true)
     return true
   }
 
-  @DgsData.List(
-    DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.MarkArtifactVersionAsGood),
-    DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_markArtifactVersionAsGood)
-  )
+  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_markArtifactVersionAsGood)
   @PreAuthorize(
     """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
     and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
   )
   fun markArtifactVersionAsGood(
-    @InputArgument payload: MdMarkArtifactVersionAsGoodPayload,
+    @InputArgument payload: MD_MarkArtifactVersionAsGoodPayload,
     @RequestHeader("X-SPINNAKER-USER") user: String
   ): Boolean {
     applicationService.deleteVeto(
@@ -187,18 +165,15 @@ class Mutations(
     return true
   }
 
-  @DgsData.List(
-    DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.RetryArtifactVersionAction),
-    DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_retryArtifactVersionAction),
-  )
+  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_retryArtifactVersionAction)
   @PreAuthorize(
     """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
     and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
   )
   fun retryArtifactVersionAction(
-    @InputArgument payload: MdRetryArtifactActionPayload,
+    @InputArgument payload: MD_RetryArtifactActionPayload,
     @RequestHeader("X-SPINNAKER-USER") user: String
-  ): MdAction {
+  ): MD_Action {
 
     val actionType = ActionType.valueOf(payload.actionType.name)
     val newStatus = applicationService.retryArtifactVersionAction(application = payload.application,
@@ -215,7 +190,7 @@ class Mutations(
       artifactReference = payload.reference,
       version = payload.version
     ).apply {
-      return MdAction(
+      return MD_Action(
         id = this.getMdActionId(actionType, payload.actionId),
         actionId = payload.actionId,
         type = payload.actionId, // Deprecated - TODO: remove this
@@ -228,32 +203,26 @@ class Mutations(
   /**
    * Dismisses a notification, given it's ID.
    */
-  @DgsData.List(
-    DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.DismissNotification),
-    DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_dismissNotification),
-  )
+  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_dismissNotification)
   @PreAuthorize(
     """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
     and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
   )
   fun dismissNotification(
-    @InputArgument payload: MdDismissNotificationPayload,
+    @InputArgument payload: MD_DismissNotificationPayload,
     @RequestHeader("X-SPINNAKER-USER") user: String
   ): Boolean {
     log.debug("Dismissing notification with ID=${payload.id} (by user $user)")
     return notificationRepository.dismissNotificationById(payload.application, ULID.parseULID(payload.id), user)
   }
 
-  @DgsData.List(
-    DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.ToggleResourceManagement),
-    DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_toggleResourceManagement),
-  )
+  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_toggleResourceManagement)
   @PreAuthorize(
     """@authorizationSupport.hasApplicationPermission('WRITE', 'RESOURCE', #payload.id)
     and @authorizationSupport.hasServiceAccountAccess('RESOURCE', #payload.id)"""
   )
   fun toggleResourceManagement(
-    @InputArgument payload: MdToggleResourceManagementPayload,
+    @InputArgument payload: MD_ToggleResourceManagementPayload,
     @RequestHeader("X-SPINNAKER-USER") user: String
   ): Boolean {
     if (payload.isPaused) {
@@ -266,7 +235,7 @@ class Mutations(
 
 }
 
-fun MdConstraintStatusPayload.toUpdatedConstraintStatus(): UpdatedConstraintStatus =
+fun MD_ConstraintStatusPayload.toUpdatedConstraintStatus(): UpdatedConstraintStatus =
   UpdatedConstraintStatus(
     type = type,
     artifactReference = reference,
@@ -274,7 +243,7 @@ fun MdConstraintStatusPayload.toUpdatedConstraintStatus(): UpdatedConstraintStat
     status = status.toConstraintStatus(),
   )
 
-fun MdArtifactVersionActionPayload.toEnvironmentArtifactPin(): EnvironmentArtifactPin =
+fun MD_ArtifactVersionActionPayload.toEnvironmentArtifactPin(): EnvironmentArtifactPin =
   EnvironmentArtifactPin(
     targetEnvironment = environment,
     reference = reference,
@@ -283,7 +252,7 @@ fun MdArtifactVersionActionPayload.toEnvironmentArtifactPin(): EnvironmentArtifa
     pinnedBy = null
   )
 
-fun MdArtifactVersionActionPayload.toEnvironmentArtifactVeto(): EnvironmentArtifactVeto =
+fun MD_ArtifactVersionActionPayload.toEnvironmentArtifactVeto(): EnvironmentArtifactVeto =
   EnvironmentArtifactVeto(
     targetEnvironment = environment,
     reference = reference,
@@ -292,12 +261,12 @@ fun MdArtifactVersionActionPayload.toEnvironmentArtifactVeto(): EnvironmentArtif
     vetoedBy = null
   )
 
-fun MdConstraintStatus.toConstraintStatus(): ConstraintStatus =
+fun MD_ConstraintStatus.toConstraintStatus(): ConstraintStatus =
   when (this) {
-    MdConstraintStatus.FAIL -> ConstraintStatus.FAIL
-    MdConstraintStatus.FORCE_PASS -> ConstraintStatus.OVERRIDE_PASS
-    MdConstraintStatus.PASS -> ConstraintStatus.PASS
-    MdConstraintStatus.PENDING -> ConstraintStatus.PENDING
+    MD_ConstraintStatus.FAIL -> ConstraintStatus.FAIL
+    MD_ConstraintStatus.FORCE_PASS -> ConstraintStatus.OVERRIDE_PASS
+    MD_ConstraintStatus.PASS -> ConstraintStatus.PASS
+    MD_ConstraintStatus.PENDING -> ConstraintStatus.PENDING
     else -> throw IllegalArgumentException("Invalid constraint status")
   }
 

@@ -14,8 +14,8 @@ import com.netflix.spinnaker.keel.core.api.DependsOnConstraint
 import com.netflix.spinnaker.keel.core.api.MANUAL_JUDGEMENT_CONSTRAINT_TYPE
 import com.netflix.spinnaker.keel.core.api.TimeWindowConstraint
 import com.netflix.spinnaker.keel.core.api.windowsNumeric
-import com.netflix.spinnaker.keel.graphql.types.MdConstraint
-import com.netflix.spinnaker.keel.graphql.types.MdConstraintStatus
+import com.netflix.spinnaker.keel.graphql.types.MD_Constraint
+import com.netflix.spinnaker.keel.graphql.types.MD_ConstraintStatus
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.services.removePrivateConstraintAttrs
 import org.dataloader.BatchLoaderEnvironment
@@ -30,7 +30,7 @@ import java.util.concurrent.CompletionStage
 class ConstraintsDataLoader(
   private val keelRepository: KeelRepository,
   constraintEvaluators: List<ConstraintEvaluator<*>>,
-) : MappedBatchLoaderWithContext<EnvironmentArtifactAndVersion, List<MdConstraint>> {
+) : MappedBatchLoaderWithContext<EnvironmentArtifactAndVersion, List<MD_Constraint>> {
 
   object Descriptor {
     const val name = "artifact-version-constraints"
@@ -126,7 +126,7 @@ class ConstraintsDataLoader(
   override fun load(
     keys: MutableSet<EnvironmentArtifactAndVersion>,
     environment: BatchLoaderEnvironment
-  ): CompletionStage<MutableMap<EnvironmentArtifactAndVersion, List<MdConstraint>>> {
+  ): CompletionStage<MutableMap<EnvironmentArtifactAndVersion, List<MD_Constraint>>> {
     val context: ApplicationContext = DgsContext.getCustomContext(environment)
     return CompletableFuture.supplyAsync {
       // TODO: optimize that by querying only the needed versions
@@ -138,18 +138,18 @@ class ConstraintsDataLoader(
 }
 
 fun ConstraintState.toDgs() =
-  MdConstraint(
+  MD_Constraint(
     type = type,
     status = when (status) {
-      ConstraintStatus.NOT_EVALUATED -> MdConstraintStatus.BLOCKED
-      ConstraintStatus.PENDING -> MdConstraintStatus.PENDING
-      ConstraintStatus.FAIL -> MdConstraintStatus.FAIL
-      ConstraintStatus.PASS -> MdConstraintStatus.PASS
-      ConstraintStatus.OVERRIDE_FAIL -> MdConstraintStatus.FAIL
+      ConstraintStatus.NOT_EVALUATED -> MD_ConstraintStatus.BLOCKED
+      ConstraintStatus.PENDING -> MD_ConstraintStatus.PENDING
+      ConstraintStatus.FAIL -> MD_ConstraintStatus.FAIL
+      ConstraintStatus.PASS -> MD_ConstraintStatus.PASS
+      ConstraintStatus.OVERRIDE_FAIL -> MD_ConstraintStatus.FAIL
       ConstraintStatus.OVERRIDE_PASS -> if (type == MANUAL_JUDGEMENT_CONSTRAINT_TYPE) {
-        MdConstraintStatus.PASS
+        MD_ConstraintStatus.PASS
       } else {
-        MdConstraintStatus.FORCE_PASS
+        MD_ConstraintStatus.FORCE_PASS
       }
     },
     startedAt = createdAt,

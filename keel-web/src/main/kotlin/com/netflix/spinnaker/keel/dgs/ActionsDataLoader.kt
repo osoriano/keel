@@ -8,9 +8,9 @@ import com.netflix.spinnaker.keel.api.action.ActionType
 import com.netflix.spinnaker.keel.api.action.ActionType.POST_DEPLOY
 import com.netflix.spinnaker.keel.api.action.ActionType.VERIFICATION
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
-import com.netflix.spinnaker.keel.graphql.types.MdAction
-import com.netflix.spinnaker.keel.graphql.types.MdActionStatus
-import com.netflix.spinnaker.keel.graphql.types.MdActionType
+import com.netflix.spinnaker.keel.graphql.types.MD_Action
+import com.netflix.spinnaker.keel.graphql.types.MD_ActionStatus
+import com.netflix.spinnaker.keel.graphql.types.MD_ActionType
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import org.dataloader.BatchLoaderEnvironment
 import org.dataloader.MappedBatchLoaderWithContext
@@ -27,7 +27,7 @@ import com.netflix.spinnaker.keel.telemetry.InvalidVerificationIdSeen
 class ActionsDataLoader(
   private val keelRepository: KeelRepository,
   private val publisher: ApplicationEventPublisher,
-) : MappedBatchLoaderWithContext<EnvironmentArtifactAndVersion, List<MdAction>> {
+) : MappedBatchLoaderWithContext<EnvironmentArtifactAndVersion, List<MD_Action>> {
 
   object Descriptor {
     const val name = "artifact-version-actions"
@@ -39,7 +39,7 @@ class ActionsDataLoader(
    * Loads verifications and actions for each context
    */
   override fun load(keys: MutableSet<EnvironmentArtifactAndVersion>, environment: BatchLoaderEnvironment):
-    CompletionStage<MutableMap<EnvironmentArtifactAndVersion, List<MdAction>>> {
+    CompletionStage<MutableMap<EnvironmentArtifactAndVersion, List<MD_Action>>> {
     val context: ApplicationContext = DgsContext.getCustomContext(environment)
     return CompletableFuture.supplyAsync {
       // TODO: optimize that by querying only the needed versions
@@ -54,7 +54,7 @@ class ActionsDataLoader(
       }
       val states = keelRepository.getAllActionStatesBatch(actionContexts)
 
-      val result = mutableMapOf<EnvironmentArtifactAndVersion, List<MdAction>>()
+      val result = mutableMapOf<EnvironmentArtifactAndVersion, List<MD_Action>>()
 
       // an action context corresponds with a list of action states
       actionContexts.zip(states).forEach { (ctx, actionState: List<ActionStateFull>) ->
@@ -78,12 +78,12 @@ class ActionsDataLoader(
     }
   }
 
-  fun List<ActionStateFull>.toDgsList(ctx: ArtifactInEnvironmentContext, actionType: ActionType): List<MdAction> =
+  fun List<ActionStateFull>.toDgsList(ctx: ArtifactInEnvironmentContext, actionType: ActionType): List<MD_Action> =
     mapNotNull { it.toMdAction(ctx, actionType) }
 
   fun ActionStateFull.toMdAction(ctx: ArtifactInEnvironmentContext, actionType: ActionType) =
     ctx.action(actionType, id)?.id?.let { actionId ->
-      MdAction(
+      MD_Action(
         id = ctx.getMdActionId(actionType, id),
         type = actionId, // TODO: deprecated - remove after updating the frontend
         actionId = actionId,
@@ -91,7 +91,7 @@ class ActionsDataLoader(
         startedAt = state.startedAt,
         completedAt = state.endedAt,
         link = state.link,
-        actionType = MdActionType.valueOf(actionType.name)
+        actionType = MD_ActionType.valueOf(actionType.name)
       )
     }
       .also { if (ctx.action(actionType, id) == null) onInvalidVerificationId(id, ctx) }
@@ -113,13 +113,13 @@ class ActionsDataLoader(
   }
 }
 
-fun ConstraintStatus.toDgsActionStatus(): MdActionStatus = when(this) {
-  ConstraintStatus.NOT_EVALUATED -> MdActionStatus.NOT_EVALUATED
-  ConstraintStatus.PENDING -> MdActionStatus.PENDING
-  ConstraintStatus.FAIL -> MdActionStatus.FAIL
-  ConstraintStatus.PASS -> MdActionStatus.PASS
-  ConstraintStatus.OVERRIDE_FAIL -> MdActionStatus.FAIL
-  ConstraintStatus.OVERRIDE_PASS -> MdActionStatus.FORCE_PASS
+fun ConstraintStatus.toDgsActionStatus(): MD_ActionStatus = when(this) {
+  ConstraintStatus.NOT_EVALUATED -> MD_ActionStatus.NOT_EVALUATED
+  ConstraintStatus.PENDING -> MD_ActionStatus.PENDING
+  ConstraintStatus.FAIL -> MD_ActionStatus.FAIL
+  ConstraintStatus.PASS -> MD_ActionStatus.PASS
+  ConstraintStatus.OVERRIDE_FAIL -> MD_ActionStatus.FAIL
+  ConstraintStatus.OVERRIDE_PASS -> MD_ActionStatus.FORCE_PASS
 }
 
 fun ArtifactInEnvironmentContext.getMdActionId(actionType: ActionType, actionId: String): String =

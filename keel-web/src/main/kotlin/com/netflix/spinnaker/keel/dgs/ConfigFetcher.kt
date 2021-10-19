@@ -5,7 +5,7 @@ import com.netflix.graphql.dgs.DgsComponent
 import com.netflix.graphql.dgs.DgsData
 import com.netflix.graphql.dgs.DgsDataFetchingEnvironment
 import com.netflix.spinnaker.keel.graphql.DgsConstants
-import com.netflix.spinnaker.keel.graphql.types.MdConfig
+import com.netflix.spinnaker.keel.graphql.types.MD_Config
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 
 /**
@@ -18,13 +18,10 @@ class ConfigFetcher(
   private val deliveryConfigImporter: DeliveryConfigImporter
 ) {
 
-  @DgsData.List(
-    DgsData(parentType = DgsConstants.MDAPPLICATION.TYPE_NAME, field = DgsConstants.MDAPPLICATION.Config),
-    DgsData(parentType = DgsConstants.MD_APPLICATION.TYPE_NAME, field = DgsConstants.MD_APPLICATION.Config),
-  )
-  fun config(dfe: DgsDataFetchingEnvironment): MdConfig {
+  @DgsData(parentType = DgsConstants.MD_APPLICATION.TYPE_NAME, field = DgsConstants.MD_APPLICATION.Config)
+  fun config(dfe: DgsDataFetchingEnvironment): MD_Config {
     val config = applicationFetcherSupport.getDeliveryConfigFromContext(dfe)
-    return MdConfig(
+    return MD_Config(
       id = "${config.application}-${config.name}",
       updatedAt = config.updatedAt,
       rawConfig = config.rawConfig,
@@ -32,21 +29,15 @@ class ConfigFetcher(
     )
   }
 
-  @DgsData.List(
-    DgsData(parentType = DgsConstants.MDCONFIG.TYPE_NAME, field = DgsConstants.MDCONFIG.ProcessedConfig),
-    DgsData(parentType = DgsConstants.MD_CONFIG.TYPE_NAME, field = DgsConstants.MD_CONFIG.ProcessedConfig),
-  )
+  @DgsData(parentType = DgsConstants.MD_CONFIG.TYPE_NAME, field = DgsConstants.MD_CONFIG.ProcessedConfig)
   fun processedConfig(dfe: DgsDataFetchingEnvironment): String? {
     val config = applicationFetcherSupport.getDeliveryConfigFromContext(dfe)
     return yamlMapper.writeValueAsString(config.copy(rawConfig = null))
   }
 
-  @DgsData.List(
-    DgsData(parentType = DgsConstants.MDCONFIG.TYPE_NAME, field = DgsConstants.MDCONFIG.RawConfig),
-    DgsData(parentType = DgsConstants.MD_CONFIG.TYPE_NAME, field = DgsConstants.MD_CONFIG.RawConfig),
-  )
+  @DgsData(parentType = DgsConstants.MD_CONFIG.TYPE_NAME, field = DgsConstants.MD_CONFIG.RawConfig)
   fun rawConfig(dfe: DgsDataFetchingEnvironment): String? {
-    val rawConfig = dfe.getSource<MdConfig>().rawConfig
+    val rawConfig = dfe.getSource<MD_Config>().rawConfig
     val config = applicationFetcherSupport.getDeliveryConfigFromContext(dfe)
     // If the raw config is empty or if it was imported via orca (orca adds the gitMetadata to the metadata) we fetch it again from stash
     // TODO: remove this once we removed the import pipeline completely

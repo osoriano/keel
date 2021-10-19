@@ -2,14 +2,14 @@ package com.netflix.spinnaker.keel.dgs
 
 import com.netflix.graphql.dgs.DgsDataLoader
 import com.netflix.spinnaker.keel.api.Environment
-import com.netflix.spinnaker.keel.graphql.types.MdEnvironment
+import com.netflix.spinnaker.keel.graphql.types.MD_Environment
 import com.netflix.spinnaker.keel.persistence.EnvironmentDeletionRepository
 import org.dataloader.MappedBatchLoader
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
 
 /**
- * [DgsDataLoader] responsible for loading [MdEnvironment.isDeleting] from the database.
+ * [DgsDataLoader] responsible for loading [MD_Environment.isDeleting] from the database.
  */
 @DgsDataLoader(name = EnvironmentDeletionStatusLoader.NAME)
 class EnvironmentDeletionStatusLoader(

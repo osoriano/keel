@@ -10,8 +10,8 @@ import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.core.api.PromotionStatus
 import com.netflix.spinnaker.keel.core.api.PublishedArtifactInEnvironment
-import com.netflix.spinnaker.keel.graphql.types.MdArtifactVersionInEnvironment
-import com.netflix.spinnaker.keel.graphql.types.MdPackageDiff
+import com.netflix.spinnaker.keel.graphql.types.MD_ArtifactVersionInEnvironment
+import com.netflix.spinnaker.keel.graphql.types.MD_PackageDiff
 import com.netflix.spinnaker.kork.exceptions.SystemException
 import graphql.schema.DataFetchingEnvironment
 import kotlinx.coroutines.runBlocking
@@ -40,12 +40,12 @@ class ApplicationFetcherSupport(
   }
 
   /**
-   * @return An [MdPackageDiff] of the Debian packages between the current artifact version contained in the
+   * @return An [MD_PackageDiff] of the Debian packages between the current artifact version contained in the
    * DGS context, and the previous version.
    */
   fun getDebianPackageDiff(
     dfe: DataFetchingEnvironment
-  ): MdPackageDiff? {
+  ): MD_PackageDiff? {
 
     if (bakeryMetadataService == null) {
       return null
@@ -108,7 +108,7 @@ class ApplicationFetcherSupport(
   fun getDiffContext(
     dfe: DataFetchingEnvironment
   ): ArtifactDiffContext {
-    val mdArtifactVersion: MdArtifactVersionInEnvironment = dfe.getLocalContext()
+    val mdArtifactVersion: MD_ArtifactVersionInEnvironment = dfe.getLocalContext()
     val deliveryConfig = getDeliveryConfigFromContext(dfe)
     val applicationContext: ApplicationContext = DgsContext.getCustomContext(dfe) // the artifact versions store context
 

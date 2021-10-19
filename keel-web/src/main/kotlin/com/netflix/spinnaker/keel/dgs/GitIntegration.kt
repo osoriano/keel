@@ -11,9 +11,9 @@ import com.netflix.spinnaker.keel.front50.Front50Service
 import com.netflix.spinnaker.keel.front50.model.Application
 import com.netflix.spinnaker.keel.front50.model.ManagedDeliveryConfig
 import com.netflix.spinnaker.keel.graphql.DgsConstants
-import com.netflix.spinnaker.keel.graphql.types.MdApplication
-import com.netflix.spinnaker.keel.graphql.types.MdGitIntegration
-import com.netflix.spinnaker.keel.graphql.types.MdUpdateGitIntegrationPayload
+import com.netflix.spinnaker.keel.graphql.types.MD_Application
+import com.netflix.spinnaker.keel.graphql.types.MD_GitIntegration
+import com.netflix.spinnaker.keel.graphql.types.MD_UpdateGitIntegrationPayload
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter.Companion.DEFAULT_MANIFEST_PATH
 import com.netflix.spinnaker.keel.scm.ScmUtils
@@ -35,30 +35,25 @@ class GitIntegration(
   private val deliveryConfigUpserter: DeliveryConfigUpserter,
   private val importer: DeliveryConfigImporter,
 ) {
-  @DgsData.List(
-    DgsData(parentType = DgsConstants.MDAPPLICATION.TYPE_NAME, field = DgsConstants.MDAPPLICATION.GitIntegration),
-    DgsData(parentType = DgsConstants.MD_APPLICATION.TYPE_NAME, field = DgsConstants.MD_APPLICATION.GitIntegration),
-  )
-  fun gitIntegration(dfe: DgsDataFetchingEnvironment): MdGitIntegration {
-    val app: MdApplication = dfe.getSource()
+
+  @DgsData(parentType = DgsConstants.MD_APPLICATION.TYPE_NAME, field = DgsConstants.MD_APPLICATION.GitIntegration)
+  fun gitIntegration(dfe: DgsDataFetchingEnvironment): MD_GitIntegration {
+    val app: MD_Application = dfe.getSource()
     val config = applicationFetcherSupport.getDeliveryConfigFromContext(dfe)
     return runBlocking {
       front50Service.applicationByName(app.name)
     }.toGitIntegration()
   }
 
-  @DgsData.List(
-    DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.UpdateGitIntegration),
-    DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_updateGitIntegration),
-  )
+  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_updateGitIntegration)
   @PreAuthorize(
     """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
     and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
   )
   fun updateGitIntegration(
-    @InputArgument payload: MdUpdateGitIntegrationPayload,
+    @InputArgument payload: MD_UpdateGitIntegrationPayload,
     @RequestHeader("X-SPINNAKER-USER") user: String
-  ): MdGitIntegration {
+  ): MD_GitIntegration {
     val front50Application = runBlocking {
       front50Cache.applicationByName(payload.application)
     }
@@ -75,10 +70,7 @@ class GitIntegration(
     return updatedFront50App.toGitIntegration()
   }
 
-  @DgsData.List(
-    DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.ImportDeliveryConfig),
-    DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_importDeliveryConfig),
-  )
+  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_importDeliveryConfig)
   @PreAuthorize(
     """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #application)
     and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #application)"""
@@ -102,13 +94,13 @@ class GitIntegration(
     return true
   }
 
-  private fun Application.toGitIntegration(): MdGitIntegration {
+  private fun Application.toGitIntegration(): MD_GitIntegration {
     try {
       scmUtils.getDefaultBranch(this)
     } catch (e: Exception) {
       throw DgsEntityNotFoundException("Unable to retrieve your app's git repo details. Please check the app config.")
     }.let { branch ->
-      return MdGitIntegration(
+      return MD_GitIntegration(
         id = "${name}-git-integration",
         repository = "${repoProjectKey}/${repoSlug}",
         branch = branch,

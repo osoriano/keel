@@ -3,7 +3,7 @@ package com.netflix.spinnaker.keel.dgs
 import com.netflix.graphql.dgs.DgsDataLoader
 import com.netflix.graphql.dgs.context.DgsContext
 import com.netflix.spinnaker.keel.core.api.ArtifactVersionVetoData
-import com.netflix.spinnaker.keel.graphql.types.MdVersionVeto
+import com.netflix.spinnaker.keel.graphql.types.MD_VersionVeto
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import org.dataloader.BatchLoaderEnvironment
 import org.dataloader.MappedBatchLoaderWithContext
@@ -16,17 +16,17 @@ import java.util.concurrent.CompletionStage
 @DgsDataLoader(name = VetoedDataLoader.Descriptor.name)
 class VetoedDataLoader(
   private val keelRepository: KeelRepository,
-) : MappedBatchLoaderWithContext<EnvironmentArtifactAndVersion, MdVersionVeto> {
+) : MappedBatchLoaderWithContext<EnvironmentArtifactAndVersion, MD_VersionVeto> {
 
   object Descriptor {
     const val name = "artifact-version-vetoed"
   }
 
   override fun load(keys: MutableSet<EnvironmentArtifactAndVersion>, environment: BatchLoaderEnvironment):
-    CompletionStage<MutableMap<EnvironmentArtifactAndVersion, MdVersionVeto>> {
+    CompletionStage<MutableMap<EnvironmentArtifactAndVersion, MD_VersionVeto>> {
     val context: ApplicationContext = DgsContext.getCustomContext(environment)
     return CompletableFuture.supplyAsync {
-      val results: MutableMap<EnvironmentArtifactAndVersion, MdVersionVeto> = mutableMapOf()
+      val results: MutableMap<EnvironmentArtifactAndVersion, MD_VersionVeto> = mutableMapOf()
       val vetoed = keelRepository.vetoedEnvironmentVersions(context.getConfig())
 
       vetoed.forEach { envArtifact ->
@@ -43,4 +43,4 @@ class VetoedDataLoader(
 }
 
 fun ArtifactVersionVetoData.toDgs() =
-  MdVersionVeto(vetoedBy = vetoedBy, vetoedAt = vetoedAt, comment = comment)
+  MD_VersionVeto(vetoedBy = vetoedBy, vetoedAt = vetoedAt, comment = comment)

@@ -5,7 +5,7 @@ import com.netflix.graphql.dgs.context.DgsCustomContextBuilder
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.core.api.PublishedArtifactInEnvironment
-import com.netflix.spinnaker.keel.graphql.types.MdArtifactStatusInEnvironment
+import com.netflix.spinnaker.keel.graphql.types.MD_ArtifactStatusInEnvironment
 import com.netflix.spinnaker.kork.exceptions.SystemException
 
 @DgsComponent
@@ -17,7 +17,7 @@ class ApplicationContextBuilder : DgsCustomContextBuilder<ApplicationContext?> {
 
 class ApplicationContext() {
   var deliveryConfig: DeliveryConfig? = null
-  var requestedStatuses: Set<MdArtifactStatusInEnvironment>? = null
+  var requestedStatuses: Set<MD_ArtifactStatusInEnvironment>? = null
   var requestedVersionIds: Set<String>? = null
   var requestedLimit: Int? = null
   var allVersions: Map<ArtifactAndEnvironment, List<PublishedArtifactInEnvironment>> = emptyMap()
