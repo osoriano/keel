@@ -15,47 +15,47 @@ import com.netflix.spinnaker.keel.actuation.Stage
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.bakery.diff.PackageDiff
-import com.netflix.spinnaker.keel.graphql.types.MdArtifact
-import com.netflix.spinnaker.keel.graphql.types.MdArtifactVersionInEnvironment
-import com.netflix.spinnaker.keel.graphql.types.MdCommitInfo
-import com.netflix.spinnaker.keel.graphql.types.MdDeployLocation
-import com.netflix.spinnaker.keel.graphql.types.MdDeployTarget
-import com.netflix.spinnaker.keel.graphql.types.MdEventLevel
-import com.netflix.spinnaker.keel.graphql.types.MdExecutionSummary
-import com.netflix.spinnaker.keel.graphql.types.MdGitMetadata
-import com.netflix.spinnaker.keel.graphql.types.MdLocation
-import com.netflix.spinnaker.keel.graphql.types.MdMoniker
-import com.netflix.spinnaker.keel.graphql.types.MdNotification
-import com.netflix.spinnaker.keel.graphql.types.MdPackageAndVersion
-import com.netflix.spinnaker.keel.graphql.types.MdPackageAndVersionChange
-import com.netflix.spinnaker.keel.graphql.types.MdPackageDiff
-import com.netflix.spinnaker.keel.graphql.types.MdPausedInfo
-import com.netflix.spinnaker.keel.graphql.types.MdPullRequest
-import com.netflix.spinnaker.keel.graphql.types.MdResource
-import com.netflix.spinnaker.keel.graphql.types.MdResourceTask
-import com.netflix.spinnaker.keel.graphql.types.MdRolloutTargetStatus
-import com.netflix.spinnaker.keel.graphql.types.MdStageDetail
-import com.netflix.spinnaker.keel.graphql.types.MdTaskStatus
+import com.netflix.spinnaker.keel.graphql.types.MD_Artifact
+import com.netflix.spinnaker.keel.graphql.types.MD_ArtifactVersionInEnvironment
+import com.netflix.spinnaker.keel.graphql.types.MD_CommitInfo
+import com.netflix.spinnaker.keel.graphql.types.MD_DeployLocation
+import com.netflix.spinnaker.keel.graphql.types.MD_DeployTarget
+import com.netflix.spinnaker.keel.graphql.types.MD_EventLevel
+import com.netflix.spinnaker.keel.graphql.types.MD_ExecutionSummary
+import com.netflix.spinnaker.keel.graphql.types.MD_GitMetadata
+import com.netflix.spinnaker.keel.graphql.types.MD_Location
+import com.netflix.spinnaker.keel.graphql.types.MD_Moniker
+import com.netflix.spinnaker.keel.graphql.types.MD_Notification
+import com.netflix.spinnaker.keel.graphql.types.MD_PackageAndVersion
+import com.netflix.spinnaker.keel.graphql.types.MD_PackageAndVersionChange
+import com.netflix.spinnaker.keel.graphql.types.MD_PackageDiff
+import com.netflix.spinnaker.keel.graphql.types.MD_PausedInfo
+import com.netflix.spinnaker.keel.graphql.types.MD_PullRequest
+import com.netflix.spinnaker.keel.graphql.types.MD_Resource
+import com.netflix.spinnaker.keel.graphql.types.MD_ResourceTask
+import com.netflix.spinnaker.keel.graphql.types.MD_RolloutTargetStatus
+import com.netflix.spinnaker.keel.graphql.types.MD_StageDetail
+import com.netflix.spinnaker.keel.graphql.types.MD_TaskStatus
 import com.netflix.spinnaker.keel.notifications.DismissibleNotification
 import com.netflix.spinnaker.keel.pause.Pause
 import com.netflix.spinnaker.keel.persistence.TaskForResource
 
 
-fun GitMetadata.toDgs(): MdGitMetadata =
-  MdGitMetadata(
+fun GitMetadata.toDgs(): MD_GitMetadata =
+  MD_GitMetadata(
     commit = commit,
     author = author,
     project = project,
     branch = branch,
     repoName = repo?.name,
     pullRequest = if (pullRequest != null) {
-      MdPullRequest(
+      MD_PullRequest(
         number = pullRequest?.number,
         link = pullRequest?.url
       )
     } else null,
     commitInfo = if (commitInfo != null) {
-      MdCommitInfo(
+      MD_CommitInfo(
         sha = commitInfo?.sha,
         link = commitInfo?.link,
         message = commitInfo?.message
@@ -64,12 +64,12 @@ fun GitMetadata.toDgs(): MdGitMetadata =
   )
 
 
-fun Resource<*>.toDgs(config: DeliveryConfig, environmentName: String): MdResource =
-  MdResource(
+fun Resource<*>.toDgs(config: DeliveryConfig, environmentName: String): MD_Resource =
+  MD_Resource(
     id = id,
     kind = kind.toString(),
     artifact = findAssociatedArtifact(config)?.let { artifact ->
-      MdArtifact(
+      MD_Artifact(
         id = "$environmentName-${artifact.reference}",
         environment = environmentName,
         name = artifact.name,
@@ -86,14 +86,14 @@ fun Resource<*>.toDgs(config: DeliveryConfig, environmentName: String): MdResour
         is SimpleLocations -> locations.account
         else -> null
       }
-      MdLocation(account = account, regions = it.locations.regions.map { r -> r.name })
+      MD_Location(account = account, regions = it.locations.regions.map { r -> r.name })
     }
   )
 
-fun Resource<*>.getMdMoniker(): MdMoniker? {
+fun Resource<*>.getMdMoniker(): MD_Moniker? {
   with(spec) {
     return if (this is Monikered) {
-      MdMoniker(
+      MD_Moniker(
         app = moniker.app,
         stack = moniker.stack,
         detail = moniker.detail,
@@ -105,14 +105,14 @@ fun Resource<*>.getMdMoniker(): MdMoniker? {
 }
 
 fun PackageDiff.toDgs() =
-  MdPackageDiff(
-    added = added.map { (pkg, version) -> MdPackageAndVersion(pkg, version) },
-    removed = removed.map { (pkg, version) -> MdPackageAndVersion(pkg, version) },
-    changed = changed.map { (pkg, versions) -> MdPackageAndVersionChange(pkg, versions.old, versions.new) }
+  MD_PackageDiff(
+    added = added.map { (pkg, version) -> MD_PackageAndVersion(pkg, version) },
+    removed = removed.map { (pkg, version) -> MD_PackageAndVersion(pkg, version) },
+    changed = changed.map { (pkg, versions) -> MD_PackageAndVersionChange(pkg, versions.old, versions.new) }
   )
 
-fun Pause.toDgsPaused(): MdPausedInfo =
-  MdPausedInfo(
+fun Pause.toDgsPaused(): MD_PausedInfo =
+  MD_PausedInfo(
     id = "$scope-$name-pause",
     by = pausedBy,
     at = pausedAt,
@@ -120,9 +120,9 @@ fun Pause.toDgsPaused(): MdPausedInfo =
   )
 
 fun DismissibleNotification.toDgs() =
-  MdNotification(
+  MD_Notification(
     id = uid?.toString() ?: error("Can't convert application event with missing UID: $this"),
-    level = MdEventLevel.valueOf(level.name),
+    level = MD_EventLevel.valueOf(level.name),
     message = message,
     isActive = isActive,
     triggeredAt = triggeredAt,
@@ -134,7 +134,7 @@ fun DismissibleNotification.toDgs() =
   )
 
 fun ExecutionSummary.toDgs() =
-  MdExecutionSummary(
+  MD_ExecutionSummary(
     id = "$id:summary",
     status = status.toDgs(),
     currentStage = currentStage?.toDgs(),
@@ -144,29 +144,29 @@ fun ExecutionSummary.toDgs() =
   )
 
 fun TaskForResource.toDgs() =
-  MdResourceTask(
+  MD_ResourceTask(
     id = id,
     name = name,
     running = endedAt == null
   )
 
 fun RolloutTargetWithStatus.toDgs() =
-  MdDeployTarget(
+  MD_DeployTarget(
     cloudProvider = rolloutTarget.cloudProvider,
-    location = MdDeployLocation(rolloutTarget.location.account, rolloutTarget.location.region, rolloutTarget.location.sublocations),
+    location = MD_DeployLocation(rolloutTarget.location.account, rolloutTarget.location.region, rolloutTarget.location.sublocations),
     status = status.toDgs()
   )
 
 fun RolloutStatus.toDgs() =
   when (this) {
-    RolloutStatus.NOT_STARTED -> MdRolloutTargetStatus.NOT_STARTED
-    RolloutStatus.RUNNING -> MdRolloutTargetStatus.RUNNING
-    RolloutStatus.SUCCEEDED -> MdRolloutTargetStatus.SUCCEEDED
-    RolloutStatus.FAILED ->MdRolloutTargetStatus.FAILED
+    RolloutStatus.NOT_STARTED -> MD_RolloutTargetStatus.NOT_STARTED
+    RolloutStatus.RUNNING -> MD_RolloutTargetStatus.RUNNING
+    RolloutStatus.SUCCEEDED -> MD_RolloutTargetStatus.SUCCEEDED
+    RolloutStatus.FAILED ->MD_RolloutTargetStatus.FAILED
   }
 
 fun Stage.toDgs() =
-  MdStageDetail(
+  MD_StageDetail(
     id = id,
     type = type,
     name = name,
@@ -177,24 +177,24 @@ fun Stage.toDgs() =
     requisiteStageRefIds = requisiteStageRefIds,
   )
 
-fun TaskStatus.toDgs(): MdTaskStatus =
+fun TaskStatus.toDgs(): MD_TaskStatus =
   when (this) {
-    TaskStatus.NOT_STARTED -> MdTaskStatus.NOT_STARTED
-    TaskStatus.RUNNING -> MdTaskStatus.RUNNING
-    TaskStatus.PAUSED -> MdTaskStatus.PAUSED
-    TaskStatus.SUSPENDED -> MdTaskStatus.SUSPENDED
-    TaskStatus.SUCCEEDED -> MdTaskStatus.SUCCEEDED
-    TaskStatus.FAILED_CONTINUE -> MdTaskStatus.FAILED_CONTINUE
-    TaskStatus.TERMINAL -> MdTaskStatus.TERMINAL
-    TaskStatus.CANCELED -> MdTaskStatus.CANCELED
-    TaskStatus.REDIRECT -> MdTaskStatus.REDIRECT
-    TaskStatus.STOPPED -> MdTaskStatus.STOPPED
-    TaskStatus.BUFFERED -> MdTaskStatus.BUFFERED
-    TaskStatus.SKIPPED -> MdTaskStatus.SKIPPED
+    TaskStatus.NOT_STARTED -> MD_TaskStatus.NOT_STARTED
+    TaskStatus.RUNNING -> MD_TaskStatus.RUNNING
+    TaskStatus.PAUSED -> MD_TaskStatus.PAUSED
+    TaskStatus.SUSPENDED -> MD_TaskStatus.SUSPENDED
+    TaskStatus.SUCCEEDED -> MD_TaskStatus.SUCCEEDED
+    TaskStatus.FAILED_CONTINUE -> MD_TaskStatus.FAILED_CONTINUE
+    TaskStatus.TERMINAL -> MD_TaskStatus.TERMINAL
+    TaskStatus.CANCELED -> MD_TaskStatus.CANCELED
+    TaskStatus.REDIRECT -> MD_TaskStatus.REDIRECT
+    TaskStatus.STOPPED -> MD_TaskStatus.STOPPED
+    TaskStatus.BUFFERED -> MD_TaskStatus.BUFFERED
+    TaskStatus.SKIPPED -> MD_TaskStatus.SKIPPED
 }
 
 fun PublishedArtifact.toDgs(environmentName: String) =
-  MdArtifactVersionInEnvironment(
+  MD_ArtifactVersionInEnvironment(
     id = "latest-approved-${environmentName}-${reference}-${version}",
     version = version,
     buildNumber = buildNumber,

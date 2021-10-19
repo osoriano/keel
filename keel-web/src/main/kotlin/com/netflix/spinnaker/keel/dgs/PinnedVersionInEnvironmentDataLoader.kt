@@ -2,7 +2,7 @@ package com.netflix.spinnaker.keel.dgs
 
 import com.netflix.graphql.dgs.DgsDataLoader
 import com.netflix.graphql.dgs.context.DgsContext
-import com.netflix.spinnaker.keel.graphql.types.MdPinnedVersion
+import com.netflix.spinnaker.keel.graphql.types.MD_PinnedVersion
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import org.dataloader.BatchLoaderEnvironment
 import org.dataloader.MappedBatchLoaderWithContext
@@ -19,13 +19,13 @@ import java.util.concurrent.CompletableFuture
 @DgsDataLoader(name = PinnedVersionInEnvironmentDataLoader.Descriptor.name)
 class PinnedVersionInEnvironmentDataLoader(
   private val keelRepository: KeelRepository
-) : MappedBatchLoaderWithContext<PinnedArtifactAndEnvironment, MdPinnedVersion> {
+) : MappedBatchLoaderWithContext<PinnedArtifactAndEnvironment, MD_PinnedVersion> {
 
   object Descriptor {
     const val name = "pinned-versions-in-environment"
   }
 
-  override fun load(keys: MutableSet<PinnedArtifactAndEnvironment>, environment: BatchLoaderEnvironment): CompletionStage<MutableMap<PinnedArtifactAndEnvironment, MdPinnedVersion>> {
+  override fun load(keys: MutableSet<PinnedArtifactAndEnvironment>, environment: BatchLoaderEnvironment): CompletionStage<MutableMap<PinnedArtifactAndEnvironment, MD_PinnedVersion>> {
     val context: ApplicationContext = DgsContext.getCustomContext(environment)
     return CompletableFuture.supplyAsync {
       keelRepository.pinnedEnvironments(context.getConfig()).associateBy(
@@ -40,7 +40,7 @@ class PinnedVersionInEnvironmentDataLoader(
 }
 
 fun PinnedEnvironment.toDgs(versionData: PublishedArtifact?) =
-  MdPinnedVersion(
+  MD_PinnedVersion(
     id = "$targetEnvironment-${artifact.reference}",
     name = artifact.name,
     reference = artifact.reference,

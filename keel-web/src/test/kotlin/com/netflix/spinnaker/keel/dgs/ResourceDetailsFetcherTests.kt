@@ -1,7 +1,7 @@
 package com.netflix.spinnaker.keel.dgs
 
 import com.netflix.graphql.dgs.DgsDataFetchingEnvironment
-import com.netflix.spinnaker.keel.graphql.types.MdResource
+import com.netflix.spinnaker.keel.graphql.types.MD_Resource
 import com.netflix.spinnaker.keel.serialization.configuredYamlMapper
 import com.netflix.spinnaker.keel.test.deliveryConfig
 import io.mockk.every
@@ -23,7 +23,7 @@ class ResourceDetailsFetcherTests {
   @BeforeEach
   fun setup() {
     every {
-      dfe.getSource<MdResource>()
+      dfe.getSource<MD_Resource>()
     } returns resource.toDgs(deliveryConfig, environment.name)
 
     every {

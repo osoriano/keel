@@ -165,17 +165,6 @@ class BasicQueryTests {
   }
 
   @Test
-  fun BasicTestQueryDeprecated() {
-    expectCatching {
-      dgsQueryExecutor.executeAndExtractJsonPath<String>(
-        getQuery("/dgs/deprecatedBasicQuery.graphql"),
-        "data.application.environments[0].name",
-        mapOf("appName" to "fnord")
-      )
-    }.isSuccess().isEqualTo("test")
-  }
-
-  @Test
   fun artifactVersionStatus() {
     expectCatching {
       dgsQueryExecutor.executeAndExtractJsonPath<String>(
@@ -186,14 +175,4 @@ class BasicQueryTests {
     }.isSuccess().isEqualTo("CURRENT")
   }
 
-  @Test
-  fun artifactVersionStatusDeprecated() {
-    expectCatching {
-      dgsQueryExecutor.executeAndExtractJsonPath<String>(
-        getQuery("/dgs/deprecatedBasicQuery.graphql"),
-        "data.application.environments[0].state.artifacts[0].versions[0].status",
-        mapOf("appName" to "fnord")
-      )
-    }.isSuccess().isEqualTo("CURRENT")
-  }
 }
