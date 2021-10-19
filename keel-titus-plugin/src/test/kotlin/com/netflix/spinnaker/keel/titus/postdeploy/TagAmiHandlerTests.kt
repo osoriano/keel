@@ -112,6 +112,17 @@ internal class TagAmiHandlerTests {
     expectThat(newState.status).isEqualTo(ConstraintStatus.FAIL)
   }
 
+  @Test
+  fun `task not launched`() {
+    val oldState = ActionState(ConstraintStatus.PENDING, now(), null, metadata = mapOf(TASKS to emptyList<String>()))
+
+    val newState = runBlocking {
+      handler.evaluate(context, mockk(), oldState)
+    }
+
+    expectThat(newState.status).isEqualTo(ConstraintStatus.FAIL)
+  }
+
   private val handler = TagAmiHandler(
     eventPublisher = mockk(),
     taskLauncher = launcher,

@@ -107,9 +107,11 @@ class TagAmiHandler(
     oldState: ActionState
   ): ActionState {
     @Suppress("UNCHECKED_CAST")
-    val taskId = (oldState.metadata[TASKS] as Iterable<String>?)?.last()
-    require(taskId is String) {
-      "No task id found in previous tag-ami state"
+    val taskId = (oldState.metadata[TASKS] as? Iterable<String>)?.lastOrNull()
+
+    if (taskId == null) {
+      log.debug("Completing post deploy action ${context.shortName()} because no tasks were launched. Are there any ec2 clusters in the config?")
+      return oldState.copy(status = FAIL, endedAt = Instant.now())
     }
 
     val response = withContext(Dispatchers.IO) {
