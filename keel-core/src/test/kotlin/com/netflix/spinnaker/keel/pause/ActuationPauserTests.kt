@@ -17,6 +17,7 @@
  */
 package com.netflix.spinnaker.keel.pause
 
+import com.netflix.spinnaker.keel.actuation.EnvironmentTaskCanceler
 import com.netflix.spinnaker.keel.events.ApplicationActuationPaused
 import com.netflix.spinnaker.keel.events.ApplicationActuationResumed
 import com.netflix.spinnaker.keel.events.ResourceActuationPaused
@@ -44,7 +45,8 @@ class ActuationPauserTests : JUnit5Minutests {
     val resourceRepository = mockk<ResourceRepository>()
     val pausedRepository = mockk<PausedRepository>(relaxUnitFun = true)
     val publisher = mockk<ApplicationEventPublisher>(relaxUnitFun = true)
-    val subject = ActuationPauser(resourceRepository, pausedRepository, publisher, Clock.systemUTC())
+    val environmentTaskCanceler: EnvironmentTaskCanceler = mockk(relaxed = true)
+    val subject = ActuationPauser(resourceRepository, pausedRepository, publisher, environmentTaskCanceler, Clock.systemUTC())
     val user = "keel@keel.io"
   }
 
@@ -98,6 +100,13 @@ class ActuationPauserTests : JUnit5Minutests {
 
         verify(exactly = 0) {
           publisher.publishEvent(ofType<ResourceActuationResumed>())
+        }
+      }
+
+      test("cancel tasks if requested") {
+        subject.pauseApplication(resource1.application, user, "pausing", true)
+        verify(exactly = 1) {
+          environmentTaskCanceler.cancelTasksForApplication(resource1.application, user)
         }
       }
     }

@@ -163,9 +163,10 @@ class ApplicationController(
   @PreAuthorize("@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #application)")
   fun pause(
     @PathVariable("application") application: String,
+    @RequestParam(value = "cancelTasks", required = false) cancelTasks: Boolean = false,
     @RequestHeader("X-SPINNAKER-USER") user: String
   ) {
-    actuationPauser.pauseApplication(application, user, null)
+    actuationPauser.pauseApplication(application, user, null, cancelTasks)
   }
 
   @DeleteMapping(

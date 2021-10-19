@@ -127,7 +127,7 @@ class SqlTaskTrackingRepository(
   private fun List<TaskForResource>.getTaskBatch(cutoff: Instant?) =
     filter { it.endedAt == null || it.startedAt.isAfter(cutoff) }.toSet()
 
-  override fun getInFlightTasks(application: String, environmentName: String): Set<TaskForResource> =
+  override fun getInFlightTasks(application: String, environmentName: String?): Set<TaskForResource> =
     sqlRetry.withRetry(READ) {
       jooq
         .select(
@@ -140,7 +140,7 @@ class SqlTaskTrackingRepository(
         )
         .from(TASK_TRACKING)
         .where(TASK_TRACKING.APPLICATION.eq(application))
-        .and(TASK_TRACKING.ENVIRONMENT_NAME.eq(environmentName))
+        .apply { if (environmentName != null ) and(TASK_TRACKING.ENVIRONMENT_NAME.eq(environmentName)) }
         .and(TASK_TRACKING.SUBJECT_TYPE.eq(SubjectType.RESOURCE)) //todo eb: verifications/constraints as well?
         .and(TASK_TRACKING.ENDED_AT.isNull)
         .fetch()

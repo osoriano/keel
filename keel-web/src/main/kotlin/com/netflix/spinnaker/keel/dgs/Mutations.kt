@@ -19,6 +19,7 @@ import com.netflix.spinnaker.keel.graphql.types.MD_ArtifactVersionActionPayload
 import com.netflix.spinnaker.keel.graphql.types.MD_ConstraintStatus
 import com.netflix.spinnaker.keel.graphql.types.MD_DismissNotificationPayload
 import com.netflix.spinnaker.keel.graphql.types.MD_MarkArtifactVersionAsGoodPayload
+import com.netflix.spinnaker.keel.graphql.types.MD_PausePayload
 import com.netflix.spinnaker.keel.graphql.types.MD_RestartConstraintEvaluationPayload
 import com.netflix.spinnaker.keel.graphql.types.MD_RetryArtifactActionPayload
 import com.netflix.spinnaker.keel.graphql.types.MD_ToggleResourceManagementPayload
@@ -93,13 +94,35 @@ class Mutations(
     @InputArgument application: String,
     @InputArgument isPaused: Boolean,
     @InputArgument comment: String? = null,
+    @InputArgument cancelTasks: Boolean = false,
     @RequestHeader("X-SPINNAKER-USER") user: String
   ): Boolean {
     if (isPaused) {
-      actuationPauser.pauseApplication(application, user, comment)
+      actuationPauser.pauseApplication(application, user, comment, cancelTasks)
     } else {
       actuationPauser.resumeApplication(application, user)
     }
+    return true
+  }
+
+  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_pauseManagement)
+  @PreAuthorize("@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #application)")
+  fun pauseManagement(
+    @InputArgument payload: MD_PausePayload,
+    @RequestHeader("X-SPINNAKER-USER") user: String
+  ): Boolean =
+    with(payload) {
+      actuationPauser.pauseApplication(application, user, comment, cancelTasks ?: false)
+      return true
+    }
+
+  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_resumeManagement)
+  @PreAuthorize("@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #application)")
+  fun resumeManagement(
+    @InputArgument application: String,
+    @RequestHeader("X-SPINNAKER-USER") user: String
+  ): Boolean {
+    actuationPauser.resumeApplication(application, user)
     return true
   }
 

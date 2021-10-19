@@ -9,7 +9,7 @@ interface TaskTrackingRepository {
   fun getIncompleteTasks(): Set<TaskRecord>
   fun updateStatus(taskId: String, status: TaskStatus)
   fun getTasks(resourceId: String, limit: Int = 5): Set<TaskForResource>
-  fun getInFlightTasks(application: String, environmentName: String): Set<TaskForResource>
+  fun getInFlightTasks(application: String, environmentName: String? = null): Set<TaskForResource>
   fun delete(taskId: String)
 
   /**

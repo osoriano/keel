@@ -68,6 +68,21 @@ class EnvironmentTaskCanceler(
     cancelTasks(tasksToCancel, user)
   }
 
+  /**
+   * Sometimes when a user pauses they want all action we're taking to stop right away.
+   *
+   * This function finds any in flight tasks for the app and cancels them.
+   */
+  fun cancelTasksForApplication(
+    application: String,
+    user: String
+  ) {
+    val inFlightTasks = taskTrackingRepository.getInFlightTasks(application).map { it.id }
+    // we cancel all in flight tasks for a pause
+    log.info("Canceling tasks $inFlightTasks in application $application because application was paused")
+    cancelTasks(inFlightTasks, user)
+  }
+
   fun getRelevantResourceIds(
     application: String,
     environmentName: String,

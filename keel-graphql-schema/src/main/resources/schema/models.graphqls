@@ -316,7 +316,9 @@ type MD_Action {
 type Mutation @extends {
   md_updateConstraintStatus(payload: MD_ConstraintStatusPayload!): Boolean
   md_restartConstraintEvaluation(payload: MD_RestartConstraintEvaluationPayload!): Boolean
-  md_toggleManagement(application: ID!, isPaused: Boolean!, comment: String): Boolean
+  md_toggleManagement(application: ID!, isPaused: Boolean!, comment: String, cancelTasks: Boolean = false): Boolean
+  md_pauseManagement(payload: MD_PausePayload!): Boolean
+  md_resumeManagement(application: String!): Boolean
   md_pinArtifactVersion(payload: MD_ArtifactVersionActionPayload!): Boolean
   md_markArtifactVersionAsBad(payload: MD_ArtifactVersionActionPayload!): Boolean
   md_unpinArtifactVersion(payload: MD_UnpinArtifactVersionPayload!): Boolean
@@ -385,6 +387,12 @@ input MD_UnpinArtifactVersionPayload {
   application: String!
   environment: String!
   reference: String!
+}
+
+input MD_PausePayload {
+  application: String!
+  comment: String
+  cancelTasks: Boolean
 }
 
 type MD_Notification {

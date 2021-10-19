@@ -17,6 +17,7 @@
  */
 package com.netflix.spinnaker.keel.pause
 
+import com.netflix.spinnaker.keel.actuation.EnvironmentTaskCanceler
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.events.ApplicationActuationPaused
 import com.netflix.spinnaker.keel.events.ApplicationActuationResumed
@@ -36,6 +37,7 @@ class ActuationPauser(
   val resourceRepository: ResourceRepository,
   val pausedRepository: PausedRepository,
   val publisher: ApplicationEventPublisher,
+  val environmentTaskCanceler: EnvironmentTaskCanceler,
   val clock: Clock
 ) {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
@@ -64,10 +66,14 @@ class ActuationPauser(
   fun resourceIsPaused(id: String): Boolean =
     pausedRepository.resourcePaused(id)
 
-  fun pauseApplication(application: String, user: String, comment: String? = null) {
+  fun pauseApplication(application: String, user: String, comment: String? = null, cancelTasks: Boolean = false) {
     log.info("Pausing application $application")
     pausedRepository.pauseApplication(application, user, comment)
     publisher.publishEvent(ApplicationActuationPaused(application, user, comment, clock))
+    if (cancelTasks) {
+      log.info("Canceling tasks for $application because $user paused and requested the tasks get canceled")
+      environmentTaskCanceler.cancelTasksForApplication(application, user)
+    }
   }
 
   fun resumeApplication(application: String, user: String) {
