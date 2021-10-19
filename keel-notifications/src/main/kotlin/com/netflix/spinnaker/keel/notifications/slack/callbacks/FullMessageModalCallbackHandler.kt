@@ -10,10 +10,10 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 /**
- * A handler that builds the modal for launching the full commit modal
+ * A handler that builds a modal to be displayed in Slack when the message is longer than what will fit in a notification.
  */
 @Component
-class CommitModalCallbackHandler(
+class FullMessageModalCallbackHandler(
   private val gitDataGenerator: GitDataGenerator,
   private val slackConfiguration: SlackConfiguration
 ) {
@@ -36,7 +36,8 @@ class CommitModalCallbackHandler(
   fun buildView(slackCallbackResponse: BlockActionPayload): View {
     val message = slackCallbackResponse.getMessage
     val hash = slackCallbackResponse.getHash
-    return gitDataGenerator.buildFullCommitModal(message = message, hash = hash)
+    val text = slackCallbackResponse.getText()
+    return gitDataGenerator.buildFullMessageModal(message = message, hash = hash, text = text)
   }
 
   val BlockActionPayload.getMessage: String
@@ -44,4 +45,14 @@ class CommitModalCallbackHandler(
 
   val BlockActionPayload.getHash: String
     get() = actions.first().actionId.split(":")[1]
+
+  //options here are commit view or reason view
+  fun BlockActionPayload.getText(): String{
+    val text = actions.first().actionId.split(":")[2]
+    return when {
+      "REASON" in text -> "reason-message"
+      else -> "commit-message"
+    }
+  }
+
 }

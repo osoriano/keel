@@ -1,7 +1,7 @@
 package com.netflix.spinnaker.keel.rest
 
 import com.netflix.spinnaker.keel.KeelApplication
-import com.netflix.spinnaker.keel.notifications.slack.callbacks.CommitModalCallbackHandler
+import com.netflix.spinnaker.keel.notifications.slack.callbacks.FullMessageModalCallbackHandler
 import com.netflix.spinnaker.keel.notifications.slack.callbacks.ManualJudgmentCallbackHandler
 import com.ninjasquad.springmockk.MockkBean
 import io.mockk.every
@@ -39,7 +39,7 @@ class SlackAppServletTests {
   lateinit var manualJudgementHandler: ManualJudgmentCallbackHandler
 
   @MockkBean
-  lateinit var commitModalHandler: CommitModalCallbackHandler
+  lateinit var fullMessageModalCallbackHandler: FullMessageModalCallbackHandler
 
   @BeforeEach
   fun setup() {
@@ -48,7 +48,7 @@ class SlackAppServletTests {
     } just runs
 
     every {
-      commitModalHandler.openModal(any(), any())
+      fullMessageModalCallbackHandler.openModal(any(), any())
     } just runs
   }
 
@@ -72,7 +72,19 @@ class SlackAppServletTests {
     expectThat(response.statusCode).isEqualTo(OK)
 
     verify {
-      commitModalHandler.openModal(any(), any())
+      fullMessageModalCallbackHandler.openModal(any(), any())
+    }
+  }
+
+  @Test
+  fun `delegates handling of failure reason to commit modal callback`() {
+    val request = postSlackCallback("/slack/show-failure-reason-payload.json")
+    val response: ResponseEntity<String> = restTemplate.postForEntity(request.url, request, String::class.java)
+
+    expectThat(response.statusCode).isEqualTo(OK)
+
+    verify {
+      fullMessageModalCallbackHandler.openModal(any(), any())
     }
   }
 

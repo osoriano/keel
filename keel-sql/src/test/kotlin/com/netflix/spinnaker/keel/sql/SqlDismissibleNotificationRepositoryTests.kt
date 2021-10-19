@@ -38,17 +38,18 @@ class SqlDismissibleNotificationRepositoryTests {
   private val notificationRepository = SqlDismissibleNotificationRepository(jooq, sqlRetry, objectMapper, clock)
   private val deliveryConfig = deliveryConfig()
 
-  // TODO: is there a way to extend the @JsonSubType definitions in a test, so I can create my own subclass here?
+    // TODO: is there a way to extend the @JsonSubType definitions in a test, so I can create my own subclass here?
   private val notification = DeliveryConfigImportFailed(
     triggeredAt = clock.instant(),
     application = deliveryConfig.application,
     branch = "main",
-    repoType = "stash",
-    projectKey = "proj",
-    repoSlug = "repo",
-    commitHash = "asdf1234",
     link = "https://some.link",
-    reason = "bad config"
+    reason = "bad config",
+      repoType = "stash",
+      projectKey = "proj",
+      repoSlug = "repo",
+      commitHash = "asdf1235",
+      authorEmail = "a@netflix"
   )
 
   @BeforeEach
@@ -118,12 +119,13 @@ class SqlDismissibleNotificationRepositoryTests {
         triggeredAt = clock.instant(),
         application = deliveryConfig.application,
         branch = "branch-$it",
+        link = "https://some.link1",
+        reason = "bad config",
         repoType = "stash",
         projectKey = "proj",
         repoSlug = "repo",
         commitHash = "asdf1235",
-        link = "https://some.link1",
-        reason = "bad config"
+        authorEmail = "a@netflix"
       )
     }
     notificationRepository.storeNotification(notification)

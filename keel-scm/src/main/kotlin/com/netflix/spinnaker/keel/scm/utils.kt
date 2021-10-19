@@ -48,12 +48,13 @@ fun ApplicationEventPublisher.publishDeliveryConfigImportFailed(
         triggeredAt = timestamp,
         application = application,
         branch = branch,
+        commitHash = (this as? CommitCreatedEvent)?.commitHash,
+        link = link,
+        reason = reason,
         repoType = repoType,
         projectKey = projectKey,
         repoSlug = repoSlug,
-        commitHash = (this as? CommitCreatedEvent)?.commitHash,
-        link = link,
-        reason = reason
+        authorEmail = authorEmail
       )
     )
   }

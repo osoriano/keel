@@ -11,8 +11,11 @@ import com.netflix.spinnaker.keel.api.NotificationFrequency.notice
 import com.netflix.spinnaker.keel.api.NotificationFrequency.quiet
 import com.netflix.spinnaker.keel.api.NotificationFrequency.verbose
 import com.netflix.spinnaker.keel.api.NotificationType
+import com.netflix.spinnaker.keel.api.artifacts.Commit
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
+import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
+import com.netflix.spinnaker.keel.api.artifacts.Repo
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PENDING
 import com.netflix.spinnaker.keel.api.events.ConstraintStateChanged
@@ -40,6 +43,7 @@ import com.netflix.spinnaker.keel.notifications.NotificationType.ARTIFACT_MARK_A
 import com.netflix.spinnaker.keel.notifications.NotificationType.ARTIFACT_PINNED
 import com.netflix.spinnaker.keel.notifications.NotificationType.ARTIFACT_UNPINNED
 import com.netflix.spinnaker.keel.notifications.NotificationType.DELIVERY_CONFIG_CHANGED
+import com.netflix.spinnaker.keel.notifications.NotificationType.DELIVERY_CONFIG_IMPORT_FAILED
 import com.netflix.spinnaker.keel.notifications.NotificationType.LIFECYCLE_EVENT
 import com.netflix.spinnaker.keel.notifications.NotificationType.MANUAL_JUDGMENT_APPROVED
 import com.netflix.spinnaker.keel.notifications.NotificationType.MANUAL_JUDGMENT_AWAIT
@@ -57,6 +61,7 @@ import com.netflix.spinnaker.keel.notifications.slack.DeploymentStatus.FAILED
 import com.netflix.spinnaker.keel.notifications.slack.DeploymentStatus.SUCCEEDED
 import com.netflix.spinnaker.keel.notifications.slack.SlackArtifactDeploymentNotification
 import com.netflix.spinnaker.keel.notifications.slack.SlackConfigNotification
+import com.netflix.spinnaker.keel.notifications.slack.SlackFailedToImportConfigNotification
 import com.netflix.spinnaker.keel.notifications.slack.SlackLifecycleNotification
 import com.netflix.spinnaker.keel.notifications.slack.SlackManualJudgmentNotification
 import com.netflix.spinnaker.keel.notifications.slack.SlackManualJudgmentUpdateNotification
@@ -496,6 +501,29 @@ class NotificationEventListener(
     }
   }
 
+  @EventListener(DeliveryConfigImportFailed::class)
+  fun onDeliveryConfigImportFailed(notification: DeliveryConfigImportFailed) {
+    log.debug("Received failed to import delivery config event: $notification")
+    try {
+      with(notification) {
+      val config = repository.getDeliveryConfigForApplication(application)
+        val gitMetadata = gitMetadata()
+        sendSlackMessage(config,
+          SlackFailedToImportConfigNotification(
+            time = clock.instant(),
+            application = config.application,
+            reason = reason,
+            gitMetadata = gitMetadata
+          ),
+          DELIVERY_CONFIG_IMPORT_FAILED)
+      }
+    }catch (e:Exception) {
+      log.debug("failed to get delivery config for application ${notification.application}," +
+        "so no notification will be sent. It might be the first time a config is created for this app.")
+    }
+  }
+
+
   private inline fun <reified T : SlackNotificationEvent> sendSlackMessage(config: DeliveryConfig,
                                                                            message: T,
                                                                            type: Type,
@@ -550,6 +578,7 @@ class NotificationEventListener(
     )
     val normalNotifications = quietNotifications + listOf(
       ARTIFACT_DEPLOYMENT_SUCCEEDED,
+      DELIVERY_CONFIG_IMPORT_FAILED,
       DELIVERY_CONFIG_CHANGED,
       TEST_PASSED,
       PLUGIN_NOTIFICATION_NORMAL

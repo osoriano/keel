@@ -46,11 +46,9 @@ class ManualJudgementUpdateHandler(
       } else null
 
       //flag if there's more than a single artifact (not including preview env), so we would notify the user which artifact it is
-      val moreThanOneArtifact = config.artifacts.size != 1 &&
-        config.environments.map {
-          environment ->
-          deliveryArtifact.isUsedIn(environment) && !environment.isPreview
-        }.size > 1
+      val moreThanOneArtifact = config.artifacts.filterNot {
+        it.isPreview //filter preview environment's artifact
+      }.size > 1
 
       val baseBlocks = ManualJudgmentNotificationHandler.constructMessageWithoutButtons(
         targetEnvironment,

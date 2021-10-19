@@ -17,7 +17,14 @@ import io.mockk.every
 import io.mockk.mockk
 import strikt.api.expect
 import strikt.api.expectThat
+<<<<<<< 6344b9c61164830e91283d0e4aa9473eebb379db
 import strikt.assertions.*
+=======
+import strikt.assertions.isA
+import strikt.assertions.isEqualTo
+import strikt.assertions.isNotNull
+import strikt.assertions.isTrue
+>>>>>>> 4bad12cf02069553408105a86d2e1a798dd74625
 
 class GitDataGeneratorTests : JUnit5Minutests {
 
@@ -137,7 +144,11 @@ class GitDataGeneratorTests : JUnit5Minutests {
           )
         )
 
+<<<<<<< 6344b9c61164830e91283d0e4aa9473eebb379db
         val displayMessage = subject.formatCommitMessage(commitMetadata)
+=======
+        val displayMessage = subject.formatMessage(commitMetadat)
+>>>>>>> 4bad12cf02069553408105a86d2e1a798dd74625
         expectThat(displayMessage).isEqualTo("fix(notifications): put back the 'show full commit' modal...")
       }
     }

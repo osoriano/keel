@@ -77,7 +77,7 @@ class GitDataGenerator(
 
   fun linkedCommitTitleSnippet(gitMetadata: GitMetadata, application: String): String {
     var text = "${linkedApp(application)} in commit <${generateShaUrl(application, gitMetadata.commit.take(7))}|#${gitMetadata.commit.take(7)}>"
-    text += getAuthor(gitMetadata)
+    text += " " + getAuthor(gitMetadata)
     return text
   }
 
@@ -118,19 +118,26 @@ class GitDataGenerator(
       return
     }
     layoutBlockDsl.section {
-      markdownText(formatCommitMessage(gitMetadata))
+      markdownText(formatMessage(gitMetadata))
       val commitMessage = gitMetadata.commitInfo?.message ?: EMPTY_COMMIT_TEXT
       val hash = gitMetadata.commitInfo?.sha ?: "no-hash"
       if (commitMessage.length > GIT_COMMIT_MESSAGE_LENGTH) {
-        accessory {
-          button {
-            text("Show full commit")
-            // action id will be consisted by 3 sections with ":" between them to keep it consistent
-            actionId("button:$hash:FULL_COMMIT_MODAL")
-            // using the value to sneakily pass what we want to display in the modal, limit 2000 chars
-            value(commitMessage.take(2000))
-          }
-        }
+        buildMoreInfoButton(this, hash, commitMessage, "Show full commit")
+      }
+    }
+  }
+
+  fun buildMoreInfoButton(sectionBlockBuilder: SectionBlockBuilder, hash: String, message: String, text: String, modal: String? = null) {
+    //default is commit message
+    val actualModal = modal?:"FULL_COMMIT_MODAL"
+
+    sectionBlockBuilder.accessory {
+      button {
+        text(text)
+        // action id will be consisted by 3 sections with ":" between them to keep it consistent
+        actionId("button:$hash:$actualModal")
+        // using the value to sneakily pass what we want to display in the modal, limit 2000 chars
+        value(message.take(2000))
       }
     }
   }
@@ -138,23 +145,23 @@ class GitDataGenerator(
   /**
    * Builds a modal with the full commit message
    */
-  fun buildFullCommitModal(message: String, hash: String): View {
+  fun buildFullMessageModal(message: String, hash: String, text: String): View {
     return view { thisView -> thisView
       .callbackId("view:$hash:modal")
       .type("modal")
       .notifyOnClose(false)
-      .title(viewTitle { it.type("plain_text").text("Full commit").emoji(true) })
+      .title(viewTitle { it.type("plain_text").text("Full details").emoji(true) })
       .close(viewClose { it.type("plain_text").text("Close").emoji(true) })
       .blocks {
         section {
-          blockId("commit-message")
+          blockId(text)
           markdownText(message)
         }
       }
     }
   }
 
-  fun formatCommitMessage(gitMetadata: GitMetadata?): String {
+  fun formatMessage(gitMetadata: GitMetadata?): String {
     val message = gitMetadata?.commitInfo?.message ?: EMPTY_COMMIT_TEXT
     return if (message.length > GIT_COMMIT_MESSAGE_LENGTH) {
         // sometimes squashed commits have lots irrelevant (for slack) text after words like
@@ -232,7 +239,7 @@ class GitDataGenerator(
 
     with(sectionBlockBuilder) {
       text += generateVersionMarkdown(application, artifact.reference, artifact, olderVersion)
-      text += "\n\n ${formatCommitMessage(artifact.gitMetadata)}"
+      text += "\n\n ${formatMessage(artifact.gitMetadata)}"
       markdownText(text)
       accessory {
         image(imageUrl = imageUrl, altText = altText)
@@ -302,7 +309,7 @@ class GitDataGenerator(
     with(sectionBlockBuilder) {
       markdownText("*App:* $application\n" +
         "Commit by $username\n " +
-        formatCommitMessage(gitMetadata))
+        formatMessage(gitMetadata))
 
       accessory {
         image(imageUrl = imageUrl, altText = altText)
@@ -347,7 +354,7 @@ class GitDataGenerator(
             val username = slackService.getUsernameByEmailPrefix(author)
             text += "by $username"
           }
-          text += "\n\n${formatCommitMessage(gitMetadata)}"
+          text += "\n\n${formatMessage(gitMetadata)}"
         }
 
 

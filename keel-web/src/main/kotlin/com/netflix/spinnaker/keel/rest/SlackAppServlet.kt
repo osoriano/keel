@@ -1,6 +1,6 @@
 package com.netflix.spinnaker.keel.rest
 
-import com.netflix.spinnaker.keel.notifications.slack.callbacks.CommitModalCallbackHandler
+import com.netflix.spinnaker.keel.notifications.slack.callbacks.FullMessageModalCallbackHandler
 import com.netflix.spinnaker.keel.notifications.slack.callbacks.ManualJudgmentCallbackHandler
 import com.slack.api.bolt.App
 import com.slack.api.bolt.context.builtin.ActionContext
@@ -23,12 +23,13 @@ import javax.servlet.annotation.WebServlet
 class SlackAppServlet(
   slackApp: App,
   private val manualJudgementCallbackHandler: ManualJudgmentCallbackHandler,
-  private val commitModalCallbackHandler: CommitModalCallbackHandler,
+  private val fullMessageModalCallbackHandler: FullMessageModalCallbackHandler,
 ) : SlackAppServlet(slackApp) {
 
   companion object {
     private const val MANUAL_JUDGEMENT_ACTION = "MANUAL_JUDGMENT"
     private const val SHOW_FULL_COMMIT_ACTION = "FULL_COMMIT_MODAL"
+    private const val SHOW_FAILURE_ACTION = "FULL_REASON_MODAL"
     private const val SHOW_DIFF_ACTION = "mj-diff-link"
   }
 
@@ -46,7 +47,12 @@ class SlackAppServlet(
         }
         SHOW_FULL_COMMIT_ACTION -> {
           log.debug(logMessage("show full commit button clicked", req))
-          commitModalCallbackHandler.openModal(req, ctx)
+          fullMessageModalCallbackHandler.openModal(req, ctx)
+        }
+        //reusing the same modal for commit message and failure reason
+        SHOW_FAILURE_ACTION -> {
+          log.debug(logMessage("show full failure reason button clicked", req))
+          fullMessageModalCallbackHandler.openModal(req, ctx)
         }
         SHOW_DIFF_ACTION -> {
           log.debug(logMessage("'see changes' button clicked", req))

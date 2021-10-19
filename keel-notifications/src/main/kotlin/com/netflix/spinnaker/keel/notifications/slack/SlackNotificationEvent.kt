@@ -121,6 +121,13 @@ data class SlackConfigNotification(
   val new: Boolean
 ) : SlackNotificationEvent(time, application)
 
+data class SlackFailedToImportConfigNotification(
+  override val time: Instant,
+  override val application: String,
+  val gitMetadata: GitMetadata,
+  val reason: String
+) : SlackNotificationEvent(time, application)
+
 data class SlackPluginNotification(
   override val time: Instant,
   override val application: String,
