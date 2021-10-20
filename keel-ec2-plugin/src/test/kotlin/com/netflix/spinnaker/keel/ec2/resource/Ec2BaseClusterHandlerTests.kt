@@ -25,7 +25,7 @@ import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.core.serverGroup
-import com.netflix.spinnaker.keel.diff.DefaultResourceDiff
+import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactService
 import com.netflix.spinnaker.keel.orca.ClusterExportHelper
 import com.netflix.spinnaker.keel.orca.OrcaService
@@ -43,6 +43,7 @@ class Ec2BaseClusterHandlerTests : BaseClusterHandlerTests<ClusterSpec, ServerGr
   private val springEnv: Environment = mockk(relaxed = true)
   private val blockDeviceConfig : BlockDeviceConfig = BlockDeviceConfig(springEnv, VolumeDefaultConfiguration())
   val artifactService = mockk<ArtifactService>()
+  val diffFactory = DefaultResourceDiffFactory()
 
   val metadata = mapOf("id" to "1234", "application" to "waffles", "serviceAccount" to "me@you.com" )
 
@@ -86,7 +87,8 @@ class Ec2BaseClusterHandlerTests : BaseClusterHandlerTests<ClusterSpec, ServerGr
       resolvers = resolvers,
       clusterExportHelper = clusterExportHelper,
       blockDeviceConfig = blockDeviceConfig,
-      artifactService = artifactService
+      artifactService = artifactService,
+      diffFactory = diffFactory
     ))
 
   override fun getRegions(resource: Resource<ClusterSpec>): List<String> =
@@ -159,7 +161,7 @@ class Ec2BaseClusterHandlerTests : BaseClusterHandlerTests<ClusterSpec, ServerGr
       .byRegion()
     val desiredServerGroups = resource.spec.resolve()
       .map { it.withDoubleCapacity().withManyEnabled() }.byRegion()
-    return DefaultResourceDiff(desiredServerGroups, currentServerGroups)
+    return diffFactory.compare(desiredServerGroups, currentServerGroups)
   }
 
   override fun getDiffOnlyInEnabled(resource: Resource<ClusterSpec>): ResourceDiff<Map<String, ServerGroup>> {
@@ -167,19 +169,19 @@ class Ec2BaseClusterHandlerTests : BaseClusterHandlerTests<ClusterSpec, ServerGr
       .byRegion()
     val desiredServerGroups = resource.spec.resolve()
       .map { it.withManyEnabled() }.byRegion()
-    return DefaultResourceDiff(desiredServerGroups, currentServerGroups)
+    return diffFactory.compare(desiredServerGroups, currentServerGroups)
   }
 
   override fun getDiffInCapacity(resource: Resource<ClusterSpec>): ResourceDiff<Map<String, ServerGroup>> {
     val current = resource.spec.resolve().byRegion()
     val desired = resource.spec.resolve().map { it.withDoubleCapacity() }.byRegion()
-    return DefaultResourceDiff(desired, current)
+    return diffFactory.compare(desired, current)
   }
 
   override fun getDiffInImage(resource: Resource<ClusterSpec>, version: String?): ResourceDiff<Map<String, ServerGroup>> {
     val current = resource.spec.resolve().byRegion()
     val desired = resource.spec.resolve().map { it.withADifferentImage(version ?: "112233") }.byRegion()
-    return DefaultResourceDiff(desired, current)
+    return diffFactory.compare(desired, current)
   }
 
   override fun getCreateAndModifyDiff(resource: Resource<ClusterSpec>): ResourceDiff<Map<String, ServerGroup>> {
@@ -190,7 +192,7 @@ class Ec2BaseClusterHandlerTests : BaseClusterHandlerTests<ClusterSpec, ServerGr
         else -> it.withDoubleCapacity()
       }
     }.byRegion()
-    return DefaultResourceDiff(desired, current)
+    return diffFactory.compare(desired, current)
   }
 
   override fun getDiffForRollback(
@@ -200,7 +202,7 @@ class Ec2BaseClusterHandlerTests : BaseClusterHandlerTests<ClusterSpec, ServerGr
   ): ResourceDiff<Map<String, ServerGroup>> {
     val current = resource.spec.resolve().map { it.withMoniker(currentMoniker) }.byRegion()
     val desired = resource.spec.resolve().map { it.withADifferentImage(version) }.byRegion()
-    return DefaultResourceDiff(desired, current)
+    return diffFactory.compare(desired, current)
   }
 
   override fun getDiffForRollbackPlusCapacity(
@@ -210,7 +212,7 @@ class Ec2BaseClusterHandlerTests : BaseClusterHandlerTests<ClusterSpec, ServerGr
   ): ResourceDiff<Map<String, ServerGroup>> {
     val current = resource.spec.resolve().map { it.withMoniker(currentMoniker) }.byRegion()
     val desired = resource.spec.resolve().map { it.withADifferentImage(version).withZeroCapacity() }.byRegion()
-    return DefaultResourceDiff(desired, current)
+    return diffFactory.compare(desired, current)
   }
 
   override fun getRollbackServerGroupsByRegion(

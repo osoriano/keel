@@ -4,6 +4,7 @@ import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.Resource
+import com.netflix.spinnaker.keel.api.ResourceDiffFactory
 import com.netflix.spinnaker.keel.api.ResourceSpec
 import com.netflix.spinnaker.keel.api.action.Action
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
@@ -25,7 +26,6 @@ import com.netflix.spinnaker.keel.core.api.PromotionStatus
 import com.netflix.spinnaker.keel.core.api.PublishedArtifactInEnvironment
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.core.api.UID
-import com.netflix.spinnaker.keel.diff.DefaultResourceDiff
 import com.netflix.spinnaker.keel.events.ApplicationEvent
 import com.netflix.spinnaker.keel.events.ResourceCreated
 import com.netflix.spinnaker.keel.events.ResourceEvent
@@ -49,6 +49,7 @@ import java.time.Instant
 interface KeelRepository : KeelReadOnlyRepository {
   val clock: Clock
   val publisher: ApplicationEventPublisher
+  val diffFactory: ResourceDiffFactory
   val log: Logger
 
   @Transactional(propagation = REQUIRED)
@@ -71,7 +72,7 @@ interface KeelRepository : KeelReadOnlyRepository {
         throw DuplicateManagedResourceException(resource.id, existingConfig.name, deliveryConfigName)
       }
 
-      val diff = DefaultResourceDiff(resource.spec, existingResource.spec)
+      val diff = diffFactory.compare(resource.spec, existingResource.spec)
       if (diff.hasChanges() || resource.kind.version != existingResource.kind.version) {
         log.debug("Updating ${resource.id}")
         storeResource(resource).also { updatedResource ->

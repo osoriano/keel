@@ -7,6 +7,7 @@ import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceDiff
+import com.netflix.spinnaker.keel.api.ResourceDiffFactory
 import com.netflix.spinnaker.keel.api.ResourceSpec
 import com.netflix.spinnaker.keel.api.VersionedArtifactProvider
 import com.netflix.spinnaker.keel.api.actuation.Task
@@ -16,7 +17,6 @@ import com.netflix.spinnaker.keel.api.plugins.supporting
 import com.netflix.spinnaker.keel.core.ResourceCurrentlyUnresolvable
 import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactVeto
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.DEPLOYING
-import com.netflix.spinnaker.keel.diff.DefaultResourceDiff
 import com.netflix.spinnaker.keel.enforcers.ActiveVerifications
 import com.netflix.spinnaker.keel.enforcers.EnvironmentExclusionEnforcer
 import com.netflix.spinnaker.keel.events.ResourceActuationLaunched
@@ -87,7 +87,8 @@ class ResourceActuator(
   private val publisher: ApplicationEventPublisher,
   private val clock: Clock,
   private val environmentExclusionEnforcer: EnvironmentExclusionEnforcer,
-  private val spectator: Registry
+  private val spectator: Registry,
+  private val diffFactory: ResourceDiffFactory
 ) {
   companion object {
     val asyncExecutor: Executor = Executors.newCachedThreadPool()
@@ -133,7 +134,7 @@ class ResourceActuator(
         }
 
         val (desired, current) = plugin.resolve(resource)
-        val diff = DefaultResourceDiff(desired, current)
+        val diff = diffFactory.compare(desired, current)
         if (diff.hasChanges()) {
           log.debug("Storing diff fingerprint for resource {} delta: {}", id, diff.toDebug())
           diffFingerprintRepository.store(id, diff)

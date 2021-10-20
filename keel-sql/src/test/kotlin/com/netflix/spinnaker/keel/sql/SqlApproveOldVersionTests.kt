@@ -2,6 +2,7 @@ package com.netflix.spinnaker.keel.sql
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spectator.api.NoopRegistry
+import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.persistence.ApproveOldVersionTests
 import com.netflix.spinnaker.keel.persistence.CombinedRepository
 import com.netflix.spinnaker.keel.resources.ResourceFactory
@@ -33,7 +34,8 @@ class SqlApproveOldVersionTests : ApproveOldVersionTests<CombinedRepository>() {
       verificationRepository,
       clock,
       mockk(relaxed = true),
-      configuredTestObjectMapper()
+      configuredTestObjectMapper(),
+      DefaultResourceDiffFactory()
     )
   }
 

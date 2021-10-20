@@ -16,8 +16,9 @@ internal class ResourceDiffSerializationTests : JUnit5Minutests {
     val base: DummyValue?,
     val mapper: ObjectMapper = configuredObjectMapper()
   ) {
+    val diffFactory = DefaultResourceDiffFactory()
     val diff: ResourceDiff<DummyValue>
-      get() = DefaultResourceDiff(working, base)
+      get() = diffFactory.compare(working, base)
   }
 
   fun tests() = rootContext<Fixture> {

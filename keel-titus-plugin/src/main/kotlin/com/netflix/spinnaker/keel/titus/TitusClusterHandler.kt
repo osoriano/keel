@@ -26,6 +26,7 @@ import com.netflix.spinnaker.keel.api.NoStrategy
 import com.netflix.spinnaker.keel.api.RedBlack
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceDiff
+import com.netflix.spinnaker.keel.api.ResourceDiffFactory
 import com.netflix.spinnaker.keel.api.SimpleLocations
 import com.netflix.spinnaker.keel.api.SimpleRegionSpec
 import com.netflix.spinnaker.keel.api.actuation.Job
@@ -52,8 +53,8 @@ import com.netflix.spinnaker.keel.api.plugins.CurrentImages
 import com.netflix.spinnaker.keel.api.plugins.ImageInRegion
 import com.netflix.spinnaker.keel.api.plugins.Resolver
 import com.netflix.spinnaker.keel.api.support.EventPublisher
-import com.netflix.spinnaker.keel.api.titus.TITUS_CLOUD_PROVIDER
 import com.netflix.spinnaker.keel.api.titus.ResourcesSpec
+import com.netflix.spinnaker.keel.api.titus.TITUS_CLOUD_PROVIDER
 import com.netflix.spinnaker.keel.api.titus.TITUS_CLUSTER_V1
 import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroup
@@ -79,7 +80,6 @@ import com.netflix.spinnaker.keel.clouddriver.model.toActive
 import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.core.orcaClusterMoniker
 import com.netflix.spinnaker.keel.core.serverGroup
-import com.netflix.spinnaker.keel.diff.DefaultResourceDiff
 import com.netflix.spinnaker.keel.docker.DigestProvider
 import com.netflix.spinnaker.keel.docker.ReferenceProvider
 import com.netflix.spinnaker.keel.events.ResourceHealthEvent
@@ -115,11 +115,12 @@ class TitusClusterHandler(
   private val cloudDriverCache: CloudDriverCache,
   private val orcaService: OrcaService,
   private val clock: Clock,
-  override val taskLauncher: TaskLauncher,
+  taskLauncher: TaskLauncher,
   override val eventPublisher: EventPublisher,
   resolvers: List<Resolver<*>>,
-  private val clusterExportHelper: ClusterExportHelper
-) : BaseClusterHandler<TitusClusterSpec, TitusServerGroup>(resolvers, taskLauncher) {
+  private val clusterExportHelper: ClusterExportHelper,
+  diffFactory: ResourceDiffFactory
+) : BaseClusterHandler<TitusClusterSpec, TitusServerGroup>(resolvers, taskLauncher, diffFactory) {
 
   private val mapper = configuredObjectMapper()
 

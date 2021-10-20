@@ -28,6 +28,7 @@ import com.netflix.spinnaker.keel.clouddriver.model.Network
 import com.netflix.spinnaker.keel.clouddriver.model.SecurityGroupSummary
 import com.netflix.spinnaker.keel.clouddriver.model.ServerGroupCollection
 import com.netflix.spinnaker.keel.clouddriver.model.Subnet
+import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.ec2.resource.LaunchInfo.LAUNCH_TEMPLATE
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactService
 import com.netflix.spinnaker.keel.orca.ClusterExportHelper
@@ -193,7 +194,8 @@ internal class LaunchConfigTests {
     emptyList<Resolver<ClusterSpec>>(),
     clusterExportHelper,
     blockDeviceConfig,
-    artifactService
+    artifactService,
+    DefaultResourceDiffFactory()
   )
 
   fun setup(

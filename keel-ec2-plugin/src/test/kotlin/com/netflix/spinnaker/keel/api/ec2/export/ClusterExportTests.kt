@@ -37,6 +37,7 @@ import com.netflix.spinnaker.keel.clouddriver.model.ActiveServerGroup
 import com.netflix.spinnaker.keel.clouddriver.model.Network
 import com.netflix.spinnaker.keel.clouddriver.model.SecurityGroupSummary
 import com.netflix.spinnaker.keel.clouddriver.model.Subnet
+import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.ec2.resource.BlockDeviceConfig
 import com.netflix.spinnaker.keel.ec2.resource.ClusterHandler
 import com.netflix.spinnaker.keel.ec2.resource.toCloudDriverResponse
@@ -200,7 +201,8 @@ internal class ClusterExportTests : JUnit5Minutests {
         normalizers,
         clusterExportHelper,
         blockDeviceConfig,
-        artifactService
+        artifactService,
+        DefaultResourceDiffFactory()
       )
     }
 

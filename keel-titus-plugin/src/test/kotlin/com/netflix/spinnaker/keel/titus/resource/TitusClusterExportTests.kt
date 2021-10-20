@@ -27,6 +27,7 @@ import com.netflix.spinnaker.keel.clouddriver.model.DockerImage
 import com.netflix.spinnaker.keel.clouddriver.model.Resources
 import com.netflix.spinnaker.keel.clouddriver.model.SecurityGroupSummary
 import com.netflix.spinnaker.keel.clouddriver.model.TitusActiveServerGroup
+import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.docker.DigestProvider
 import com.netflix.spinnaker.keel.docker.ReferenceProvider
 import com.netflix.spinnaker.keel.exceptions.DockerArtifactExportError
@@ -177,7 +178,8 @@ internal class TitusClusterExportTests : JUnit5Minutests {
         taskLauncher,
         publisher,
         resolvers,
-        clusterExportHelper
+        clusterExportHelper,
+        DefaultResourceDiffFactory()
       )
     }
 

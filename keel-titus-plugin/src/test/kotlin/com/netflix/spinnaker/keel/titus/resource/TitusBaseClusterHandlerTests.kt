@@ -25,7 +25,7 @@ import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.clouddriver.model.Credential
 import com.netflix.spinnaker.keel.clouddriver.model.DockerImage
 import com.netflix.spinnaker.keel.core.serverGroup
-import com.netflix.spinnaker.keel.diff.DefaultResourceDiff
+import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.docker.DigestProvider
 import com.netflix.spinnaker.keel.orca.ClusterExportHelper
 import com.netflix.spinnaker.keel.orca.OrcaService
@@ -91,7 +91,8 @@ class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, T
       taskLauncher = taskLauncher,
       eventPublisher = eventPublisher,
       resolvers = resolvers,
-      clusterExportHelper = clusterExportHelper
+      clusterExportHelper = clusterExportHelper,
+      diffFactory = DefaultResourceDiffFactory()
     ))
 
   override fun getSingleRegionCluster(): Resource<TitusClusterSpec> {
@@ -153,12 +154,14 @@ class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, T
     )
   }
 
+  private val diffFactory = DefaultResourceDiffFactory()
+
   override fun getDiffInMoreThanEnabled(resource: Resource<TitusClusterSpec>): ResourceDiff<Map<String, TitusServerGroup>> {
     val currentServerGroups = resource.spec.resolve()
       .byRegion()
     val desiredServerGroups = resource.spec.resolve()
       .map { it.withDoubleCapacity().withManyEnabled() }.byRegion()
-    return DefaultResourceDiff(desiredServerGroups, currentServerGroups)
+    return diffFactory.compare(desiredServerGroups, currentServerGroups)
   }
 
   override fun getDiffOnlyInEnabled(resource: Resource<TitusClusterSpec>): ResourceDiff<Map<String, TitusServerGroup>> {
@@ -166,19 +169,19 @@ class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, T
       .byRegion()
     val desiredServerGroups = resource.spec.resolve()
       .map { it.withManyEnabled() }.byRegion()
-    return DefaultResourceDiff(desiredServerGroups, currentServerGroups)
+    return diffFactory.compare(desiredServerGroups, currentServerGroups)
   }
 
   override fun getDiffInCapacity(resource: Resource<TitusClusterSpec>): ResourceDiff<Map<String, TitusServerGroup>> {
     val current = resource.spec.resolve().byRegion()
     val desired = resource.spec.resolve().map { it.withDoubleCapacity() }.byRegion()
-    return DefaultResourceDiff(desired, current)
+    return diffFactory.compare(desired, current)
   }
 
   override fun getDiffInImage(resource: Resource<TitusClusterSpec>, version: String?): ResourceDiff<Map<String, TitusServerGroup>> {
     val current = resource.spec.resolve().byRegion()
     val desired = resource.spec.resolve().map { it.withADifferentImage(version ?: "1255555555555555") }.byRegion()
-    return DefaultResourceDiff(desired, current)
+    return diffFactory.compare(desired, current)
   }
 
   override fun getCreateAndModifyDiff(resource: Resource<TitusClusterSpec>): ResourceDiff<Map<String, TitusServerGroup>> {
@@ -189,7 +192,7 @@ class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, T
         else -> it.withDoubleCapacity()
       }
     }.byRegion()
-    return DefaultResourceDiff(desired, current)
+    return diffFactory.compare(desired, current)
   }
 
   override fun getDiffForRollback(
@@ -199,7 +202,7 @@ class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, T
   ): ResourceDiff<Map<String, TitusServerGroup>> {
     val current = resource.spec.resolve().map { it.withMoniker(currentMoniker) }.byRegion()
     val desired = resource.spec.resolve().map { it.withADifferentImage(version) }.byRegion()
-    return DefaultResourceDiff(desired, current)
+    return diffFactory.compare(desired, current)
   }
 
   override fun getDiffForRollbackPlusCapacity(
@@ -209,7 +212,7 @@ class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, T
   ): ResourceDiff<Map<String, TitusServerGroup>> {
     val current = resource.spec.resolve().map { it.withMoniker(currentMoniker) }.byRegion()
     val desired = resource.spec.resolve().map { it.withADifferentImage(version).withZeroCapacity() }.byRegion()
-    return DefaultResourceDiff(desired, current)
+    return diffFactory.compare(desired, current)
   }
 
   // this needs to return server groups with an actual server group moniker

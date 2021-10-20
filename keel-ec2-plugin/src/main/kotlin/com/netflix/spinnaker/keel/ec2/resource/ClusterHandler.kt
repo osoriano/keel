@@ -10,6 +10,7 @@ import com.netflix.spinnaker.keel.api.NoStrategy
 import com.netflix.spinnaker.keel.api.RedBlack
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceDiff
+import com.netflix.spinnaker.keel.api.ResourceDiffFactory
 import com.netflix.spinnaker.keel.api.SubnetAwareLocations
 import com.netflix.spinnaker.keel.api.SubnetAwareRegionSpec
 import com.netflix.spinnaker.keel.api.actuation.Job
@@ -74,14 +75,12 @@ import com.netflix.spinnaker.keel.clouddriver.model.MetricDimensionModel
 import com.netflix.spinnaker.keel.clouddriver.model.PredefinedMetricSpecificationModel
 import com.netflix.spinnaker.keel.clouddriver.model.ScalingPolicy
 import com.netflix.spinnaker.keel.clouddriver.model.StepAdjustmentModel
-import com.netflix.spinnaker.keel.clouddriver.model.SuspendedProcess
 import com.netflix.spinnaker.keel.clouddriver.model.subnet
 import com.netflix.spinnaker.keel.clouddriver.model.toActive
 import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.core.orcaClusterMoniker
 import com.netflix.spinnaker.keel.core.parseMoniker
 import com.netflix.spinnaker.keel.core.serverGroup
-import com.netflix.spinnaker.keel.diff.DefaultResourceDiff
 import com.netflix.spinnaker.keel.ec2.MissingAppVersionException
 import com.netflix.spinnaker.keel.ec2.toEc2Api
 import com.netflix.spinnaker.keel.events.ResourceHealthEvent
@@ -116,14 +115,15 @@ class ClusterHandler(
   private val cloudDriverService: CloudDriverService,
   private val cloudDriverCache: CloudDriverCache,
   private val orcaService: OrcaService,
-  override val taskLauncher: TaskLauncher,
+  taskLauncher: TaskLauncher,
   private val clock: Clock,
   override val eventPublisher: EventPublisher,
   resolvers: List<Resolver<*>>,
   private val clusterExportHelper: ClusterExportHelper,
   private val blockDeviceConfig: BlockDeviceConfig,
   private val artifactService: ArtifactService,
-) : BaseClusterHandler<ClusterSpec, ServerGroup>(resolvers, taskLauncher) {
+  diffFactory: ResourceDiffFactory
+) : BaseClusterHandler<ClusterSpec, ServerGroup>(resolvers, taskLauncher, diffFactory) {
 
   private val debianArtifactParser = DebianArtifactParser()
 
@@ -433,7 +433,7 @@ class ClusterHandler(
     val disabledProcesses = setOf(Launch, AddToLoadBalancer, Terminate)
     val currentMinusDisabled = current.copy(suspendedProcesses = current.suspendedProcesses - disabledProcesses)
 
-    return !DefaultResourceDiff(desired, currentMinusDisabled).hasChanges()
+    return !diffFactory.compare(desired, currentMinusDisabled).hasChanges()
   }
 
   /**

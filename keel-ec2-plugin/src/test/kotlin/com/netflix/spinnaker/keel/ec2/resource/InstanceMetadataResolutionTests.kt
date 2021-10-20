@@ -21,6 +21,7 @@ import com.netflix.spinnaker.keel.clouddriver.model.LaunchTemplateData
 import com.netflix.spinnaker.keel.clouddriver.model.Network
 import com.netflix.spinnaker.keel.clouddriver.model.ServerGroupCollection
 import com.netflix.spinnaker.keel.clouddriver.model.Subnet
+import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.test.resource
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
@@ -48,7 +49,8 @@ internal class InstanceMetadataResolutionTests {
     resolvers = emptyList(),
     clusterExportHelper = mockk(),
     blockDeviceConfig = mockk(),
-    artifactService = mockk()
+    artifactService = mockk(),
+    diffFactory = DefaultResourceDiffFactory()
   )
 
   private val baseResource = resource(

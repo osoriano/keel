@@ -12,6 +12,7 @@ import com.netflix.spinnaker.keel.api.ec2.SecurityGroupRule.Protocol.TCP
 import com.netflix.spinnaker.keel.api.ec2.SecurityGroupSpec
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
+import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.test.resource
 import io.mockk.mockk
@@ -32,7 +33,8 @@ class SecurityGroupOverrideTests {
     cloudDriverCache = cloudDriverCache,
     orcaService = orcaService,
     taskLauncher = taskLauncher,
-    resolvers = emptyList()
+    resolvers = emptyList(),
+    diffFactory = DefaultResourceDiffFactory()
   )
 
   @Test

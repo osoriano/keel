@@ -48,7 +48,7 @@ import com.netflix.spinnaker.keel.clouddriver.model.DockerImage
 import com.netflix.spinnaker.keel.clouddriver.model.SecurityGroupSummary
 import com.netflix.spinnaker.keel.clouddriver.model.ServerGroupCollection
 import com.netflix.spinnaker.keel.core.orcaClusterMoniker
-import com.netflix.spinnaker.keel.diff.DefaultResourceDiff
+import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.docker.DigestProvider
 import com.netflix.spinnaker.keel.events.ResourceHealthEvent
 import com.netflix.spinnaker.keel.model.OrchestrationRequest
@@ -213,6 +213,8 @@ class TitusClusterHandlerTests : JUnit5Minutests {
     )
   )
 
+  val diffFactory = DefaultResourceDiffFactory()
+
   fun tests() = rootContext<TitusClusterHandler> {
     fixture {
       TitusClusterHandler(
@@ -223,7 +225,8 @@ class TitusClusterHandlerTests : JUnit5Minutests {
         taskLauncher,
         publisher,
         resolvers,
-        clusterExportHelper
+        clusterExportHelper,
+        DefaultResourceDiffFactory()
       )
     }
 
@@ -280,7 +283,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
         }
 
         runBlocking {
-          upsert(resource, DefaultResourceDiff(serverGroups.byRegion(), emptyMap()))
+          upsert(resource, diffFactory.compare(serverGroups.byRegion(), emptyMap()))
         }
 
         expectThat(slot.captured.job.first()) {
@@ -378,10 +381,11 @@ class TitusClusterHandlerTests : JUnit5Minutests {
 
       context("there is a diff in more than just enabled/disabled") {
         val modified = setOf(
-          serverGroupEast.copy(name = activeServerGroupResponseEast.name, onlyEnabledServerGroup = false).withDoubleCapacity(),
+          serverGroupEast.copy(name = activeServerGroupResponseEast.name, onlyEnabledServerGroup = false)
+            .withDoubleCapacity(),
           serverGroupWest.copy(name = activeServerGroupResponseWest.name).withDoubleCapacity()
         )
-        val diff = DefaultResourceDiff(
+        val diff = diffFactory.compare(
           serverGroups.byRegion(),
           modified.byRegion()
         )
@@ -396,7 +400,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
           serverGroupEast.copy(name = activeServerGroupResponseEast.name, onlyEnabledServerGroup = false),
           serverGroupWest.copy(name = activeServerGroupResponseWest.name)
         )
-        val diff = DefaultResourceDiff(
+        val diff = diffFactory.compare(
           serverGroups.byRegion(),
           modified.byRegion()
         )
@@ -448,7 +452,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
           serverGroupEast.copy(name = activeServerGroupResponseEast.name),
           serverGroupWest.copy(name = activeServerGroupResponseWest.name).withDoubleCapacity()
         )
-        val diff = DefaultResourceDiff(
+        val diff = diffFactory.compare(
           serverGroups.byRegion(),
           modified.byRegion()
         )
@@ -486,7 +490,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
           serverGroupEast.copy(name = activeServerGroupResponseEast.name, onlyEnabledServerGroup = false),
           serverGroupWest.copy(name = activeServerGroupResponseWest.name)
         )
-        val diff = DefaultResourceDiff(
+        val diff = diffFactory.compare(
           serverGroups.byRegion(),
           modified.byRegion()
         )
@@ -528,9 +532,11 @@ class TitusClusterHandlerTests : JUnit5Minutests {
 
         val modified = setOf(
           serverGroupEast.copy(name = activeServerGroupResponseEast.name),
-          serverGroupWest.copy(name = activeServerGroupResponseWest.name).withDoubleCapacity().withDifferentRuntimeOptions()
+          serverGroupWest.copy(name = activeServerGroupResponseWest.name)
+            .withDoubleCapacity()
+            .withDifferentRuntimeOptions()
         )
-        val diff = DefaultResourceDiff(
+        val diff = diffFactory.compare(
           serverGroups.byRegion(),
           modified.byRegion()
         )
@@ -562,9 +568,11 @@ class TitusClusterHandlerTests : JUnit5Minutests {
 
         val modified = setOf(
           serverGroupEast.copy(name = activeServerGroupResponseEast.name),
-          serverGroupWest.copy(name = activeServerGroupResponseWest.name).withDoubleCapacity().withDifferentRuntimeOptions()
+          serverGroupWest.copy(name = activeServerGroupResponseWest.name)
+            .withDoubleCapacity()
+            .withDifferentRuntimeOptions()
         )
-        val diff = DefaultResourceDiff(
+        val diff = diffFactory.compare(
           serverGroups.byRegion(),
           modified.byRegion()
         )
@@ -680,7 +688,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
           serverGroupEast.copy(name = activeServerGroupResponseEast.name).withDifferentRuntimeOptions(),
           serverGroupWest.copy(name = activeServerGroupResponseWest.name).withDoubleCapacity()
         )
-        val diff = DefaultResourceDiff(
+        val diff = diffFactory.compare(
           serverGroups.byRegion(),
           modified.byRegion()
         )

@@ -4,6 +4,7 @@ import com.netflix.spinnaker.keel.api.Exportable
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceDiff
+import com.netflix.spinnaker.keel.api.ResourceDiffFactory
 import com.netflix.spinnaker.keel.api.SubnetAwareLocations
 import com.netflix.spinnaker.keel.api.SubnetAwareRegionSpec
 import com.netflix.spinnaker.keel.api.actuation.Job
@@ -23,7 +24,6 @@ import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.clouddriver.ResourceNotFound
 import com.netflix.spinnaker.keel.core.parseMoniker
-import com.netflix.spinnaker.keel.diff.DefaultResourceDiff
 import com.netflix.spinnaker.keel.diff.toIndividualDiffs
 import com.netflix.spinnaker.keel.model.OrcaJob
 import com.netflix.spinnaker.keel.orca.OrcaService
@@ -38,7 +38,8 @@ class ClassicLoadBalancerHandler(
   private val cloudDriverCache: CloudDriverCache,
   private val orcaService: OrcaService,
   private val taskLauncher: TaskLauncher,
-  resolvers: List<Resolver<*>>
+  resolvers: List<Resolver<*>>,
+  private val diffFactory: ResourceDiffFactory
 ) : BaseLoadBalancerHandler<ClassicLoadBalancerSpec, ClassicLoadBalancer>(cloudDriverCache, taskLauncher, resolvers) {
 
   override val supportedKind = EC2_CLASSIC_LOAD_BALANCER_V1
@@ -73,8 +74,8 @@ class ClassicLoadBalancerHandler(
     resourceDiff: ResourceDiff<Map<String, ClassicLoadBalancer>>
   ): List<Task> =
     coroutineScope {
-      resourceDiff
-        .toIndividualDiffs()
+      diffFactory
+        .toIndividualDiffs(resourceDiff)
         .filter { diff -> diff.hasChanges() }
         .map { diff ->
           val desired = diff.desired
@@ -83,7 +84,8 @@ class ClassicLoadBalancerHandler(
             resourceDiff.current == null -> "Create"
             else -> "Update"
           }
-          val description = "$action ${resource.kind} load balancer ${desired.moniker} in ${desired.location.account}/${desired.location.region}"
+          val description =
+            "$action ${resource.kind} load balancer ${desired.moniker} in ${desired.location.account}/${desired.location.region}"
 
           async {
             taskLauncher.submitJob(
@@ -270,9 +272,9 @@ class ClassicLoadBalancerHandler(
     regionalClbs: Map<String, ClassicLoadBalancer>
   ) =
     regionalClbs.forEach { (region, clb) ->
-      val dependenciesDiff = DefaultResourceDiff(clb.dependencies, dependencies).hasChanges()
-      val listenersDiff = DefaultResourceDiff(clb.listeners, listeners).hasChanges()
-      val healthCheckDiff = DefaultResourceDiff(clb.healthCheck, healthCheck).hasChanges()
+      val dependenciesDiff = diffFactory.compare(clb.dependencies, dependencies).hasChanges()
+      val listenersDiff = diffFactory.compare(clb.listeners, listeners).hasChanges()
+      val healthCheckDiff = diffFactory.compare(clb.healthCheck, healthCheck).hasChanges()
 
       if (dependenciesDiff || listenersDiff || healthCheckDiff) {
         (overrides as MutableMap)[region] = ClassicLoadBalancerOverride(

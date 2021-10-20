@@ -19,6 +19,7 @@ import com.netflix.spinnaker.keel.api.Exportable
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceDiff
+import com.netflix.spinnaker.keel.api.ResourceDiffFactory
 import com.netflix.spinnaker.keel.api.SimpleLocations
 import com.netflix.spinnaker.keel.api.SimpleRegionSpec
 import com.netflix.spinnaker.keel.api.actuation.Job
@@ -45,7 +46,6 @@ import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.clouddriver.ResourceNotFound
 import com.netflix.spinnaker.keel.clouddriver.model.SecurityGroupModel
 import com.netflix.spinnaker.keel.core.name
-import com.netflix.spinnaker.keel.diff.DefaultResourceDiff
 import com.netflix.spinnaker.keel.diff.toIndividualDiffs
 import com.netflix.spinnaker.keel.model.OrcaJob
 import com.netflix.spinnaker.keel.orca.OrcaService
@@ -59,7 +59,8 @@ open class SecurityGroupHandler(
   val cloudDriverCache: CloudDriverCache,
   val orcaService: OrcaService,
   val taskLauncher: TaskLauncher,
-  resolvers: List<Resolver<*>>
+  resolvers: List<Resolver<*>>,
+  private val diffFactory: ResourceDiffFactory
 ) : ResolvableResourceHandler<SecurityGroupSpec, Map<String, SecurityGroup>>(resolvers) {
 
   override val supportedKind = EC2_SECURITY_GROUP_V1
@@ -88,8 +89,8 @@ open class SecurityGroupHandler(
     resourceDiff: ResourceDiff<Map<String, SecurityGroup>>
   ): List<Task> =
     coroutineScope {
-      resourceDiff
-        .toIndividualDiffs()
+      diffFactory
+        .toIndividualDiffs(resourceDiff)
         .filter { diff -> diff.hasChanges() }
         .map { diff ->
           val spec = diff.desired
@@ -200,7 +201,7 @@ open class SecurityGroupHandler(
   ) =
     regionalGroups.forEach { (region, securityGroup) ->
       val inboundDiff =
-        DefaultResourceDiff(securityGroup.inboundRules, this.inboundRules)
+        diffFactory.compare(securityGroup.inboundRules, this.inboundRules)
           .hasChanges()
       val vpcDiff = securityGroup.location.vpc != this.locations.vpc
       val descriptionDiff = securityGroup.description != this.description

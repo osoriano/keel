@@ -17,18 +17,18 @@
  */
 package com.netflix.spinnaker.keel.persistence
 
-import com.netflix.spinnaker.keel.diff.DefaultResourceDiff
+import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
-import java.time.Clock
 import strikt.api.expectCatching
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo
 import strikt.assertions.isFalse
 import strikt.assertions.isSuccess
 import strikt.assertions.isTrue
+import java.time.Clock
 
 abstract class DiffFingerprintRepositoryTests<T : DiffFingerprintRepository> : JUnit5Minutests {
   abstract fun factory(clock: Clock): T
@@ -40,7 +40,9 @@ abstract class DiffFingerprintRepositoryTests<T : DiffFingerprintRepository> : J
 
   data class Fixture<T : DiffFingerprintRepository>(
     val subject: T
-  )
+  ) {
+    val diffFactory = DefaultResourceDiffFactory()
+  }
 
   fun tests() = rootContext<Fixture<T>> {
     fixture {
@@ -50,13 +52,13 @@ abstract class DiffFingerprintRepositoryTests<T : DiffFingerprintRepository> : J
 
     context("storing hash") {
       test("succeeds when new") {
-        val diff = DefaultResourceDiff(mapOf("spec" to "hi"), mapOf("spec" to "bye"))
+        val diff = diffFactory.compare(mapOf("spec" to "hi"), mapOf("spec" to "bye"))
         subject.store(r.id, diff)
         expectThat(subject.diffCount(r.id)).isEqualTo(1)
       }
 
       test("updates count") {
-        val diff = DefaultResourceDiff(mapOf("spec" to "hi"), mapOf("spec" to "bye"))
+        val diff = diffFactory.compare(mapOf("spec" to "hi"), mapOf("spec" to "bye"))
         subject.store(r.id, diff)
         subject.store(r.id, diff)
         subject.store(r.id, diff)
@@ -66,7 +68,7 @@ abstract class DiffFingerprintRepositoryTests<T : DiffFingerprintRepository> : J
       }
 
       test("updates action count"){
-        val diff = DefaultResourceDiff(mapOf("spec" to "hi"), mapOf("spec" to "bye"))
+        val diff = diffFactory.compare(mapOf("spec" to "hi"), mapOf("spec" to "bye"))
         subject.store(r.id, diff)
         expectThat(subject.actionTakenCount(r.id)).isEqualTo(0)
         subject.markActionTaken(r.id)
@@ -74,8 +76,8 @@ abstract class DiffFingerprintRepositoryTests<T : DiffFingerprintRepository> : J
       }
 
       test("has now seen this diff") {
-        val diff = DefaultResourceDiff(mapOf("spec" to "hi"), mapOf("spec" to "bye"))
-        val diff2 = DefaultResourceDiff(mapOf("spec" to "hi"), mapOf("spec" to "byeBYEbyeee"))
+        val diff = diffFactory.compare(mapOf("spec" to "hi"), mapOf("spec" to "bye"))
+        val diff2 = diffFactory.compare(mapOf("spec" to "hi"), mapOf("spec" to "byeBYEbyeee"))
         expectThat(subject.seen(r.id, diff)).isFalse()
         expectThat(subject.seen(r.id, diff2)).isFalse()
         subject.store(r.id, diff)
@@ -87,21 +89,21 @@ abstract class DiffFingerprintRepositoryTests<T : DiffFingerprintRepository> : J
       }
 
       test("resets count when different hash") {
-        val diff = DefaultResourceDiff(mapOf("spec" to "hi"), mapOf("spec" to "bye"))
+        val diff = diffFactory.compare(mapOf("spec" to "hi"), mapOf("spec" to "bye"))
         subject.store(r.id, diff)
         subject.store(r.id, diff)
         expectThat(subject.diffCount(r.id)).isEqualTo(2)
-        val diff2 = DefaultResourceDiff(mapOf("spec" to "hi"), mapOf("spec" to "byeBYEbyeee"))
+        val diff2 = diffFactory.compare(mapOf("spec" to "hi"), mapOf("spec" to "byeBYEbyeee"))
         subject.store(r.id, diff2)
         expectThat(subject.diffCount(r.id)).isEqualTo(1)
       }
 
       test("resets action count when different hash") {
-        val diff = DefaultResourceDiff(mapOf("spec" to "hi"), mapOf("spec" to "bye"))
+        val diff = diffFactory.compare(mapOf("spec" to "hi"), mapOf("spec" to "bye"))
         subject.store(r.id, diff)
         subject.markActionTaken(r.id)
         expectThat(subject.actionTakenCount(r.id)).isEqualTo(1)
-        val diff2 = DefaultResourceDiff(mapOf("spec" to "hi"), mapOf("spec" to "byeBYEbyeee"))
+        val diff2 = diffFactory.compare(mapOf("spec" to "hi"), mapOf("spec" to "byeBYEbyeee"))
         subject.store(r.id, diff2)
         expectThat(subject.actionTakenCount(r.id)).isEqualTo(0)
       }
@@ -115,7 +117,7 @@ abstract class DiffFingerprintRepositoryTests<T : DiffFingerprintRepository> : J
 
     context("deleting hash") {
       test("deletes successfully when present") {
-        val diff = DefaultResourceDiff(mapOf("spec" to "hi"), mapOf("spec" to "bye"))
+        val diff = diffFactory.compare(mapOf("spec" to "hi"), mapOf("spec" to "bye"))
         subject.store(r.id, diff)
         subject.clear(r.id)
         expectThat(subject.diffCount(r.id)).isEqualTo(0)

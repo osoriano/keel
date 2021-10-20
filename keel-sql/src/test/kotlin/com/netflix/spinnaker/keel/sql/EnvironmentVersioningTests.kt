@@ -8,6 +8,7 @@ import com.netflix.spinnaker.keel.api.NotificationFrequency.normal
 import com.netflix.spinnaker.keel.api.NotificationType.slack
 import com.netflix.spinnaker.keel.api.Verification
 import com.netflix.spinnaker.keel.core.api.ManualJudgementConstraint
+import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.persistence.CombinedRepository
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ACTIVE_ENVIRONMENT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT
@@ -27,7 +28,6 @@ import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil.cleanupDb
 import com.netflix.spinnaker.time.MutableClock
 import io.mockk.mockk
-import io.mockk.slot
 import org.jooq.Table
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -99,7 +99,8 @@ class EnvironmentVersioningTests {
     actionRepository,
     clock,
     { },
-    objectMapper
+    objectMapper,
+    DefaultResourceDiffFactory()
   )
 
   @BeforeEach

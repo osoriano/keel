@@ -20,18 +20,15 @@ package com.netflix.spinnaker.keel.diff
 import de.danielbechler.diff.node.DiffNode.State.CHANGED
 import de.danielbechler.diff.node.DiffNode.State.UNTOUCHED
 import de.danielbechler.diff.node.ToMapPrintingVisitor
-import de.danielbechler.diff.path.NodePath
-import dev.minutest.junit.JUnit5Minutests
-import dev.minutest.rootContext
 import org.junit.jupiter.api.Test
 import strikt.api.expect
 import strikt.api.expectThat
-import strikt.assertions.containsKey
-import strikt.assertions.hasSize
 import strikt.assertions.isEqualTo
 import java.time.Duration
 
 internal class DefaultResourceDiffTests {
+  private val diffFactory = DefaultResourceDiffFactory()
+
   private data class Container(val prop: Parent)
 
   private interface Parent {
@@ -58,7 +55,7 @@ internal class DefaultResourceDiffTests {
     val obj1 = Container(Child1("common", "myprop"))
     val obj2 = Container(Child2("common", "anotherProp"))
 
-    with(DefaultResourceDiff(obj1, obj2)) {
+    with(diffFactory.compare(obj1, obj2)) {
       expectThat(diff.state) isEqualTo CHANGED
     }
   }
@@ -68,7 +65,7 @@ internal class DefaultResourceDiffTests {
     val obj1 = emptyMap<Any, Any>()
     val obj2 = LinkedHashMap<Any, Any>()
 
-    with(DefaultResourceDiff(obj1, obj2)) {
+    with(diffFactory.compare(obj1, obj2)) {
       expectThat(diff.state) isEqualTo UNTOUCHED
     }
   }
@@ -80,7 +77,7 @@ internal class DefaultResourceDiffTests {
     val obj1 = DurationContainer(Duration.ofSeconds(1))
     val obj2 = DurationContainer(Duration.ofSeconds(2))
 
-    with(DefaultResourceDiff(obj1, obj2)) {
+    with(diffFactory.compare(obj1, obj2)) {
       expect {
         that(diff.state) isEqualTo CHANGED
         that(diff.getChild("duration")) {
@@ -96,7 +93,7 @@ internal class DefaultResourceDiffTests {
     val obj1 = Duration.ofSeconds(1)
     val obj2 = Duration.ofSeconds(2)
 
-    with(DefaultResourceDiff(obj1, obj2)) {
+    with(diffFactory.compare(obj1, obj2)) {
       expect {
         that(diff.state) isEqualTo CHANGED
         that(diff.childCount()) isEqualTo 0

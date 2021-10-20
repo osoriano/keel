@@ -6,7 +6,6 @@ import com.netflix.spinnaker.keel.api.NotificationConfig
 import com.netflix.spinnaker.keel.api.NotificationFrequency.quiet
 import com.netflix.spinnaker.keel.api.NotificationFrequency.verbose
 import com.netflix.spinnaker.keel.api.NotificationType.slack
-import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactOriginFilter
 import com.netflix.spinnaker.keel.api.artifacts.BranchFilter
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
@@ -69,6 +68,10 @@ internal class DeliveryConfigDiffTests : JUnit5Minutests {
       metadata = mapOf("ignore" to "me")
     )
 
+    val diffFactory = DefaultResourceDiffFactory(
+      listOf(DefaultIdentityServiceCustomizer())
+    )
+
     lateinit var diff: DefaultResourceDiff<DeliveryConfig>
   }
 
@@ -77,18 +80,18 @@ internal class DeliveryConfigDiffTests : JUnit5Minutests {
 
     context("can diff two delivery configs"){
       test("no diff if same") {
-        diff = DefaultResourceDiff(deliveryConfig, deliveryConfig)
+        diff = diffFactory.compare(deliveryConfig, deliveryConfig)
         expectThat(diff.hasChanges()).isFalse()
       }
 
       test("diff if different") {
-        diff = DefaultResourceDiff(deliveryConfig, deliveryConfig2)
+        diff = diffFactory.compare(deliveryConfig, deliveryConfig2)
         expectThat(diff.hasChanges()).isTrue()
       }
 
       context("difference in artifacts") {
         modifyFixture {
-          diff = DefaultResourceDiff(
+          diff = diffFactory.compare(
             desired = deliveryConfig3.copy(artifacts = setOf(artifact, anotherArtifact)),
             current = deliveryConfig3
           )
@@ -106,7 +109,7 @@ internal class DeliveryConfigDiffTests : JUnit5Minutests {
       }
 
       test("difference in metadata ignored") {
-        diff = DefaultResourceDiff(
+        diff = diffFactory.compare(
           deliveryConfig3,
           deliveryConfig3.copy(metadata = emptyMap())
         )
@@ -115,7 +118,7 @@ internal class DeliveryConfigDiffTests : JUnit5Minutests {
 
       context("difference in resources") {
         modifyFixture {
-          diff = DefaultResourceDiff(
+          diff = diffFactory.compare(
             desired = deliveryConfig3,
             current = deliveryConfig3.copy(
               environments = setOf(
@@ -148,9 +151,14 @@ internal class DeliveryConfigDiffTests : JUnit5Minutests {
       }
 
       test("difference in notifications detected") {
-        val diff = DefaultResourceDiff(
+        val diff = diffFactory.compare(
           deliveryConfig3,
-          deliveryConfig3.copy(environments = setOf(test, prod.copy(notifications = setOf(NotificationConfig(type = slack, address = "#yo", frequency = verbose)))))
+          deliveryConfig3.copy(
+            environments = setOf(
+              test,
+              prod.copy(notifications = setOf(NotificationConfig(type = slack, address = "#yo", frequency = verbose)))
+            )
+          )
         )
         expectThat(diff.hasChanges()).isTrue()
       }

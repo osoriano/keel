@@ -3,9 +3,9 @@ package com.netflix.spinnaker.keel.upsert
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.convertValue
 import com.netflix.spinnaker.keel.api.DeliveryConfig
+import com.netflix.spinnaker.keel.api.ResourceDiffFactory
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
-import com.netflix.spinnaker.keel.diff.DefaultResourceDiff
 import com.netflix.spinnaker.keel.events.DeliveryConfigChangedNotification
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
@@ -28,7 +28,8 @@ class DeliveryConfigUpserter(
   private val validator: DeliveryConfigValidator,
   private val publisher: ApplicationEventPublisher,
   private val springEnv: SpringEnvironment,
-  private val persistenceRetry: PersistenceRetry
+  private val persistenceRetry: PersistenceRetry,
+  private val diffFactory: ResourceDiffFactory
 ) {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
@@ -86,7 +87,7 @@ class DeliveryConfigUpserter(
     when {
       !sendConfigChangedNotification -> false
       existing == null -> true
-      DefaultResourceDiff(existing, new).also {
+      diffFactory.compare(existing, new).also {
         if (it.hasChanges()) {
           log.debug("Found diffs in delivery config ${it.affectedRootPropertyNames}")
         }

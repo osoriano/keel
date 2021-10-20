@@ -3,6 +3,7 @@ package com.netflix.spinnaker.keel.upsert
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.config.PersistenceRetryConfig
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
+import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.exceptions.ValidationException
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.PersistenceRetry
@@ -34,7 +35,8 @@ internal class DeliveryConfigUpserterTest {
     validator = validator,
     publisher = publisher,
     springEnv = springEnv,
-    persistenceRetry = persistenceRetry
+    persistenceRetry = persistenceRetry,
+    DefaultResourceDiffFactory()
   )
 
   private val submittedDeliveryConfig = submittedDeliveryConfig()

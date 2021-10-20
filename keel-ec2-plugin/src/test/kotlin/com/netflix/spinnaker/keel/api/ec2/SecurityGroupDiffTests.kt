@@ -3,6 +3,7 @@ package com.netflix.spinnaker.keel.api.ec2
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.ec2.SecurityGroupRule.Protocol.TCP
 import com.netflix.spinnaker.keel.diff.DefaultResourceDiff
+import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import de.danielbechler.diff.node.DiffNode
 import de.danielbechler.diff.node.DiffNode.State.ADDED
 import de.danielbechler.diff.node.DiffNode.State.UNTOUCHED
@@ -17,7 +18,9 @@ internal class SecurityGroupDiffTests : JUnit5Minutests {
   data class Fixture(
     val desired: Map<String, SecurityGroup>,
     val current: Map<String, SecurityGroup>? = null
-  )
+  ) {
+    val diffFactory = DefaultResourceDiffFactory()
+  }
 
   private val referenceRule: ReferenceRule = ReferenceRule(
     protocol = TCP,
@@ -58,7 +61,7 @@ internal class SecurityGroupDiffTests : JUnit5Minutests {
   )
 
   private val Fixture.diff: DefaultResourceDiff<Map<String, SecurityGroup>>
-    get() = DefaultResourceDiff(desired, current)
+    get() = diffFactory.compare(desired, current)
 
   private val Fixture.state: DiffNode.State
     get() = diff.diff.state

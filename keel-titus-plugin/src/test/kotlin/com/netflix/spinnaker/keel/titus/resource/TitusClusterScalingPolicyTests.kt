@@ -41,7 +41,7 @@ import com.netflix.spinnaker.keel.clouddriver.model.TitusScaling
 import com.netflix.spinnaker.keel.clouddriver.model.TitusScaling.Policy.StepPolicy
 import com.netflix.spinnaker.keel.clouddriver.model.TitusScaling.Policy.TargetPolicy
 import com.netflix.spinnaker.keel.core.api.randomUID
-import com.netflix.spinnaker.keel.diff.DefaultResourceDiff
+import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.docker.DigestProvider
 import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.keel.titus.TitusClusterHandler
@@ -185,6 +185,8 @@ class TitusClusterScalingPolicyTests {
     )
   }
 
+  val diffFactory = DefaultResourceDiffFactory()
+
   fun CloudDriverService.stubActiveServerGroup(serverGroup: TitusActiveServerGroup) {
     every {
       titusActiveServerGroup(
@@ -228,7 +230,8 @@ class TitusClusterScalingPolicyTests {
     taskLauncher = taskLauncher,
     eventPublisher = mockk(relaxUnitFun = true),
     resolvers = emptyList(),
-    clusterExportHelper = mockk()
+    clusterExportHelper = mockk(),
+    diffFactory = DefaultResourceDiffFactory()
   )
 
   val resource = resource(
@@ -361,7 +364,7 @@ class TitusClusterScalingPolicyTests {
     val current = runBlocking { handler.current(resource) }
 
     runBlocking {
-      handler.upsert(resource, DefaultResourceDiff(desired, current))
+      handler.upsert(resource, diffFactory.compare(desired, current))
     }
 
     expectThat(stages)
@@ -380,7 +383,7 @@ class TitusClusterScalingPolicyTests {
     val current = runBlocking { handler.current(resource) }
 
     runBlocking {
-      handler.upsert(resource, DefaultResourceDiff(desired, current))
+      handler.upsert(resource, diffFactory.compare(desired, current))
     }
 
     expectThat(stages)
@@ -399,7 +402,7 @@ class TitusClusterScalingPolicyTests {
     val current = runBlocking { handler.current(resource) }
 
     runBlocking {
-      handler.upsert(resource, DefaultResourceDiff(desired, current))
+      handler.upsert(resource, diffFactory.compare(desired, current))
     }
 
     expectThat(stages)

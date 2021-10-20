@@ -7,6 +7,7 @@ import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.NotificationConfig
 import com.netflix.spinnaker.keel.api.Resource
+import com.netflix.spinnaker.keel.api.ResourceDiffFactory
 import com.netflix.spinnaker.keel.api.ResourceSpec
 import com.netflix.spinnaker.keel.api.action.Action
 import com.netflix.spinnaker.keel.api.action.ActionRepository
@@ -66,7 +67,8 @@ class CombinedRepository(
   val actionRepository: ActionRepository,
   override val clock: Clock,
   override val publisher: ApplicationEventPublisher,
-  val objectMapper: ObjectMapper
+  val objectMapper: ObjectMapper,
+  override val diffFactory: ResourceDiffFactory
 ) : KeelRepository {
 
   override val log by lazy { LoggerFactory.getLogger(javaClass) }

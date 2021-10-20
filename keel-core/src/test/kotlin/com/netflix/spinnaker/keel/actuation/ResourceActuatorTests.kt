@@ -18,6 +18,7 @@ import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactVeto
 import com.netflix.spinnaker.keel.core.api.PromotionStatus
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.DEPLOYING
 import com.netflix.spinnaker.keel.core.api.randomUID
+import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.enforcers.ActiveVerifications
 import com.netflix.spinnaker.keel.enforcers.EnvironmentExclusionEnforcer
 import com.netflix.spinnaker.keel.events.ResourceActuationLaunched
@@ -123,7 +124,8 @@ internal class ResourceActuatorTests : JUnit5Minutests {
       publisher,
       clock,
       environmentExclusionEnforcer,
-      NoopRegistry()
+      NoopRegistry(),
+      DefaultResourceDiffFactory()
     )
   }
 

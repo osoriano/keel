@@ -22,6 +22,7 @@ import com.netflix.spinnaker.keel.core.api.MANUAL_JUDGEMENT_CONSTRAINT_TYPE
 import com.netflix.spinnaker.keel.core.api.ManualJudgementConstraint
 import com.netflix.spinnaker.keel.core.api.SubmittedResource
 import com.netflix.spinnaker.keel.core.api.normalize
+import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.events.ResourceCreated
 import com.netflix.spinnaker.keel.events.ResourceState
 import com.netflix.spinnaker.keel.events.ResourceUpdated
@@ -158,7 +159,8 @@ abstract class CombinedRepositoryTests<D : DeliveryConfigRepository, R : Resourc
       verificationRepository,
       clock,
       publisher,
-      configuredTestObjectMapper()
+      configuredTestObjectMapper(),
+      DefaultResourceDiffFactory()
     )
 
     fun resourcesDueForCheck() =

@@ -1,5 +1,8 @@
 package com.netflix.spinnaker.keel.api
 
+/**
+ * The result of a comparison between two objects. Implementations may delegate to a lower-level diff mechanism.
+ */
 interface ResourceDiff<T : Any> {
   val desired: T
   val current: T?
@@ -10,4 +13,11 @@ interface ResourceDiff<T : Any> {
   fun toUpdateJson(): Map<String, Any?>
   fun toDebug(): String
   fun T?.toMap(): Map<String, Any?>?
+}
+
+/**
+ * Produces [ResourceDiff] instances by comparing objects.
+ */
+interface ResourceDiffFactory {
+  fun <T : Any> compare(desired: T, current: T?): ResourceDiff<T>
 }

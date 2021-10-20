@@ -41,7 +41,7 @@ import com.netflix.spinnaker.keel.clouddriver.model.SecurityGroupSummary
 import com.netflix.spinnaker.keel.clouddriver.model.ServerGroupCollection
 import com.netflix.spinnaker.keel.clouddriver.model.Subnet
 import com.netflix.spinnaker.keel.core.orcaClusterMoniker
-import com.netflix.spinnaker.keel.diff.DefaultResourceDiff
+import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactService
 import com.netflix.spinnaker.keel.model.OrchestrationRequest
 import com.netflix.spinnaker.keel.orca.ClusterExportHelper
@@ -82,6 +82,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
   val publisher: EventPublisher = mockk(relaxUnitFun = true)
   val repository = mockk<KeelRepository>()
   private val springEnv: org.springframework.core.env.Environment = mockk(relaxUnitFun = true)
+  val diffFactory = DefaultResourceDiffFactory()
 
   val taskLauncher = OrcaTaskLauncher(
     orcaService,
@@ -216,7 +217,8 @@ internal class ClusterHandlerTests : JUnit5Minutests {
         normalizers,
         clusterExportHelper,
         blockDeviceConfig,
-        artifactService
+        artifactService,
+        DefaultResourceDiffFactory()
       )
     }
 
@@ -315,7 +317,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
         runBlocking {
           upsert(
             resource,
-            DefaultResourceDiff(
+            diffFactory.compare(
               serverGroups.map {
                 it.copy(scaling = Scaling(), capacity = Capacity.DefaultCapacity(2, 2, 2))
               }.byRegion(),
@@ -351,7 +353,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
         every { orcaService.orchestrate(resource.serviceAccount, capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
 
         runBlocking {
-          upsert(resource, DefaultResourceDiff(serverGroups.byRegion(), emptyMap()))
+          upsert(resource, diffFactory.compare(serverGroups.byRegion(), emptyMap()))
         }
 
         expectThat(slot.captured.job.size).isEqualTo(3)
@@ -521,7 +523,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
           serverGroupEast.copy(name = activeServerGroupResponseEast.name),
           serverGroupWest.copy(name = activeServerGroupResponseWest.name).withMissingAppVersion()
         )
-        val diff = DefaultResourceDiff(
+        val diff = diffFactory.compare(
           serverGroups.byRegion(),
           modified.byRegion()
         )
@@ -564,7 +566,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
           serverGroupEast.copy(name = activeServerGroupResponseEast.name, onlyEnabledServerGroup = false),
           serverGroupWest.copy(name = activeServerGroupResponseWest.name)
         )
-        val diff = DefaultResourceDiff(
+        val diff = diffFactory.compare(
           serverGroups.byRegion(),
           modified.byRegion()
         )
@@ -604,7 +606,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
             .withDoubleCapacity(),
           serverGroupWest.copy(name = activeServerGroupResponseWest.name).withDoubleCapacity()
         )
-        val diff = DefaultResourceDiff(
+        val diff = diffFactory.compare(
           serverGroups.byRegion(),
           modified.byRegion()
         )
@@ -619,7 +621,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
           serverGroupEast.copy(name = activeServerGroupResponseEast.name, onlyEnabledServerGroup = false),
           serverGroupWest.copy(name = activeServerGroupResponseWest.name)
         )
-        val diff = DefaultResourceDiff(
+        val diff = diffFactory.compare(
           serverGroups.byRegion(),
           modified.byRegion()
         )
@@ -660,7 +662,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
           serverGroupEast.copy(name = activeServerGroupResponseEast.name),
           serverGroupWest.copy(name = activeServerGroupResponseWest.name).withDoubleCapacity()
         )
-        val diff = DefaultResourceDiff(
+        val diff = diffFactory.compare(
           serverGroups.byRegion(),
           modified.byRegion()
         )
@@ -694,7 +696,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
           serverGroupEast.copy(name = activeServerGroupResponseEast.name),
           serverGroupWest.copy(name = activeServerGroupResponseWest.name).withNoScalingPolicies()
         )
-        val diff = DefaultResourceDiff(
+        val diff = diffFactory.compare(
           serverGroups.byRegion(),
           modified.byRegion()
         )
@@ -739,7 +741,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
           serverGroupEast.copy(name = activeServerGroupResponseEast.name),
           serverGroupWest.copy(name = activeServerGroupResponseWest.name).withNoScalingPolicies()
         )
-        val diff = DefaultResourceDiff(
+        val diff = diffFactory.compare(
           modified.byRegion(),
           serverGroups.byRegion()
         )
@@ -774,7 +776,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
             )
           )
         )
-        val diff = DefaultResourceDiff(
+        val diff = diffFactory.compare(
           modified.byRegion(),
           serverGroups.byRegion()
         )
@@ -816,7 +818,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
             .withDoubleCapacity()
             .withNoScalingPolicies()
         )
-        val diff = DefaultResourceDiff(
+        val diff = diffFactory.compare(
           serverGroups.byRegion(),
           modified.byRegion()
         )
@@ -854,7 +856,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
             .withDoubleCapacity()
             .withDifferentInstanceType()
         )
-        val diff = DefaultResourceDiff(
+        val diff = diffFactory.compare(
           serverGroups.byRegion(),
           modified.byRegion()
         )
@@ -989,7 +991,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
             .withDifferentInstanceType()
             .withNoScalingPolicies()
         )
-        val diff = DefaultResourceDiff(
+        val diff = diffFactory.compare(
           serverGroups.byRegion(),
           modified.byRegion()
         )
@@ -1026,7 +1028,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
           serverGroupEast.copy(name = activeServerGroupResponseEast.name).withDifferentInstanceType(),
           serverGroupWest.copy(name = activeServerGroupResponseWest.name).withDoubleCapacity()
         )
-        val diff = DefaultResourceDiff(
+        val diff = diffFactory.compare(
           serverGroups.byRegion(),
           modified.byRegion()
         )
@@ -1062,7 +1064,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
 
       context("nothing currently deployed, desired state is single region deployment") {
         fun diff(instanceType: String) =
-          DefaultResourceDiff(
+          diffFactory.compare(
             desired = clusterSpec(instanceType).resolve().filter { it.location.region == "us-west-2" }.byRegion(),
             current = emptyMap()
           )

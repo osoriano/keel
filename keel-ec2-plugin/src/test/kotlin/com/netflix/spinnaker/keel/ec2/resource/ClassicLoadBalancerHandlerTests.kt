@@ -19,7 +19,9 @@ import com.netflix.spinnaker.keel.clouddriver.model.Network
 import com.netflix.spinnaker.keel.clouddriver.model.SecurityGroupSummary
 import com.netflix.spinnaker.keel.clouddriver.model.Subnet
 import com.netflix.spinnaker.keel.core.parseMoniker
-import com.netflix.spinnaker.keel.diff.DefaultResourceDiff
+import com.netflix.spinnaker.keel.diff.DefaultIdentityServiceCustomizer
+import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
+import com.netflix.spinnaker.keel.ec2.diff.Ec2IdentityServiceCustomizer
 import com.netflix.spinnaker.keel.ec2.resolvers.ClassicLoadBalancerNetworkResolver
 import com.netflix.spinnaker.keel.ec2.resolvers.ClassicLoadBalancerSecurityGroupsResolver
 import com.netflix.spinnaker.keel.model.OrchestrationRequest
@@ -76,6 +78,7 @@ internal class ClassicLoadBalancerHandlerTests : JUnit5Minutests {
   )
   private val mapper = ObjectMapper().registerKotlinModule()
   private val yamlMapper = configuredYamlMapper()
+  private val diffFactory = DefaultResourceDiffFactory()
 
   private val normalizers: List<Resolver<*>> = listOf(
     ClassicLoadBalancerSecurityGroupsResolver(),
@@ -159,7 +162,13 @@ internal class ClassicLoadBalancerHandlerTests : JUnit5Minutests {
         cloudDriverCache,
         orcaService,
         taskLauncher,
-        normalizers
+        normalizers,
+        DefaultResourceDiffFactory(
+          listOf(
+            DefaultIdentityServiceCustomizer(),
+            Ec2IdentityServiceCustomizer()
+          )
+        )
       )
     }
 
@@ -201,12 +210,17 @@ internal class ClassicLoadBalancerHandlerTests : JUnit5Minutests {
       // TODO: this test should really be pulled into a test for ClassicLoadBalancerSecurityGroupsResolver
       test("the CLB is created with a default security group as none are specified in spec") {
         val slot = slot<OrchestrationRequest>()
-        every { orcaService.orchestrate("keel@spinnaker", capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+        every {
+          orcaService.orchestrate(
+            "keel@spinnaker",
+            capture(slot)
+          )
+        } answers { TaskRefResponse(ULID().nextULID()) }
 
         runBlocking {
           val current = current(resource)
           val desired = desired(resource)
-          upsert(resource, DefaultResourceDiff(desired = desired, current = current))
+          upsert(resource, diffFactory.compare(desired = desired, current = current))
         }
 
         expectThat(slot.captured.job.first()) {
@@ -220,7 +234,12 @@ internal class ClassicLoadBalancerHandlerTests : JUnit5Minutests {
       // TODO: this test should really be pulled into a test for ClassicLoadBalancerSecurityGroupsResolver
       test("no default security group is applied if any are included in the spec") {
         val slot = slot<OrchestrationRequest>()
-        every { orcaService.orchestrate("keel@spinnaker", capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+        every {
+          orcaService.orchestrate(
+            "keel@spinnaker",
+            capture(slot)
+          )
+        } answers { TaskRefResponse(ULID().nextULID()) }
 
         val modSpec = spec.run {
           copy(dependencies = dependencies.copy(securityGroupNames = setOf("nondefault-elb")))
@@ -230,7 +249,7 @@ internal class ClassicLoadBalancerHandlerTests : JUnit5Minutests {
         runBlocking {
           val current = current(modResource)
           val desired = desired(modResource)
-          upsert(modResource, DefaultResourceDiff(desired = desired, current = current))
+          upsert(modResource, diffFactory.compare(desired = desired, current = current))
         }
 
         expectThat(slot.captured.job.first()) {
@@ -257,13 +276,17 @@ internal class ClassicLoadBalancerHandlerTests : JUnit5Minutests {
         val diff = runBlocking {
           val current = current(newResource)
           val desired = desired(newResource)
-          DefaultResourceDiff(desired = desired, current = current)
+          diffFactory.compare(desired = desired, current = current)
         }
 
         expectThat(diff.diff)
           .and {
             childCount().isEqualTo(1)
-            getChild(MapKeyElementSelector("us-east-1"), BeanPropertyElementSelector("dependencies"), BeanPropertyElementSelector("securityGroupNames"))
+            getChild(
+              MapKeyElementSelector("us-east-1"),
+              BeanPropertyElementSelector("dependencies"),
+              BeanPropertyElementSelector("securityGroupNames")
+            )
               .isNotNull()
               .and {
                 state.isEqualTo(CHANGED)
@@ -293,11 +316,11 @@ internal class ClassicLoadBalancerHandlerTests : JUnit5Minutests {
 
         runBlocking {
           // Export differs from the model prior to the application of resolvers
-          val unresolvedDiff = DefaultResourceDiff(resource, resource.copy(spec = export))
+          val unresolvedDiff = diffFactory.compare(resource, resource.copy(spec = export))
           expectThat(unresolvedDiff.hasChanges())
             .isTrue()
           // But diffs cleanly after resolvers are applied
-          val resolvedDiff = DefaultResourceDiff(
+          val resolvedDiff = diffFactory.compare(
             desired(resource),
             desired(resource.copy(spec = export))
           )

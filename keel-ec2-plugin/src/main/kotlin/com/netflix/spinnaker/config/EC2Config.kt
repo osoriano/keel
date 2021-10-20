@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.config
 
+import com.netflix.spinnaker.keel.api.ResourceDiffFactory
 import com.netflix.spinnaker.keel.api.actuation.TaskLauncher
 import com.netflix.spinnaker.keel.api.plugins.Resolver
 import com.netflix.spinnaker.keel.api.support.EventPublisher
@@ -54,7 +55,8 @@ class EC2Config {
     eventPublisher: EventPublisher,
     clusterExportHelper: ClusterExportHelper,
     blockDeviceConfig: BlockDeviceConfig,
-    artifactService: ArtifactService
+    artifactService: ArtifactService,
+    diffFactory: ResourceDiffFactory
   ): ClusterHandler =
     ClusterHandler(
       cloudDriverService,
@@ -66,7 +68,8 @@ class EC2Config {
       normalizers,
       clusterExportHelper,
       blockDeviceConfig,
-      artifactService
+      artifactService,
+      diffFactory
     )
 
   @Bean
@@ -76,14 +79,16 @@ class EC2Config {
     cloudDriverCache: CloudDriverCache,
     orcaService: OrcaService,
     taskLauncher: TaskLauncher,
-    normalizers: List<Resolver<*>>
+    normalizers: List<Resolver<*>>,
+    diffFactory: ResourceDiffFactory
   ): SecurityGroupHandler =
     SecurityGroupHandler(
       cloudDriverService,
       cloudDriverCache,
       orcaService,
       taskLauncher,
-      normalizers
+      normalizers,
+      diffFactory
     )
 
   @Bean
@@ -92,14 +97,16 @@ class EC2Config {
     cloudDriverCache: CloudDriverCache,
     orcaService: OrcaService,
     taskLauncher: TaskLauncher,
-    normalizers: List<Resolver<*>>
+    normalizers: List<Resolver<*>>,
+    diffFactory: ResourceDiffFactory
   ): ClassicLoadBalancerHandler =
     ClassicLoadBalancerHandler(
       cloudDriverService,
       cloudDriverCache,
       orcaService,
       taskLauncher,
-      normalizers
+      normalizers,
+      diffFactory
     )
 
   @Bean
@@ -108,14 +115,16 @@ class EC2Config {
     cloudDriverCache: CloudDriverCache,
     orcaService: OrcaService,
     taskLauncher: TaskLauncher,
-    normalizers: List<Resolver<*>>
+    normalizers: List<Resolver<*>>,
+    diffFactory: ResourceDiffFactory
   ): ApplicationLoadBalancerHandler =
     ApplicationLoadBalancerHandler(
       cloudDriverService,
       cloudDriverCache,
       orcaService,
       taskLauncher,
-      normalizers
+      normalizers,
+      diffFactory
     )
 
   @Bean

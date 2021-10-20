@@ -4,6 +4,7 @@ import com.netflix.spinnaker.keel.api.Exportable
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceDiff
+import com.netflix.spinnaker.keel.api.ResourceDiffFactory
 import com.netflix.spinnaker.keel.api.SubnetAwareLocations
 import com.netflix.spinnaker.keel.api.SubnetAwareRegionSpec
 import com.netflix.spinnaker.keel.api.actuation.Job
@@ -22,7 +23,6 @@ import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.clouddriver.ResourceNotFound
 import com.netflix.spinnaker.keel.core.parseMoniker
-import com.netflix.spinnaker.keel.diff.DefaultResourceDiff
 import com.netflix.spinnaker.keel.diff.toIndividualDiffs
 import com.netflix.spinnaker.keel.ec2.toEc2Api
 import com.netflix.spinnaker.keel.ec2.toOrcaRequest
@@ -39,7 +39,8 @@ class ApplicationLoadBalancerHandler(
   private val cloudDriverCache: CloudDriverCache,
   private val orcaService: OrcaService,
   private val taskLauncher: TaskLauncher,
-  resolvers: List<Resolver<*>>
+  resolvers: List<Resolver<*>>,
+  private val diffFactory: ResourceDiffFactory
 ) : BaseLoadBalancerHandler<ApplicationLoadBalancerSpec, ApplicationLoadBalancer>(cloudDriverCache, taskLauncher, resolvers) {
 
   override val supportedKind = EC2_APPLICATION_LOAD_BALANCER_V1_2
@@ -75,8 +76,8 @@ class ApplicationLoadBalancerHandler(
     resourceDiff: ResourceDiff<Map<String, ApplicationLoadBalancer>>
   ): List<Task> =
     coroutineScope {
-      resourceDiff
-        .toIndividualDiffs()
+      diffFactory
+        .toIndividualDiffs(resourceDiff)
         .filter { diff -> diff.hasChanges() }
         .map { diff ->
           val desired = diff.desired
@@ -353,9 +354,9 @@ class ApplicationLoadBalancerHandler(
     regionalAlbs: Map<String, ApplicationLoadBalancer>
   ) =
     regionalAlbs.forEach { (region, alb) ->
-      val dependenciesDiff = DefaultResourceDiff(alb.dependencies, dependencies).hasChanges()
-      val listenersDiff = DefaultResourceDiff(alb.listeners, listeners).hasChanges()
-      val targetGroupDiff = DefaultResourceDiff(alb.targetGroups, targetGroups).hasChanges()
+      val dependenciesDiff = diffFactory.compare(alb.dependencies, dependencies).hasChanges()
+      val listenersDiff = diffFactory.compare(alb.listeners, listeners).hasChanges()
+      val targetGroupDiff = diffFactory.compare(alb.targetGroups, targetGroups).hasChanges()
 
       if (dependenciesDiff || listenersDiff || targetGroupDiff) {
         (overrides as MutableMap)[region] = ApplicationLoadBalancerOverride(

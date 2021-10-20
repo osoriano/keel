@@ -17,6 +17,7 @@
  */
 package com.netflix.spinnaker.config
 
+import com.netflix.spinnaker.keel.api.ResourceDiffFactory
 import com.netflix.spinnaker.keel.api.actuation.TaskLauncher
 import com.netflix.spinnaker.keel.api.plugins.Resolver
 import com.netflix.spinnaker.keel.api.support.EventPublisher
@@ -47,7 +48,8 @@ class TitusConfig {
     taskLauncher: TaskLauncher,
     eventPublisher: EventPublisher,
     resolvers: List<Resolver<*>>,
-    clusterExportHelper: ClusterExportHelper
+    clusterExportHelper: ClusterExportHelper,
+    diffFactory: ResourceDiffFactory
   ): TitusClusterHandler = TitusClusterHandler(
     cloudDriverService,
     cloudDriverCache,
@@ -56,7 +58,8 @@ class TitusConfig {
     taskLauncher,
     eventPublisher,
     resolvers,
-    clusterExportHelper
+    clusterExportHelper,
+    diffFactory
   )
 
   @Bean

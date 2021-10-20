@@ -20,6 +20,7 @@ import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.Exportable
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.Resource
+import com.netflix.spinnaker.keel.api.ResourceDiffFactory
 import com.netflix.spinnaker.keel.api.SimpleLocations
 import com.netflix.spinnaker.keel.api.SimpleRegionSpec
 import com.netflix.spinnaker.keel.api.actuation.Job
@@ -50,7 +51,7 @@ import com.netflix.spinnaker.keel.clouddriver.model.SecurityGroupModel.SecurityG
 import com.netflix.spinnaker.keel.clouddriver.model.SecurityGroupSummary
 import com.netflix.spinnaker.keel.core.name
 import com.netflix.spinnaker.keel.core.parseMoniker
-import com.netflix.spinnaker.keel.diff.DefaultResourceDiff
+import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.model.OrchestrationRequest
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.orca.OrcaTaskLauncher
@@ -88,7 +89,6 @@ import io.mockk.coEvery as every
 import io.mockk.coVerify as verify
 import org.springframework.core.env.Environment as SpringEnv
 
-
 @Suppress("UNCHECKED_CAST")
 internal class SecurityGroupHandlerTests : JUnit5Minutests {
   private val cloudDriverService: CloudDriverService = mockk()
@@ -125,6 +125,7 @@ internal class SecurityGroupHandlerTests : JUnit5Minutests {
     val securityGroupSpec: SecurityGroupSpec
     val securityGroupBase: SecurityGroup
     val regionalSecurityGroups: Map<String, SecurityGroup>
+    val diffFactory: ResourceDiffFactory
   }
 
   data class CurrentFixture(
@@ -139,7 +140,14 @@ internal class SecurityGroupHandlerTests : JUnit5Minutests {
     override val vpcRegion2: Network =
       Network(EC2_CLOUD_PROVIDER, randomUUID().toString(), "vpc1", "prod", "us-east-17"),
     override val handler: SecurityGroupHandler =
-      SecurityGroupHandler(cloudDriverService, cloudDriverCache, orcaService, taskLauncher, normalizers),
+      SecurityGroupHandler(
+        cloudDriverService,
+        cloudDriverCache,
+        orcaService,
+        taskLauncher,
+        normalizers,
+        DefaultResourceDiffFactory()
+      ),
 
     override val securityGroupSpec: SecurityGroupSpec =
       SecurityGroupSpec(
@@ -212,8 +220,16 @@ internal class SecurityGroupHandlerTests : JUnit5Minutests {
       SecurityGroupSummary("keel-fnord", "sg-3a0c495f", vpcRegion1.id),
     val cloudDriverSummaryResponseEast: SecurityGroupSummary =
       SecurityGroupSummary("keel-fnord", "sg-5a2a497d", vpcRegion2.id),
-    val vpcOtherAccount: Network = Network(EC2_CLOUD_PROVIDER, randomUUID().toString(), "vpc0", "mgmt", vpcRegion1.region)
-  ) : Fixture
+    val vpcOtherAccount: Network = Network(
+      EC2_CLOUD_PROVIDER,
+      randomUUID().toString(),
+      "vpc0",
+      "mgmt",
+      vpcRegion1.region
+    )
+  ) : Fixture {
+    override val diffFactory: ResourceDiffFactory = DefaultResourceDiffFactory()
+  }
 
   data class UpsertFixture(
     override val cloudDriverService: CloudDriverService,
@@ -227,7 +243,14 @@ internal class SecurityGroupHandlerTests : JUnit5Minutests {
     override val vpcRegion2: Network =
       Network(EC2_CLOUD_PROVIDER, randomUUID().toString(), "vpc1", "prod", "us-east-17"),
     override val handler: SecurityGroupHandler =
-      SecurityGroupHandler(cloudDriverService, cloudDriverCache, orcaService, taskLauncher, normalizers),
+      SecurityGroupHandler(
+        cloudDriverService,
+        cloudDriverCache,
+        orcaService,
+        taskLauncher,
+        normalizers,
+        DefaultResourceDiffFactory()
+      ),
     override val securityGroupSpec: SecurityGroupSpec =
       SecurityGroupSpec(
         moniker = Moniker(
@@ -271,7 +294,9 @@ internal class SecurityGroupHandlerTests : JUnit5Minutests {
           )
         )
       )
-  ) : Fixture
+  ) : Fixture {
+    override val diffFactory: ResourceDiffFactory = DefaultResourceDiffFactory()
+  }
 
   fun currentTests() = rootContext<CurrentFixture> {
     fixture {
@@ -333,7 +358,7 @@ internal class SecurityGroupHandlerTests : JUnit5Minutests {
           .hasSize(0)
 
         // The export cleanly diffs against the fixture spec
-        val diff = DefaultResourceDiff(securityGroupSpec, export)
+        val diff = diffFactory.compare(securityGroupSpec, export)
         expectThat(diff.hasChanges())
           .isFalse()
       }
@@ -543,7 +568,7 @@ internal class SecurityGroupHandlerTests : JUnit5Minutests {
               handlerMethod.invoke(
                 handler,
                 resource,
-                DefaultResourceDiff(handler.desired(resource), null)
+                diffFactory.compare(handler.desired(resource), null)
               )
             }
           }
@@ -613,7 +638,7 @@ internal class SecurityGroupHandlerTests : JUnit5Minutests {
               handlerMethod.invoke(
                 handler,
                 resource,
-                DefaultResourceDiff(handler.desired(resource), null)
+                diffFactory.compare(handler.desired(resource), null)
               )
             }
           }
@@ -678,7 +703,7 @@ internal class SecurityGroupHandlerTests : JUnit5Minutests {
               handlerMethod.invoke(
                 handler,
                 resource,
-                DefaultResourceDiff(handler.desired(resource), null)
+                diffFactory.compare(handler.desired(resource), null)
               )
             }
           }
@@ -804,7 +829,7 @@ internal class SecurityGroupHandlerTests : JUnit5Minutests {
         }
 
         runBlocking {
-          handler.create(resource, DefaultResourceDiff(handler.desired(resource), null))
+          handler.create(resource, diffFactory.compare(handler.desired(resource), null))
         }
       }
 
@@ -863,7 +888,7 @@ internal class SecurityGroupHandlerTests : JUnit5Minutests {
 
           handler.update(
             resource,
-            DefaultResourceDiff(handler.desired(resource), handler.desired(withoutIngress))
+            diffFactory.compare(handler.desired(resource), handler.desired(withoutIngress))
           )
         }
       }
@@ -922,7 +947,7 @@ internal class SecurityGroupHandlerTests : JUnit5Minutests {
 
           handler.update(
             resource,
-            DefaultResourceDiff(handler.desired(resource), handler.desired(withoutIngress))
+            diffFactory.compare(handler.desired(resource), handler.desired(withoutIngress))
           )
         }
       }
@@ -995,7 +1020,7 @@ internal class SecurityGroupHandlerTests : JUnit5Minutests {
 
           handler.update(
             resource,
-            DefaultResourceDiff(handler.desired(resource), handler.desired(onlyInEast))
+            diffFactory.compare(handler.desired(resource), handler.desired(onlyInEast))
           )
         }
       }
@@ -1061,7 +1086,7 @@ internal class SecurityGroupHandlerTests : JUnit5Minutests {
 
           handler.upsert(
             resource,
-            DefaultResourceDiff(handler.desired(resource), handler.desired(withoutOverride))
+            diffFactory.compare(handler.desired(resource), handler.desired(withoutOverride))
           )
         }
       }

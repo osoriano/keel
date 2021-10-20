@@ -7,24 +7,24 @@ import com.netflix.spinnaker.keel.api.actuation.TaskLauncher
 import com.netflix.spinnaker.keel.api.ec2.Capacity
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec.CapacitySpec
 import com.netflix.spinnaker.keel.api.support.EventPublisher
+import com.netflix.spinnaker.keel.api.titus.TITUS_CLUSTER_V1
 import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroup
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroupSpec
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
+import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.docker.DigestProvider
 import com.netflix.spinnaker.keel.orca.ClusterExportHelper
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.keel.titus.NETFLIX_CONTAINER_ENV_VARS
-import com.netflix.spinnaker.keel.api.titus.TITUS_CLUSTER_V1
 import com.netflix.spinnaker.keel.titus.TitusClusterHandler
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
 import strikt.api.expectThat
-import strikt.assertions.all
 import strikt.assertions.contains
 import strikt.assertions.getValue
 import strikt.assertions.isEqualTo
@@ -154,7 +154,8 @@ class TitusClusterDesiredStateResolutionTests : JUnit5Minutests {
       taskLauncher,
       publisher,
       emptyList(),
-      ClusterExportHelper(cloudDriverService, orcaService)
+      ClusterExportHelper(cloudDriverService, orcaService),
+      DefaultResourceDiffFactory()
     )
 
     val desired: Map<String, TitusServerGroup> by lazy {

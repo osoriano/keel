@@ -20,7 +20,9 @@ import com.netflix.spinnaker.keel.clouddriver.model.Network
 import com.netflix.spinnaker.keel.clouddriver.model.SecurityGroupSummary
 import com.netflix.spinnaker.keel.clouddriver.model.Subnet
 import com.netflix.spinnaker.keel.core.parseMoniker
-import com.netflix.spinnaker.keel.diff.DefaultResourceDiff
+import com.netflix.spinnaker.keel.diff.DefaultIdentityServiceCustomizer
+import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
+import com.netflix.spinnaker.keel.ec2.diff.Ec2IdentityServiceCustomizer
 import com.netflix.spinnaker.keel.ec2.resolvers.ApplicationLoadBalancerDefaultsResolver
 import com.netflix.spinnaker.keel.ec2.resolvers.ApplicationLoadBalancerNetworkResolver
 import com.netflix.spinnaker.keel.ec2.toEc2Api
@@ -76,6 +78,7 @@ internal class ApplicationLoadBalancerHandlerTests : JUnit5Minutests {
     springEnv
   )
   private val yamlMapper = configuredYamlMapper()
+  private val diffFactory = DefaultResourceDiffFactory()
 
   private val normalizers: List<Resolver<*>> = listOf(
     ApplicationLoadBalancerDefaultsResolver(),
@@ -186,7 +189,13 @@ internal class ApplicationLoadBalancerHandlerTests : JUnit5Minutests {
         cloudDriverCache,
         orcaService,
         taskLauncher,
-        normalizers
+        normalizers,
+        DefaultResourceDiffFactory(
+          listOf(
+            DefaultIdentityServiceCustomizer(),
+            Ec2IdentityServiceCustomizer()
+          )
+        )
       )
     }
 
@@ -220,7 +229,7 @@ internal class ApplicationLoadBalancerHandlerTests : JUnit5Minutests {
         runBlocking {
           val current = current(resource)
           val desired = desired(resource)
-          upsert(resource, DefaultResourceDiff(desired = desired, current = current))
+          upsert(resource, diffFactory.compare(desired = desired, current = current))
         }
 
         val slot = slot<OrchestrationRequest>()
@@ -255,7 +264,7 @@ internal class ApplicationLoadBalancerHandlerTests : JUnit5Minutests {
         val diff = runBlocking {
           val current = current(resource)
           val desired = desired(resource)
-          DefaultResourceDiff(desired = desired, current = current)
+          diffFactory.compare(desired = desired, current = current)
         }
 
         expectThat(diff.diff.childCount()).isEqualTo(0)
@@ -276,11 +285,11 @@ internal class ApplicationLoadBalancerHandlerTests : JUnit5Minutests {
 
         runBlocking {
           // Export differs from the model prior to the application of resolvers
-          val unresolvedDiff = DefaultResourceDiff(resource, resource.copy(spec = export))
+          val unresolvedDiff = diffFactory.compare(resource, resource.copy(spec = export))
           expectThat(unresolvedDiff.hasChanges())
             .isTrue()
           // But diffs cleanly after resolvers are applied
-          val resolvedDiff = DefaultResourceDiff(
+          val resolvedDiff = diffFactory.compare(
             desired(resource),
             desired(resource.copy(spec = export))
           )
@@ -343,7 +352,7 @@ internal class ApplicationLoadBalancerHandlerTests : JUnit5Minutests {
         runBlocking {
           val current = current(newResource)
           val desired = desired(newResource)
-          val diff = DefaultResourceDiff(desired = desired, current = current)
+          val diff = diffFactory.compare(desired = desired, current = current)
 
           expectThat(diff.diff) {
             get { childCount() }.isEqualTo(1)

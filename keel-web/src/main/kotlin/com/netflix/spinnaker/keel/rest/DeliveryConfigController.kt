@@ -2,13 +2,13 @@ package com.netflix.spinnaker.keel.rest
 
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import com.netflix.spinnaker.keel.api.DeliveryConfig
+import com.netflix.spinnaker.keel.api.ResourceDiffFactory
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport.TargetEntity.APPLICATION
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport.TargetEntity.SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.auth.PermissionLevel.READ
 import com.netflix.spinnaker.keel.auth.PermissionLevel.WRITE
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
-import com.netflix.spinnaker.keel.diff.DefaultResourceDiff
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.model.ManagedDeliveryConfig
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
@@ -43,7 +43,6 @@ import org.springframework.web.bind.annotation.RestController
 import java.io.BufferedReader
 import java.io.InputStream
 
-
 @RestController
 @RequestMapping(path = ["/delivery-configs"])
 class DeliveryConfigController(
@@ -56,6 +55,7 @@ class DeliveryConfigController(
   private val deliveryConfigUpserter: DeliveryConfigUpserter,
   private val yamlMapper: YAMLMapper,
   private val front50Cache: Front50Cache,
+  private val diffFactory: ResourceDiffFactory
 ) {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
@@ -150,7 +150,7 @@ class DeliveryConfigController(
       .applyAll(deliveryConfig)
       .let { processedDeliveryConfig ->
         validator.validate(processedDeliveryConfig)
-        DefaultResourceDiff(
+        diffFactory.compare(
           desired = processedDeliveryConfig.toDeliveryConfig(),
           current = existing
         ).toDeltaJson()

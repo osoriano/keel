@@ -5,12 +5,12 @@ import com.netflix.spinnaker.keel.api.ComputeResourceSpec
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceDiff
+import com.netflix.spinnaker.keel.api.ResourceDiffFactory
 import com.netflix.spinnaker.keel.api.actuation.Job
 import com.netflix.spinnaker.keel.api.actuation.Task
 import com.netflix.spinnaker.keel.api.actuation.TaskLauncher
 import com.netflix.spinnaker.keel.core.orcaClusterMoniker
 import com.netflix.spinnaker.keel.core.serverGroup
-import com.netflix.spinnaker.keel.diff.DefaultResourceDiff
 import com.netflix.spinnaker.keel.diff.toIndividualDiffs
 import com.netflix.spinnaker.keel.orca.dependsOn
 import com.netflix.spinnaker.keel.orca.restrictedExecutionWindow
@@ -18,7 +18,6 @@ import com.netflix.spinnaker.keel.orca.waitStage
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.runBlocking
 
 /**
  * Common cluster functionality.
@@ -28,7 +27,8 @@ import kotlinx.coroutines.runBlocking
  */
 abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Any>(
   resolvers: List<Resolver<*>>,
-  protected open val taskLauncher: TaskLauncher
+  protected val taskLauncher: TaskLauncher,
+  protected val diffFactory: ResourceDiffFactory
 ) : ResolvableResourceHandler<SPEC, Map<String, RESOLVED>>(resolvers) {
 
   /**
@@ -90,7 +90,7 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Any>(
     //  AND the current active server group is unhealthy
     val potentialInactionableRegions = mutableListOf<String>()
     val inactionableRegions = mutableListOf<String>()
-    resourceDiff.toIndividualDiffs().forEach { diff ->
+    diffFactory.toIndividualDiffs(resourceDiff).forEach { diff ->
       if (diff.hasChanges() && diff.isEnabledOnly()) {
         potentialInactionableRegions.add(getDesiredRegion(diff))
       }
@@ -249,7 +249,7 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Any>(
       val regionalServerGroups = regionalList.value
       val result = find { getDesiredRegion(it) == region }?.let { regionalDiff ->
         regionalServerGroups.firstOrNull {
-          val diff = DefaultResourceDiff(regionalDiff.desired, it)
+          val diff = diffFactory.compare(regionalDiff.desired, it)
           !diff.hasChanges() || diff.isIgnorableForRollback()
         }
       }
@@ -291,8 +291,8 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Any>(
    */
   override suspend fun upsert(resource: Resource<SPEC>, resourceDiff: ResourceDiff<Map<String, RESOLVED>>): List<Task> =
     coroutineScope {
-      val diffs = resourceDiff
-        .toIndividualDiffs()
+      val diffs = diffFactory
+        .toIndividualDiffs(resourceDiff)
         .filter { diff -> diff.hasChanges() }
 
       val deferred: MutableList<Deferred<Task>> = mutableListOf()
@@ -301,7 +301,9 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Any>(
 
       val modifyDiffs = diffs
         .filter {
-          it.isCapacityOrAutoScalingOnly() || it.isEnabledOnly() || it.isCapacityOnly() || rollbackServerGroups[getDesiredRegion(it)] != null
+          it.isCapacityOrAutoScalingOnly() || it.isEnabledOnly() || it.isCapacityOnly() || rollbackServerGroups[getDesiredRegion(
+            it
+          )] != null
         }
       val createDiffs = diffs - modifyDiffs
 

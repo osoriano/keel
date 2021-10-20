@@ -32,6 +32,7 @@ import com.netflix.spinnaker.keel.clouddriver.model.ServerGroupCollection
 import com.netflix.spinnaker.keel.clouddriver.model.Subnet
 import com.netflix.spinnaker.keel.clouddriver.model.TargetTrackingConfiguration
 import com.netflix.spinnaker.keel.diff.DefaultResourceDiff
+import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.test.resource
 import de.danielbechler.diff.node.DiffNode
 import de.danielbechler.diff.path.NodePath
@@ -64,7 +65,8 @@ class CapacityAndScalingPoliciesDiffingTests {
     resolvers = emptyList(),
     clusterExportHelper = mockk(),
     blockDeviceConfig = mockk(),
-    artifactService = mockk()
+    artifactService = mockk(),
+    diffFactory = DefaultResourceDiffFactory()
   )
 
   val baseResource = resource(
@@ -153,11 +155,13 @@ class CapacityAndScalingPoliciesDiffingTests {
   val Assertion.Builder<DefaultResourceDiff<Map<String, ServerGroup>>>.desiredCapacity: Assertion.Builder<DiffNode?>
     get() = get { diff.getChild(desiredCapacityPath) }
 
+  val diffFactory = DefaultResourceDiffFactory()
+
   fun generateDiff(resource: Resource<ClusterSpec>): DefaultResourceDiff<Map<String, ServerGroup>> =
     runBlocking {
       val desired = handler.desired(resource)
       val current = handler.current(resource)
-      DefaultResourceDiff(desired, current)
+      diffFactory.compare(desired, current)
     }
 
   fun Resource<ClusterSpec>.withCapacity(capacity: CapacitySpec): Resource<ClusterSpec> =

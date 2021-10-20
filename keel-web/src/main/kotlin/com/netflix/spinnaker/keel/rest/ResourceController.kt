@@ -16,10 +16,11 @@
 package com.netflix.spinnaker.keel.rest
 
 import com.netflix.spinnaker.keel.api.Resource
+import com.netflix.spinnaker.keel.api.ResourceDiff
+import com.netflix.spinnaker.keel.api.ResourceDiffFactory
 import com.netflix.spinnaker.keel.core.api.SubmittedResource
 import com.netflix.spinnaker.keel.core.api.id
 import com.netflix.spinnaker.keel.core.api.normalize
-import com.netflix.spinnaker.keel.diff.DefaultResourceDiff
 import com.netflix.spinnaker.keel.pause.ActuationPauser
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.ResourceStatus
@@ -43,7 +44,8 @@ import org.springframework.web.bind.annotation.RestController
 class ResourceController(
   private val repository: KeelRepository,
   private val actuationPauser: ActuationPauser,
-  private val resourceStatusService: ResourceStatusService
+  private val resourceStatusService: ResourceStatusService,
+  private val diffFactory: ResourceDiffFactory
 ) {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
@@ -107,8 +109,8 @@ class ResourceController(
   @PreAuthorize("@authorizationSupport.hasApplicationPermission('READ', 'APPLICATION', #resource.spec.application)")
   fun diff(
     @RequestBody resource: SubmittedResource<*>
-  ): DefaultResourceDiff<Resource<*>> {
+  ): ResourceDiff<Resource<*>> {
     log.debug("Diffing: $resource")
-    return runBlocking { DefaultResourceDiff(resource.normalize(), repository.getResource(resource.id)) }
+    return runBlocking { diffFactory.compare(resource.normalize(), repository.getResource(resource.id)) }
   }
 }

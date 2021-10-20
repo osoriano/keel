@@ -11,6 +11,7 @@ import com.netflix.spinnaker.keel.api.actuation.Task
 import com.netflix.spinnaker.keel.api.plugins.ResourceHandler
 import com.netflix.spinnaker.keel.api.plugins.SupportedKind
 import com.netflix.spinnaker.keel.core.api.randomUID
+import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.enforcers.EnvironmentExclusionEnforcer
 import com.netflix.spinnaker.keel.events.ResourceValid
 import com.netflix.spinnaker.keel.pause.ActuationPauser
@@ -116,7 +117,8 @@ class IntermittentFailureTests : JUnit5Minutests {
       publisher,
       Clock.systemUTC(),
       environmentExclusionEnforcer,
-      NoopRegistry()
+      NoopRegistry(),
+      DefaultResourceDiffFactory()
     )
     val desired = DummyResourceSpec(data = "fnord")
     val current = DummyResourceSpec()

@@ -3,6 +3,7 @@ package com.netflix.spinnaker.keel.api.ec2
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.ec2.SecurityGroupRule.Protocol.TCP
 import com.netflix.spinnaker.keel.diff.DefaultResourceDiff
+import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import de.danielbechler.diff.node.DiffNode.State.CHANGED
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
@@ -13,6 +14,8 @@ import strikt.assertions.isNull
 import strikt.assertions.isTrue
 
 internal object SecurityGroupTests : JUnit5Minutests {
+
+  val diffFactory = DefaultResourceDiffFactory()
 
   fun diffTests() = rootContext<SecurityGroup> {
     fixture {
@@ -37,7 +40,7 @@ internal object SecurityGroupTests : JUnit5Minutests {
 
     derivedContext<DefaultResourceDiff<SecurityGroup>>("identical security groups") {
       deriveFixture {
-        DefaultResourceDiff(this, copy())
+        diffFactory.compare(this, copy())
       }
 
       test("diff contains no changes") {
@@ -49,7 +52,7 @@ internal object SecurityGroupTests : JUnit5Minutests {
 
     derivedContext<DefaultResourceDiff<SecurityGroup>>("security groups that differ in basic fields") {
       deriveFixture {
-        DefaultResourceDiff(
+        diffFactory.compare(
           this,
           copy(
             location = SecurityGroup.Location(
@@ -74,7 +77,10 @@ internal object SecurityGroupTests : JUnit5Minutests {
 
     derivedContext<DefaultResourceDiff<SecurityGroup>>("security groups that differ in ignored fields") {
       deriveFixture {
-        DefaultResourceDiff(this, copy(description = "We can't actually make changes to this so it should be ignored by the diff"))
+        diffFactory.compare(
+          this,
+          copy(description = "We can't actually make changes to this so it should be ignored by the diff")
+        )
       }
 
       test("diff does not contain changes") {
@@ -84,7 +90,7 @@ internal object SecurityGroupTests : JUnit5Minutests {
 
     derivedContext<DefaultResourceDiff<SecurityGroup>>("security groups that differ in ignored and non-ignored fields") {
       deriveFixture {
-        DefaultResourceDiff(
+        diffFactory.compare(
           this,
           copy(
             location = SecurityGroup.Location(
@@ -116,7 +122,7 @@ internal object SecurityGroupTests : JUnit5Minutests {
 
     derivedContext<DefaultResourceDiff<SecurityGroup>>("desired state has differing inbound rules") {
       deriveFixture {
-        DefaultResourceDiff(
+        diffFactory.compare(
           this,
           copy(
             inboundRules = inboundRules.map {
@@ -145,7 +151,7 @@ internal object SecurityGroupTests : JUnit5Minutests {
 
     derivedContext<DefaultResourceDiff<SecurityGroup>>("desired state has fewer inbound rules") {
       deriveFixture {
-        DefaultResourceDiff(this, copy(inboundRules = inboundRules.take(1).toSet()))
+        diffFactory.compare(this, copy(inboundRules = inboundRules.take(1).toSet()))
       }
 
       test("diff contains changes") {
@@ -163,7 +169,7 @@ internal object SecurityGroupTests : JUnit5Minutests {
 
     derivedContext<DefaultResourceDiff<SecurityGroup>>("desired state has a new inbound rule") {
       deriveFixture {
-        DefaultResourceDiff(
+        diffFactory.compare(
           this,
           copy(
             inboundRules = inboundRules
@@ -188,7 +194,7 @@ internal object SecurityGroupTests : JUnit5Minutests {
 
     derivedContext<DefaultResourceDiff<SecurityGroup>>("desired state has a new inbound rule with only a different port range") {
       deriveFixture {
-        DefaultResourceDiff(
+        diffFactory.compare(
           this,
           copy(
             inboundRules = inboundRules
