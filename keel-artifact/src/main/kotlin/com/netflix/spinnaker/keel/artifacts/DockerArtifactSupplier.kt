@@ -12,7 +12,6 @@ import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.SEMVER_JOB_CO
 import com.netflix.spinnaker.keel.api.artifacts.SortingStrategy
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
-import com.netflix.spinnaker.keel.api.plugins.SupportedSortingStrategy
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
@@ -29,9 +28,6 @@ class DockerArtifactSupplier(
   override val artifactMetadataService: ArtifactMetadataService
 ) : BaseArtifactSupplier<DockerArtifact, DockerVersionSortingStrategy>(artifactMetadataService) {
   override val supportedArtifact = SupportedArtifact("docker", DockerArtifact::class.java)
-
-  override val supportedSortingStrategy =
-    SupportedSortingStrategy("docker", DockerVersionSortingStrategy::class.java)
 
   private fun findArtifactVersions(artifact: DeliveryArtifact, version: String? = null): List<PublishedArtifact> {
     return runWithIoContext {

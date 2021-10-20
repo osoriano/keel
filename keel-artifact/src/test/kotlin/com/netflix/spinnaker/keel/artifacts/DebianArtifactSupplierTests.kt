@@ -14,7 +14,6 @@ import com.netflix.spinnaker.keel.api.artifacts.PullRequest
 import com.netflix.spinnaker.keel.api.artifacts.Repo
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
 import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
-import com.netflix.spinnaker.keel.api.plugins.SupportedSortingStrategy
 import com.netflix.spinnaker.keel.api.support.SpringEventPublisherBridge
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactService
@@ -153,13 +152,6 @@ internal class DebianArtifactSupplierTests : JUnit5Minutests {
         expectThat(debianArtifactSupplier.supportedArtifact).isEqualTo(
           SupportedArtifact(DEBIAN, DebianArtifact::class.java)
         )
-      }
-
-      test("supports Debian version sorting strategy") {
-        expectThat(debianArtifactSupplier.supportedSortingStrategy)
-          .isEqualTo(
-            SupportedSortingStrategy(DEBIAN, DebianVersionSortingStrategy::class.java)
-          )
       }
 
       context("retrieving latest artifact version") {

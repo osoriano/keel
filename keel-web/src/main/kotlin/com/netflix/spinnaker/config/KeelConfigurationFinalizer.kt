@@ -130,12 +130,12 @@ class KeelConfigurationFinalizer(
         extensionRegistry.register(artifactClass, name)
       }
 
-    artifactSuppliers
-      .map { it.supportedSortingStrategy }
-      .forEach { (name, strategyClass) ->
-        log.info("Registering SortingStrategy sub-type {}: {}", name, strategyClass.simpleName)
-        extensionRegistry.register(strategyClass, name)
-      }
+//    artifactSuppliers
+//      .map { it.supportedSortingStrategy }
+//      .forEach { (name, strategyClass) ->
+//        log.info("Registering SortingStrategy sub-type {}: {}", name, strategyClass.simpleName)
+//        extensionRegistry.register(strategyClass, name)
+//      }
   }
 
   @PostConstruct

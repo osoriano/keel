@@ -11,7 +11,6 @@ import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PullRequest
 import com.netflix.spinnaker.keel.api.artifacts.Repo
 import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
-import com.netflix.spinnaker.keel.api.plugins.SupportedSortingStrategy
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
 import com.netflix.spinnaker.keel.test.DummyArtifact
@@ -70,9 +69,6 @@ class BaseArtifactSupplierTests {
 
     override val supportedArtifact: SupportedArtifact<DummyArtifact>
       get() = SupportedArtifact("dummy", DummyArtifact::class.java)
-
-    override val supportedSortingStrategy: SupportedSortingStrategy<DummySortingStrategy>
-      get() = SupportedSortingStrategy("dummy", DummySortingStrategy::class.java)
 
     override fun getLatestArtifact(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact): PublishedArtifact? {
       TODO("Not yet implemented")

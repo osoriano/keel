@@ -13,7 +13,6 @@ import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.INCREASING_TA
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.SEMVER_JOB_COMMIT_BY_SEMVER
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.SEMVER_TAG
 import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
-import com.netflix.spinnaker.keel.api.plugins.SupportedSortingStrategy
 import com.netflix.spinnaker.keel.api.support.SpringEventPublisherBridge
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.clouddriver.model.ArtifactProperty
@@ -165,13 +164,6 @@ internal class DockerArtifactSupplierTests : JUnit5Minutests {
         expectThat(dockerArtifactSupplier.supportedArtifact).isEqualTo(
           SupportedArtifact(DOCKER, DockerArtifact::class.java)
         )
-      }
-
-      test("supports Docker version sorting strategy") {
-        expectThat(dockerArtifactSupplier.supportedSortingStrategy)
-          .isEqualTo(
-            SupportedSortingStrategy(DOCKER, DockerVersionSortingStrategy::class.java)
-          )
       }
 
       test("looks up latest artifact from igor") {

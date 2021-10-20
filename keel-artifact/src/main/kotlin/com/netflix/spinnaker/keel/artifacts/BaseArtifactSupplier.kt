@@ -8,6 +8,9 @@ import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
 import org.slf4j.LoggerFactory
 
+/**
+ * Base class for artifact suppliers, providing common behavior.
+ */
 abstract class BaseArtifactSupplier<A : DeliveryArtifact, V : SortingStrategy>(
   open val artifactMetadataService: ArtifactMetadataService
 ) : ArtifactSupplier<A, V> {

@@ -1,6 +1,5 @@
 package com.netflix.spinnaker.keel.artifacts
 
-import com.netflix.spinnaker.keel.igor.artifact.ArtifactService
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus.CANDIDATE
 import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
@@ -12,9 +11,9 @@ import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PullRequest
 import com.netflix.spinnaker.keel.api.artifacts.Repo
 import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
-import com.netflix.spinnaker.keel.api.plugins.SupportedSortingStrategy
 import com.netflix.spinnaker.keel.api.support.SpringEventPublisherBridge
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
+import com.netflix.spinnaker.keel.igor.artifact.ArtifactService
 import com.netflix.spinnaker.keel.test.deliveryConfig
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
@@ -110,13 +109,6 @@ internal class NpmArtifactSupplierTests : JUnit5Minutests {
         expectThat(npmArtifactSupplier.supportedArtifact).isEqualTo(
           SupportedArtifact(NPM, NpmArtifact::class.java)
         )
-      }
-
-      test("supports NPM version sorting strategy") {
-        expectThat(npmArtifactSupplier.supportedSortingStrategy)
-          .isEqualTo(
-            SupportedSortingStrategy(NPM, NpmVersionSortingStrategy::class.java)
-          )
       }
 
       test("looks up latest artifact from igor") {

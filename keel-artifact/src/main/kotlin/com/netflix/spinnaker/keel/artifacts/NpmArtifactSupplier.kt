@@ -10,7 +10,6 @@ import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.SortingStrategy
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
-import com.netflix.spinnaker.keel.api.plugins.SupportedSortingStrategy
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
 import org.springframework.stereotype.Component
@@ -29,9 +28,6 @@ class NpmArtifactSupplier(
 ) : BaseArtifactSupplier<NpmArtifact, NpmVersionSortingStrategy>(artifactMetadataService) {
 
   override val supportedArtifact = SupportedArtifact(NPM, NpmArtifact::class.java)
-
-  override val supportedSortingStrategy =
-    SupportedSortingStrategy(NPM, NpmVersionSortingStrategy::class.java)
 
   override fun getLatestArtifact(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact): PublishedArtifact? =
     getLatestArtifacts(deliveryConfig, artifact, 1).firstOrNull()

@@ -28,7 +28,6 @@ import com.netflix.spinnaker.kork.plugins.api.internal.SpinnakerExtensionPoint
 interface ArtifactSupplier<A : DeliveryArtifact, V : SortingStrategy> : SpinnakerExtensionPoint {
   val eventPublisher: EventPublisher
   val supportedArtifact: SupportedArtifact<A>
-  val supportedSortingStrategy: SupportedSortingStrategy<V>
 
   /**
    * Returns the latest available version for the given [DeliveryArtifact], represented
@@ -96,7 +95,7 @@ interface ArtifactSupplier<A : DeliveryArtifact, V : SortingStrategy> : Spinnake
  * Return the [ArtifactSupplier] supporting the specified artifact type.
  */
 fun List<ArtifactSupplier<*, *>>.supporting(type: ArtifactType) =
-  find { it.supportedArtifact.name.toLowerCase() == type.toLowerCase() }
+  find { it.supportedArtifact.name.equals(type, ignoreCase = true) }
     ?: throw UnsupportedArtifactException(type)
 
 class UnsupportedArtifactException(type: ArtifactType) : SystemException("Artifact type '$type' is not supported.")

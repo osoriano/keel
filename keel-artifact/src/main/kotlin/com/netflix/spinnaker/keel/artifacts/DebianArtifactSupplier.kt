@@ -10,7 +10,6 @@ import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.SortingStrategy
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
-import com.netflix.spinnaker.keel.api.plugins.SupportedSortingStrategy
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.parseAppVersionOrNull
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
@@ -31,9 +30,6 @@ class DebianArtifactSupplier(
   private val springEnv: Environment
 ) : BaseArtifactSupplier<DebianArtifact, DebianVersionSortingStrategy>(artifactMetadataService) {
   override val supportedArtifact = SupportedArtifact("deb", DebianArtifact::class.java)
-
-  override val supportedSortingStrategy =
-    SupportedSortingStrategy("deb", DebianVersionSortingStrategy::class.java)
 
   private val forceSortByVersion: Boolean
     get() = springEnv.getProperty("keel.artifacts.debian.forceSortByVersion", Boolean::class.java, false)
