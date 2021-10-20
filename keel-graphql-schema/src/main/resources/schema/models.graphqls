@@ -206,7 +206,7 @@ type MD_ResourceTask {
 
 type MD_ExecutionSummary {
   id: ID!
-  status: MD_TaskStatus!
+  status: MD_RolloutTargetStatus!
   currentStage: MD_StageDetail,
   stages: [MD_StageDetail!]
   deployTargets: [MD_DeployTarget!]
@@ -234,7 +234,7 @@ type MD_StageDetail {
   name: String
   startTime: InstantTime
   endTime: InstantTime
-  status: MD_TaskStatus
+  status: MD_RolloutTargetStatus
   refId: String
   requisiteStageRefIds: [String!]
 }
@@ -410,21 +410,6 @@ type MD_Notification {
 
 enum MD_EventLevel {
   SUCCESS, INFO, WARNING, ERROR
-}
-
-enum MD_TaskStatus {
-  NOT_STARTED,
-  RUNNING,
-  PAUSED,
-  SUSPENDED,
-  SUCCEEDED,
-  FAILED_CONTINUE,
-  TERMINAL,
-  CANCELED,
-  REDIRECT,
-  STOPPED,
-  BUFFERED,
-  SKIPPED
 }
 
 input MD_DismissNotificationPayload {

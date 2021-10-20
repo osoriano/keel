@@ -35,7 +35,6 @@ import com.netflix.spinnaker.keel.graphql.types.MD_Resource
 import com.netflix.spinnaker.keel.graphql.types.MD_ResourceTask
 import com.netflix.spinnaker.keel.graphql.types.MD_RolloutTargetStatus
 import com.netflix.spinnaker.keel.graphql.types.MD_StageDetail
-import com.netflix.spinnaker.keel.graphql.types.MD_TaskStatus
 import com.netflix.spinnaker.keel.notifications.DismissibleNotification
 import com.netflix.spinnaker.keel.pause.Pause
 import com.netflix.spinnaker.keel.persistence.TaskForResource
@@ -177,20 +176,23 @@ fun Stage.toDgs() =
     requisiteStageRefIds = requisiteStageRefIds,
   )
 
-fun TaskStatus.toDgs(): MD_TaskStatus =
+/**
+ * We convert the complicated orca status to a more simple status for the UI to display
+ */
+fun TaskStatus.toDgs(): MD_RolloutTargetStatus =
   when (this) {
-    TaskStatus.NOT_STARTED -> MD_TaskStatus.NOT_STARTED
-    TaskStatus.RUNNING -> MD_TaskStatus.RUNNING
-    TaskStatus.PAUSED -> MD_TaskStatus.PAUSED
-    TaskStatus.SUSPENDED -> MD_TaskStatus.SUSPENDED
-    TaskStatus.SUCCEEDED -> MD_TaskStatus.SUCCEEDED
-    TaskStatus.FAILED_CONTINUE -> MD_TaskStatus.FAILED_CONTINUE
-    TaskStatus.TERMINAL -> MD_TaskStatus.TERMINAL
-    TaskStatus.CANCELED -> MD_TaskStatus.CANCELED
-    TaskStatus.REDIRECT -> MD_TaskStatus.REDIRECT
-    TaskStatus.STOPPED -> MD_TaskStatus.STOPPED
-    TaskStatus.BUFFERED -> MD_TaskStatus.BUFFERED
-    TaskStatus.SKIPPED -> MD_TaskStatus.SKIPPED
+    TaskStatus.NOT_STARTED -> MD_RolloutTargetStatus.NOT_STARTED
+    TaskStatus.RUNNING -> MD_RolloutTargetStatus.RUNNING
+    TaskStatus.PAUSED -> MD_RolloutTargetStatus.FAILED
+    TaskStatus.SUSPENDED -> MD_RolloutTargetStatus.FAILED
+    TaskStatus.SUCCEEDED -> MD_RolloutTargetStatus.SUCCEEDED
+    TaskStatus.FAILED_CONTINUE -> MD_RolloutTargetStatus.FAILED
+    TaskStatus.TERMINAL -> MD_RolloutTargetStatus.FAILED
+    TaskStatus.CANCELED -> MD_RolloutTargetStatus.FAILED
+    TaskStatus.REDIRECT -> MD_RolloutTargetStatus.FAILED
+    TaskStatus.STOPPED -> MD_RolloutTargetStatus.FAILED
+    TaskStatus.BUFFERED -> MD_RolloutTargetStatus.NOT_STARTED
+    TaskStatus.SKIPPED -> MD_RolloutTargetStatus.FAILED
 }
 
 fun PublishedArtifact.toDgs(environmentName: String) =
