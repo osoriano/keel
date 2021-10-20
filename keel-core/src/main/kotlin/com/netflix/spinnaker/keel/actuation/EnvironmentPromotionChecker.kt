@@ -61,7 +61,7 @@ class EnvironmentPromotionChecker(
 
                 val latestVersions = versions.map { it.version }
                 val versionsToUse = repository
-                    .getPendingVersionsInEnvironment(
+                    .getNotYetDeployedVersionsInEnvironment( // get pending and skipped versions
                       deliveryConfig,
                       artifact.reference,
                       environment.name

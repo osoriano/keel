@@ -155,8 +155,8 @@ class AdminService(
       ?: throw UserException("application $application contains no artifact ref $artifactReference. Artifact references are: ${deliveryConfig.artifacts.map { it.reference }}")
 
     // Identify the current version in the environment
-    val currentVersion = repository.getArtifactVersionsByStatus(deliveryConfig, environment, listOf(CURRENT))
-      .firstOrNull { it.reference == artifactReference }
+    val currentVersion = repository.getArtifactVersionsByStatus(deliveryConfig, environment, artifactReference, listOf(CURRENT))
+      .firstOrNull()
 
     if (currentVersion == null) {
       log.warn("forcing application $application artifact $artifactReference version $version to SKIPPED even though there is no version in CURRENT state")

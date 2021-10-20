@@ -227,9 +227,14 @@ interface ArtifactRepository : PeriodicallyCheckedRepository<DeliveryArtifact> {
   )
 
   /**
-   * Gets all published artifacts that have the specified statuses in an environment.
+   * Gets all versions of the specified artifact that have the specified statuses in an environment.
    */
-  fun getArtifactVersionsByStatus(deliveryConfig: DeliveryConfig, environmentName: String, statuses: List<PromotionStatus>): List<PublishedArtifact>
+  fun getArtifactVersionsByStatus(
+    deliveryConfig: DeliveryConfig,
+    environmentName: String,
+    artifactReference: String,
+    statuses: List<PromotionStatus>
+  ): List<PublishedArtifact>
 
   /**
    * Bulk loads all data we have about an artifact in an environment.
@@ -245,6 +250,11 @@ interface ArtifactRepository : PeriodicallyCheckedRepository<DeliveryArtifact> {
    * Returns artifact versions that are pending for an artifact in an environment
    */
   fun getPendingVersionsInEnvironment(deliveryConfig: DeliveryConfig, artifactReference: String, environmentName: String): List<PublishedArtifact>
+
+  /**
+   * Returns artifacts that have been deployed in an environment (pending or skipped versions)
+   */
+  fun getNotYetDeployedVersionsInEnvironment(deliveryConfig: DeliveryConfig, artifactReference: String, environmentName: String): List<PublishedArtifact>
 
   /**
    * Returns the number of pending versions that would be promoted if the given version was promoted.

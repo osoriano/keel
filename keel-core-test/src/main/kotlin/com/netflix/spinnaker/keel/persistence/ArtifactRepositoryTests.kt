@@ -831,6 +831,34 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
       }
     }
 
+    context("versions that weren't deployed") {
+      before {
+        persist(manifest)
+        subject.register(versionedReleaseDebian)
+        subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(version1, RELEASE))
+        subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(version2, RELEASE))
+        subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(version3, RELEASE))
+        subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(version4, RELEASE))
+        // approving version 1 then deploying version 2 makes version 1 skipped in testEnvironment
+        subject.approveVersionFor(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        subject.approveVersionFor(manifest, versionedReleaseDebian, version2, testEnvironment.name)
+        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version2, testEnvironment.name)
+      }
+
+      test("can fetch skipped and pending versions") {
+        val notDeployedVersions = subject.getNotYetDeployedVersionsInEnvironment(manifest, versionedReleaseDebian.reference, testEnvironment.name)
+        expect {
+          that(notDeployedVersions).hasSize(3)
+          that(notDeployedVersions.map { it.version }).containsExactlyInAnyOrder(listOf(version1, version3, version4))
+        }
+      }
+
+      test("can approve a skipped version") {
+        subject.approveVersionFor(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        expectThat(subject.isApprovedFor(manifest, versionedReleaseDebian, version1, testEnvironment.name)).isTrue()
+      }
+    }
+
     context("pinned version") {
       before {
         persist(manifest)

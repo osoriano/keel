@@ -193,11 +193,13 @@ interface KeelRepository : KeelReadOnlyRepository {
 
   fun getEnvironmentSummaries(deliveryConfig: DeliveryConfig): List<EnvironmentSummary>
 
-  fun getArtifactVersionsByStatus(deliveryConfig: DeliveryConfig, environmentName: String, statuses: List<PromotionStatus>): List<PublishedArtifact>
+  fun getArtifactVersionsByStatus(deliveryConfig: DeliveryConfig, environmentName: String, artifactReference: String, statuses: List<PromotionStatus>): List<PublishedArtifact>
 
   fun getArtifactPromotionStatus(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact, version: String, targetEnvironment: String): PromotionStatus?
 
   fun getPendingVersionsInEnvironment(deliveryConfig: DeliveryConfig, artifactReference: String, environmentName: String): List<PublishedArtifact>
+
+  fun getNotYetDeployedVersionsInEnvironment(deliveryConfig: DeliveryConfig, artifactReference: String, environmentName: String): List<PublishedArtifact>
 
   fun getNumPendingToBePromoted(application: String, artifactReference: String, environmentName: String, version: String): Int
 

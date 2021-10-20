@@ -60,6 +60,7 @@ import org.jooq.Select
 import org.jooq.SelectConditionStep
 import org.jooq.SelectJoinStep
 import org.jooq.impl.DSL
+import org.jooq.impl.DSL.count
 import org.jooq.impl.DSL.select
 import org.jooq.impl.DSL.selectOne
 import org.jooq.util.mysql.MySQLDSL
@@ -451,6 +452,10 @@ class SqlArtifactRepository(
     }
   }
 
+  /**
+   * Approves a version in an environment.
+   * return true if the version was not already approved.
+   */
   override fun approveVersionFor(
     deliveryConfig: DeliveryConfig,
     artifact: DeliveryArtifact,
@@ -459,16 +464,25 @@ class SqlArtifactRepository(
   ): Boolean {
     val environment = deliveryConfig.environmentNamed(targetEnvironment)
     return sqlRetry.withRetry(WRITE) {
-      jooq
-        .insertInto(ENVIRONMENT_ARTIFACT_VERSIONS)
-        .set(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID, deliveryConfig.getUidFor(environment))
-        .set(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID, artifact.uid)
-        .set(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION, version)
-        .set(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT, clock.instant())
-        .set(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS, APPROVED)
-        .onDuplicateKeyIgnore()
-        .execute()
-    } > 0
+      val alreadyApproved = isApprovedFor(deliveryConfig, artifact, version, targetEnvironment)
+
+      when {
+        alreadyApproved -> false // version did not change, so we return false
+        else -> jooq
+          .insertInto(ENVIRONMENT_ARTIFACT_VERSIONS)
+          .set(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID, deliveryConfig.getUidFor(environment))
+          .set(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID, artifact.uid)
+          .set(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION, version)
+          .set(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT, clock.instant())
+          .set(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS, APPROVED)
+          .onDuplicateKeyUpdate()
+          .set(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT, clock.instant())
+          .set(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS, APPROVED)
+          .setNull(ENVIRONMENT_ARTIFACT_VERSIONS.REPLACED_BY) // clear for previously skipped versions
+          .setNull(ENVIRONMENT_ARTIFACT_VERSIONS.REPLACED_AT) // clear for previously skipped versions
+          .execute() > 0
+      }
+    }
   }
 
   override fun isApprovedFor(
@@ -485,7 +499,7 @@ class SqlArtifactRepository(
           ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(environment.uid)
             .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(artifact.uid))
             .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION.eq(version))
-            .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.ne(VETOED))
+            .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.notIn(listOf(VETOED, SKIPPED)))
         )
     }
   }
@@ -1145,6 +1159,7 @@ class SqlArtifactRepository(
 
   override fun getArtifactVersionsByStatus(
     deliveryConfig: DeliveryConfig,
+    artifactReference: String,
     environmentName: String,
     statuses: List<PromotionStatus>
   ): List<PublishedArtifact> {
@@ -1169,6 +1184,7 @@ class SqlArtifactRepository(
         .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION.eq(ARTIFACT_VERSIONS.VERSION))
         .where(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(deliveryConfig.getUidFor(environmentName)))
         .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.`in`(statuses))
+        .and(DELIVERY_ARTIFACT.REFERENCE.eq(artifactReference))
         .fetch { (name, type, version, reference, status, createdAt, gitMetadata, buildMetadata) ->
           PublishedArtifact(
             name = name,
@@ -1353,6 +1369,16 @@ class SqlArtifactRepository(
           artifact.hasMatchingSource(it.gitMetadata)
         }
     }
+  }
+
+  override fun getNotYetDeployedVersionsInEnvironment(
+    deliveryConfig: DeliveryConfig,
+    artifactReference: String,
+    environmentName: String
+  ): List<PublishedArtifact> {
+    val pending = getPendingVersionsInEnvironment(deliveryConfig, artifactReference, environmentName)
+    val skipped = getArtifactVersionsByStatus(deliveryConfig, artifactReference, environmentName, listOf(SKIPPED))
+    return pending + skipped
   }
 
   override fun getNumPendingToBePromoted(

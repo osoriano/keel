@@ -469,9 +469,10 @@ class CombinedRepository(
   override fun getArtifactVersionsByStatus(
     deliveryConfig: DeliveryConfig,
     environmentName: String,
+    artifactReference: String,
     statuses: List<PromotionStatus>
   ): List<PublishedArtifact> =
-    artifactRepository.getArtifactVersionsByStatus(deliveryConfig, environmentName, statuses)
+    artifactRepository.getArtifactVersionsByStatus(deliveryConfig, environmentName, artifactReference, statuses)
 
   override fun getArtifactPromotionStatus(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact, version: String, targetEnvironment: String): PromotionStatus? =
     artifactRepository.getArtifactPromotionStatus(deliveryConfig, artifact, version, targetEnvironment)
@@ -482,6 +483,13 @@ class CombinedRepository(
     environmentName: String
   ): List<PublishedArtifact> =
     artifactRepository.getPendingVersionsInEnvironment(deliveryConfig, artifactReference, environmentName)
+
+  override fun getNotYetDeployedVersionsInEnvironment(
+    deliveryConfig: DeliveryConfig,
+    artifactReference: String,
+    environmentName: String
+  ): List<PublishedArtifact> =
+    artifactRepository.getNotYetDeployedVersionsInEnvironment(deliveryConfig, artifactReference, environmentName)
 
   override fun getNumPendingToBePromoted(
     application: String,

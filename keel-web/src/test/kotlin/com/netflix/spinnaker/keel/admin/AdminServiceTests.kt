@@ -154,7 +154,7 @@ class AdminServiceTests : JUnit5Minutests {
         every { version } returns "v16"
       }
 
-      every { repository.getArtifactVersionsByStatus(deliveryConfig, environment.name, listOf(CURRENT)) } returns listOf(current)
+      every { repository.getArtifactVersionsByStatus(deliveryConfig, environment.name, any(), listOf(CURRENT)) } returns listOf(current)
 
       subject.forceSkipArtifactVersion(application, environment.name, artifact.reference, "v15")
 

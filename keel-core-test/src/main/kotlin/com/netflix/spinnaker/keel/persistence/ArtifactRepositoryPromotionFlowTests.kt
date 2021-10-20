@@ -667,7 +667,7 @@ abstract class ArtifactRepositoryPromotionFlowTests<T : ArtifactRepository> : JU
 
         test("querying for current returns the full artifact") {
           val artifacts =
-            subject.getArtifactVersionsByStatus(manifest, testEnvironment.name, listOf(CURRENT))
+            subject.getArtifactVersionsByStatus(manifest, versionedSnapshotDebian.reference, testEnvironment.name, listOf(CURRENT))
           expect {
             that(artifacts.size).isEqualTo(1)
             that(artifacts.first().version).isEqualTo(version1)
