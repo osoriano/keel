@@ -409,12 +409,12 @@ class ClusterHandler(
    */
   override fun ResourceDiff<ServerGroup>.isCapacityOnly(): Boolean =
     current != null && affectedRootPropertyTypes.all {
-      it == Capacity::class.java || it == DefaultCapacity::class.java
+      Capacity::class.java.isAssignableFrom(it)
     }
 
   override fun ResourceDiff<ServerGroup>.isSuspendPropertiesAndCapacityOnly() =
     affectedRootPropertyTypes.all {
-      it == Scaling::class.java || it == Capacity::class.java || it == DefaultCapacity::class.java
+      it == Scaling::class.java || Capacity::class.java.isAssignableFrom(it)
     }
       && sameSuspendedProcesses(current?.scaling, desired.scaling)
 
@@ -442,7 +442,7 @@ class ClusterHandler(
   override fun ResourceDiff<ServerGroup>.isAutoScalingOnly(): Boolean =
     current != null &&
       affectedRootPropertyTypes.any { it == Scaling::class.java } &&
-      affectedRootPropertyTypes.all { it == Capacity::class.java || it == Scaling::class.java } &&
+      affectedRootPropertyTypes.all { Capacity::class.java.isAssignableFrom(it) || it == Scaling::class.java } &&
       current!!.scaling.suspendedProcesses == desired.scaling.suspendedProcesses &&
       current!!.capacity.min == desired.capacity.min &&
       current!!.capacity.max == desired.capacity.max
@@ -464,7 +464,7 @@ class ClusterHandler(
    */
   override fun ResourceDiff<ServerGroup>.isCapacityOrAutoScalingOnly(): Boolean =
     current != null &&
-      affectedRootPropertyTypes.all { it == Capacity::class.java || it == Scaling::class.java } &&
+      affectedRootPropertyTypes.all { Capacity::class.java.isAssignableFrom(it) || it == Scaling::class.java } &&
       current!!.scaling.suspendedProcesses == desired.scaling.suspendedProcesses
 
   /**

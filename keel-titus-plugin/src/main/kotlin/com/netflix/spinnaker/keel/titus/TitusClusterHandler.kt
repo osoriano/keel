@@ -230,7 +230,7 @@ class TitusClusterHandler(
 
   override fun ResourceDiff<TitusServerGroup>.isCapacityOrAutoScalingOnly(): Boolean =
     current != null &&
-      affectedRootPropertyTypes.all { it == Capacity::class.java || it == Scaling::class.java } &&
+      affectedRootPropertyTypes.all { Capacity::class.java.isAssignableFrom(it) || it == Scaling::class.java } &&
       current!!.scaling.suspendedProcesses == desired.scaling.suspendedProcesses
 
   override fun ResourceDiff<TitusServerGroup>.hasScalingPolicyDiff(): Boolean =
