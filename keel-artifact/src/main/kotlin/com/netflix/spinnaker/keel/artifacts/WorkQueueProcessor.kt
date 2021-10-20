@@ -7,9 +7,9 @@ import com.netflix.spinnaker.keel.activation.ApplicationDown
 import com.netflix.spinnaker.keel.activation.ApplicationUp
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
+import com.netflix.spinnaker.keel.api.events.ArtifactVersionDetected
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.api.plugins.supporting
-import com.netflix.spinnaker.keel.scm.CodeEvent
 import com.netflix.spinnaker.keel.config.WorkProcessingConfig
 import com.netflix.spinnaker.keel.exceptions.InvalidSystemStateException
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEvent
@@ -17,8 +17,9 @@ import com.netflix.spinnaker.keel.lifecycle.LifecycleEventScope
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventStatus
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventType
 import com.netflix.spinnaker.keel.logging.TracingSupport
-import com.netflix.spinnaker.keel.persistence.WorkQueueRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
+import com.netflix.spinnaker.keel.persistence.WorkQueueRepository
+import com.netflix.spinnaker.keel.scm.CodeEvent
 import com.netflix.spinnaker.keel.telemetry.safeIncrement
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -150,8 +151,13 @@ final class WorkQueueProcessor(
   }
 
   /**
-   * Processes a new artifact and saves the enriched version to the database.
+   * Processes a new artifact version by enriching it with git/build metadata, and storing
+   * it in the database.
+   * 
+   * This method also acts as an event handler, allowing other components in the system to
+   * trigger storage of artifact versions in flows that don't/can't use the work queue.
    */
+  @EventListener(PublishedArtifact::class)
   fun handlePublishedArtifact(artifact: PublishedArtifact) {
     if (repository.isRegistered(artifact.name, artifact.artifactType)) {
       val artifactSupplier = artifactSuppliers.supporting(artifact.artifactType)
@@ -169,7 +175,7 @@ final class WorkQueueProcessor(
         log.debug("Artifact $artifact shouldn't be processed due to supplier limitations. Ignoring this artifact version.")
       }
     } else {
-      log.debug("Artifact $artifact is not registered. Ignoring new artifact version.")
+      log.debug("Artifact ${artifact.type}:${artifact.name} is not registered. Ignoring new artifact version: $artifact")
     }
   }
 
@@ -183,7 +189,7 @@ final class WorkQueueProcessor(
             .removeCodeEventsFromQueue(codeEventBatchSize)
             .forEach { codeEvent ->
               // publishing the event here throttles the influx of code events
-              // so that we can deal with them in a slower manner
+              // so that we can deal with them at a slower pace
               publisher.publishEvent(codeEvent)
               lastCodeCheck.set(clock.instant())
             }
@@ -194,7 +200,7 @@ final class WorkQueueProcessor(
     }
   }
 
-  fun incrementUpdatedCount(artifact: PublishedArtifact) {
+  private fun incrementUpdatedCount(artifact: PublishedArtifact) {
     spectator.counter(
       ARTIFACT_UPDATED_COUNTER_ID,
       listOf(
@@ -206,13 +212,13 @@ final class WorkQueueProcessor(
 
   /**
    * Normalizes an artifact by calling [PublishedArtifact.normalized],
-   * enriches it by adding metadata,
+   * enriches it by adding git and build metadata,
    * creates the appropriate build lifecycle event,
    * and stores in the database
    */
-  fun enrichAndStore(artifact: PublishedArtifact, supplier: ArtifactSupplier<*,*>): Boolean {
+  internal fun enrichAndStore(artifact: PublishedArtifact, supplier: ArtifactSupplier<*,*>): Boolean {
     val enrichedArtifact = supplier.addMetadata(artifact.normalized())
-    publishBuildLifecycleEvent(enrichedArtifact)
+    notifyArtifactVersionDetected(enrichedArtifact)
     return repository.storeArtifactVersion(enrichedArtifact)
   }
 
@@ -237,28 +243,34 @@ final class WorkQueueProcessor(
 
   /**
    * Finds the delivery configs that are using an artifact,
-   * and publishes a build lifecycle event for them.
+   * and publishes an [ArtifactVersionDetected] event and a build [LifecycleEvent] for them.
    */
-  fun publishBuildLifecycleEvent(artifact: PublishedArtifact) {
-    log.debug("Publishing build lifecycle event for published artifact $artifact")
-    artifact.buildMetadata
-      ?.let { buildMetadata ->
+  internal fun notifyArtifactVersionDetected(artifact: PublishedArtifact) {
+    repository
+      .getAllArtifacts(artifact.artifactType, artifact.name)
+      .forEach { deliveryArtifact ->
+        deliveryArtifact.deliveryConfigName?.let { configName ->
+          val deliveryConfig = repository.getDeliveryConfig(configName)
 
-        val data = mutableMapOf(
-          "buildNumber" to artifact.metadata["buildNumber"]?.toString(),
-          "commitId" to artifact.metadata["commitId"]?.toString(),
-          "buildMetadata" to buildMetadata
-        )
+          publisher.publishEvent(
+            ArtifactVersionDetected(
+              deliveryConfig = deliveryConfig,
+              artifact = deliveryArtifact,
+              version = artifact
+            )
+          )
 
-        repository
-          .getAllArtifacts(artifact.artifactType, artifact.name)
-          .forEach { deliveryArtifact ->
-            deliveryArtifact.deliveryConfigName?.let { configName ->
-              log.debug("Publishing build lifecycle event for delivery artifact $deliveryArtifact")
-              data["application"] = repository.getDeliveryConfig(configName).application
+          if (artifact.buildMetadata != null) {
+            log.debug("Publishing build lifecycle event for published artifact $artifact")
+            val data = mutableMapOf(
+              "buildNumber" to artifact.buildNumber,
+              "commitId" to artifact.commitHash,
+              "buildMetadata" to artifact.buildMetadata,
+              "application" to deliveryConfig.application
+            )
 
-              publisher.publishEvent(
-                LifecycleEvent(
+            publisher.publishEvent(
+              LifecycleEvent(
                 scope = LifecycleEventScope.PRE_DEPLOYMENT,
                 deliveryConfigName = configName,
                 artifactReference = deliveryArtifact.reference,
@@ -270,14 +282,14 @@ final class WorkQueueProcessor(
                 // update the status
                 status = LifecycleEventStatus.RUNNING,
                 text = "Monitoring build for ${artifact.version}",
-                link = buildMetadata.uid,
+                link = artifact.buildMetadata?.uid,
                 data = data,
-                timestamp = buildMetadata.startedAtInstant,
+                timestamp = artifact.buildMetadata?.startedAtInstant,
                 startMonitoring = true
               )
-              )
-            }
+            )
           }
+        }
       }
   }
 
@@ -309,6 +321,6 @@ final class WorkQueueProcessor(
       .toDouble()
       .div(1000)
 
-  fun Registry.recordDuration(metricName: String, clock:Clock, startTime: Instant, tags: Set<BasicTag> = emptySet()) =
+  private fun Registry.recordDuration(metricName: String, clock:Clock, startTime: Instant, tags: Set<BasicTag> = emptySet()) =
     timer(metricName, tags).record(Duration.between(startTime, clock.instant()))
 }

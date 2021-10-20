@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.api.events
 
+import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 
@@ -40,4 +41,13 @@ data class ArtifactVersionDeploying(
 data class ArtifactVersionDeployed(
   val resourceId: String,
   val artifactVersion: String
+)
+
+/**
+ * An event fired to signal that a new artifact version was first detected by Keel.
+ */
+data class ArtifactVersionDetected(
+  val deliveryConfig: DeliveryConfig,
+  val artifact: DeliveryArtifact,
+  val version: PublishedArtifact
 )

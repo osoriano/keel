@@ -750,7 +750,7 @@
     "startTime": 1630357949214,
     "status": "RUNNING",
     "authentication": {
-      "user": "delivery-engineering@netflix.com",
+      "user": "managed-delivery@netflix.com",
       "allowedAccounts": [
 
       ]

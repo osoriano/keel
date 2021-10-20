@@ -136,17 +136,29 @@ abstract class DeliveryArtifact {
     }
   }
 
-  fun toArtifactVersion(version: String, status: ArtifactStatus? = null, createdAt: Instant? = null, gitMetadata: GitMetadata? = null) =
+  /**
+   * Given the additional details about a version and git/build metadata, return a [PublishedArtifact] representing
+   * that version for this [DeliveryArtifact].
+   */
+  fun toArtifactVersion(
+    version: String,
+    status: ArtifactStatus? = null,
+    createdAt: Instant? = null,
+    gitMetadata: GitMetadata? = null,
+    buildMetadata: BuildMetadata? = null,
+    metadata: Map<String, Any?> = emptyMap()
+  ) =
     PublishedArtifact(
       name = name,
       type = type,
       reference = reference,
       version = version,
-      metadata = mapOf(
+      metadata = metadata + mapOf(
         "releaseStatus" to status,
         "createdAt" to createdAt
       ),
-      gitMetadata = gitMetadata
+      gitMetadata = gitMetadata,
+      buildMetadata = buildMetadata
     ).normalized()
 
   /**

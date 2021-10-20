@@ -62,9 +62,6 @@ class DockerArtifactSupplier(
     }
   }
 
-  override fun getArtifactByVersion(artifact: DeliveryArtifact, version: String): PublishedArtifact? =
-    findArtifactVersions(artifact, version).firstOrNull()
-
   override fun getLatestArtifact(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact): PublishedArtifact? =
     getLatestArtifacts(deliveryConfig, artifact, 1).firstOrNull()
 

@@ -46,7 +46,7 @@ dependencies {
   implementation("com.graphql-java:graphql-java-extended-scalars:16.0.1")
 
   // DGS dependencies
-  implementation(platform('com.netflix.graphql.dgs:graphql-dgs-platform-dependencies:4.9.0'))
+  implementation(platform("com.netflix.graphql.dgs:graphql-dgs-platform-dependencies:${dgsVersion}"))
   implementation("com.netflix.graphql.dgs:graphql-dgs-spring-boot-starter")
   implementation 'com.fasterxml.jackson.datatype:jackson-datatype-joda'
 

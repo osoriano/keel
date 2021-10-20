@@ -12,12 +12,13 @@ import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
+import com.netflix.spinnaker.keel.api.events.ArtifactVersionDetected
 import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
 import com.netflix.spinnaker.keel.config.WorkProcessingConfig
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEvent
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventStatus
-import com.netflix.spinnaker.keel.persistence.WorkQueueRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
+import com.netflix.spinnaker.keel.persistence.WorkQueueRepository
 import com.netflix.spinnaker.keel.telemetry.ArtifactVersionUpdated
 import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
@@ -31,7 +32,10 @@ import io.mockk.slot
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.core.env.Environment
 import strikt.api.expectThat
+import strikt.assertions.isA
 import strikt.assertions.isEqualTo
+import strikt.assertions.isTrue
+import strikt.assertions.one
 import java.time.Clock
 
 internal class WorkQueueProcessorTests : JUnit5Minutests {
@@ -242,7 +246,7 @@ internal class WorkQueueProcessorTests : JUnit5Minutests {
       subject.onApplicationUp()
     }
 
-    context("lifecycle events") {
+    context("events") {
       context("multiple artifacts") {
         before {
           every { repository.getAllArtifacts(DEBIAN, any()) } returns
@@ -250,11 +254,15 @@ internal class WorkQueueProcessorTests : JUnit5Minutests {
               debianArtifact,
               debianArtifact.copy(reference = "blah-blay", deliveryConfigName = "another-config")
             )
-          subject.publishBuildLifecycleEvent(publishedDeb)
+          subject.notifyArtifactVersionDetected(publishedDeb)
         }
 
-        test("publishes event for each artifact") {
+        test("publishes build lifecycle event for each artifact") {
           coVerify(exactly = 2) { publisher.publishEvent(ofType<LifecycleEvent>()) }
+        }
+
+        test("publishes version detected event for each artifact") {
+          coVerify(exactly = 2) { publisher.publishEvent(ofType<ArtifactVersionDetected>()) }
         }
       }
 
@@ -262,14 +270,30 @@ internal class WorkQueueProcessorTests : JUnit5Minutests {
         before {
           coEvery { repository.getAllArtifacts(DEBIAN, any()) } returns
             listOf(debianArtifact)
-          subject.publishBuildLifecycleEvent(publishedDeb)
+          subject.notifyArtifactVersionDetected(publishedDeb)
         }
 
-        test("publishes event with monitor = true") {
-          val slot = slot<LifecycleEvent>()
-          coVerify(exactly = 1) { publisher.publishEvent(capture(slot)) }
-          expectThat(slot.captured.status).isEqualTo(LifecycleEventStatus.RUNNING)
-          expectThat(slot.captured.startMonitoring).isEqualTo(true)
+        test("publishes build lifecycle event with monitor = true") {
+          val events = mutableListOf<Any>()
+          coVerify(exactly = 2) { publisher.publishEvent(capture(events)) }
+          expectThat(events).one {
+            isA<LifecycleEvent>().and {
+              get { status }.isEqualTo(LifecycleEventStatus.RUNNING)
+              get { startMonitoring }.isTrue()
+            }
+          }
+        }
+
+        test("publishes artifact version detected event with the right information") {
+          val events = mutableListOf<Any>()
+          coVerify(exactly = 2) { publisher.publishEvent(capture(events)) }
+          expectThat(events).one {
+            isA<ArtifactVersionDetected>().and {
+              get { deliveryConfig}.isEqualTo(deliveryConfig)
+              get { artifact }.isEqualTo(debianArtifact)
+              get { version }.isEqualTo(publishedDeb)
+            }
+          }
         }
       }
     }

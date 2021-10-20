@@ -79,11 +79,6 @@ class DebianArtifactSupplier(
       }
   }
 
-  override fun getArtifactByVersion(artifact: DeliveryArtifact, version: String): PublishedArtifact? =
-    runWithIoContext {
-      artifactService.getArtifact(artifact.name, version.removePrefix("${artifact.name}-"), DEBIAN)
-    }
-
   override fun getVersionDisplayName(artifact: PublishedArtifact): String {
     // TODO: Frigga and Rocket version parsing are not aligned. We should consolidate.
     val appversion = artifact.version.parseAppVersionOrNull()

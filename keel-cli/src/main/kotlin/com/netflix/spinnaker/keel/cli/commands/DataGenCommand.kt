@@ -30,7 +30,7 @@ class DataGenCommand(
     const val TEST_STACK = "local"
     const val TEST_ACCT = "test"
     const val TEST_DEB_PACKAGE = "fakedeb"
-    const val TEST_SVC_ACCT = "delivery-engineering@netflix.com"
+    const val TEST_SVC_ACCT = "managed-delivery@netflix.com"
     val TEST_ARTIFACT = DebianArtifact(
       deliveryConfigName = TEST_APP,
       name = TEST_DEB_PACKAGE,

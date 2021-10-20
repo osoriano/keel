@@ -52,11 +52,6 @@ class NpmArtifactSupplier(
         .take(limit) // versioning strategies return descending by default... ¯\_(ツ)_/¯
     }
 
-  override fun getArtifactByVersion(artifact: DeliveryArtifact, version: String): PublishedArtifact? =
-    runWithIoContext {
-      artifactService.getArtifact(artifact.nameForQuery, version, NPM)
-    }
-
   /**
    * Extracts a version display name from version string using the Netflix semver convention.
    */

@@ -78,10 +78,6 @@ class BaseArtifactSupplierTests {
       TODO("Not yet implemented")
     }
 
-    override fun getArtifactByVersion(artifact: DeliveryArtifact, version: String): PublishedArtifact? {
-      TODO("Not yet implemented")
-    }
-
     override fun shouldProcessArtifact(artifact: PublishedArtifact): Boolean {
       return artifact.type == "dummy"
     }
