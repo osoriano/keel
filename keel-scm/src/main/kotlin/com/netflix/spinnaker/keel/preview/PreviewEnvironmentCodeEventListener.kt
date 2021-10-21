@@ -278,7 +278,7 @@ class PreviewEnvironmentCodeEventListener(
       updatedConfig = updatedConfig.run { copy(environments = environments + previewEnv) }
 
       log.debug("Updating delivery config with preview environment ${previewEnv.name} for application ${configFromBranch.application} " +
-        "from branch ${prEvent.pullRequestBranch}")
+        "from branch ${prEvent.pullRequestBranch}:\n${objectMapper.writeValueAsString(updatedConfig)}")
       try {
         repository.upsertDeliveryConfig(updatedConfig)
         prEvent.emitCounterMetric(CODE_EVENT_COUNTER, PREVIEW_ENVIRONMENT_UPSERT_SUCCESS, configFromBranch.application)
@@ -318,10 +318,16 @@ class PreviewEnvironmentCodeEventListener(
     // start by migrating the resource spec so we can rely on the latest implementation
     var previewResource = resourceFactory.migrate(this)
 
-    log.debug("Copying resource ${this.id} to preview resource")
+    log.debug("Copying resource ${this.id} to preview resource with suffix '$suffix'")
 
     // add the suffix to the moniker/name/id
     previewResource = previewResource.deepRename(suffix)
+
+    // sanity check in case the rename didn't change the id, because we don't want to update the
+    // original resource!
+    if (previewResource.id == this.id) {
+      error("Preview resource renaming for ${this.id} failed: ID did not change")
+    }
 
     // update artifact reference if applicable to match the suffix filter of the preview environment
     if (previewResource.spec is ArtifactReferenceProvider) {
