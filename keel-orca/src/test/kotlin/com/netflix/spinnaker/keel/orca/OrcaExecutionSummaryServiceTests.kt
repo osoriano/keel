@@ -18,6 +18,7 @@ import strikt.assertions.isEqualTo
 import strikt.assertions.isNotEmpty
 import strikt.assertions.isNotNull
 import strikt.assertions.isNull
+import java.time.Instant
 
 class OrcaExecutionSummaryServiceTests {
   val mapper = configuredTestObjectMapper()
@@ -41,6 +42,9 @@ class OrcaExecutionSummaryServiceTests {
     expectThat(summary.deployTargets.map { it.status }.toSet()).containsExactly(SUCCEEDED)
     expectThat(summary.currentStage).isNull()
     expectThat(summary.status).isEqualTo(TaskStatus.SUCCEEDED)
+    expectThat(summary.stages).isNotEmpty()
+    expectThat(summary.stages[0].startTime).isNotNull().isEqualTo(Instant.parse("2021-10-05T19:46:48Z"))
+    expectThat(summary.stages[0].endTime).isNotNull().isEqualTo(Instant.parse("2021-10-05T19:50:46Z"))
   }
 
   @Test
@@ -55,6 +59,8 @@ class OrcaExecutionSummaryServiceTests {
     expectThat(summary.deployTargets).isNotEmpty().hasSize(2)
     expectThat(summary.deployTargets.map { it.status }.toSet()).containsExactlyInAnyOrder(SUCCEEDED, NOT_STARTED)
     expectThat(summary.currentStage).isNotNull().get { type }.isEqualTo("waitForNextRolloutStep")
+    expectThat(summary.currentStage?.startTime).isNotNull()
+    expectThat(summary.currentStage?.startTime).isEqualTo(Instant.parse("2021-10-05T19:40:18Z"))
     expectThat(summary.status).isEqualTo(TaskStatus.RUNNING)
   }
 

@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.orca
 
+import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.convertValue
 import com.netflix.buoy.sdk.model.Location as BuoyLocation
@@ -26,7 +27,7 @@ import org.springframework.stereotype.Component
 @Component
 class OrcaExecutionSummaryService(
   private val orcaService: OrcaService,
-  private val mapper: ObjectMapper
+  private val mapper: ObjectMapper,
 ) : ExecutionSummaryService {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
@@ -41,7 +42,16 @@ class OrcaExecutionSummaryService(
       orcaService.getOrchestrationExecution(executionId)
     }
 
-    val typedStages: List<OrcaStage> = taskDetails.execution?.stages?.map { mapper.convertValue(it) } ?: emptyList()
+    val typedStages: List<OrcaStage> =
+      taskDetails.execution?.stages?.map { stage -> stage.mapValues {
+        (key, value) ->
+        if ((key == "startTime" || key == "endTime") && value is Long) {
+          value / 1000 // orca returns the value in ms, so we need to convert it to seconds
+        } else {
+          value
+        }
+      } }?.map { mapper.convertValue(it) }
+        ?: emptyList()
     val currentStage = typedStages
       .filter { it.status == RUNNING }
       .maxByOrNull { it.refId.length } //grab the longest ref id, which will be the most nested running stage
