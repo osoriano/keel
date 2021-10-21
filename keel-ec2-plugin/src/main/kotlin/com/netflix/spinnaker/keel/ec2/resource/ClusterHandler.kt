@@ -1205,7 +1205,7 @@ class ClusterHandler(
           namespace = alarm.namespace,
           statistic = alarm.statistic,
           warmup = Duration.ofSeconds(it.estimatedInstanceWarmup.toLong()),
-          metricAggregationType = it.metricAggregationType!!,
+          metricAggregationType = it.metricAggregationType ?: "Average",
           stepAdjustments = it.stepAdjustments.toSteps()
         )
       }
