@@ -416,6 +416,7 @@ class SqlArtifactRepository(
     /**
      * If [targetEnvironment] has been pinned to an artifact version, return
      * the pinned version. Otherwise return the most recently approved version.
+     *
      */
     sqlRetry.withRetry(READ) {
       jooq.select(ENVIRONMENT_ARTIFACT_PIN.ARTIFACT_VERSION)
@@ -475,11 +476,9 @@ class SqlArtifactRepository(
           .set(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION, version)
           .set(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT, clock.instant())
           .set(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS, APPROVED)
-          .onDuplicateKeyUpdate()
-          .set(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT, clock.instant())
-          .set(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS, APPROVED)
-          .setNull(ENVIRONMENT_ARTIFACT_VERSIONS.REPLACED_BY) // clear for previously skipped versions
-          .setNull(ENVIRONMENT_ARTIFACT_VERSIONS.REPLACED_AT) // clear for previously skipped versions
+          .onDuplicateKeyIgnore()
+          // todo eb: we can't approve skipped versions since it'll mess with the timing and
+          //   we will approve way old versions. Fix?
           .execute() > 0
       }
     }
