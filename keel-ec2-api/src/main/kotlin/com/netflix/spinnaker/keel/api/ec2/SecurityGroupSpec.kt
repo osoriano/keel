@@ -35,7 +35,7 @@ data class SecurityGroupSpec(
       moniker = moniker.withSuffix(suffix),
       inboundRules = inboundRules.map { rule ->
         if (rule is ReferenceRule && rule.name == moniker.toName()) {
-          rule.copy(name = "${rule.name}-$suffix")
+          rule.copy(name = moniker.withSuffix(suffix).toName())
         } else {
           rule
         }
