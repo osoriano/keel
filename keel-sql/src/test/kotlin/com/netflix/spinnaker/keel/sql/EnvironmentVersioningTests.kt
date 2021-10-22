@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.sql
 
 import com.netflix.spectator.api.NoopRegistry
+import com.netflix.spinnaker.config.PersistenceRetryConfig
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.NotificationConfig
@@ -10,6 +11,7 @@ import com.netflix.spinnaker.keel.api.Verification
 import com.netflix.spinnaker.keel.core.api.ManualJudgementConstraint
 import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.persistence.CombinedRepository
+import com.netflix.spinnaker.keel.persistence.PersistenceRetry
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ACTIVE_ENVIRONMENT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_RESOURCE
@@ -100,7 +102,8 @@ class EnvironmentVersioningTests {
     clock,
     { },
     objectMapper,
-    DefaultResourceDiffFactory()
+    DefaultResourceDiffFactory(),
+    PersistenceRetry(PersistenceRetryConfig())
   )
 
   @BeforeEach

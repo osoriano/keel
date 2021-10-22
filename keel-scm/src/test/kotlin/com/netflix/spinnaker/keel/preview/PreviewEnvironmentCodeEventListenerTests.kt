@@ -15,12 +15,11 @@ import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactOriginFilter
 import com.netflix.spinnaker.keel.api.artifacts.DEBIAN
 import com.netflix.spinnaker.keel.api.artifacts.DOCKER
+import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.branchName
 import com.netflix.spinnaker.keel.api.artifacts.branchStartsWith
 import com.netflix.spinnaker.keel.api.ec2.ClusterDependencies
-import com.netflix.spinnaker.keel.api.ec2.ClusterSpec
 import com.netflix.spinnaker.keel.api.ec2.EC2_CLUSTER_V1
-import com.netflix.spinnaker.keel.api.ec2.EC2_CLUSTER_V1_1
 import com.netflix.spinnaker.keel.api.ec2.EC2_SECURITY_GROUP_V1
 import com.netflix.spinnaker.keel.api.ec2.SecurityGroupSpec
 import com.netflix.spinnaker.keel.api.ec2.old.ClusterV1Spec
@@ -47,9 +46,6 @@ import com.netflix.spinnaker.keel.preview.PreviewEnvironmentCodeEventListener.Co
 import com.netflix.spinnaker.keel.preview.PreviewEnvironmentCodeEventListener.Companion.PREVIEW_ENVIRONMENT_MARK_FOR_DELETION_SUCCESS
 import com.netflix.spinnaker.keel.preview.PreviewEnvironmentCodeEventListener.Companion.PREVIEW_ENVIRONMENT_UPSERT_ERROR
 import com.netflix.spinnaker.keel.preview.PreviewEnvironmentCodeEventListener.Companion.PREVIEW_ENVIRONMENT_UPSERT_SUCCESS
-import com.netflix.spinnaker.keel.resources.ResourceFactory
-import com.netflix.spinnaker.keel.resources.ResourceSpecIdentifier
-import com.netflix.spinnaker.keel.resources.SpecMigrator
 import com.netflix.spinnaker.keel.scm.DELIVERY_CONFIG_RETRIEVAL_ERROR
 import com.netflix.spinnaker.keel.scm.DELIVERY_CONFIG_RETRIEVAL_SUCCESS
 import com.netflix.spinnaker.keel.scm.PrDeclinedEvent
@@ -59,8 +55,6 @@ import com.netflix.spinnaker.keel.scm.PrOpenedEvent
 import com.netflix.spinnaker.keel.scm.PrUpdatedEvent
 import com.netflix.spinnaker.keel.scm.ScmUtils
 import com.netflix.spinnaker.keel.scm.toTags
-import com.netflix.spinnaker.keel.test.DummyArtifactReferenceResourceSpec
-import com.netflix.spinnaker.keel.test.DummyLocatableResourceSpec
 import com.netflix.spinnaker.keel.test.applicationLoadBalancer
 import com.netflix.spinnaker.keel.test.configuredTestObjectMapper
 import com.netflix.spinnaker.keel.test.debianArtifact
@@ -81,7 +75,6 @@ import io.mockk.runs
 import io.mockk.slot
 import io.mockk.spyk
 import org.springframework.context.ApplicationEventPublisher
-import strikt.api.expect
 import strikt.api.expectThat
 import strikt.assertions.contains
 import strikt.assertions.containsExactlyInAnyOrder
@@ -113,31 +106,6 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
     val validator: DeliveryConfigValidator = mockk()
     val scmUtils: ScmUtils = mockk()
 
-    // need to copy/paste this here because it's in keel-ec2-plugin
-    val ec2ClusterMigrator = object : SpecMigrator<ClusterV1Spec, ClusterSpec> {
-      override val input = EC2_CLUSTER_V1
-      override val output = EC2_CLUSTER_V1_1
-      override fun migrate(spec: ClusterV1Spec): ClusterSpec =
-        with(spec) {
-          ClusterSpec(
-            moniker = moniker,
-            artifactReference = imageProvider?.reference,
-            deployWith = deployWith,
-            locations = locations,
-            _defaults = defaults,
-            overrides = overrides
-          )
-        }
-      }
-
-    val resourceFactory: ResourceFactory = spyk(
-      ResourceFactory(
-        objectMapper = objectMapper,
-        resourceSpecIdentifier = ResourceSpecIdentifier(EC2_CLUSTER_V1, EC2_CLUSTER_V1_1),
-        specMigrators = listOf(ec2ClusterMigrator)
-      )
-    )
-
     val subject = spyk(
       PreviewEnvironmentCodeEventListener(
         repository = repository,
@@ -151,8 +119,7 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
         spectator = spectator,
         clock = clock,
         eventPublisher = eventPublisher,
-        scmUtils = scmUtils,
-        resourceFactory = resourceFactory
+        scmUtils = scmUtils
       )
     )
 
@@ -267,9 +234,10 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
     )
 
     val previewEnvSpec = deliveryConfig.previewEnvironments.first()
-    val updatedConfig = slot<DeliveryConfig>()
-    val previewEnv by lazy { updatedConfig.captured.environments.find { it.isPreview }!! }
-    val previewArtifacts by lazy { updatedConfig.captured.artifacts.filter { it.isPreview } }
+    val previewEnvSlot = slot<Environment>()
+    val previewArtifactsSlot = slot<Set<DeliveryArtifact>>()
+    val previewEnv by lazy { previewEnvSlot.captured }
+    val previewArtifacts by lazy { previewArtifactsSlot.captured }
 
     fun setupMocks() {
       every {
@@ -333,7 +301,9 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
 
       every { repository.getDeliveryConfig(deliveryConfig.name) } returns deliveryConfig
 
-      every { repository.upsertDeliveryConfig(capture(updatedConfig)) } answers { updatedConfig.captured }
+      every {
+        repository.upsertPreviewEnvironment(any(), capture(previewEnvSlot), capture(previewArtifactsSlot))
+      } just runs
 
       every { environmentDeletionRepository.markForDeletion(any()) } just runs
 
@@ -444,15 +414,14 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
             }
           }
 
-          test("the delivery config is updated in the database") {
+          test("the preview environment is stored in the database") {
             verify {
-              repository.upsertDeliveryConfig(any<DeliveryConfig>())
+              repository.upsertPreviewEnvironment(any(), any(), any())
             }
-            expectThat(updatedConfig.captured.environments.size > deliveryConfig.environments.size)
-            expectThat(updatedConfig.captured.artifacts.size > deliveryConfig.artifacts.size)
+            expectThat(previewEnv.isPreview).isTrue()
           }
 
-          test("the updated delivery config contains preview artifacts") {
+          test("preview artifacts are stored in the database") {
             expectThat(previewArtifacts) {
               one {
                 get { name }.isEqualTo(dockerFromMain.name)
@@ -466,14 +435,6 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
               }
             }
           }
-
-          test("the updated delivery config contains the preview environment") {
-            expectThat(updatedConfig.captured.environments)
-              .one {
-                get { isPreview }.isTrue()
-              }
-          }
-
           test("the preview environment has no constraints or post-deploy actions") {
             expectThat(previewEnv.constraints).isEmpty()
             expectThat(previewEnv.postDeploy).isEmpty()
@@ -490,20 +451,6 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
 
           test("relevant metadata is added to the preview environment") {
             expectThat(previewEnv.metadata).containsKeys("basedOn", "repoKey", "branch", "pullRequestId")
-          }
-
-          test("resources are migrated to their latest version before processing") {
-            verify {
-              resourceFactory.migrate(clusterWithOldSpecVersion)
-            }
-
-            @Suppress("DEPRECATION")
-            expect {
-              that(clusterWithOldSpecVersion.kind)
-                .isEqualTo(EC2_CLUSTER_V1.kind)
-              that(previewEnv.resources.find { it.basedOn == clusterWithOldSpecVersion.id }!!.kind)
-                .isEqualTo(EC2_CLUSTER_V1_1.kind)
-            }
           }
 
           test("resource names/IDs are updated with branch hash") {
@@ -524,7 +471,7 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
               .get { artifactReference }.isEqualTo(previewArtifacts.find { it.type == DOCKER }!!.reference)
 
             expectThat(previewEnv.resources.find { it.basedOn == clusterWithOldSpecVersion.id }?.spec)
-              // this also demonstrates that the old cluster spec gets migrated and now supports the standard artifact reference interface
+              // this also demonstrates that the old cluster spec supports the standard artifact reference interface
               .isA<ArtifactReferenceProvider>()
               .get { artifactReference }.isEqualTo(previewArtifacts.find { it.type == DEBIAN }!!.reference)
           }
@@ -732,10 +679,10 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
         }
       }
 
-      context("failure to upsert delivery config") {
+      context("failure to update database") {
         modifyFixture {
           every {
-            repository.upsertDeliveryConfig(any<DeliveryConfig>())
+            repository.upsertPreviewEnvironment(any(), any(), any())
           } throws SystemException("oh noes!")
         }
 

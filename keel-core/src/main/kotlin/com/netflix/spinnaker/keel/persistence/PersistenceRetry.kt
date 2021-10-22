@@ -22,7 +22,7 @@ import java.time.Duration
 @Component
 class PersistenceRetry (
   private val retryConfig: PersistenceRetryConfig,
-  ) {
+) {
   /**
    * Retry [action] if it throws an exception
    *

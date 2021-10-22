@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.persistence
 
+import com.netflix.spinnaker.config.PersistenceRetryConfig
 import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
@@ -160,7 +161,8 @@ abstract class CombinedRepositoryTests<D : DeliveryConfigRepository, R : Resourc
       clock,
       publisher,
       configuredTestObjectMapper(),
-      DefaultResourceDiffFactory()
+      DefaultResourceDiffFactory(),
+      PersistenceRetry(PersistenceRetryConfig())
     )
 
     fun resourcesDueForCheck() =

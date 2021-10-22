@@ -68,6 +68,12 @@ interface DeliveryConfigRepository : PeriodicallyCheckedRepository<DeliveryConfi
   fun getByApplication(application: String): DeliveryConfig
 
   /**
+   * @return the UID of the specified [deliveryConfig].
+   * @throws NoSuchDeliveryConfigName if the delivery config is not found.
+   */
+  fun getUid(deliveryConfig: DeliveryConfig): String
+
+  /**
    * @return true if [application] has a delivery config, otherwise false
    */
   fun isApplicationConfigured(application: String): Boolean
@@ -104,10 +110,18 @@ interface DeliveryConfigRepository : PeriodicallyCheckedRepository<DeliveryConfi
    *
    * Generally, updating environments should be done via [store]. This method is primarily
    * intended to support the creation of preview environments, where none of the other
-   * properties of the delivery config have changed, which allows us to use a more efficient
-   * storage algorithm.
+   * properties of the delivery config have changed.
    */
   fun storeEnvironment(deliveryConfigName: String, environment: Environment)
+
+  /**
+   * Stores the association of the specified [artifact] with the [DeliveryConfig] with the given UID.
+   *
+   * Generally, storing this association should be done via [store]. This method is primarily
+   * intended to support the creation of preview environments, where none of the other
+   * properties of the delivery config have changed.
+   */
+  fun associateArtifact(deliveryConfigUid: String, artifact: DeliveryArtifact)
 
   /**
    * Updates state for a stateful [Environment] constraint.

@@ -230,6 +230,15 @@ class SqlDeliveryConfigRepository(
     }
   }
 
+  override fun getUid(deliveryConfig: DeliveryConfig): String =
+    sqlRetry.withRetry(READ) {
+      jooq
+        .select(DELIVERY_CONFIG.UID)
+        .from(DELIVERY_CONFIG)
+        .where(DELIVERY_CONFIG.NAME.eq(deliveryConfig.name))
+        .fetchOne(DELIVERY_CONFIG.UID)
+    } ?: throw NoSuchDeliveryConfigName(deliveryConfig.name)
+
   private fun getUIDByApplication(application: String): String =
     sqlRetry.withRetry(READ) {
       jooq
@@ -284,20 +293,7 @@ class SqlDeliveryConfigRepository(
         .execute()
 
       artifacts.forEach { artifact ->
-        jooq.insertInto(DELIVERY_CONFIG_ARTIFACT)
-          .set(DELIVERY_CONFIG_ARTIFACT.DELIVERY_CONFIG_UID, deliveryConfigUid)
-          .set(
-            DELIVERY_CONFIG_ARTIFACT.ARTIFACT_UID,
-            jooq
-              .select(DELIVERY_ARTIFACT.UID)
-              .from(DELIVERY_ARTIFACT)
-              .where(DELIVERY_ARTIFACT.NAME.eq(artifact.name))
-              .and(DELIVERY_ARTIFACT.TYPE.eq(artifact.type))
-              .and(DELIVERY_ARTIFACT.DELIVERY_CONFIG_NAME.eq(artifact.deliveryConfigName))
-              .and(DELIVERY_ARTIFACT.REFERENCE.eq(artifact.reference))
-          )
-          .onDuplicateKeyIgnore()
-          .execute()
+        associateArtifact(deliveryConfigUid, artifact)
       }
 
       environments.forEach { environment ->
@@ -327,6 +323,23 @@ class SqlDeliveryConfigRepository(
         .set(DELIVERY_CONFIG_LAST_CHECKED.AT, EPOCH.plusSeconds(1))
         .execute()
     }
+  }
+
+  override fun associateArtifact(deliveryConfigUid: String, artifact: DeliveryArtifact) {
+    jooq.insertInto(DELIVERY_CONFIG_ARTIFACT)
+      .set(DELIVERY_CONFIG_ARTIFACT.DELIVERY_CONFIG_UID, deliveryConfigUid)
+      .set(
+        DELIVERY_CONFIG_ARTIFACT.ARTIFACT_UID,
+        jooq
+          .select(DELIVERY_ARTIFACT.UID)
+          .from(DELIVERY_ARTIFACT)
+          .where(DELIVERY_ARTIFACT.NAME.eq(artifact.name))
+          .and(DELIVERY_ARTIFACT.TYPE.eq(artifact.type))
+          .and(DELIVERY_ARTIFACT.DELIVERY_CONFIG_NAME.eq(artifact.deliveryConfigName))
+          .and(DELIVERY_ARTIFACT.REFERENCE.eq(artifact.reference))
+      )
+      .onDuplicateKeyIgnore()
+      .execute()
   }
 
   private fun storeEnvironment(deliveryConfig: DeliveryConfig, environment: Environment) {

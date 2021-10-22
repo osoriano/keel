@@ -58,6 +58,16 @@ interface KeelRepository : KeelReadOnlyRepository {
   @Transactional(propagation = REQUIRED)
   fun upsertDeliveryConfig(deliveryConfig: DeliveryConfig): DeliveryConfig
 
+  /**
+   * Inserts/updates records for the specified [previewEnvironment] (including its resources) and [previewArtifacts],
+   * in a single transaction. Does not touch the specified [deliveryConfig]. Will retry if the transaction fails.
+   */
+  fun upsertPreviewEnvironment(
+    deliveryConfig: DeliveryConfig,
+    previewEnvironment: Environment,
+    previewArtifacts: Set<DeliveryArtifact>
+  )
+
   fun <T : ResourceSpec> upsertResource(resource: Resource<T>, deliveryConfigName: String) {
     val existingResource = try {
       getRawResource(resource.id)

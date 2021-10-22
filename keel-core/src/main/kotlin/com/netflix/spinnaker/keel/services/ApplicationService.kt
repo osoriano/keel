@@ -127,6 +127,7 @@ class ApplicationService(
   fun deleteConfigByApp(application: String) {
     launch(blankMDC) {
       try {
+        log.debug("Deleting delivery config for application $application")
         repository.deleteDeliveryConfigByApplication(application)
       } catch(ex: NoDeliveryConfigForApplication) {
         log.info("attempted to delete delivery config for app that doesn't have a config: $application")

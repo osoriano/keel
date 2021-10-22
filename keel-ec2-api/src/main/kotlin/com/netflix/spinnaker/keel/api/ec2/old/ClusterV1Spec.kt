@@ -1,11 +1,16 @@
 package com.netflix.spinnaker.keel.api.ec2.old
 
+import com.netflix.spinnaker.keel.api.ArtifactReferenceProvider
 import com.netflix.spinnaker.keel.api.ClusterDeployStrategy
+import com.netflix.spinnaker.keel.api.ComputeResourceSpec
 import com.netflix.spinnaker.keel.api.Locatable
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.Monikered
 import com.netflix.spinnaker.keel.api.RedBlack
+import com.netflix.spinnaker.keel.api.ResourceSpec
 import com.netflix.spinnaker.keel.api.SubnetAwareLocations
+import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
+import com.netflix.spinnaker.keel.api.artifacts.DEBIAN
 import com.netflix.spinnaker.keel.api.ec2.ClusterDependencies
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec.CapacitySpec
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec.HealthSpec
@@ -23,7 +28,7 @@ data class ClusterV1Spec (
   override val locations: SubnetAwareLocations,
   private val _defaults: ServerGroupSpec,
   override val overrides: Map<String, ServerGroupSpec> = emptyMap()
-) : Monikered, Locatable<SubnetAwareLocations>, OverrideableClusterDependencyContainer<ServerGroupSpec> {
+) : Monikered, Locatable<SubnetAwareLocations>, OverrideableClusterDependencyContainer<ServerGroupSpec>, ArtifactReferenceProvider {
   @Factory
   constructor(
     moniker: Moniker,
@@ -57,6 +62,17 @@ data class ClusterV1Spec (
 
   override val defaults: ServerGroupSpec
     get() = _defaults
+
+  override val artifactReference: String?
+    get() = imageProvider?.reference
+
+  override val artifactType: ArtifactType = DEBIAN
+
+  override fun withArtifactReference(reference: String) =
+    copy(imageProvider = ImageProvider(reference = reference))
+
+  override fun deepRename(suffix: String) =
+    copy(moniker = moniker.withSuffix(suffix))
 
   data class ImageProvider(
     val reference: String

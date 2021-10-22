@@ -8,11 +8,8 @@ import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Dependent
 import com.netflix.spinnaker.keel.api.PreviewEnvironmentSpec
 import com.netflix.spinnaker.keel.api.Resource
-import com.netflix.spinnaker.keel.api.ResourceSpec
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactOriginFilter
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
-import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
-import com.netflix.spinnaker.keel.docker.ReferenceProvider
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 import com.netflix.spinnaker.keel.notifications.DeliveryConfigImportFailed
@@ -20,7 +17,6 @@ import com.netflix.spinnaker.keel.persistence.DependentAttachFilter.ATTACH_PREVI
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
 import com.netflix.spinnaker.keel.persistence.EnvironmentDeletionRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
-import com.netflix.spinnaker.keel.resources.ResourceFactory
 import com.netflix.spinnaker.keel.scm.CodeEvent
 import com.netflix.spinnaker.keel.scm.CommitCreatedEvent
 import com.netflix.spinnaker.keel.scm.DELIVERY_CONFIG_RETRIEVAL_ERROR
@@ -65,8 +61,7 @@ class PreviewEnvironmentCodeEventListener(
   private val spectator: Registry,
   private val clock: Clock,
   private val eventPublisher: ApplicationEventPublisher,
-  private val scmUtils: ScmUtils,
-  private val resourceFactory: ResourceFactory
+  private val scmUtils: ScmUtils
 ) {
   companion object {
     private val log by lazy { LoggerFactory.getLogger(PreviewEnvironmentCodeEventListener::class.java) }
@@ -182,7 +177,7 @@ class PreviewEnvironmentCodeEventListener(
 
       log.info("Creating/updating preview environments for application ${deliveryConfig.application} " +
         "from branch ${event.pullRequestBranch}")
-      createPreviewEnvironments(event, deliveryConfig, deliveryConfigFromBranch, previewEnvSpecs)
+      createPreviewEnvironments(event, deliveryConfigFromBranch, previewEnvSpecs)
       event.emitDurationMetric(COMMIT_HANDLING_DURATION, startTime, deliveryConfig.application)
     }
   }
@@ -226,14 +221,9 @@ class PreviewEnvironmentCodeEventListener(
    */
   private fun createPreviewEnvironments(
     prEvent: PrEvent,
-    originalConfig: DeliveryConfig,
     configFromBranch: DeliveryConfig,
     previewEnvSpecs: List<PreviewEnvironmentSpec>
   ) {
-    // Need to get a fully-hydrated delivery config here because the one we get above doesn't include environments
-    // for the sake of performance.
-    val hydratedOriginalConfig = repository.getDeliveryConfig(originalConfig.name)
-
     previewEnvSpecs.forEach { previewEnvSpec ->
       val baseEnv = configFromBranch.environments.find { it.name == previewEnvSpec.baseEnvironment }
         ?: error("Environment '${previewEnvSpec.baseEnvironment}' referenced in preview environment spec not found.")
@@ -245,15 +235,12 @@ class PreviewEnvironmentCodeEventListener(
       val previewArtifacts = baseEnv.resources.mapNotNull { resource ->
         log.debug("Looking for artifact associated with resource {} in delivery config for {} from branch {}",
           resource.id, configFromBranch.application, prEvent.pullRequestBranch)
-        resourceFactory.migrate(resource).findAssociatedArtifact(configFromBranch)
+        resource.findAssociatedArtifact(configFromBranch)
       }.map { artifact ->
         val previewArtifact = artifact.toPreviewArtifact(configFromBranch, previewEnvSpec)
         log.debug("Generated preview artifact $previewArtifact with branch filter ${previewEnvSpec.branch}")
         previewArtifact
       }.toSet()
-
-      // Add the preview artifacts to the updated config we need to store
-      var updatedConfig = hydratedOriginalConfig.run { copy(artifacts = artifacts + previewArtifacts) }
 
       val previewEnv = baseEnv.copy(
         name = "${baseEnv.name}-$suffix",
@@ -263,7 +250,7 @@ class PreviewEnvironmentCodeEventListener(
         verifyWith = previewEnvSpec.verifyWith,
         notifications = previewEnvSpec.notifications,
         resources = baseEnv.resources.mapNotNull { res ->
-          res.toPreviewResource(updatedConfig, previewEnvSpec, suffix)
+          res.toPreviewResource(configFromBranch, previewEnvSpec, previewArtifacts, suffix)
         }.toSet()
       ).apply {
         addMetadata(
@@ -274,13 +261,10 @@ class PreviewEnvironmentCodeEventListener(
         )
       }
 
-      // Add the preview environment to the updated config we need to store
-      updatedConfig = updatedConfig.run { copy(environments = environments + previewEnv) }
-
-      log.debug("Updating delivery config with preview environment ${previewEnv.name} for application ${configFromBranch.application} " +
-        "from branch ${prEvent.pullRequestBranch}:\n${objectMapper.writeValueAsString(updatedConfig)}")
+      log.debug("Creating/updating preview environment ${previewEnv.name} for application ${configFromBranch.application} " +
+        "from branch ${prEvent.pullRequestBranch}:\n${objectMapper.writeValueAsString(previewEnv)}")
       try {
-        repository.upsertDeliveryConfig(updatedConfig)
+        repository.upsertPreviewEnvironment(configFromBranch, previewEnv, previewArtifacts)
         prEvent.emitCounterMetric(CODE_EVENT_COUNTER, PREVIEW_ENVIRONMENT_UPSERT_SUCCESS, configFromBranch.application)
       } catch (e: Exception) {
         log.error("Error storing/updating preview environment ${configFromBranch.application}/${previewEnv.name}: $e", e)
@@ -313,10 +297,11 @@ class PreviewEnvironmentCodeEventListener(
   private fun Resource<*>.toPreviewResource(
     deliveryConfig: DeliveryConfig,
     previewEnvSpec: PreviewEnvironmentSpec,
+    previewArtifacts: Set<DeliveryArtifact>,
     suffix: String
   ): Resource<*>? {
-    // start by migrating the resource spec so we can rely on the latest implementation
-    var previewResource = resourceFactory.migrate(this)
+    // start by copying the resource
+    var previewResource = this.copy()
 
     log.debug("Copying resource ${this.id} to preview resource with suffix '$suffix'")
 
@@ -332,7 +317,7 @@ class PreviewEnvironmentCodeEventListener(
     // update artifact reference if applicable to match the suffix filter of the preview environment
     if (previewResource.spec is ArtifactReferenceProvider) {
       log.debug("Attempting to replace artifact reference for resource ${this.id}")
-      previewResource = previewResource.withBranchArtifact(deliveryConfig, previewEnvSpec)
+      previewResource = previewResource.withBranchArtifact(deliveryConfig, previewEnvSpec, previewArtifacts)
     } else {
       log.debug("Resource ${this.id} (${previewResource.spec::class.simpleName}) does not provide an artifact reference")
     }
@@ -357,10 +342,11 @@ class PreviewEnvironmentCodeEventListener(
    * Replaces the artifact reference in the resource spec with the one matching the [PreviewEnvironmentSpec] branch
    * filter, if such an artifact is defined in the delivery config.
    */
-  private fun <T : ResourceSpec> Resource<T>.withBranchArtifact(
+  private fun Resource<*>.withBranchArtifact(
     deliveryConfig: DeliveryConfig,
-    previewEnvSpec: PreviewEnvironmentSpec
-  ): Resource<T> {
+    previewEnvSpec: PreviewEnvironmentSpec,
+    previewArtifacts: Set<DeliveryArtifact>
+  ): Resource<*> {
     val specArtifactReference = (spec as? ArtifactReferenceProvider)
       ?.artifactReference
       ?: return this
@@ -369,26 +355,17 @@ class PreviewEnvironmentCodeEventListener(
     val originalArtifact = deliveryConfig.matchingArtifactByReference(specArtifactReference)
       ?: error("Artifact with reference '${specArtifactReference}' not found in delivery config for ${deliveryConfig.application}")
 
-    val artifactFromBranch = deliveryConfig.artifacts.find { artifact ->
+    val previewArtifact = previewArtifacts.find { artifact ->
       artifact.type == originalArtifact.type
         && artifact.name == originalArtifact.name
         && artifact.from?.branch == previewEnvSpec.branch
     }
 
-    return if (artifactFromBranch != null) {
-      log.debug("Found $artifactFromBranch matching branch filter from preview environment spec ${previewEnvSpec.name}. " +
+    return if (previewArtifact != null) {
+      log.debug("Found $previewArtifact matching branch filter from preview environment spec ${previewEnvSpec.name}. " +
         "Replacing artifact reference in resource ${this.id}.")
       copy(
-        spec = spec.toMutableMap().let { newSpec ->
-          val containerSpec = (spec as? TitusClusterSpec)?.container as? ReferenceProvider
-          if (containerSpec != null) {
-            // TODO: it'd be nice if the titus spec followed the convention
-            newSpec["container"] = containerSpec.copy(reference = artifactFromBranch.reference)
-          } else {
-            newSpec["artifactReference"] = artifactFromBranch.reference
-          }
-          objectMapper.convertValue(newSpec, spec::class.java)
-        }
+        spec = (spec as ArtifactReferenceProvider).withArtifactReference(previewArtifact.reference)
       )
     } else {
       log.debug("Did not find an artifact matching branch filter from preview environment spec ${previewEnvSpec.name}. " +
@@ -400,11 +377,11 @@ class PreviewEnvironmentCodeEventListener(
   /**
    * Adds the specified [suffix] to the name of each dependency of this resource that is also managed.
    */
-  private fun <T : ResourceSpec> Resource<T>.withDependenciesRenamed(
+  private fun Resource<*>.withDependenciesRenamed(
     deliveryConfig: DeliveryConfig,
     previewEnvSpec: PreviewEnvironmentSpec,
     suffix: String
-  ): Resource<T> {
+  ): Resource<*> {
     val baseEnvironment = deliveryConfig.findBaseEnvironment(previewEnvSpec)
 
     val updatedSpec = if (spec is Dependent) {
@@ -436,25 +413,6 @@ class PreviewEnvironmentCodeEventListener(
 
     return copy(spec = updatedSpec)
   }
-
-  /**
-   * Converts a [ResourceSpec] to a [MutableMap] that can be converted back to the same type
-   * as [ResourceSpec::class.java] without loosing any information. Accounts for non-standard serialization
-   * behaviors in our built-in spec models.
-   */
-  private fun ResourceSpec.toMutableMap(): MutableMap<String, Any?> =
-    objectMapper.convertValue<MutableMap<String, Any?>>(this)
-      .let { specMap ->
-        // workaround for specs that expose a `defaults` field but back it with a `_defaults` field containing
-        // the actual properties of the spec
-        if (specMap.contains("defaults") && this::class.java.declaredFields.any { it.name == "_defaults" }) {
-          (specMap["defaults"] as? Map<String, *>)?.let { defaults ->
-            specMap.putAll(defaults)
-            specMap.remove("defaults")
-          }
-        }
-        specMap
-      }
 
   private fun DeliveryConfig.findBaseEnvironment(previewEnvSpec: PreviewEnvironmentSpec) =
     environments.find { it.name == previewEnvSpec.baseEnvironment }

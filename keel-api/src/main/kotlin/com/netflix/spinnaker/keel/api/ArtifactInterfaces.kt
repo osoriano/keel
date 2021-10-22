@@ -42,7 +42,7 @@ interface VersionedArtifactProvider : ArtifactProvider {
  * Implemented by [ResourceSpec] or concrete resource types that (may) contain artifact references, typically compute
  * resources.
  */
-interface ArtifactReferenceProvider {
+interface ArtifactReferenceProvider : ResourceSpec {
   val artifactReference: String?
   val artifactType: ArtifactType?
 
@@ -53,6 +53,8 @@ interface ArtifactReferenceProvider {
     } else {
       null
     }
+
+  fun withArtifactReference(reference: String): ArtifactReferenceProvider
 }
 
 /**
@@ -78,6 +80,6 @@ data class CompleteVersionedArtifact(
  * fields.
  */
 data class CompleteArtifactReference(
-  override val artifactReference: String,
-  override val artifactType: ArtifactType
-) : ArtifactReferenceProvider
+  val artifactReference: String,
+  val artifactType: ArtifactType
+)

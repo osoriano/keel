@@ -68,7 +68,8 @@ class CombinedRepository(
   override val clock: Clock,
   override val publisher: ApplicationEventPublisher,
   val objectMapper: ObjectMapper,
-  override val diffFactory: ResourceDiffFactory
+  override val diffFactory: ResourceDiffFactory,
+  private val persistenceRetry: PersistenceRetry
 ) : KeelRepository {
 
   override val log by lazy { LoggerFactory.getLogger(javaClass) }
@@ -119,6 +120,37 @@ class CombinedRepository(
       removeDependents(configWithSameName, deliveryConfig)
     }
     return getDeliveryConfig(deliveryConfig.name)
+  }
+
+  override fun upsertPreviewEnvironment(
+    deliveryConfig: DeliveryConfig,
+    previewEnvironment: Environment,
+    previewArtifacts: Set<DeliveryArtifact>
+  ) {
+    log.debug("Upserting preview environment $previewEnvironment for app '${deliveryConfig.application} (with retries)'")
+    persistenceRetry.withRetry(RetryCategory.WRITE) {
+      this.upsertPreviewEnvironmentWithoutRetries(deliveryConfig, previewEnvironment, previewArtifacts)
+    }
+  }
+
+  @Transactional(propagation = REQUIRED)
+  protected fun upsertPreviewEnvironmentWithoutRetries(
+    deliveryConfig: DeliveryConfig,
+    previewEnvironment: Environment,
+    previewArtifacts: Set<DeliveryArtifact>
+  ) {
+    val deliveryConfigUid = deliveryConfigRepository.getUid(deliveryConfig)
+
+    previewEnvironment.resources.forEach { resource ->
+      upsertResource(resource, deliveryConfig.name)
+    }
+
+    previewArtifacts.forEach { artifact ->
+      register(artifact)
+      deliveryConfigRepository.associateArtifact(deliveryConfigUid, artifact)
+    }
+
+    deliveryConfigRepository.storeEnvironment(deliveryConfig.name, previewEnvironment)
   }
 
   /**

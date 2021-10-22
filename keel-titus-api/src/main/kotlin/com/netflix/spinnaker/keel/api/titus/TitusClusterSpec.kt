@@ -151,6 +151,12 @@ data class TitusClusterSpec(
 
   override fun deepRename(suffix: String) =
     copy(moniker = moniker.withSuffix(suffix))
+
+  override fun withArtifactReference(reference: String) =
+    when(container) {
+      is ReferenceProvider -> run { copy(container = (container as ReferenceProvider).copy(reference = reference)) }
+      else -> error("Container provider ${container::class.simpleName} does not support artifact references")
+    }
 }
 
 data class TitusServerGroupSpec(

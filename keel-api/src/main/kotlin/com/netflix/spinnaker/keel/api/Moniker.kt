@@ -26,7 +26,7 @@ data class Moniker(
     // cause extra dashes to be added to the name)
     var truncateAt = (maxNameLength - toName().length - suffix.length - 1)
     if (stack == null) --truncateAt
-    if (detail == null) --truncateAt else truncateAt += detail!!.length
+    if (detail == null) --truncateAt else truncateAt += detail.length
     val updatedDetail = listOfNotNull(detail?.take(truncateAt), suffix).joinToString("-")
     return copy(detail = updatedDetail)
   }

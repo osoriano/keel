@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.api.ec2
 
+import com.netflix.spinnaker.keel.api.ArtifactReferenceProvider
 import com.netflix.spinnaker.keel.api.ClusterDeployStrategy
 import com.netflix.spinnaker.keel.api.ComputeResourceSpec
 import com.netflix.spinnaker.keel.api.Dependency
@@ -230,6 +231,9 @@ data class ClusterSpec(
 
   override fun deepRename(suffix: String) =
     copy(moniker = moniker.withSuffix(suffix))
+
+  override fun withArtifactReference(reference: String) =
+    copy(artifactReference = reference)
 
   data class ServerGroupSpec(
     val launchConfiguration: LaunchConfigurationSpec? = null,

@@ -2,9 +2,11 @@ package com.netflix.spinnaker.keel.sql
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spectator.api.NoopRegistry
+import com.netflix.spinnaker.config.PersistenceRetryConfig
 import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.persistence.ApproveOldVersionTests
 import com.netflix.spinnaker.keel.persistence.CombinedRepository
+import com.netflix.spinnaker.keel.persistence.PersistenceRetry
 import com.netflix.spinnaker.keel.resources.ResourceFactory
 import com.netflix.spinnaker.keel.test.configuredTestObjectMapper
 import com.netflix.spinnaker.keel.test.defaultArtifactSuppliers
@@ -35,7 +37,8 @@ class SqlApproveOldVersionTests : ApproveOldVersionTests<CombinedRepository>() {
       clock,
       mockk(relaxed = true),
       configuredTestObjectMapper(),
-      DefaultResourceDiffFactory()
+      DefaultResourceDiffFactory(),
+      PersistenceRetry(PersistenceRetryConfig())
     )
   }
 

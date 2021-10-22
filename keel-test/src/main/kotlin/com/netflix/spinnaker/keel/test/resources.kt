@@ -262,7 +262,9 @@ data class DummyArtifactReferenceResourceSpec(
   override val displayName: String = "fnord-artifact-reference-dummy",
   override val moniker: Moniker = Moniker("fnord", "artifactReference", "dummy"),
   override val locations: SimpleRegions = SimpleRegions(setOf(SimpleRegionSpec("us-east-1")))
-) : ResourceSpec, ArtifactReferenceProvider, Monikered, Locatable<SimpleRegions>
+) : ResourceSpec, ArtifactReferenceProvider, Monikered, Locatable<SimpleRegions> {
+  override fun withArtifactReference(reference: String) = copy(artifactReference = reference)
+}
 
 data class DummyResource(
   val id: String = randomString(),
@@ -319,7 +321,7 @@ object DummyAccountAwareLocations : AccountAwareLocations<SimpleRegionSpec> {
   override val regions: Set<SimpleRegionSpec> = setOf(SimpleRegionSpec("us-east-1"))
 }
 
-class DummyComputeResourceSpec(
+data class DummyComputeResourceSpec(
   @get:ExcludedFromDiff
   override val id: String = randomString(),
   val data: String = randomString(),
@@ -331,7 +333,9 @@ class DummyComputeResourceSpec(
   override val displayName: String = "fnord-dummy-compute-resource",
   override val moniker: Moniker = Moniker("fnord", "computeResource", "dummy"),
   override val locations: DummyAccountAwareLocations = DummyAccountAwareLocations
-) : ComputeResourceSpec<DummyAccountAwareLocations>
+) : ComputeResourceSpec<DummyAccountAwareLocations> {
+  override fun withArtifactReference(reference: String) = copy(artifactReference = reference)
+}
 
 fun computeResource(
   kind: ResourceKind = TEST_API_V1.qualify("compute"),
