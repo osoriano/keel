@@ -200,7 +200,8 @@ data class TitusServerGroupSpec(
   val migrationPolicy: TitusServerGroup.MigrationPolicy? = null,
   val resources: ResourcesSpec? = null,
   val tags: Map<String, String>? = null,
-  val scaling: TitusScalingSpec? = null
+  val scaling: TitusScalingSpec? = null,
+  val efs: ElasticFileSystem? = null
 )
 
 data class ResourcesSpec(
@@ -224,4 +225,11 @@ data class ResourcesSpec(
 data class TitusScalingSpec(
   val targetTrackingPolicies: Set<TargetTrackingPolicy> = emptySet(),
   val stepScalingPolicies: Set<StepScalingPolicy> = emptySet()
+)
+
+data class ElasticFileSystem(
+  val mountPerm: String,
+  val mountPoint: String,
+  val efsId: String,
+  val efsRelativeMountPoint: String? = null
 )

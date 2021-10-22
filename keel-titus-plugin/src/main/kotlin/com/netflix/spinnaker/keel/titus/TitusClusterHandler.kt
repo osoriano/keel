@@ -53,6 +53,7 @@ import com.netflix.spinnaker.keel.api.plugins.CurrentImages
 import com.netflix.spinnaker.keel.api.plugins.ImageInRegion
 import com.netflix.spinnaker.keel.api.plugins.Resolver
 import com.netflix.spinnaker.keel.api.support.EventPublisher
+import com.netflix.spinnaker.keel.api.titus.ElasticFileSystem
 import com.netflix.spinnaker.keel.api.titus.ResourcesSpec
 import com.netflix.spinnaker.keel.api.titus.TITUS_CLOUD_PROVIDER
 import com.netflix.spinnaker.keel.api.titus.TITUS_CLUSTER_V1
@@ -711,7 +712,8 @@ class TitusClusterHandler(
         "securityGroups" to securityGroupIds(),
         "loadBalancers" to dependencies.loadBalancerNames,
         "targetGroups" to dependencies.targetGroups,
-        "account" to location.account
+        "account" to location.account,
+        "efs" to efs
       ) + image
     }
       .let { job ->
@@ -1047,7 +1049,15 @@ class TitusClusterHandler(
             )
           }
         }
-      )
+      ),
+      efs = efs?.let {
+        ElasticFileSystem(
+          mountPerm = it.mountPerm,
+          mountPoint = it.mountPoint,
+          efsId = it.efsId,
+          efsRelativeMountPoint = it.efsRelativeMountPoint,
+        )
+      }
     )
 
   fun getAwsAccountNameForTitusAccount(titusAccount: String): String =

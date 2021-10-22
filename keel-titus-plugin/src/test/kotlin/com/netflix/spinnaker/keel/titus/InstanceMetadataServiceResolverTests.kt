@@ -77,7 +77,8 @@ internal class InstanceMetadataServiceResolverTests :
         capacityGroup = "capacityGroup",
         container = DigestProvider("fnord", "docker", UUID.randomUUID().toString()),
         id = UUID.randomUUID().toString(),
-        containerAttributes = if (featureActive) mapOf("titusParameter.agent.imds.requireToken" to "true") else emptyMap()
+        containerAttributes = if (featureActive) mapOf("titusParameter.agent.imds.requireToken" to "true") else emptyMap(),
+        efs = null
       )
     }
 

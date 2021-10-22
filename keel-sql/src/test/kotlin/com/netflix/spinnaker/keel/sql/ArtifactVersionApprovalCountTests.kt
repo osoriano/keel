@@ -6,8 +6,10 @@ import com.netflix.spinnaker.keel.test.deliveryConfig
 import com.netflix.spinnaker.keel.test.resourceFactory
 import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
+import com.netflix.spinnaker.kork.sql.test.SqlTestUtil.cleanupDb
 import com.netflix.spinnaker.time.MutableClock
 import io.mockk.mockk
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.springframework.context.ApplicationEventPublisher
 import strikt.api.expect
@@ -43,6 +45,11 @@ class ArtifactVersionApprovalCountTests {
     sqlRetry,
     publisher = publisher
   )
+
+  @AfterEach
+  fun cleanup() {
+    cleanupDb(jooq)
+  }
 
   @Test
   fun `we can determine how many times we have approved an artifact version for an environment within a time window`() {

@@ -118,6 +118,8 @@ fun TitusClusterSpec.resolveScaling(region: String? = null) =
     )
   } ?: Scaling()
 
+fun TitusClusterSpec.resolveEfs(region: String? = null) =
+  (region?.let { overrides[it] })?.efs ?: defaults.efs
 
 fun TitusClusterSpec.resolveTags(region: String? = null) =
   defaults.tags + (region?.let { overrides[it] }?.tags ?: emptyMap())
@@ -144,7 +146,8 @@ internal fun TitusClusterSpec.resolve(): Set<TitusServerGroup> =
       tags = resolveTags(it.name),
       artifactName = artifactName,
       artifactVersion = artifactVersion,
-      scaling = resolveScaling(it.name)
+      scaling = resolveScaling(it.name),
+      efs = resolveEfs(it.name)
     )
   }
     .toSet()

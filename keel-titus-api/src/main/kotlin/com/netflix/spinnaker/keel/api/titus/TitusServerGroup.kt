@@ -54,7 +54,8 @@ data class TitusServerGroup(
   override val artifactVersion: String? = null,
   @get:ExcludedFromDiff
   val instanceCounts: InstanceCounts? = null,
-  val scaling: Scaling = Scaling()
+  val scaling: Scaling = Scaling(),
+  val efs: ElasticFileSystem?
 ) : VersionedArtifactProvider {
 
   // todo eb: should this be more general?
