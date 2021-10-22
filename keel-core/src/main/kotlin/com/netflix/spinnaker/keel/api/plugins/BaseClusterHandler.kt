@@ -242,7 +242,14 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Any>(
    */
   @Suppress("UNCHECKED_CAST")
   suspend fun List<ResourceDiff<RESOLVED>>.getRollbackServerGroupsByRegion(resource: Resource<SPEC>): Map<String, RESOLVED> {
-    val serverGroupsByRegion = getServerGroupsByRegion(resource)
+    val serverGroupsByRegion = try {
+      getServerGroupsByRegion(resource)
+    } catch (e: Exception) {
+      log.error("Error fetching current server groups for rollback for resource ${resource.id}", e)
+      // we can ignore any exceptions trying to get the current state here, because
+      // rolling back is an optimization.
+      emptyMap()
+    }
 
     return serverGroupsByRegion.mapValues { regionalList ->
       val region = regionalList.key

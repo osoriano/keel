@@ -337,6 +337,28 @@ abstract class BaseClusterHandlerTests<
       that(rollbackContext["restoreServerGroupName"]).isEqualTo(rollbackMoniker.serverGroup)
     }
   }
+
+  @Test
+  fun `npe in generating rollback server groups is ignored`() {
+    val resource = getSingleRegionCluster()
+    val version = "sha:222"
+    val currentMoniker = resource.spec.moniker.copy(sequence = 2)
+    coEvery { handler.getServerGroupsByRegion(resource) } throws NullPointerException("ha! find me!")
+
+    val slots = mutableListOf<List<Job>>()
+    coEvery { taskLauncher.submitJob(any(), any(), any(), capture(slots), any()) } returns Task("id", "name")
+
+    runBlocking { handler.upsert(resource, getDiffForRollbackPlusCapacity(resource, version, currentMoniker)) }
+
+    val stages = slots[0]
+    expect {
+      that(slots.size).isEqualTo(1)
+      that(stages.size).isEqualTo(1)
+      val stage = stages.first()
+      that(stage["type"]).isEqualTo("createServerGroup")
+    }
+  }
+
 }
 
 
