@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.config.PersistenceRetryConfig
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
+import com.netflix.spinnaker.keel.events.DeliveryConfigChangedNotification
 import com.netflix.spinnaker.keel.exceptions.ValidationException
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.PersistenceRetry
@@ -11,6 +12,7 @@ import com.netflix.spinnaker.keel.test.deliveryArtifact
 import com.netflix.spinnaker.keel.test.submittedDeliveryConfig
 import com.netflix.spinnaker.keel.validators.DeliveryConfigValidator
 import io.mockk.Runs
+import io.mockk.called
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -59,6 +61,10 @@ internal class DeliveryConfigUpserterTest {
     every {
       springEnv.getProperty("keel.notifications.send-config-changed", Boolean::class.java, true)
     } returns true
+
+    every {
+      publisher.publishEvent(any<Object>())
+    } just Runs
   }
 
   @Test
@@ -83,16 +89,28 @@ internal class DeliveryConfigUpserterTest {
   @Test
   fun `notify on config changes`() {
     every {
-      publisher.publishEvent(any<Object>())
-    } just Runs
-
-    every {
       repository.getDeliveryConfigForApplication(any())
     } returns deliveryConfig.copy(artifacts = setOf(deliveryArtifact(name = "differentArtifact")))
 
     subject.upsertConfig(submittedDeliveryConfig)
 
     verify { repository.upsertDeliveryConfig(submittedDeliveryConfig) }
-    verify { publisher.publishEvent(any<Object>()) }
+    verify { publisher.publishEvent(any<DeliveryConfigChangedNotification>()) }
+  }
+
+  @Test
+  fun `ignores changes in object metadata`() {
+    every {
+      repository.getDeliveryConfigForApplication(any())
+    } returns deliveryConfig.run {
+      copy(
+        metadata = metadata + ("another" to "value"),
+        environments = environments.map { it.copy().addMetadata("another" to "value") }.toSet()
+      )
+    }
+
+    subject.upsertConfig(submittedDeliveryConfig)
+
+    verify { publisher wasNot called }
   }
 }

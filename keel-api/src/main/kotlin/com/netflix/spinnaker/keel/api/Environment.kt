@@ -16,6 +16,7 @@ data class Environment(
 
   // We declare the metadata field here such that it's not used in equals() and hashCode(), since we don't
   // care about the metadata when comparing environments.
+  @get:ExcludedFromDiff
   val metadata: MutableMap<String, Any?> = mutableMapOf()
 
   val uid: String?
