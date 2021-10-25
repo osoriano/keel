@@ -60,7 +60,6 @@ import org.jooq.Select
 import org.jooq.SelectConditionStep
 import org.jooq.SelectJoinStep
 import org.jooq.impl.DSL
-import org.jooq.impl.DSL.count
 import org.jooq.impl.DSL.select
 import org.jooq.impl.DSL.selectOne
 import org.jooq.util.mysql.MySQLDSL
@@ -407,7 +406,7 @@ class SqlArtifactRepository(
   override fun latestVersionApprovedIn(
     deliveryConfig: DeliveryConfig,
     artifact: DeliveryArtifact,
-    targetEnvironment: String
+    targetEnvironment: String,
   ): String? {
     val environment = deliveryConfig.environmentNamed(targetEnvironment)
     val envUid = deliveryConfig.getUidFor(environment)
@@ -429,6 +428,10 @@ class SqlArtifactRepository(
     }
       ?.also { return it }
 
+    return latestApprovedArtifact(envUid, artifactId, listOf(VETOED), artifact)?.version
+  }
+
+  private fun latestApprovedArtifact(envUid: Select<Record1<String>>, artifactId: Select<Record1<String>>, excludeStatuses: List<PromotionStatus>, artifact: DeliveryArtifact): PublishedArtifact? {
     return sqlRetry.withRetry(READ) {
       jooq
         .select(
@@ -445,12 +448,13 @@ class SqlArtifactRepository(
         .and(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(envUid))
         .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(artifactId))
         .and(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT.isNotNull)
-        .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.ne(VETOED))
+        .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.notIn(excludeStatuses))
         .orderBy(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT.desc())
         .limit(20)
         .fetchArtifactVersions()
-        .sortedWith(artifact.sortingStrategy.comparator).firstOrNull()?.version
-    }
+        .sortedWith(artifact.sortingStrategy.comparator)
+        .firstOrNull()
+      }
   }
 
   /**
@@ -1271,12 +1275,12 @@ class SqlArtifactRepository(
   ): PublishedArtifactInEnvironment? {
     getCurrentlyDeployedArtifactVersion(deliveryConfig, artifact, environmentName)?.let { publishedArtifact ->
       return PublishedArtifactInEnvironment(
-          publishedArtifact,
-          CURRENT,
-          environmentName,
-          publishedArtifact.metadata["deployedAt"] as? Instant,
-          null
-        )
+        publishedArtifact,
+        CURRENT,
+        environmentName,
+        publishedArtifact.metadata["deployedAt"] as? Instant,
+        null
+      )
     }
     return null
   }
@@ -1955,16 +1959,22 @@ class SqlArtifactRepository(
       .fetchSingleInto<Int>()
   }
 
-  override fun getLatestApprovedInEnvArtifactVersion(
-    config: DeliveryConfig,
+  override fun getApprovedInEnvArtifactVersion(
+    deliveryConfig: DeliveryConfig,
     artifact: DeliveryArtifact,
-    environmentName: String
+    targetEnvironment: String,
+    excludeCurrent: Boolean?
   ): PublishedArtifact? {
-    latestVersionApprovedIn(config, artifact, environmentName)
-      ?.let { version ->
-        return getArtifactVersion(artifact, version, null)
-      }
-    return null
+    val environment = deliveryConfig.environmentNamed(targetEnvironment)
+    val envUid = deliveryConfig.getUidFor(environment)
+    val artifactId = artifact.uid
+
+    val excludedStatuses = mutableListOf(VETOED)
+     if (excludeCurrent == true) {
+       excludedStatuses.add(CURRENT)
+     }
+
+    return latestApprovedArtifact(envUid, artifactId, excludedStatuses, artifact)
   }
 
 

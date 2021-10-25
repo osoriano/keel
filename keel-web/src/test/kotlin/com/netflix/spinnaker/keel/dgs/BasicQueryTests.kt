@@ -7,6 +7,11 @@ import com.netflix.spinnaker.keel.actuation.ExecutionSummaryService
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.SubnetAwareLocations
 import com.netflix.spinnaker.keel.api.SubnetAwareRegionSpec
+import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
+import com.netflix.spinnaker.keel.api.artifacts.Commit
+import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
+import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
+import com.netflix.spinnaker.keel.api.artifacts.Repo
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec
 import com.netflix.spinnaker.keel.api.ec2.EC2_CLUSTER_V1_1
@@ -33,6 +38,7 @@ import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.keel.upsert.DeliveryConfigUpserter
 import com.netflix.spinnaker.keel.veto.unhappy.UnhappyVeto
 import com.ninjasquad.springmockk.MockkBean
+import io.mockk.coEvery
 import io.mockk.every
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -131,6 +137,29 @@ class BasicQueryTests {
       )
     )
   )
+
+  private val artifactVersion = PublishedArtifact(
+    name = artifact.name,
+    reference = artifact.reference,
+    type = artifact.type,
+    version = "v123",
+    gitMetadata = GitMetadata(
+      commit = "abc123",
+      author = "emburns",
+      project = "spkr",
+      branch = "main",
+      repo = Repo(name = "keel"),
+      commitInfo = Commit(
+        sha = "abc123",
+        message = "I committed this"
+      )
+    ),
+    buildMetadata = BuildMetadata(
+      id = 2,
+      number = "2"
+    )
+  )
+
   private val deliveryConfig = deliveryConfig(artifact = artifact, resources = setOf(resource))
 
   @BeforeEach
@@ -148,6 +177,10 @@ class BasicQueryTests {
         environmentName = "test"
       )
     )
+
+    every {
+      keelRepository.getLatestApprovedInEnvArtifactVersion(any(),any(), any(), any())
+    } returns artifactVersion
   }
 
   fun getQuery(path: String) = javaClass.getResource(path).readText().trimIndent()
@@ -173,6 +206,17 @@ class BasicQueryTests {
         mapOf("appName" to "fnord")
       )
     }.isSuccess().isEqualTo("CURRENT")
+  }
+
+  @Test
+  fun versionOnUnpinning() {
+    expectCatching {
+      dgsQueryExecutor.executeAndExtractJsonPath<String>(
+        getQuery("/dgs/pinningAndRollback.graphql"),
+        "data.md_application.versionOnUnpinning.version",
+        mapOf("appName" to "fnord", "reference" to "fnord", "environment" to "test")
+      )
+    }.isSuccess().isEqualTo("v123")
   }
 
 }

@@ -8,7 +8,6 @@ import com.netflix.graphql.dgs.context.DgsContext
 import com.netflix.graphql.dgs.exceptions.DgsEntityNotFoundException
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.action.ActionType
-import com.netflix.spinnaker.keel.actuation.ExecutionSummaryService
 import com.netflix.spinnaker.keel.artifacts.ArtifactVersionLinks
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport
 import com.netflix.spinnaker.keel.core.api.DependsOnConstraint
@@ -36,9 +35,7 @@ import com.netflix.spinnaker.keel.pause.ActuationPauser
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
-import com.netflix.spinnaker.keel.persistence.TaskTrackingRepository
 import com.netflix.spinnaker.keel.scm.ScmUtils
-import com.netflix.spinnaker.keel.services.ResourceStatusService
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
 import org.dataloader.DataLoader
@@ -237,21 +234,25 @@ class ApplicationFetcher(
     ))
   }
 
-  @DgsData(parentType = DgsConstants.MD_ARTIFACT.TYPE_NAME, field = DgsConstants.MD_ARTIFACT.LatestApprovedVersion)
-  fun latestApprovedVersion(dfe: DataFetchingEnvironment): MD_ArtifactVersionInEnvironment? {
-    val artifact: MD_Artifact = dfe.getSource()
-    val config = applicationFetcherSupport.getDeliveryConfigFromContext(dfe)
-    val deliveryArtifact = config.matchingArtifactByReference(artifact.reference) ?: return null
-
-    //[gyardeni + rhorev] please note - some values (like MD_ComparisonLinks) will not be retrieved for MD_ArtifactVersionInEnvironment
-    //due to our current dgs model.
-    keelRepository.getLatestApprovedInEnvArtifactVersion(config, deliveryArtifact, artifact.environment)
-      ?.let {
-        return it.toDgs(artifact.environment)
-      }
-
-    return null
+  @DgsData(parentType = DgsConstants.MD_APPLICATION.TYPE_NAME, field = DgsConstants.MD_APPLICATION.VersionOnUnpinning)
+  fun versionOnUnpinning(dfe: DataFetchingEnvironment,
+    @InputArgument("reference") reference: String,
+    @InputArgument("environment") environment: String
+  ): MD_ArtifactVersionInEnvironment? {
+    return getArtifactVersion(dfe, reference, environment)
   }
+
+
+  @DgsData(parentType = DgsConstants.MD_APPLICATION.TYPE_NAME, field = DgsConstants.MD_APPLICATION.VersionOnRollback)
+  fun versionOnRollback(dfe: DataFetchingEnvironment,
+    @InputArgument("reference") reference: String,
+    @InputArgument("environment") environment: String
+  ): MD_ArtifactVersionInEnvironment? {
+    //we should exclude artifact versions with status current, as we want to show which version will be
+    //deployed if the current version will be rolled back.
+    return getArtifactVersion(dfe,  reference, environment, true)
+  }
+
 
   @DgsData(parentType = DgsConstants.MD_ARTIFACTVERSIONINENVIRONMENT.TYPE_NAME, field = DgsConstants.MD_ARTIFACTVERSIONINENVIRONMENT.Constraints)
   fun artifactConstraints(dfe: DataFetchingEnvironment): CompletableFuture<List<MD_Constraint>>? {
@@ -335,7 +336,20 @@ class ApplicationFetcher(
     }
     return environment?.let { dataLoader.load(environment) }
   }
+
+  fun getArtifactVersion(dfe: DataFetchingEnvironment, reference: String, environment: String, excludeCurrent: Boolean? = false): MD_ArtifactVersionInEnvironment? {
+    val config = applicationFetcherSupport.getDeliveryConfigFromContext(dfe)
+    val deliveryArtifact = config.matchingArtifactByReference(reference) ?: return null
+    //[gyardeni + rhorev] please note - some values (like MD_ComparisonLinks) will not be retrieved for MD_ArtifactVersionInEnvironment
+    //due to our current dgs model.
+    keelRepository.getLatestApprovedInEnvArtifactVersion(config, deliveryArtifact, environment, excludeCurrent)
+      ?.let {
+        return it.toDgs(environment)
+      }
+    return null
+  }
 }
+
 
 fun Environment.dependsOn(another: Environment) =
   constraints.any { it is DependsOnConstraint && it.environment == another.name }

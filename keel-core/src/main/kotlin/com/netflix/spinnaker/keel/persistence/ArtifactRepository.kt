@@ -413,10 +413,11 @@ interface ArtifactRepository : PeriodicallyCheckedRepository<DeliveryArtifact> {
    * @return the latest artifact version of [artifact] approved for use in [environmentName]
    *
    */
-  fun getLatestApprovedInEnvArtifactVersion(
+  fun getApprovedInEnvArtifactVersion(
     config: DeliveryConfig,
     artifact: DeliveryArtifact,
-    environmentName: String
+    environmentName: String,
+    excludeCurrent: Boolean? = false
   ): PublishedArtifact?
 }
 

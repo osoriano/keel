@@ -887,5 +887,26 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
           .isEqualTo(version2)
       }
     }
+
+    context("latest artifact versions") {
+      before {
+        persist(manifest)
+        subject.register(versionedReleaseDebian)
+        subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(version1, RELEASE))
+        subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(version2, RELEASE))
+        subject.approveVersionFor(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+      }
+      test("get the current version by default") {
+        expectThat(subject.getApprovedInEnvArtifactVersion(manifest, versionedReleaseDebian, testEnvironment.name)?.version).isEqualTo(version1)
+      }
+
+      test("when exclude current is true, get the latest approved version which is not current") {
+        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version2, testEnvironment.name)
+        expectThat(subject.getApprovedInEnvArtifactVersion(manifest, versionedReleaseDebian, testEnvironment.name, true)?.version).isEqualTo(version1)
+      }
+    }
+
+
   }
 }

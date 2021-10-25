@@ -1,0 +1,9 @@
+query fetchVersions($appName: String!, $reference: String!, $environment:String!) {
+  md_application(appName: $appName)  {
+    name
+    versionOnUnpinning(reference: $reference, environment:$environment) {
+       buildNumber
+       version
+    }
+  }
+}

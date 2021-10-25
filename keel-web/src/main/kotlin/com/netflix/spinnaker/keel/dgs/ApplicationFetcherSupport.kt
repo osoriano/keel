@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component
 class ApplicationFetcherSupport(
   private val cloudDriverService: CloudDriverService,
   private val bakeryMetadataService: BakeryMetadataService?
-) {
+  ) {
 
   companion object {
     private val log by lazy { LoggerFactory.getLogger(ApplicationFetcherSupport::class.java) }
