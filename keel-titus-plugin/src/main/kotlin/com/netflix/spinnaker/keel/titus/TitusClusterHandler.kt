@@ -695,7 +695,6 @@ class TitusClusterHandler(
         "capacityGroup" to capacityGroup,
         "entryPoint" to entryPoint,
         "env" to env,
-        "networkMode" to networkMode,
         "containerAttributes" to containerAttributes,
         "constraints" to constraints,
         "registry" to runBlocking { getRegistryForTitusAccount(location.account) },

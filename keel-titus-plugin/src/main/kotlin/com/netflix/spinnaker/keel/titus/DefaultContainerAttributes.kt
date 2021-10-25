@@ -8,7 +8,6 @@ class DefaultContainerAttributes {
 
   fun getAccountKey() = "titusParameter.agent.accountId"
 
-  @Deprecated("Use networkMode field instead of setting container attribute")
   fun getIPv6Key() = "titusParameter.agent.assignIPv6Address"
 
   fun getSubnetKey() = "titusParameter.agent.subnets"

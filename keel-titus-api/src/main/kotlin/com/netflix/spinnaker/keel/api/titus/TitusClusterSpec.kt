@@ -159,34 +159,6 @@ data class TitusClusterSpec(
     }
 }
 
-/**
- * NetworkMode encodes what type of IP addresses containers will get
- *
- * Original definition of the NetworkMode enum is in this proto:
- * https://github.com/Netflix/titus-api-definitions/blob/master/src/main/proto/netflix/titus/titus_job_api.proto
- *
- */
-enum class NetworkMode {
-  // the backend will have to choose a sane default based on other inputs
-  UnknownNetworkMode,
-
-  // the task will not get an ipv6 address, and will only get a unique IPv4 address
-  Ipv4Only,
-
-  // True dual-stack: each task gets a unique v6 and v4 address
-  Ipv6AndIpv4,
-
-  // Uses the Titus IPv4 "transition mechanism" to give
-  // v4 connectivity transparently without providing every container their own
-  // IPv4 address. From a spinnaker/task perspective, only an IPv6 address is
-  // allocated to the task.
-  Ipv6AndIpv4Fallback,
-
-  // IPv6 Only, no IPv4 connectivity is provided
-  Ipv6Only
-
-}
-
 data class TitusServerGroupSpec(
   val capacity: CapacitySpec? = null,
   val capacityGroup: String? = null,
@@ -194,7 +166,6 @@ data class TitusServerGroupSpec(
   val dependencies: ClusterDependencies? = null,
   val entryPoint: String? = null,
   val env: Map<String, String>? = null,
-  val networkMode: NetworkMode? = null,
   val containerAttributes: Map<String, String>? = null,
   val iamProfile: String? = null,
   val migrationPolicy: TitusServerGroup.MigrationPolicy? = null,

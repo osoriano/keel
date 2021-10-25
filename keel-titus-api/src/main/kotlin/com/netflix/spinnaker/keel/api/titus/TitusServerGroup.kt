@@ -36,7 +36,6 @@ data class TitusServerGroup(
 
   val entryPoint: String = "",
   val capacityGroup: String,
-  val networkMode: NetworkMode? = null,
   val constraints: Constraints = Constraints(),
   val migrationPolicy: MigrationPolicy = MigrationPolicy(),
   val capacity: Capacity,

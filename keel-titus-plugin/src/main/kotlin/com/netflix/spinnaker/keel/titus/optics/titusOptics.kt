@@ -56,8 +56,3 @@ val titusServerGroupSpecContainerAttributesLens: Lens<TitusServerGroupSpec, Map<
  */
 val titusClusterSpecContainerAttributesLens =
   titusClusterSpecDefaultsLens + titusServerGroupSpecContainerAttributesLens
-
-val titusClusterSpecOverridesLens: Lens<TitusClusterSpec, Map<String, TitusServerGroupSpec>> = Lens(
-  get = TitusClusterSpec::overrides,
-  set = {titusClusterSpec, overrides -> titusClusterSpec.copy(overrides = overrides) }
-)
