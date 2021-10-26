@@ -17,5 +17,5 @@ dependencies {
   testImplementation("io.strikt:strikt-core")
   testImplementation(project(":keel-spring-test-support"))
 
-  runtime("org.jetbrains.kotlin:kotlin-reflect")
+  runtimeOnly("org.jetbrains.kotlin:kotlin-reflect")
 }

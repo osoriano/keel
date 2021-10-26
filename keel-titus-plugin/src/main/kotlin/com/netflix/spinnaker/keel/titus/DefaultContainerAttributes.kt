@@ -13,6 +13,6 @@ class DefaultContainerAttributes {
   fun getSubnetKey() = "titusParameter.agent.subnets"
 
   fun getSubnetValue(account: String, region: String): String? {
-    return subnets["$account-$region"] ?: null
+    return subnets["$account-$region"]
   }
 }
