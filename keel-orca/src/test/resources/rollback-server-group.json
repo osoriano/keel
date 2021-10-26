@@ -1,0 +1,1002 @@
+{
+  "id": "01FJDJAAG8ZPC1TNHXS6JKA3KK",
+  "name": "Rolling back cluster keel-main to keel-0.1500.0-h2239.4bad12c in mgmt/us-west-2 (disabling keel-main-v738, enabling keel-main-v737)",
+  "application": "keel",
+  "status": "SUCCEEDED",
+  "variables": [
+    {
+      "key": "reason",
+      "value": "rollin' back"
+    },
+    {
+      "key": "rollbackType",
+      "value": "EXPLICIT"
+    },
+    {
+      "key": "targetGroups",
+      "value": [
+
+      ]
+    },
+    {
+      "key": "platformHealthOnlyShowOverride",
+      "value": false
+    },
+    {
+      "key": "credentials",
+      "value": "mgmt"
+    },
+    {
+      "key": "rollbackContext",
+      "value": {
+        "restoreServerGroupName": "keel-main-v737",
+        "rollbackServerGroupName": "keel-main-v738",
+        "targetHealthyRollbackPercentage": 100,
+        "delayBeforeDisableSeconds": 0
+      }
+    },
+    {
+      "key": "cloudProvider",
+      "value": "aws"
+    },
+    {
+      "key": "securityGroups",
+      "value": [
+        "keel",
+        "spinnaker-internal-service",
+        "nf-infrastructure"
+      ]
+    },
+    {
+      "key": "moniker",
+      "value": {
+        "app": "keel",
+        "cluster": "keel-main",
+        "sequence": 738,
+        "stack": "main"
+      }
+    },
+    {
+      "key": "region",
+      "value": "us-west-2"
+    },
+    {
+      "key": "user",
+      "value": "keel@spinnaker.io"
+    },
+    {
+      "key": "notification.type",
+      "value": "disableservergroup"
+    },
+    {
+      "key": "deploy.account.name",
+      "value": "mgmt"
+    },
+    {
+      "key": "zeroDesiredCapacityCount",
+      "value": 0
+    },
+    {
+      "key": "force.cache.refresh.errors",
+      "value": [
+
+      ]
+    },
+    {
+      "key": "lastCapacityCheck",
+      "value": {
+        "outOfService": 0,
+        "up": 0,
+        "failed": 0,
+        "starting": 0,
+        "down": 8,
+        "succeeded": 0,
+        "unknown": 0
+      }
+    },
+    {
+      "key": "targetHealthyDeployPercentage",
+      "value": 100
+    },
+    {
+      "key": "currentInstanceCount",
+      "value": 8
+    },
+    {
+      "key": "targetop.asg.enableServerGroup.name",
+      "value": "keel-main-v737"
+    },
+    {
+      "key": "targetDesiredSize",
+      "value": 8
+    },
+    {
+      "key": "deploy.server.groups",
+      "value": {
+        "us-west-2": [
+          "keel-main-v738"
+        ]
+      }
+    },
+    {
+      "key": "kato.last.task.id",
+      "value": {
+        "id": "01FJDJFKZKA29P8MT4XZYZ0V4Y"
+      }
+    },
+    {
+      "key": "targetop.asg.enableServerGroup.regions",
+      "value": [
+        "us-west-2"
+      ]
+    },
+    {
+      "key": "serverGroupName",
+      "value": "keel-main-v738"
+    },
+    {
+      "key": "processed.server.groups",
+      "value": [
+
+      ]
+    },
+    {
+      "key": "kato.task.terminalRetryCount",
+      "value": 0
+    },
+    {
+      "key": "asgName",
+      "value": "keel-main-v738"
+    },
+    {
+      "key": "refreshed.server.groups",
+      "value": [
+
+      ]
+    },
+    {
+      "key": "zones",
+      "value": [
+
+      ]
+    },
+    {
+      "key": "kato.task.firstNotFoundRetry",
+      "value": -1
+    },
+    {
+      "key": "capacitySnapshot",
+      "value": {
+        "minSize": 8,
+        "maxSize": 8,
+        "desiredCapacity": 8
+      }
+    },
+    {
+      "key": "kato.tasks",
+      "value": [
+        {
+          "resultObjects": [
+
+          ],
+          "id": "01FJDJFKZKA29P8MT4XZYZ0V4Y",
+          "history": [
+            {
+              "phase": "ORCHESTRATION",
+              "status": "Initializing Orchestration Task"
+            },
+            {
+              "phase": "ORCHESTRATION",
+              "status": "Processing op: DisableAsgAtomicOperation"
+            },
+            {
+              "phase": "",
+              "status": "Initializing Disable ASG operation for keel-main-v738..."
+            },
+            {
+              "phase": "",
+              "status": "Disabling ASG 'keel-main-v738' in us-west-2"
+            },
+            {
+              "phase": "",
+              "status": "Deregistering instances from Load Balancers..."
+            },
+            {
+              "phase": "",
+              "status": "Deregistering instances from Target Groups..."
+            },
+            {
+              "phase": "",
+              "status": "Marking ASG keel-main-v738 as OUT_OF_SERVICE with Discovery"
+            },
+            {
+              "phase": "",
+              "status": "Looking up discovery application name for instance i-0143414096e3c4596 (attempt: 0)"
+            },
+            {
+              "phase": "",
+              "status": "Attempting to mark i-01ea2f21b68781d61 as 'OUT_OF_SERVICE' in discovery (attempt: 0)."
+            },
+            {
+              "phase": "",
+              "status": "Attempting to mark i-017cbffddf7843dda as 'OUT_OF_SERVICE' in discovery (attempt: 0)."
+            },
+            {
+              "phase": "",
+              "status": "Attempting to mark i-01fcffb1ae3ffd649 as 'OUT_OF_SERVICE' in discovery (attempt: 0)."
+            },
+            {
+              "phase": "",
+              "status": "Attempting to mark i-0ef0762f3218b3720 as 'OUT_OF_SERVICE' in discovery (attempt: 0)."
+            },
+            {
+              "phase": "",
+              "status": "Attempting to mark i-0e7c6554338cbac2a as 'OUT_OF_SERVICE' in discovery (attempt: 0)."
+            },
+            {
+              "phase": "",
+              "status": "Attempting to mark i-0143414096e3c4596 as 'OUT_OF_SERVICE' in discovery (attempt: 0)."
+            },
+            {
+              "phase": "",
+              "status": "Attempting to mark i-07135ac2c2d185ef7 as 'OUT_OF_SERVICE' in discovery (attempt: 0)."
+            },
+            {
+              "phase": "",
+              "status": "Attempting to mark i-02e95236e3ca43dca as 'OUT_OF_SERVICE' in discovery (attempt: 0)."
+            },
+            {
+              "phase": "",
+              "status": "Finished Disabling ASG keel-main-v738"
+            },
+            {
+              "phase": "DISABLE_ASG",
+              "status": "Finished Disable ASG operation for [us-west-2:keel-main-v738]."
+            },
+            {
+              "phase": "ORCHESTRATION",
+              "status": "Orchestration completed."
+            },
+            {
+              "phase": "ORCHESTRATION",
+              "status": "Orchestration completed."
+            }
+          ],
+          "status": {
+            "retryable": false,
+            "completed": true,
+            "failed": false
+          }
+        }
+      ]
+    },
+    {
+      "key": "kato.task.notFoundRetryCount",
+      "value": 0
+    },
+    {
+      "key": "kato.task.lastStatus",
+      "value": "SUCCEEDED"
+    },
+    {
+      "key": "targetop.asg.disableServerGroup.regions",
+      "value": [
+        "us-west-2"
+      ]
+    },
+    {
+      "key": "targetop.asg.disableServerGroup.name",
+      "value": "keel-main-v738"
+    }
+  ],
+  "steps": [
+    {
+      "id": "1",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.DetermineHealthProvidersTask",
+      "name": "determineHealthProviders",
+      "startTime": 1634690477270,
+      "endTime": 1634690477393,
+      "status": "SUCCEEDED",
+      "stageStart": true,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "2",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.EnableServerGroupTask",
+      "name": "enableServerGroup",
+      "startTime": 1634690477431,
+      "endTime": 1634690477567,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "3",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.MonitorKatoTask",
+      "name": "monitorServerGroup",
+      "startTime": 1634690477599,
+      "endTime": 1634690482866,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "4",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.instance.WaitForUpInstancesTask",
+      "name": "waitForUpInstances",
+      "startTime": 1634690482901,
+      "endTime": 1634690615277,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "5",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.ServerGroupCacheForceRefreshTask",
+      "name": "forceCacheRefresh",
+      "startTime": 1634690615375,
+      "endTime": 1634690649238,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": true,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "1",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.DetermineHealthProvidersTask",
+      "name": "determineHealthProviders",
+      "startTime": 1634690649665,
+      "endTime": 1634690649810,
+      "status": "SUCCEEDED",
+      "stageStart": true,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "2",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.DisableServerGroupTask",
+      "name": "disableServerGroup",
+      "startTime": 1634690649864,
+      "endTime": 1634690650142,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "3",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.MonitorKatoTask",
+      "name": "monitorServerGroup",
+      "startTime": 1634690650190,
+      "endTime": 1634690655341,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "4",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.WaitForRequiredInstancesDownTask",
+      "name": "waitForDownInstances",
+      "startTime": 1634690655409,
+      "endTime": 1634690746718,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "5",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.WaitForDisabledServerGroupTask",
+      "name": "waitForServerGroupDisabled",
+      "startTime": 1634690746749,
+      "endTime": 1634690746900,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": true,
+      "loopStart": false,
+      "loopEnd": false
+    }
+  ],
+  "buildTime": 1634690476552,
+  "startTime": 1634690476599,
+  "endTime": 1634690747016,
+  "execution": {
+    "type": "ORCHESTRATION",
+    "id": "01FJDJAAG8ZPC1TNHXS6JKA3KK",
+    "application": "keel",
+    "buildTime": 1634690476552,
+    "canceled": false,
+    "limitConcurrent": false,
+    "keepWaitingPipelines": false,
+    "stages": [
+      {
+        "id": "01FJDJAAG8ERJ4AN35B8CSRNTW",
+        "refId": "0",
+        "type": "rollbackServerGroup",
+        "name": "rollbackServerGroup",
+        "startTime": 1634690476628,
+        "endTime": 1634690746994,
+        "status": "SUCCEEDED",
+        "context": {
+          "reason": "rollin' back",
+          "rollbackType": "EXPLICIT",
+          "targetGroups": [
+
+          ],
+          "platformHealthOnlyShowOverride": false,
+          "credentials": "mgmt",
+          "rollbackContext": {
+            "restoreServerGroupName": "keel-main-v737",
+            "rollbackServerGroupName": "keel-main-v738",
+            "targetHealthyRollbackPercentage": 100,
+            "delayBeforeDisableSeconds": 0
+          },
+          "cloudProvider": "aws",
+          "securityGroups": [
+            "keel",
+            "spinnaker-internal-service",
+            "nf-infrastructure"
+          ],
+          "moniker": {
+            "app": "keel",
+            "cluster": "keel-main",
+            "sequence": 738,
+            "stack": "main"
+          },
+          "region": "us-west-2",
+          "user": "keel@spinnaker.io"
+        },
+        "outputs": {
+
+        },
+        "tasks": [
+
+        ],
+        "requisiteStageRefIds": [
+
+        ]
+      },
+      {
+        "id": "01FJDJAANGKWT2PHHVBCVSB5WZ",
+        "refId": "0>1",
+        "type": "enableServerGroup",
+        "name": "Enable keel-main-v737 due to rollback",
+        "startTime": 1634690476912,
+        "endTime": 1634690649268,
+        "status": "SUCCEEDED",
+        "context": {
+          "reason": "rollin' back",
+          "notification.type": "enableservergroup",
+          "deploy.account.name": "mgmt",
+          "zeroDesiredCapacityCount": 0,
+          "force.cache.refresh.errors": [
+
+          ],
+          "lastCapacityCheck": {
+            "outOfService": 0,
+            "up": 0,
+            "failed": 0,
+            "starting": 0,
+            "down": 8,
+            "succeeded": 0,
+            "unknown": 0
+          },
+          "credentials": "mgmt",
+          "targetHealthyDeployPercentage": 100,
+          "currentInstanceCount": 8,
+          "targetop.asg.enableServerGroup.name": "keel-main-v737",
+          "targetDesiredSize": 8,
+          "rollbackContext": {
+            "restoreServerGroupName": "keel-main-v737",
+            "rollbackServerGroupName": "keel-main-v738",
+            "targetHealthyRollbackPercentage": 100,
+            "delayBeforeDisableSeconds": 0
+          },
+          "cloudProvider": "aws",
+          "deploy.server.groups": {
+            "us-west-2": [
+              "keel-main-v737"
+            ]
+          },
+          "kato.last.task.id": {
+            "id": "01FJDJABDZKM6GX0P4FD8GWTCV"
+          },
+          "targetop.asg.enableServerGroup.regions": [
+            "us-west-2"
+          ],
+          "serverGroupName": "keel-main-v737",
+          "processed.server.groups": [
+
+          ],
+          "kato.task.terminalRetryCount": 0,
+          "asgName": "keel-main-v737",
+          "refreshed.server.groups": [
+
+          ],
+          "moniker": {
+            "app": "keel",
+            "cluster": "keel-main",
+            "sequence": 738,
+            "stack": "main"
+          },
+          "zones": [
+
+          ],
+          "kato.task.firstNotFoundRetry": -1,
+          "capacitySnapshot": {
+            "minSize": 8,
+            "maxSize": 8,
+            "desiredCapacity": 8
+          },
+          "rollbackType": "EXPLICIT",
+          "targetGroups": [
+
+          ],
+          "platformHealthOnlyShowOverride": false,
+          "securityGroups": [
+            "keel",
+            "spinnaker-internal-service",
+            "nf-infrastructure"
+          ],
+          "kato.tasks": [
+            {
+              "resultObjects": [
+
+              ],
+              "id": "01FJDJABDZKM6GX0P4FD8GWTCV",
+              "history": [
+                {
+                  "phase": "ORCHESTRATION",
+                  "status": "Initializing Orchestration Task"
+                },
+                {
+                  "phase": "ORCHESTRATION",
+                  "status": "Processing op: EnableAsgAtomicOperation"
+                },
+                {
+                  "phase": "",
+                  "status": "Initializing Enable ASG operation for keel-main-v737..."
+                },
+                {
+                  "phase": "",
+                  "status": "Enabling ASG 'keel-main-v737' in us-west-2"
+                },
+                {
+                  "phase": "",
+                  "status": "Registering instances with Load Balancers..."
+                },
+                {
+                  "phase": "",
+                  "status": "Registering instances with Target Groups..."
+                },
+                {
+                  "phase": "",
+                  "status": "Marking ASG keel-main-v737 as UP with Discovery"
+                },
+                {
+                  "phase": "",
+                  "status": "Looking up discovery application name for instance i-076d85812a76decc0 (attempt: 0)"
+                },
+                {
+                  "phase": "",
+                  "status": "Attempting to mark i-0888f288044e5ce35 as 'UP' in discovery (attempt: 0)."
+                },
+                {
+                  "phase": "",
+                  "status": "Attempting to mark i-076d85812a76decc0 as 'UP' in discovery (attempt: 0)."
+                },
+                {
+                  "phase": "",
+                  "status": "Attempting to mark i-0662f29fce35a099d as 'UP' in discovery (attempt: 0)."
+                },
+                {
+                  "phase": "",
+                  "status": "Attempting to mark i-0b2bf22352d15fd73 as 'UP' in discovery (attempt: 0)."
+                },
+                {
+                  "phase": "",
+                  "status": "Attempting to mark i-0a34186ec6e0accb2 as 'UP' in discovery (attempt: 0)."
+                },
+                {
+                  "phase": "",
+                  "status": "Attempting to mark i-0523595726664f2f7 as 'UP' in discovery (attempt: 0)."
+                },
+                {
+                  "phase": "",
+                  "status": "Attempting to mark i-0cabcaedf17eb02a7 as 'UP' in discovery (attempt: 0)."
+                },
+                {
+                  "phase": "",
+                  "status": "Attempting to mark i-0bdfeb3d314dd94b2 as 'UP' in discovery (attempt: 0)."
+                },
+                {
+                  "phase": "",
+                  "status": "Finished Enabling ASG keel-main-v737"
+                },
+                {
+                  "phase": "ENABLE_ASG",
+                  "status": "Finished Enable ASG operation for [us-west-2:keel-main-v737]."
+                },
+                {
+                  "phase": "ORCHESTRATION",
+                  "status": "Orchestration completed."
+                },
+                {
+                  "phase": "ORCHESTRATION",
+                  "status": "Orchestration completed."
+                }
+              ],
+              "status": {
+                "retryable": false,
+                "completed": true,
+                "failed": false
+              }
+            }
+          ],
+          "region": "us-west-2",
+          "kato.task.notFoundRetryCount": 0,
+          "user": "keel@spinnaker.io",
+          "kato.task.lastStatus": "SUCCEEDED"
+        },
+        "outputs": {
+
+        },
+        "tasks": [
+          {
+            "id": "1",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.DetermineHealthProvidersTask",
+            "name": "determineHealthProviders",
+            "startTime": 1634690477270,
+            "endTime": 1634690477393,
+            "status": "SUCCEEDED",
+            "stageStart": true,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "2",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.EnableServerGroupTask",
+            "name": "enableServerGroup",
+            "startTime": 1634690477431,
+            "endTime": 1634690477567,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "3",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.MonitorKatoTask",
+            "name": "monitorServerGroup",
+            "startTime": 1634690477599,
+            "endTime": 1634690482866,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "4",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.instance.WaitForUpInstancesTask",
+            "name": "waitForUpInstances",
+            "startTime": 1634690482901,
+            "endTime": 1634690615277,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "5",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.ServerGroupCacheForceRefreshTask",
+            "name": "forceCacheRefresh",
+            "startTime": 1634690615375,
+            "endTime": 1634690649238,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": true,
+            "loopStart": false,
+            "loopEnd": false
+          }
+        ],
+        "syntheticStageOwner": "STAGE_AFTER",
+        "parentStageId": "01FJDJAAG8ERJ4AN35B8CSRNTW",
+        "requisiteStageRefIds": [
+
+        ]
+      },
+      {
+        "id": "01FJDJAANGY3FPA7WTGDJWN9F3",
+        "refId": "0>2",
+        "type": "disableServerGroup",
+        "name": "Disable keel-main-v738 due to rollback",
+        "startTime": 1634690649298,
+        "endTime": 1634690746928,
+        "status": "SUCCEEDED",
+        "context": {
+          "reason": "rollin' back",
+          "notification.type": "disableservergroup",
+          "deploy.account.name": "mgmt",
+          "zeroDesiredCapacityCount": 0,
+          "targetop.asg.disableServerGroup.regions": [
+            "us-west-2"
+          ],
+          "credentials": "mgmt",
+          "currentInstanceCount": 8,
+          "rollbackContext": {
+            "restoreServerGroupName": "keel-main-v737",
+            "rollbackServerGroupName": "keel-main-v738",
+            "targetHealthyRollbackPercentage": 100,
+            "delayBeforeDisableSeconds": 0
+          },
+          "cloudProvider": "aws",
+          "deploy.server.groups": {
+            "us-west-2": [
+              "keel-main-v738"
+            ]
+          },
+          "kato.last.task.id": {
+            "id": "01FJDJFKZKA29P8MT4XZYZ0V4Y"
+          },
+          "serverGroupName": "keel-main-v738",
+          "targetop.asg.disableServerGroup.name": "keel-main-v738",
+          "kato.task.terminalRetryCount": 0,
+          "asgName": "keel-main-v738",
+          "moniker": {
+            "app": "keel",
+            "cluster": "keel-main",
+            "sequence": 738,
+            "stack": "main"
+          },
+          "kato.task.firstNotFoundRetry": -1,
+          "capacitySnapshot": {
+            "minSize": 8,
+            "maxSize": 8,
+            "desiredCapacity": 8
+          },
+          "rollbackType": "EXPLICIT",
+          "targetGroups": [
+
+          ],
+          "platformHealthOnlyShowOverride": false,
+          "securityGroups": [
+            "keel",
+            "spinnaker-internal-service",
+            "nf-infrastructure"
+          ],
+          "kato.tasks": [
+            {
+              "resultObjects": [
+
+              ],
+              "id": "01FJDJFKZKA29P8MT4XZYZ0V4Y",
+              "history": [
+                {
+                  "phase": "ORCHESTRATION",
+                  "status": "Initializing Orchestration Task"
+                },
+                {
+                  "phase": "ORCHESTRATION",
+                  "status": "Processing op: DisableAsgAtomicOperation"
+                },
+                {
+                  "phase": "",
+                  "status": "Initializing Disable ASG operation for keel-main-v738..."
+                },
+                {
+                  "phase": "",
+                  "status": "Disabling ASG 'keel-main-v738' in us-west-2"
+                },
+                {
+                  "phase": "",
+                  "status": "Deregistering instances from Load Balancers..."
+                },
+                {
+                  "phase": "",
+                  "status": "Deregistering instances from Target Groups..."
+                },
+                {
+                  "phase": "",
+                  "status": "Marking ASG keel-main-v738 as OUT_OF_SERVICE with Discovery"
+                },
+                {
+                  "phase": "",
+                  "status": "Looking up discovery application name for instance i-0143414096e3c4596 (attempt: 0)"
+                },
+                {
+                  "phase": "",
+                  "status": "Attempting to mark i-01ea2f21b68781d61 as 'OUT_OF_SERVICE' in discovery (attempt: 0)."
+                },
+                {
+                  "phase": "",
+                  "status": "Attempting to mark i-017cbffddf7843dda as 'OUT_OF_SERVICE' in discovery (attempt: 0)."
+                },
+                {
+                  "phase": "",
+                  "status": "Attempting to mark i-01fcffb1ae3ffd649 as 'OUT_OF_SERVICE' in discovery (attempt: 0)."
+                },
+                {
+                  "phase": "",
+                  "status": "Attempting to mark i-0ef0762f3218b3720 as 'OUT_OF_SERVICE' in discovery (attempt: 0)."
+                },
+                {
+                  "phase": "",
+                  "status": "Attempting to mark i-0e7c6554338cbac2a as 'OUT_OF_SERVICE' in discovery (attempt: 0)."
+                },
+                {
+                  "phase": "",
+                  "status": "Attempting to mark i-0143414096e3c4596 as 'OUT_OF_SERVICE' in discovery (attempt: 0)."
+                },
+                {
+                  "phase": "",
+                  "status": "Attempting to mark i-07135ac2c2d185ef7 as 'OUT_OF_SERVICE' in discovery (attempt: 0)."
+                },
+                {
+                  "phase": "",
+                  "status": "Attempting to mark i-02e95236e3ca43dca as 'OUT_OF_SERVICE' in discovery (attempt: 0)."
+                },
+                {
+                  "phase": "",
+                  "status": "Finished Disabling ASG keel-main-v738"
+                },
+                {
+                  "phase": "DISABLE_ASG",
+                  "status": "Finished Disable ASG operation for [us-west-2:keel-main-v738]."
+                },
+                {
+                  "phase": "ORCHESTRATION",
+                  "status": "Orchestration completed."
+                },
+                {
+                  "phase": "ORCHESTRATION",
+                  "status": "Orchestration completed."
+                }
+              ],
+              "status": {
+                "retryable": false,
+                "completed": true,
+                "failed": false
+              }
+            }
+          ],
+          "region": "us-west-2",
+          "kato.task.notFoundRetryCount": 0,
+          "user": "keel@spinnaker.io",
+          "kato.task.lastStatus": "SUCCEEDED"
+        },
+        "outputs": {
+
+        },
+        "tasks": [
+          {
+            "id": "1",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.DetermineHealthProvidersTask",
+            "name": "determineHealthProviders",
+            "startTime": 1634690649665,
+            "endTime": 1634690649810,
+            "status": "SUCCEEDED",
+            "stageStart": true,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "2",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.DisableServerGroupTask",
+            "name": "disableServerGroup",
+            "startTime": 1634690649864,
+            "endTime": 1634690650142,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "3",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.MonitorKatoTask",
+            "name": "monitorServerGroup",
+            "startTime": 1634690650190,
+            "endTime": 1634690655341,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "4",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.WaitForRequiredInstancesDownTask",
+            "name": "waitForDownInstances",
+            "startTime": 1634690655409,
+            "endTime": 1634690746718,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "5",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.WaitForDisabledServerGroupTask",
+            "name": "waitForServerGroupDisabled",
+            "startTime": 1634690746749,
+            "endTime": 1634690746900,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": true,
+            "loopStart": false,
+            "loopEnd": false
+          }
+        ],
+        "syntheticStageOwner": "STAGE_AFTER",
+        "parentStageId": "01FJDJAAG8ERJ4AN35B8CSRNTW",
+        "requisiteStageRefIds": [
+          "0>1"
+        ]
+      }
+    ],
+    "startTime": 1634690476599,
+    "endTime": 1634690747016,
+    "status": "SUCCEEDED",
+    "authentication": {
+      "user": "managed-delivery-team@netflix.com",
+      "allowedAccounts": [
+
+      ]
+    },
+    "origin": "keel",
+    "trigger": {
+      "type": "keel",
+      "correlationId": "ec2:cluster:mgmt:keel-main:us-west-2",
+      "user": "keel",
+      "parameters": {
+
+      },
+      "artifacts": [
+
+      ],
+      "notifications": [
+
+      ],
+      "rebake": false,
+      "dryRun": false,
+      "strategy": false,
+      "resolvedExpectedArtifacts": [
+
+      ],
+      "expectedArtifacts": [
+
+      ]
+    },
+    "description": "Rolling back cluster keel-main to keel-0.1500.0-h2239.4bad12c in mgmt/us-west-2 (disabling keel-main-v738, enabling keel-main-v737)",
+    "notifications": [
+
+    ],
+    "initialConfig": {
+
+    },
+    "systemNotifications": [
+
+    ],
+    "partition": "us-west-2"
+  }
+}

@@ -1,0 +1,488 @@
+{
+  "id": "01FJW63G0B9YAD5J65J1D732CV",
+  "name": "Disable extra active server group emburnstest-mmmwaffles-testing-v117 in titustestvpc/us-east-1",
+  "application": "emburnstest",
+  "status": "SUCCEEDED",
+  "variables": [
+    {
+      "key": "serverGroupName",
+      "value": "emburnstest-mmmwaffles-testing-v117"
+    },
+    {
+      "key": "credentials",
+      "value": "titustestvpc"
+    },
+    {
+      "key": "cloudProvider",
+      "value": "titus"
+    },
+    {
+      "key": "asgName",
+      "value": "emburnstest-mmmwaffles-testing-v117"
+    },
+    {
+      "key": "moniker",
+      "value": {
+        "app": "emburnstest",
+        "cluster": "emburnstest-mmmwaffles-testing",
+        "sequence": 117,
+        "stack": "mmmwaffles",
+        "detail": "testing"
+      }
+    },
+    {
+      "key": "region",
+      "value": "us-east-1"
+    },
+    {
+      "key": "outputs",
+      "value": {
+
+      }
+    },
+    {
+      "key": "notification.type",
+      "value": "disableservergroup"
+    },
+    {
+      "key": "deploy.account.name",
+      "value": "titustestvpc"
+    },
+    {
+      "key": "targetop.asg.disableServerGroup.regions",
+      "value": [
+        "us-east-1"
+      ]
+    },
+    {
+      "key": "workflowExecution",
+      "value": {
+        "namespace": "spinnaker",
+        "workflowType": "WorkflowDispatcher",
+        "runId": "8b9c2992-ad78-420a-8cf0-5ebf6eecc3cb",
+        "permalink": "https://temporal/namespaces/spinnaker/workflows/stage:01FJW63G0B9YAD5J65J1D732CV:01FJW63G564XJFNAS894QYGX8N:1635180987109/8b9c2992-ad78-420a-8cf0-5ebf6eecc3cb/summary",
+        "workflowId": "stage:01FJW63G0B9YAD5J65J1D732CV:01FJW63G564XJFNAS894QYGX8N:1635180987109",
+        "uiTarget": "https://temporal"
+      }
+    },
+    {
+      "key": "targetop.asg.disableServerGroup.name",
+      "value": "emburnstest-mmmwaffles-testing-v117"
+    },
+    {
+      "key": "workflowResult",
+      "value": {
+        "childWorkflowExecutionInfos": {
+          "0c0896ff29c40240e477e780618a84e924192f2d45d8996d9a4a25810e6e1e09": {
+            "namespace": "spinnaker",
+            "workflowType": "StageContextCloudOperationRunner",
+            "runId": "236a3105-7645-4c5c-988b-b60399a41bae",
+            "permalink": "https://temporal/namespaces/spinnaker/workflows/0c0896ff29c40240e477e780618a84e924192f2d45d8996d9a4a25810e6e1e09/236a3105-7645-4c5c-988b-b60399a41bae/summary",
+            "workflowId": "0c0896ff29c40240e477e780618a84e924192f2d45d8996d9a4a25810e6e1e09",
+            "uiTarget": "https://temporal"
+          }
+        },
+        "childWorkflowExecutionResults": {
+          "0c0896ff29c40240e477e780618a84e924192f2d45d8996d9a4a25810e6e1e09": {
+            "output": {
+              "outputType": "disableTitusServerGroupOperation",
+              "skippedInstances": [
+
+              ]
+            },
+            "childWorkflowExecutionInfos": {
+
+            },
+            "childWorkflowExecutionResults": {
+
+            },
+            "logs": [
+
+            ],
+            "status": "WORKFLOW_EXECUTION_STATUS_UNSPECIFIED",
+            "isCompleted": true
+          }
+        },
+        "logs": [
+          "Disabling server group us-east-1/emburnstest-mmmwaffles-testing-v117",
+          "Marking server group emburnstest-mmmwaffles-testing-v117 as OUT_OF_SERVICE with Discovery",
+          "Finished Disabling server group emburnstest-mmmwaffles-testing-v117"
+        ],
+        "status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+        "isCompleted": true
+      }
+    },
+    {
+      "key": "targetLocation",
+      "value": {
+        "type": "REGION",
+        "value": "us-east-1"
+      }
+    },
+    {
+      "key": "deployServerGroupsRegion",
+      "value": "us-east-1"
+    },
+    {
+      "key": "deploy.server.groups",
+      "value": {
+        "us-east-1": [
+          "emburnstest-mmmwaffles-testing-v117"
+        ]
+      }
+    },
+    {
+      "key": "kato.tasks",
+      "value": [
+        {
+          "resultObjects": [
+            {
+              "outputType": "disableTitusServerGroupOperation",
+              "skippedInstances": [
+
+              ]
+            }
+          ],
+          "history": [
+
+          ],
+          "id": "n/a",
+          "status": {
+
+          }
+        }
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "id": "1",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.DetermineHealthProvidersTask",
+      "name": "determineHealthProviders",
+      "startTime": 1635180986908,
+      "endTime": 1635180987011,
+      "status": "SUCCEEDED",
+      "stageStart": true,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "2",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.DisableServerGroupTask",
+      "name": "disableServerGroup",
+      "startTime": 1635180987050,
+      "endTime": 1635180987181,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "3",
+      "implementingClass": "com.netflix.spinnaker.orca.temporal.stage.MonitorTemporalWorkflowTask",
+      "name": "monitorServerGroup",
+      "startTime": 1635180987222,
+      "endTime": 1635181017721,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "4",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.WaitForRequiredInstancesDownTask",
+      "name": "waitForDownInstances",
+      "startTime": 1635181017763,
+      "endTime": 1635181017950,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "5",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.WaitForDisabledServerGroupTask",
+      "name": "waitForServerGroupDisabled",
+      "startTime": 1635181017995,
+      "endTime": 1635181018080,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": true,
+      "loopStart": false,
+      "loopEnd": false
+    }
+  ],
+  "buildTime": 1635180986379,
+  "startTime": 1635180986440,
+  "endTime": 1635181018213,
+  "execution": {
+    "type": "ORCHESTRATION",
+    "id": "01FJW63G0B9YAD5J65J1D732CV",
+    "application": "emburnstest",
+    "buildTime": 1635180986379,
+    "canceled": false,
+    "limitConcurrent": false,
+    "keepWaitingPipelines": false,
+    "stages": [
+      {
+        "id": "01FJW63G0BT5NTPY68AMHG7FR5",
+        "refId": "0",
+        "type": "disableServerGroup",
+        "name": "disableServerGroup",
+        "startTime": 1635180986480,
+        "endTime": 1635181018180,
+        "status": "SUCCEEDED",
+        "context": {
+          "serverGroupName": "emburnstest-mmmwaffles-testing-v117",
+          "credentials": "titustestvpc",
+          "cloudProvider": "titus",
+          "asgName": "emburnstest-mmmwaffles-testing-v117",
+          "moniker": {
+            "app": "emburnstest",
+            "cluster": "emburnstest-mmmwaffles-testing",
+            "sequence": 117,
+            "stack": "mmmwaffles",
+            "detail": "testing"
+          },
+          "region": "us-east-1"
+        },
+        "outputs": {
+
+        },
+        "tasks": [
+
+        ],
+        "requisiteStageRefIds": [
+
+        ]
+      },
+      {
+        "id": "01FJW63G564XJFNAS894QYGX8N",
+        "refId": "0<1",
+        "type": "disableServerGroup",
+        "name": "disableServerGroup",
+        "startTime": 1635180986593,
+        "endTime": 1635181018121,
+        "status": "SUCCEEDED",
+        "context": {
+          "outputs": {
+
+          },
+          "notification.type": "disableservergroup",
+          "deploy.account.name": "titustestvpc",
+          "serverGroupName": "emburnstest-mmmwaffles-testing-v117",
+          "targetop.asg.disableServerGroup.regions": [
+            "us-east-1"
+          ],
+          "credentials": "titustestvpc",
+          "workflowExecution": {
+            "namespace": "spinnaker",
+            "workflowType": "WorkflowDispatcher",
+            "runId": "8b9c2992-ad78-420a-8cf0-5ebf6eecc3cb",
+            "permalink": "https://temporal/namespaces/spinnaker/workflows/stage:01FJW63G0B9YAD5J65J1D732CV:01FJW63G564XJFNAS894QYGX8N:1635180987109/8b9c2992-ad78-420a-8cf0-5ebf6eecc3cb/summary",
+            "workflowId": "stage:01FJW63G0B9YAD5J65J1D732CV:01FJW63G564XJFNAS894QYGX8N:1635180987109",
+            "uiTarget": "https://temporal"
+          },
+          "targetop.asg.disableServerGroup.name": "emburnstest-mmmwaffles-testing-v117",
+          "asgName": "emburnstest-mmmwaffles-testing-v117",
+          "moniker": {
+            "app": "emburnstest",
+            "cluster": "emburnstest-mmmwaffles-testing",
+            "sequence": 117,
+            "stack": "mmmwaffles",
+            "detail": "testing"
+          },
+          "workflowResult": {
+            "childWorkflowExecutionInfos": {
+              "0c0896ff29c40240e477e780618a84e924192f2d45d8996d9a4a25810e6e1e09": {
+                "namespace": "spinnaker",
+                "workflowType": "StageContextCloudOperationRunner",
+                "runId": "236a3105-7645-4c5c-988b-b60399a41bae",
+                "permalink": "https://temporal/namespaces/spinnaker/workflows/0c0896ff29c40240e477e780618a84e924192f2d45d8996d9a4a25810e6e1e09/236a3105-7645-4c5c-988b-b60399a41bae/summary",
+                "workflowId": "0c0896ff29c40240e477e780618a84e924192f2d45d8996d9a4a25810e6e1e09",
+                "uiTarget": "https://temporal"
+              }
+            },
+            "childWorkflowExecutionResults": {
+              "0c0896ff29c40240e477e780618a84e924192f2d45d8996d9a4a25810e6e1e09": {
+                "output": {
+                  "outputType": "disableTitusServerGroupOperation",
+                  "skippedInstances": [
+
+                  ]
+                },
+                "childWorkflowExecutionInfos": {
+
+                },
+                "childWorkflowExecutionResults": {
+
+                },
+                "logs": [
+
+                ],
+                "status": "WORKFLOW_EXECUTION_STATUS_UNSPECIFIED",
+                "isCompleted": true
+              }
+            },
+            "logs": [
+              "Disabling server group us-east-1/emburnstest-mmmwaffles-testing-v117",
+              "Marking server group emburnstest-mmmwaffles-testing-v117 as OUT_OF_SERVICE with Discovery",
+              "Finished Disabling server group emburnstest-mmmwaffles-testing-v117"
+            ],
+            "status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+            "isCompleted": true
+          },
+          "targetLocation": {
+            "type": "REGION",
+            "value": "us-east-1"
+          },
+          "cloudProvider": "titus",
+          "deployServerGroupsRegion": "us-east-1",
+          "deploy.server.groups": {
+            "us-east-1": [
+              "emburnstest-mmmwaffles-testing-v117"
+            ]
+          },
+          "kato.tasks": [
+            {
+              "resultObjects": [
+                {
+                  "outputType": "disableTitusServerGroupOperation",
+                  "skippedInstances": [
+
+                  ]
+                }
+              ],
+              "history": [
+
+              ],
+              "id": "n/a",
+              "status": {
+
+              }
+            }
+          ],
+          "region": "us-east-1"
+        },
+        "outputs": {
+
+        },
+        "tasks": [
+          {
+            "id": "1",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.DetermineHealthProvidersTask",
+            "name": "determineHealthProviders",
+            "startTime": 1635180986908,
+            "endTime": 1635180987011,
+            "status": "SUCCEEDED",
+            "stageStart": true,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "2",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.DisableServerGroupTask",
+            "name": "disableServerGroup",
+            "startTime": 1635180987050,
+            "endTime": 1635180987181,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "3",
+            "implementingClass": "com.netflix.spinnaker.orca.temporal.stage.MonitorTemporalWorkflowTask",
+            "name": "monitorServerGroup",
+            "startTime": 1635180987222,
+            "endTime": 1635181017721,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "4",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.WaitForRequiredInstancesDownTask",
+            "name": "waitForDownInstances",
+            "startTime": 1635181017763,
+            "endTime": 1635181017950,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "5",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.WaitForDisabledServerGroupTask",
+            "name": "waitForServerGroupDisabled",
+            "startTime": 1635181017995,
+            "endTime": 1635181018080,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": true,
+            "loopStart": false,
+            "loopEnd": false
+          }
+        ],
+        "syntheticStageOwner": "STAGE_BEFORE",
+        "parentStageId": "01FJW63G0BT5NTPY68AMHG7FR5",
+        "requisiteStageRefIds": [
+
+        ]
+      }
+    ],
+    "startTime": 1635180986440,
+    "endTime": 1635181018213,
+    "status": "SUCCEEDED",
+    "authentication": {
+      "user": "delivery-engineering@netflix.com",
+      "allowedAccounts": [
+
+      ]
+    },
+    "origin": "keel",
+    "trigger": {
+      "type": "keel",
+      "correlationId": "titus:cluster:titustestvpc:emburnstest-mmmwaffles-testing:us-east-1",
+      "user": "keel",
+      "parameters": {
+
+      },
+      "artifacts": [
+
+      ],
+      "notifications": [
+
+      ],
+      "rebake": false,
+      "dryRun": false,
+      "strategy": false,
+      "resolvedExpectedArtifacts": [
+
+      ],
+      "expectedArtifacts": [
+
+      ]
+    },
+    "description": "Disable extra active server group emburnstest-mmmwaffles-testing-v117 in titustestvpc/us-east-1",
+    "notifications": [
+
+    ],
+    "initialConfig": {
+
+    },
+    "systemNotifications": [
+
+    ],
+    "partition": "us-west-2"
+  }
+}

@@ -1,0 +1,471 @@
+{
+  "id": "01FJG0EMDA01MKNTR934M8KGEN",
+  "name": "Update security group keel in mgmttest/us-west-2",
+  "application": "keel",
+  "status": "SUCCEEDED",
+  "variables": [
+    {
+      "key": "securityGroupName",
+      "value": "keel"
+    },
+    {
+      "key": "outputs",
+      "value": {
+
+      }
+    },
+    {
+      "key": "notification.type",
+      "value": "upsertsecuritygroup"
+    },
+    {
+      "key": "deploy.account.name",
+      "value": "mgmttest"
+    },
+    {
+      "key": "regions",
+      "value": [
+        "us-west-2"
+      ]
+    },
+    {
+      "key": "securityGroupIngress",
+      "value": [
+        {
+          "startPort": 6565,
+          "name": "keel",
+          "type": "tcp",
+          "endPort": 6565
+        },
+        {
+          "startPort": 7001,
+          "name": "keel-elb",
+          "type": "tcp",
+          "endPort": 7002
+        }
+      ]
+    },
+    {
+      "key": "credentials",
+      "value": "mgmttest"
+    },
+    {
+      "key": "accountName",
+      "value": "mgmttest"
+    },
+    {
+      "key": "workflowExecution",
+      "value": {
+        "namespace": "spinnaker",
+        "workflowType": "WorkflowDispatcher",
+        "runId": "2df09458-1e85-47e3-a538-d23cf142b126",
+        "permalink": "https://temporal/namespaces/spinnaker/workflows/stage:01FJG0EMDA01MKNTR934M8KGEN:01FJG0EMDAM1H6BWR4NMAC5JM6:1634772407158/2df09458-1e85-47e3-a538-d23cf142b126/summary",
+        "workflowId": "stage:01FJG0EMDA01MKNTR934M8KGEN:01FJG0EMDAM1H6BWR4NMAC5JM6:1634772407158",
+        "uiTarget": "https://temporal"
+      }
+    },
+    {
+      "key": "description",
+      "value": "Application Security Group for keel"
+    },
+    {
+      "key": "workflowResult",
+      "value": {
+        "childWorkflowExecutionInfos": {
+          "b79dcfe98490045d1cb415467d7f256efaeacab4b4a0e9bbcd80aed5f4e553ba": {
+            "namespace": "spinnaker",
+            "workflowType": "StageContextCloudOperationRunner",
+            "runId": "94d42330-566b-494d-8df6-c59412c5aa59",
+            "permalink": "https://temporal/namespaces/spinnaker/workflows/b79dcfe98490045d1cb415467d7f256efaeacab4b4a0e9bbcd80aed5f4e553ba/94d42330-566b-494d-8df6-c59412c5aa59/summary",
+            "workflowId": "b79dcfe98490045d1cb415467d7f256efaeacab4b4a0e9bbcd80aed5f4e553ba",
+            "uiTarget": "https://temporal"
+          }
+        },
+        "childWorkflowExecutionResults": {
+          "b79dcfe98490045d1cb415467d7f256efaeacab4b4a0e9bbcd80aed5f4e553ba": {
+            "output": {
+              "securityGroupId": "sg-222",
+              "securityGroupName": "keel",
+              "outputType": "upsertSecurityGroupOperation"
+            },
+            "childWorkflowExecutionInfos": {
+
+            },
+            "childWorkflowExecutionResults": {
+
+            },
+            "logs": [
+
+            ],
+            "status": "WORKFLOW_EXECUTION_STATUS_UNSPECIFIED",
+            "isCompleted": true
+          }
+        },
+        "logs": [
+          "Updating Ingress ...",
+          "Upserted security group..."
+        ],
+        "status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+        "isCompleted": true
+      }
+    },
+    {
+      "key": "targets",
+      "value": [
+        {
+          "accountName": "mgmttest",
+          "vpcId": "vpc-00",
+          "name": "keel",
+          "region": "us-west-2"
+        }
+      ]
+    },
+    {
+      "key": "application",
+      "value": "keel"
+    },
+    {
+      "key": "cloudProvider",
+      "value": "aws"
+    },
+    {
+      "key": "vpcId",
+      "value": "vpc-00"
+    },
+    {
+      "key": "name",
+      "value": "keel"
+    },
+    {
+      "key": "kato.tasks",
+      "value": [
+        {
+          "resultObjects": [
+            {
+              "securityGroupId": "sg-222",
+              "securityGroupName": "keel",
+              "outputType": "upsertSecurityGroupOperation"
+            }
+          ],
+          "history": [
+
+          ],
+          "id": "n/a",
+          "status": {
+
+          }
+        }
+      ]
+    },
+    {
+      "key": "additionalSecurityGroupDetails",
+      "value": [
+        {
+          "startPort": 7004,
+          "protocol": "tcp",
+          "name": "0ABd",
+          "endPort": 7004
+        }
+      ]
+    },
+    {
+      "key": "user",
+      "value": "Spinnaker"
+    },
+    {
+      "key": "ipIngress",
+      "value": [
+
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "id": "1",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.securitygroup.UpsertSecurityGroupTask",
+      "name": "upsertSecurityGroup",
+      "startTime": 1634772407044,
+      "endTime": 1634772407214,
+      "status": "SUCCEEDED",
+      "stageStart": true,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "2",
+      "implementingClass": "com.netflix.spinnaker.orca.temporal.stage.MonitorTemporalWorkflowTask",
+      "name": "monitorUpsert",
+      "startTime": 1634772407247,
+      "endTime": 1634772412435,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "3",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.securitygroup.SecurityGroupForceCacheRefreshTask",
+      "name": "forceCacheRefresh",
+      "startTime": 1634772412460,
+      "endTime": 1634772413063,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "4",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.securitygroup.WaitForUpsertedSecurityGroupTask",
+      "name": "waitForUpsertedSecurityGroup",
+      "startTime": 1634772413089,
+      "endTime": 1634772413389,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": true,
+      "loopStart": false,
+      "loopEnd": false
+    }
+  ],
+  "buildTime": 1634772406698,
+  "startTime": 1634772406744,
+  "endTime": 1634772413455,
+  "execution": {
+    "type": "ORCHESTRATION",
+    "id": "01FJG0EMDA01MKNTR934M8KGEN",
+    "application": "keel",
+    "buildTime": 1634772406698,
+    "canceled": false,
+    "limitConcurrent": false,
+    "keepWaitingPipelines": false,
+    "stages": [
+      {
+        "id": "01FJG0EMDAM1H6BWR4NMAC5JM6",
+        "refId": "0",
+        "type": "upsertSecurityGroup",
+        "name": "upsertSecurityGroup",
+        "startTime": 1634772406771,
+        "endTime": 1634772413420,
+        "status": "SUCCEEDED",
+        "context": {
+          "securityGroupName": "keel",
+          "outputs": {
+
+          },
+          "notification.type": "upsertsecuritygroup",
+          "deploy.account.name": "mgmttest",
+          "regions": [
+            "us-west-2"
+          ],
+          "securityGroupIngress": [
+            {
+              "startPort": 6565,
+              "name": "keel",
+              "type": "tcp",
+              "endPort": 6565
+            },
+            {
+              "startPort": 7001,
+              "name": "keel-elb",
+              "type": "tcp",
+              "endPort": 7002
+            }
+          ],
+          "credentials": "mgmttest",
+          "accountName": "mgmttest",
+          "workflowExecution": {
+            "namespace": "spinnaker",
+            "workflowType": "WorkflowDispatcher",
+            "runId": "2df09458-1e85-47e3-a538-d23cf142b126",
+            "permalink": "https://temporal/namespaces/spinnaker/workflows/stage:01FJG0EMDA01MKNTR934M8KGEN:01FJG0EMDAM1H6BWR4NMAC5JM6:1634772407158/2df09458-1e85-47e3-a538-d23cf142b126/summary",
+            "workflowId": "stage:01FJG0EMDA01MKNTR934M8KGEN:01FJG0EMDAM1H6BWR4NMAC5JM6:1634772407158",
+            "uiTarget": "https://temporal"
+          },
+          "description": "Application Security Group for keel",
+          "workflowResult": {
+            "childWorkflowExecutionInfos": {
+              "b79dcfe98490045d1cb415467d7f256efaeacab4b4a0e9bbcd80aed5f4e553ba": {
+                "namespace": "spinnaker",
+                "workflowType": "StageContextCloudOperationRunner",
+                "runId": "94d42330-566b-494d-8df6-c59412c5aa59",
+                "permalink": "https://temporal/namespaces/spinnaker/workflows/b79dcfe98490045d1cb415467d7f256efaeacab4b4a0e9bbcd80aed5f4e553ba/94d42330-566b-494d-8df6-c59412c5aa59/summary",
+                "workflowId": "b79dcfe98490045d1cb415467d7f256efaeacab4b4a0e9bbcd80aed5f4e553ba",
+                "uiTarget": "https://temporal"
+              }
+            },
+            "childWorkflowExecutionResults": {
+              "b79dcfe98490045d1cb415467d7f256efaeacab4b4a0e9bbcd80aed5f4e553ba": {
+                "output": {
+                  "securityGroupId": "sg-222",
+                  "securityGroupName": "keel",
+                  "outputType": "upsertSecurityGroupOperation"
+                },
+                "childWorkflowExecutionInfos": {
+
+                },
+                "childWorkflowExecutionResults": {
+
+                },
+                "logs": [
+
+                ],
+                "status": "WORKFLOW_EXECUTION_STATUS_UNSPECIFIED",
+                "isCompleted": true
+              }
+            },
+            "logs": [
+              "Updating Ingress ...",
+              "Upserted security ..."
+            ],
+            "status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+            "isCompleted": true
+          },
+          "targets": [
+            {
+              "accountName": "mgmttest",
+              "vpcId": "vpc-00",
+              "name": "keel",
+              "region": "us-west-2"
+            }
+          ],
+          "application": "keel",
+          "cloudProvider": "aws",
+          "vpcId": "vpc-00",
+          "name": "keel",
+          "kato.tasks": [
+            {
+              "resultObjects": [
+                {
+                  "securityGroupId": "sg-222",
+                  "securityGroupName": "keel",
+                  "outputType": "upsertSecurityGroupOperation"
+                }
+              ],
+              "history": [
+
+              ],
+              "id": "n/a",
+              "status": {
+
+              }
+            }
+          ],
+          "additionalSecurityGroupDetails": [
+            {
+              "startPort": 7004,
+              "protocol": "tcp",
+              "name": "0ABd",
+              "endPort": 7004
+            }
+          ],
+          "user": "Spinnaker",
+          "ipIngress": [
+
+          ]
+        },
+        "outputs": {
+
+        },
+        "tasks": [
+          {
+            "id": "1",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.securitygroup.UpsertSecurityGroupTask",
+            "name": "upsertSecurityGroup",
+            "startTime": 1634772407044,
+            "endTime": 1634772407214,
+            "status": "SUCCEEDED",
+            "stageStart": true,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "2",
+            "implementingClass": "com.netflix.spinnaker.orca.temporal.stage.MonitorTemporalWorkflowTask",
+            "name": "monitorUpsert",
+            "startTime": 1634772407247,
+            "endTime": 1634772412435,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "3",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.securitygroup.SecurityGroupForceCacheRefreshTask",
+            "name": "forceCacheRefresh",
+            "startTime": 1634772412460,
+            "endTime": 1634772413063,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "4",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.securitygroup.WaitForUpsertedSecurityGroupTask",
+            "name": "waitForUpsertedSecurityGroup",
+            "startTime": 1634772413089,
+            "endTime": 1634772413389,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": true,
+            "loopStart": false,
+            "loopEnd": false
+          }
+        ],
+        "requisiteStageRefIds": [
+
+        ]
+      }
+    ],
+    "startTime": 1634772406744,
+    "endTime": 1634772413455,
+    "status": "SUCCEEDED",
+    "authentication": {
+      "user": "managed-delivery-team@netflix.com",
+      "allowedAccounts": [
+
+      ]
+    },
+    "origin": "keel",
+    "trigger": {
+      "type": "keel",
+      "correlationId": "ec2:security-group:mgmttest:keel:us-west-2",
+      "user": "keel",
+      "parameters": {
+
+      },
+      "artifacts": [
+
+      ],
+      "notifications": [
+
+      ],
+      "rebake": false,
+      "dryRun": false,
+      "strategy": false,
+      "resolvedExpectedArtifacts": [
+
+      ],
+      "expectedArtifacts": [
+
+      ]
+    },
+    "description": "Update security group keel in mgmttest/us-west-2",
+    "notifications": [
+
+    ],
+    "initialConfig": {
+
+    },
+    "systemNotifications": [
+
+    ],
+    "partition": "us-west-2"
+  }
+}

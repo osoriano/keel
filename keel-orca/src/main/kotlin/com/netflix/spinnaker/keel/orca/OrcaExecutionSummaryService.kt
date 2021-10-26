@@ -1,6 +1,5 @@
 package com.netflix.spinnaker.keel.orca
 
-import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.convertValue
 import com.netflix.buoy.sdk.model.Location as BuoyLocation
@@ -24,6 +23,7 @@ import org.springframework.stereotype.Component
 /**
  * Service for translating a task into a nice summary
  */
+@Suppress("UNCHECKED_CAST")
 @Component
 class OrcaExecutionSummaryService(
   private val orcaService: OrcaService,
@@ -35,6 +35,15 @@ class OrcaExecutionSummaryService(
     val COMPLETED_TARGETS_STAGE = "initManagedRolloutStep"
     val KICKOFF_STAGE = "startManagedRollout"
     val DEPLOY_STAGE = "deploy"
+
+    val SECURITY_GROUP_STAGE = "upsertSecurityGroup"
+    val LOAD_BALANCER_STAGE = "upsertLoadBalancer"
+    val MANAGED_ROLLOUT_STAGE = "managedRollout"
+    val RESIZE_SERVER_GROUP_STAGE = "resizeServerGroup"
+    val ROLLBACK_SERVER_GROUP_STAGE = "rollbackServerGroup"
+    val DISABLE_SERVER_GROUP_STAGE = "disableServerGroup"
+    val CREATE_SERVER_GROUP_STAGE = "createServerGroup"
+    val MODIFY_SCALING_POLICY_STAGE = "upsertScalingPolicy"
   }
 
   override fun getSummary(executionId: String): ExecutionSummary {
@@ -52,9 +61,11 @@ class OrcaExecutionSummaryService(
         }
       } }?.map { mapper.convertValue(it) }
         ?: emptyList()
+
     val currentStage = typedStages
       .filter { it.status == RUNNING }
       .maxByOrNull { it.refId.length } //grab the longest ref id, which will be the most nested running stage
+
     val targets = getTargets(taskDetails, typedStages)
 
     return ExecutionSummary(
@@ -69,14 +80,13 @@ class OrcaExecutionSummaryService(
   }
 
   /**
-   * Have to get the status of all of them...
+   * Create the rollout targets and determine their status
    */
   fun getTargets(execution: ExecutionDetailResponse, typedStages: List<OrcaStage>): List<RolloutTargetWithStatus> {
     val targetsWithStatus: MutableList<RolloutTargetWithStatus> = mutableListOf()
-    val statusTargetMap = if (execution.isManagedRollout()) {
-      getTargetStatusManagedRollout(typedStages)
-    } else {
-      getTargetStatusDeployStage(execution, typedStages)
+    val statusTargetMap = when {
+      execution.isManagedRollout() -> getTargetStatusManagedRollout(typedStages)
+      else -> getTargetStatus(execution, typedStages)
     }
 
     statusTargetMap.forEach { (status, targets) ->
@@ -94,7 +104,31 @@ class OrcaExecutionSummaryService(
   }
 
   fun ExecutionDetailResponse.isManagedRollout(): Boolean =
-    variables?.find { it.key == "selectionStrategy" } != null
+    containsStageType(MANAGED_ROLLOUT_STAGE)
+
+  fun ExecutionDetailResponse.isDeployServerGroup(): Boolean =
+    containsStageType(CREATE_SERVER_GROUP_STAGE) && !containsStageType(MANAGED_ROLLOUT_STAGE)
+
+  fun ExecutionDetailResponse.isUpsertSecurityGroup(): Boolean =
+    containsStageType(SECURITY_GROUP_STAGE)
+
+  fun ExecutionDetailResponse.isUpsertLoadBalancer(): Boolean =
+    containsStageType(LOAD_BALANCER_STAGE)
+
+  fun ExecutionDetailResponse.isResizeServerGroup(): Boolean =
+    containsStageType(RESIZE_SERVER_GROUP_STAGE)
+
+  fun ExecutionDetailResponse.isRollbackServerGroup(): Boolean =
+    containsStageType(ROLLBACK_SERVER_GROUP_STAGE)
+
+  fun ExecutionDetailResponse.isDisableServerGroup(): Boolean =
+    containsStageType(DISABLE_SERVER_GROUP_STAGE)
+
+  fun ExecutionDetailResponse.isModifyScalingPolicies(): Boolean =
+    containsStageType(MODIFY_SCALING_POLICY_STAGE)
+
+  fun ExecutionDetailResponse.containsStageType(type: String): Boolean =
+    execution?.stages?.find { it["type"] == type } != null
 
   fun getTargetStatusManagedRollout(
     typedStages: List<OrcaStage>
@@ -165,31 +199,81 @@ class OrcaExecutionSummaryService(
     return true
   }
 
-  fun getTargetStatusDeployStage(
+  fun getTargetStatus(
     execution: ExecutionDetailResponse,
     typedStages: List<OrcaStage>
   ): Map<RolloutStatus, List<RolloutTarget>> {
-    val deployStage = typedStages.firstOrNull { it.type == "createServerGroup" }
-    val allTargets = createTargetFromDeployStage(deployStage)
+    val targets = when {
+      execution.isDeployServerGroup() -> {
+        val deployStage = typedStages.firstOrNull { it.type == CREATE_SERVER_GROUP_STAGE }
+        createTargetFromDeployStage(deployStage)
+      }
+      execution.isUpsertLoadBalancer() -> {
+        val upsertLoadBalancerStage = typedStages.firstOrNull { it.type == LOAD_BALANCER_STAGE }
+        createTargetFromLoadBalancer(upsertLoadBalancerStage)
+      }
+      execution.isUpsertSecurityGroup() -> {
+        val upsertSecurityGroupStage = typedStages.firstOrNull { it.type == SECURITY_GROUP_STAGE }
+        createTargetFromSecurityGroup(upsertSecurityGroupStage)
+      }
+      execution.isResizeServerGroup() -> {
+        typedStages.firstOrNull { it.type == RESIZE_SERVER_GROUP_STAGE }?.let { stage ->
+          generateTargetForRegion(stage)
+        }
+      }
+      execution.isRollbackServerGroup() -> {
+        typedStages.firstOrNull { it.type == ROLLBACK_SERVER_GROUP_STAGE }?.let { stage ->
+          generateTargetForRegion(stage)
+        }
+      }
+      execution.isDisableServerGroup() -> {
+        typedStages.firstOrNull { it.type == DISABLE_SERVER_GROUP_STAGE }?.let { stage ->
+          generateTargetForRegion(stage)
+        }
+      }
+      execution.isModifyScalingPolicies() -> {
+        typedStages.firstOrNull { it.type == MODIFY_SCALING_POLICY_STAGE }?.let { stage ->
+          generateTargetForRegion(stage)
+        }
+      }
+      else -> {
+        log.error("Unknown task type for task ${execution.id}, attempting generic parsing.")
+        // attempt some parsing if we don't know the stage type
+        // find the parent stage - usually refId of 0 or 1, we are not consistent in how we construct it
+        val stage = typedStages.find { it.refId == "0" } ?: typedStages.find { it.refId == "1" }
+        stage?.let {
+          // try the basic parsing
+          generateTargetForRegion(stage)
+        }
+      }
+    } ?: emptyList()
 
-    val targets: MutableMap<RolloutStatus, List<RolloutTarget>> = mutableMapOf()
-
-    when {
-      execution.status.isSuccess() -> targets[RolloutStatus.SUCCEEDED] = allTargets
-      execution.status.isFailure() -> targets[RolloutStatus.FAILED] = allTargets
-      execution.status.isIncomplete() -> targets[RolloutStatus.RUNNING] = allTargets
-    }
-
-    return targets
+    return addExecutionStatusToTargets(targets, execution)
   }
 
+  /**
+   * For targets that are deployed using a single task per region
+   *   the target will have the same status as the execution.
+   *   This function calculates that status.
+   */
+  fun addExecutionStatusToTargets(
+    targets: List<RolloutTarget>,
+    execution: ExecutionDetailResponse
+  ): Map<RolloutStatus, List<RolloutTarget>> =
+    when {
+      execution.status.isSuccess() -> mapOf(RolloutStatus.SUCCEEDED to targets)
+      execution.status.isFailure() -> mapOf(RolloutStatus.FAILED to targets)
+      execution.status.isIncomplete() -> mapOf(RolloutStatus.RUNNING to targets)
+      else -> mapOf(RolloutStatus.NOT_STARTED to targets)
+    }
+
   fun createTargetFromDeployStage(deployStage: OrcaStage?): List<RolloutTarget> {
-    if (deployStage == null) {
+    if (deployStage == null || deployStage.type != CREATE_SERVER_GROUP_STAGE) {
       return emptyList()
     }
 
-    var account: String = deployStage.context["credentials"] as? String ?: "unable to find account"
-    val cloudProvider: String = deployStage.context["cloudProvider"] as? String ?: "unable to find cloud provider"
+    var account: String = deployStage.getAccount() ?: "unable to find account"
+    val cloudProvider: String = deployStage.getCloudProvider() ?: "unable to find cloud provider"
     val serverGroups = deployStage.context["deploy.server.groups"] as? Map<*, *>
     val regions: MutableSet<String> = serverGroups?.keys as? MutableSet<String> ?: mutableSetOf()
 
@@ -208,6 +292,74 @@ class OrcaExecutionSummaryService(
       )
     }
   }
+
+  fun createTargetFromSecurityGroup(upsertSecurityGroupStage: OrcaStage?): List<RolloutTarget> {
+    if (upsertSecurityGroupStage == null || upsertSecurityGroupStage.type != SECURITY_GROUP_STAGE) {
+      return emptyList()
+    }
+    val regions = upsertSecurityGroupStage.getRegions()
+    val account = upsertSecurityGroupStage.getAccount() ?: "unable to find account"
+    val cloudProvider: String = upsertSecurityGroupStage.getCloudProvider() ?: "unable to find cloud provider"
+    return regions.map { region ->
+      RolloutTarget(
+        cloudProvider,
+        BuoyLocation(account, region, emptyList()),
+      )
+    }
+  }
+
+  /**
+   * Most single region server groups stages have a similar form:
+   *   account, cloud provider, and region are all in the context of the stage with the same key.
+   * This function takes that general form and creates a rollback target from it.
+   */
+  private fun generateTargetForRegion(stage: OrcaStage): List<RolloutTarget> {
+    val region: String = stage.getRegion() ?: "unable to find region"
+    val account = stage.getAccount() ?: "unable to find account"
+    val cloudProvider: String = stage.getCloudProvider() ?: "unable to find cloud provider"
+    return listOf(RolloutTarget(cloudProvider, BuoyLocation(account, region, emptyList())))
+  }
+
+  data class LoadBalancerOrcaTarget(
+    val credentials: String,
+    val vpcId: String,
+    val name: String,
+    val availabilityZones: Map<String, List<String>> //key is region, value is list of azs
+  )
+
+  fun createTargetFromLoadBalancer(upsertLoadBalancerStage: OrcaStage?): List<RolloutTarget> {
+    if (upsertLoadBalancerStage == null || upsertLoadBalancerStage.type != LOAD_BALANCER_STAGE) {
+      return emptyList()
+    }
+
+    val cloudProvider: String = upsertLoadBalancerStage.getCloudProvider() ?: "unable to find cloud provider"
+    val orcaTargets: List<LoadBalancerOrcaTarget> = mapper.convertValue(upsertLoadBalancerStage.context["targets"] ?: emptyList<LoadBalancerOrcaTarget>())
+
+    return orcaTargets.map { target ->
+      val rolloutTargets = mutableListOf<RolloutTarget>()
+      target.availabilityZones.forEach { (region, zones) ->
+        rolloutTargets.add(
+          RolloutTarget(
+          cloudProvider,
+          BuoyLocation(target.credentials, region , zones),
+          )
+        )
+      }
+      rolloutTargets
+    }.flatten()
+  }
+
+  fun OrcaStage.getAccount(): String? =
+    context["credentials"] as? String
+
+  fun OrcaStage.getCloudProvider(): String? =
+    context["cloudProvider"] as? String
+
+  fun OrcaStage.getRegion(): String? =
+    context["region"] as? String
+
+  fun OrcaStage.getRegions(): List<String> =
+    context["regions"] as? List<String> ?: emptyList()
 
   fun OrcaStage.toStage() =
     Stage(

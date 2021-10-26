@@ -1,0 +1,414 @@
+{
+  "id": "01FGSJ4NV3VQAVD1RV2MX4MCRG",
+  "name": "Modify auto-scaling of server group gusto in prod/us-east-1",
+  "application": "gusto",
+  "status": "SUCCEEDED",
+  "variables": [
+    {
+      "key": "outputs",
+      "value": {
+
+      }
+    },
+    {
+      "key": "deploy.account.name",
+      "value": "prod"
+    },
+    {
+      "key": "force.cache.refresh.errors",
+      "value": [
+
+      ]
+    },
+    {
+      "key": "serverGroupName",
+      "value": "gusto-v043"
+    },
+    {
+      "key": "credentials",
+      "value": "prod"
+    },
+    {
+      "key": "workflowExecution",
+      "value": {
+        "namespace": "spinnaker",
+        "workflowType": "WorkflowDispatcher",
+        "runId": "e540c0a6-203b-4e0b-9118-2eec16c928e6",
+        "permalink": "https://temporal/namespaces/spinnaker/workflows/stage:01FGSJ4NV3VQAVD1RV2MX4MCRG:01FGSJ4NV3TQAX9XNNKYGH9ZT3/e540c0a6-203b-4e0b-9118-2eec16c928e6/summary",
+        "workflowId": "stage:01FGSJ4NV3VQAVD1RV2MX4MCRG:01FGSJ4NV3TQAX9XNNKYGH9ZT3",
+        "uiTarget": "https://temporal"
+      }
+    },
+    {
+      "key": "processed.server.groups",
+      "value": [
+
+      ]
+    },
+    {
+      "key": "targetTrackingConfiguration",
+      "value": {
+        "predefinedMetricSpecification": {
+          "predefinedMetricType": "ASGAverageCPUUtilization"
+        },
+        "disableScaleIn": false,
+        "targetValue": 35.0
+      }
+    },
+    {
+      "key": "refreshed.server.groups",
+      "value": [
+
+      ]
+    },
+    {
+      "key": "moniker",
+      "value": {
+        "app": "gusto",
+        "cluster": "gusto",
+        "sequence": 43
+      }
+    },
+    {
+      "key": "workflowResult",
+      "value": {
+        "childWorkflowExecutionInfos": {
+          "1025aec1f0f09131c080eea48d0a30edb8788b040485e301c96683b5aa92ae06": {
+            "namespace": "spinnaker",
+            "workflowType": "StageContextCloudOperationRunner",
+            "runId": "af9c2f94-5c83-444b-889a-cefa18a9462e",
+            "permalink": "https://temporal/namespaces/spinnaker/workflows/1025aec1f0f09131c080eea48d0a30edb8788b040485e301c96683b5aa92ae06/af9c2f94-5c83-444b-889a-cefa18a9462e/summary",
+            "workflowId": "1025aec1f0f09131c080eea48d0a30edb8788b040485e301c96683b5aa92ae06",
+            "uiTarget": "https://temporal"
+          }
+        },
+        "childWorkflowExecutionResults": {
+          "1025aec1f0f09131c080eea48d0a30edb8788b040485e301c96683b5aa92ae06": {
+            "output": {
+              "policyArn": "arn:autoScalingGroupName/gusto-v043:policyName/gusto-v043-policy-666-policy-id",
+              "policyName": "gusto-v043-policy-666-policy-id",
+              "outputType": "upsertAwsScalingPolicyOperation"
+            },
+            "childWorkflowExecutionInfos": {
+
+            },
+            "childWorkflowExecutionResults": {
+
+            },
+            "logs": [
+
+            ],
+            "status": "WORKFLOW_EXECUTION_STATUS_UNSPECIFIED",
+            "isCompleted": true
+          }
+        },
+        "logs": [
+          "Upserting Scaling Policy 'gusto-v043-policy-666-policy-id'",
+          "Upserted Scaling Policy 'gusto-v043-policy-666-policy-id'"
+        ],
+        "status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+        "isCompleted": true
+      }
+    },
+    {
+      "key": "zones",
+      "value": [
+
+      ]
+    },
+    {
+      "key": "estimatedInstanceWarmup",
+      "value": 300
+    },
+    {
+      "key": "cloudProvider",
+      "value": "aws"
+    },
+    {
+      "key": "deploy.server.groups",
+      "value": {
+        "us-east-1": [
+          "gusto-v043"
+        ]
+      }
+    },
+    {
+      "key": "kato.tasks",
+      "value": [
+        {
+          "resultObjects": [
+            {
+              "policyArn": "arn:autoScalingGroupName/gusto-v043:policyName/gusto-v043-policy-666-policy-id",
+              "policyName": "gusto-v043-policy-666-policy-id",
+              "outputType": "upsertAwsScalingPolicyOperation"
+            }
+          ],
+          "history": [
+
+          ],
+          "id": "n/a",
+          "status": {
+
+          }
+        }
+      ]
+    },
+    {
+      "key": "region",
+      "value": "us-east-1"
+    }
+  ],
+  "steps": [
+    {
+      "id": "1",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.scalingpolicy.UpsertScalingPolicyTask",
+      "name": "upsertScalingPolicy",
+      "startTime": 1632945461467,
+      "endTime": 1632945461562,
+      "status": "SUCCEEDED",
+      "stageStart": true,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "2",
+      "implementingClass": "com.netflix.spinnaker.orca.temporal.stage.MonitorTemporalWorkflowTask",
+      "name": "monitorUpsert",
+      "startTime": 1632945461650,
+      "endTime": 1632945466903,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "3",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.ServerGroupCacheForceRefreshTask",
+      "name": "forceCacheRefresh",
+      "startTime": 1632945466989,
+      "endTime": 1632945500773,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": true,
+      "loopStart": false,
+      "loopEnd": false
+    }
+  ],
+  "buildTime": 1632945461091,
+  "startTime": 1632945461126,
+  "endTime": 1632945500858,
+  "execution": {
+    "type": "ORCHESTRATION",
+    "id": "01FGSJ4NV3VQAVD1RV2MX4MCRG",
+    "application": "gusto",
+    "buildTime": 1632945461091,
+    "canceled": false,
+    "limitConcurrent": false,
+    "keepWaitingPipelines": false,
+    "stages": [
+      {
+        "id": "01FGSJ4NV3TQAX9XNNKYGH9ZT3",
+        "refId": "1",
+        "type": "upsertScalingPolicy",
+        "name": "upsertScalingPolicy",
+        "startTime": 1632945461183,
+        "endTime": 1632945500816,
+        "status": "SUCCEEDED",
+        "context": {
+          "outputs": {
+
+          },
+          "deploy.account.name": "prod",
+          "force.cache.refresh.errors": [
+
+          ],
+          "serverGroupName": "gusto-v043",
+          "credentials": "prod",
+          "workflowExecution": {
+            "namespace": "spinnaker",
+            "workflowType": "WorkflowDispatcher",
+            "runId": "e540c0a6-203b-4e0b-9118-2eec16c928e6",
+            "permalink": "https://temporal/namespaces/spinnaker/workflows/stage:01FGSJ4NV3VQAVD1RV2MX4MCRG:01FGSJ4NV3TQAX9XNNKYGH9ZT3/e540c0a6-203b-4e0b-9118-2eec16c928e6/summary",
+            "workflowId": "stage:01FGSJ4NV3VQAVD1RV2MX4MCRG:01FGSJ4NV3TQAX9XNNKYGH9ZT3",
+            "uiTarget": "https://temporal"
+          },
+          "processed.server.groups": [
+
+          ],
+          "targetTrackingConfiguration": {
+            "predefinedMetricSpecification": {
+              "predefinedMetricType": "ASGAverageCPUUtilization"
+            },
+            "disableScaleIn": false,
+            "targetValue": 35.0
+          },
+          "refreshed.server.groups": [
+
+          ],
+          "moniker": {
+            "app": "gusto",
+            "cluster": "gusto",
+            "sequence": 43
+          },
+          "workflowResult": {
+            "childWorkflowExecutionInfos": {
+              "1025aec1f0f09131c080eea48d0a30edb8788b040485e301c96683b5aa92ae06": {
+                "namespace": "spinnaker",
+                "workflowType": "StageContextCloudOperationRunner",
+                "runId": "af9c2f94-5c83-444b-889a-cefa18a9462e",
+                "permalink": "https://temporal/namespaces/spinnaker/workflows/1025aec1f0f09131c080eea48d0a30edb8788b040485e301c96683b5aa92ae06/af9c2f94-5c83-444b-889a-cefa18a9462e/summary",
+                "workflowId": "1025aec1f0f09131c080eea48d0a30edb8788b040485e301c96683b5aa92ae06",
+                "uiTarget": "https://temporal"
+              }
+            },
+            "childWorkflowExecutionResults": {
+              "1025aec1f0f09131c080eea48d0a30edb8788b040485e301c96683b5aa92ae06": {
+                "output": {
+                  "policyArn": "arn:autoScalingGroupName/gusto-v043:policyName/gusto-v043-policy-666-policy-id",
+                  "policyName": "gusto-v043-policy-666-policy-id",
+                  "outputType": "upsertAwsScalingPolicyOperation"
+                },
+                "childWorkflowExecutionInfos": {
+
+                },
+                "childWorkflowExecutionResults": {
+
+                },
+                "logs": [
+
+                ],
+                "status": "WORKFLOW_EXECUTION_STATUS_UNSPECIFIED",
+                "isCompleted": true
+              }
+            },
+            "logs": [
+              "Upserting Scaling Policy 'gusto-v043-policy-666-policy-id'",
+              "Upserted Scaling Policy 'gusto-v043-policy-666-policy-id'"
+            ],
+            "status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+            "isCompleted": true
+          },
+          "zones": [
+
+          ],
+          "estimatedInstanceWarmup": 300,
+          "cloudProvider": "aws",
+          "deploy.server.groups": {
+            "us-east-1": [
+              "gusto-v043"
+            ]
+          },
+          "kato.tasks": [
+            {
+              "resultObjects": [
+                {
+                  "policyArn": "arn:autoScalingGroupName/gusto-v043:policyName/gusto-v043-policy-666-policy-id",
+                  "policyName": "gusto-v043-policy-666-policy-id",
+                  "outputType": "upsertAwsScalingPolicyOperation"
+                }
+              ],
+              "history": [
+
+              ],
+              "id": "n/a",
+              "status": {
+
+              }
+            }
+          ],
+          "region": "us-east-1"
+        },
+        "outputs": {
+
+        },
+        "tasks": [
+          {
+            "id": "1",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.scalingpolicy.UpsertScalingPolicyTask",
+            "name": "upsertScalingPolicy",
+            "startTime": 1632945461467,
+            "endTime": 1632945461562,
+            "status": "SUCCEEDED",
+            "stageStart": true,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "2",
+            "implementingClass": "com.netflix.spinnaker.orca.temporal.stage.MonitorTemporalWorkflowTask",
+            "name": "monitorUpsert",
+            "startTime": 1632945461650,
+            "endTime": 1632945466903,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "3",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.ServerGroupCacheForceRefreshTask",
+            "name": "forceCacheRefresh",
+            "startTime": 1632945466989,
+            "endTime": 1632945500773,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": true,
+            "loopStart": false,
+            "loopEnd": false
+          }
+        ],
+        "requisiteStageRefIds": [
+
+        ]
+      }
+    ],
+    "startTime": 1632945461126,
+    "endTime": 1632945500858,
+    "status": "SUCCEEDED",
+    "authentication": {
+      "user": "dna-api@netflix.com",
+      "allowedAccounts": [
+
+      ]
+    },
+    "origin": "keel",
+    "trigger": {
+      "type": "keel",
+      "correlationId": "ec2:cluster:prod:gusto:us-east-1",
+      "user": "keel",
+      "parameters": {
+
+      },
+      "artifacts": [
+
+      ],
+      "notifications": [
+
+      ],
+      "rebake": false,
+      "dryRun": false,
+      "strategy": false,
+      "resolvedExpectedArtifacts": [
+
+      ],
+      "expectedArtifacts": [
+
+      ]
+    },
+    "description": "Modify auto-scaling of server group gusto in prod/us-east-1",
+    "notifications": [
+
+    ],
+    "initialConfig": {
+
+    },
+    "systemNotifications": [
+
+    ],
+    "partition": "us-west-2"
+  }
+}

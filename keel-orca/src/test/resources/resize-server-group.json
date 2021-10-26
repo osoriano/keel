@@ -1,0 +1,655 @@
+{
+  "id": "01FJ2CAY0YK74CRNF153F1M41D",
+  "name": "Resize Server Group: emburnstest-eggo-v002 from (min: 1, max: 1, desired: 1, pinned: true) to (min: 0, max: 0, desired: 0, pinned: true)",
+  "application": "emburnstest",
+  "status": "SUCCEEDED",
+  "variables": [
+    {
+      "key": "serverGroupName",
+      "value": "emburnstest-eggo-v002"
+    },
+    {
+      "key": "credentials",
+      "value": "titustestvpc"
+    },
+    {
+      "key": "cloudProvider",
+      "value": "titus"
+    },
+    {
+      "key": "asgName",
+      "value": "emburnstest-eggo-v002"
+    },
+    {
+      "key": "moniker",
+      "value": {
+        "app": "emburnstest",
+        "cluster": "emburnstest-eggo",
+        "sequence": 2,
+        "stack": "eggo"
+      }
+    },
+    {
+      "key": "region",
+      "value": "us-east-1"
+    },
+    {
+      "key": "user",
+      "value": "emburns@netflix.com"
+    },
+    {
+      "key": "capacity",
+      "value": {
+        "min": 0,
+        "desired": 0,
+        "max": 0
+      }
+    },
+    {
+      "key": "outputs",
+      "value": {
+
+      }
+    },
+    {
+      "key": "notification.type",
+      "value": "resizeservergroup"
+    },
+    {
+      "key": "deploy.account.name",
+      "value": "titustestvpc"
+    },
+    {
+      "key": "force.cache.refresh.errors",
+      "value": [
+
+      ]
+    },
+    {
+      "key": "zeroDesiredCapacityCount",
+      "value": 7
+    },
+    {
+      "key": "workflowExecution",
+      "value": {
+        "namespace": "spinnaker",
+        "workflowType": "WorkflowDispatcher",
+        "runId": "eb103a26-a0f5-41e6-bf61-2a6bb5810910",
+        "permalink": "https://temporal/namespaces/spinnaker/workflows/stage:01FJ2CAY0YK74CRNF153F1M41D:01FJ2CAY6RZRPDA2ZZJ86RGYBJ/eb103a26-a0f5-41e6-bf61-2a6bb5810910/summary",
+        "workflowId": "stage:01FJ2CAY0YK74CRNF153F1M41D:01FJ2CAY6RZRPDA2ZZJ86RGYBJ",
+        "uiTarget": "https://temporal"
+      }
+    },
+    {
+      "key": "processed.server.groups",
+      "value": [
+
+      ]
+    },
+    {
+      "key": "refreshed.server.groups",
+      "value": [
+
+      ]
+    },
+    {
+      "key": "workflowResult",
+      "value": {
+        "childWorkflowExecutionInfos": {
+          "93f725e1c5111ca6c5d5021d41a8efba8ab9b9356131c3a9f0b7e4db7605a0bc": {
+            "namespace": "spinnaker",
+            "workflowType": "StageContextCloudOperationRunner",
+            "runId": "8fb4ea4d-adaf-46f4-877a-e98d0d638a4b",
+            "permalink": "https://temporal/namespaces/spinnaker/workflows/93f725e1c5111ca6c5d5021d41a8efba8ab9b9356131c3a9f0b7e4db7605a0bc/8fb4ea4d-adaf-46f4-877a-e98d0d638a4b/summary",
+            "workflowId": "93f725e1c5111ca6c5d5021d41a8efba8ab9b9356131c3a9f0b7e4db7605a0bc",
+            "uiTarget": "https://temporal"
+          }
+        },
+        "childWorkflowExecutionResults": {
+          "93f725e1c5111ca6c5d5021d41a8efba8ab9b9356131c3a9f0b7e4db7605a0bc": {
+            "output": {
+              "outputType": "voidOperation"
+            },
+            "childWorkflowExecutionInfos": {
+
+            },
+            "childWorkflowExecutionResults": {
+
+            },
+            "logs": [
+
+            ],
+            "status": "WORKFLOW_EXECUTION_STATUS_UNSPECIFIED",
+            "isCompleted": true
+          }
+        },
+        "logs": [
+          "Resizing Titus job titustestvpc:us-east-1:emburnstest-eggo-v002",
+          "Resized Titus job titustestvpc:us-east-1:emburnstest-eggo-v002",
+          "Checking job emburnstest-eggo-v002, expected capacity is min=0/max=0/desired=0, actual capacity is min=1/max=1/desired=1, match=false",
+          "Checking job emburnstest-eggo-v002, expected capacity is min=0/max=0/desired=0, actual capacity is min=1/max=1/desired=1, match=false",
+          "Checking job emburnstest-eggo-v002, expected capacity is min=0/max=0/desired=0, actual capacity is min=0/max=0/desired=0, match=true"
+        ],
+        "status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+        "isCompleted": true
+      }
+    },
+    {
+      "key": "targetLocation",
+      "value": {
+        "type": "REGION",
+        "value": "us-east-1"
+      }
+    },
+    {
+      "key": "zones",
+      "value": [
+
+      ]
+    },
+    {
+      "key": "currentInstanceCount",
+      "value": 1
+    },
+    {
+      "key": "capacitySnapshot",
+      "value": {
+        "minSize": 0,
+        "maxSize": 0,
+        "desiredCapacity": 0
+      }
+    },
+    {
+      "key": "deployServerGroupsRegion",
+      "value": "us-east-1"
+    },
+    {
+      "key": "deploy.server.groups",
+      "value": {
+        "us-east-1": [
+          "emburnstest-eggo-v002"
+        ]
+      }
+    },
+    {
+      "key": "kato.tasks",
+      "value": [
+        {
+          "resultObjects": [
+            {
+              "outputType": "voidOperation"
+            }
+          ],
+          "history": [
+
+          ],
+          "id": "n/a",
+          "status": {
+
+          }
+        }
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "id": "1",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.DetermineHealthProvidersTask",
+      "name": "determineHealthProviders",
+      "startTime": 1634315106943,
+      "endTime": 1634315107106,
+      "status": "SUCCEEDED",
+      "stageStart": true,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "2",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.ResizeServerGroupTask",
+      "name": "resizeServerGroup",
+      "startTime": 1634315107173,
+      "endTime": 1634315107281,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "3",
+      "implementingClass": "com.netflix.spinnaker.orca.temporal.stage.MonitorTemporalWorkflowTask",
+      "name": "monitorServerGroup",
+      "startTime": 1634315107314,
+      "endTime": 1634315122786,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "4",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.ServerGroupCacheForceRefreshTask",
+      "name": "forceCacheRefresh",
+      "startTime": 1634315122839,
+      "endTime": 1634315122976,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "5",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.WaitForCapacityMatchTask",
+      "name": "waitForCapacityMatch",
+      "startTime": 1634315123043,
+      "endTime": 1634315194190,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": true,
+      "loopStart": false,
+      "loopEnd": false
+    }
+  ],
+  "buildTime": 1634315106334,
+  "startTime": 1634315106405,
+  "endTime": 1634315194352,
+  "execution": {
+    "type": "ORCHESTRATION",
+    "id": "01FJ2CAY0YK74CRNF153F1M41D",
+    "application": "emburnstest",
+    "buildTime": 1634315106334,
+    "canceled": false,
+    "limitConcurrent": false,
+    "keepWaitingPipelines": false,
+    "stages": [
+      {
+        "id": "01FJ2CAY0YZF85FYKR86WVYBED",
+        "refId": "0",
+        "type": "resizeServerGroup",
+        "name": "resizeServerGroup",
+        "startTime": 1634315106459,
+        "endTime": 1634315194318,
+        "status": "SUCCEEDED",
+        "context": {
+          "serverGroupName": "emburnstest-eggo-v002",
+          "credentials": "titustestvpc",
+          "cloudProvider": "titus",
+          "asgName": "emburnstest-eggo-v002",
+          "moniker": {
+            "app": "emburnstest",
+            "cluster": "emburnstest-eggo",
+            "sequence": 2,
+            "stack": "eggo"
+          },
+          "region": "us-east-1",
+          "user": "emburns@netflix.com",
+          "capacity": {
+            "pinned": true,
+            "min": 0,
+            "desired": 0,
+            "max": 0
+          }
+        },
+        "outputs": {
+
+        },
+        "tasks": [
+
+        ],
+        "requisiteStageRefIds": [
+
+        ]
+      },
+      {
+        "id": "01FJ2CAY6RZRPDA2ZZJ86RGYBJ",
+        "refId": "0<1",
+        "type": "resizeServerGroup",
+        "name": "resizeServerGroup",
+        "startTime": 1634315106584,
+        "endTime": 1634315194223,
+        "status": "SUCCEEDED",
+        "context": {
+          "outputs": {
+
+          },
+          "notification.type": "resizeservergroup",
+          "deploy.account.name": "titustestvpc",
+          "force.cache.refresh.errors": [
+
+          ],
+          "zeroDesiredCapacityCount": 7,
+          "serverGroupName": "emburnstest-eggo-v002",
+          "credentials": "titustestvpc",
+          "workflowExecution": {
+            "namespace": "spinnaker",
+            "workflowType": "WorkflowDispatcher",
+            "runId": "eb103a26-a0f5-41e6-bf61-2a6bb5810910",
+            "permalink": "https://temporal/namespaces/spinnaker/workflows/stage:01FJ2CAY0YK74CRNF153F1M41D:01FJ2CAY6RZRPDA2ZZJ86RGYBJ/eb103a26-a0f5-41e6-bf61-2a6bb5810910/summary",
+            "workflowId": "stage:01FJ2CAY0YK74CRNF153F1M41D:01FJ2CAY6RZRPDA2ZZJ86RGYBJ",
+            "uiTarget": "https://temporal"
+          },
+          "processed.server.groups": [
+
+          ],
+          "asgName": "emburnstest-eggo-v002",
+          "refreshed.server.groups": [
+
+          ],
+          "moniker": {
+            "app": "emburnstest",
+            "cluster": "emburnstest-eggo",
+            "sequence": 2,
+            "stack": "eggo"
+          },
+          "workflowResult": {
+            "childWorkflowExecutionInfos": {
+              "93f725e1c5111ca6c5d5021d41a8efba8ab9b9356131c3a9f0b7e4db7605a0bc": {
+                "namespace": "spinnaker",
+                "workflowType": "StageContextCloudOperationRunner",
+                "runId": "8fb4ea4d-adaf-46f4-877a-e98d0d638a4b",
+                "permalink": "https://temporal/namespaces/spinnaker/workflows/93f725e1c5111ca6c5d5021d41a8efba8ab9b9356131c3a9f0b7e4db7605a0bc/8fb4ea4d-adaf-46f4-877a-e98d0d638a4b/summary",
+                "workflowId": "93f725e1c5111ca6c5d5021d41a8efba8ab9b9356131c3a9f0b7e4db7605a0bc",
+                "uiTarget": "https://temporal"
+              }
+            },
+            "childWorkflowExecutionResults": {
+              "93f725e1c5111ca6c5d5021d41a8efba8ab9b9356131c3a9f0b7e4db7605a0bc": {
+                "output": {
+                  "outputType": "voidOperation"
+                },
+                "childWorkflowExecutionInfos": {
+
+                },
+                "childWorkflowExecutionResults": {
+
+                },
+                "logs": [
+
+                ],
+                "status": "WORKFLOW_EXECUTION_STATUS_UNSPECIFIED",
+                "isCompleted": true
+              }
+            },
+            "logs": [
+              "Resizing Titus job titustestvpc:us-east-1:emburnstest-eggo-v002",
+              "Resized Titus job titustestvpc:us-east-1:emburnstest-eggo-v002",
+              "Checking job emburnstest-eggo-v002, expected capacity is min=0/max=0/desired=0, actual capacity is min=1/max=1/desired=1, match=false",
+              "Checking job emburnstest-eggo-v002, expected capacity is min=0/max=0/desired=0, actual capacity is min=1/max=1/desired=1, match=false",
+              "Checking job emburnstest-eggo-v002, expected capacity is min=0/max=0/desired=0, actual capacity is min=0/max=0/desired=0, match=true"
+            ],
+            "status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+            "isCompleted": true
+          },
+          "targetLocation": {
+            "type": "REGION",
+            "value": "us-east-1"
+          },
+          "zones": [
+
+          ],
+          "currentInstanceCount": 1,
+          "capacity": {
+            "min": 0,
+            "desired": 0,
+            "max": 0
+          },
+          "capacitySnapshot": {
+            "minSize": 0,
+            "maxSize": 0,
+            "desiredCapacity": 0
+          },
+          "cloudProvider": "titus",
+          "deployServerGroupsRegion": "us-east-1",
+          "deploy.server.groups": {
+            "us-east-1": [
+              "emburnstest-eggo-v002"
+            ]
+          },
+          "kato.tasks": [
+            {
+              "resultObjects": [
+                {
+                  "outputType": "voidOperation"
+                }
+              ],
+              "history": [
+
+              ],
+              "id": "n/a",
+              "status": {
+
+              }
+            }
+          ],
+          "region": "us-east-1",
+          "user": "emburns@netflix.com"
+        },
+        "outputs": {
+          "originalCapacity.emburnstest-eggo-v002": {
+            "max": 1,
+            "desired": 1,
+            "min": 1
+          }
+        },
+        "tasks": [
+          {
+            "id": "1",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.DetermineHealthProvidersTask",
+            "name": "determineHealthProviders",
+            "startTime": 1634315106943,
+            "endTime": 1634315107106,
+            "status": "SUCCEEDED",
+            "stageStart": true,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "2",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.ResizeServerGroupTask",
+            "name": "resizeServerGroup",
+            "startTime": 1634315107173,
+            "endTime": 1634315107281,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "3",
+            "implementingClass": "com.netflix.spinnaker.orca.temporal.stage.MonitorTemporalWorkflowTask",
+            "name": "monitorServerGroup",
+            "startTime": 1634315107314,
+            "endTime": 1634315122786,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "4",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.ServerGroupCacheForceRefreshTask",
+            "name": "forceCacheRefresh",
+            "startTime": 1634315122839,
+            "endTime": 1634315122976,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "5",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.WaitForCapacityMatchTask",
+            "name": "waitForCapacityMatch",
+            "startTime": 1634315123043,
+            "endTime": 1634315194190,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": true,
+            "loopStart": false,
+            "loopEnd": false
+          }
+        ],
+        "syntheticStageOwner": "STAGE_BEFORE",
+        "parentStageId": "01FJ2CAY0YZF85FYKR86WVYBED",
+        "requisiteStageRefIds": [
+
+        ]
+      }
+    ],
+    "startTime": 1634315106405,
+    "endTime": 1634315194352,
+    "status": "SUCCEEDED",
+    "authentication": {
+      "user": "emburns@netflix.com",
+      "token": "tink:229500572:AQ2t5py7VykmeVmSZJu8BoE346lxQGGsC/YBInLPmgAEYpDpv+0fOaS02uNHA5USLxQay9oIyjsGiIZh2bVD/Xf01NTCVASHkwTyRuQZ1CA2eclalJrzg4Je10vpHsNynfLUDw4eEvU8dZm3fDlUVNynt0CykqoYUlY15qMDpVWJtYHggkyWuTANnXr4JTJy5mfW937MRQh8OU263avI61+iueTEujtfE2kBCpzpBBA3CTFn7tq1+bA8hrHBuchYPQMyoGXHIFa/cwj0r4TKB21Z8wWVIp69c8fvcJABEuVVHEVdhZLF+Gt+ig1tiJTAHQuVWIlHWbUjMMWQhZK5Qq9nrwrHZC2+iJ3cb6JiC2b8t1PVvbn6YGJGq/xxyB7dXR4KBsEuKSlSGqJUZTLiOho51p9CFgZTSwTwR7SwveURO6eJDPXa/poRjTzGiiZgoUTGNeTN+HCeEFPP1FWomOVzT1D3caV+5/mEUNDSBib0v6nFWWiywIDOZG0O3hTigbtZQKRuXPvS87YWZ0tTEBgDAm4d3e/VSMYOUsQ4KiP2CPzz5rUSG+AK2R74E769o6euTBXHtfhTdcj7dLTR/shcMiY/L5Wf/t2vGL0AHuKa5xYb3vYlCPXhd/R2zuUZUVRoxPncnp0WJbQvkK1su88IkO2jch9JEmTSRoOr/WndgI/IJzKsTfv32xRnexTL5SW+vmXb5Z6F4+2CdYgI8sTLDOQJVB4fkz4=",
+      "allowedAccounts": [
+        "security_prod",
+        "dataeng",
+        "partner_external_prod",
+        "titus_us_west_2_agents_prod",
+        "storage_platform_prod",
+        "sirt_test",
+        "mceprod",
+        "mgmt",
+        "persistence_test",
+        "titus_eu_west_1_prod",
+        "titus_ap_south_1_agents_test",
+        "studio_engineering_prod",
+        "tituscpl",
+        "cose_test",
+        "titusmgmt",
+        "customer_service",
+        "bunker_test",
+        "infra_management_test",
+        "build_prod",
+        "titusstudioengineeringtest",
+        "titusmgmttest",
+        "titusprodvpc",
+        "titus_us_east_1_test",
+        "ocddos_prod",
+        "lab_automation_prod",
+        "studio_ad_prod",
+        "studio_production_tech_prod",
+        "test",
+        "studio_workstations_prod",
+        "build_studio_dmz_prod",
+        "vfx_la_prod",
+        "titustestvpc",
+        "persistence_mgmt_prod",
+        "noop",
+        "studio_finance_test",
+        "identity_test",
+        "titussecurityscannersprod",
+        "titusstudioworkstationsprod",
+        "mgmttest",
+        "security_scanners_prod",
+        "security_test",
+        "iepprod",
+        "titus_us_west_2_prod",
+        "titus_eu_west_1_agents_prod",
+        "titusbuildprod",
+        "partner_external_test",
+        "titus_us_west_2_agents_test",
+        "storage_platform_test",
+        "mcetest",
+        "ccasprod",
+        "pnetest",
+        "titus_ap_south_1_prod",
+        "netflix_functions_prod",
+        "titus_eu_west_1_test",
+        "studio_engineering_test",
+        "ccaslab",
+        "hrfinapps_prod",
+        "titus_us_east_1_agents_prod",
+        "devinfra_prod",
+        "build_test",
+        "imanage_test",
+        "studio_seg_prod",
+        "studio_ad_test",
+        "lab_automation_test",
+        "build_dmz_prod",
+        "itopsdev",
+        "studio_production_tech_test",
+        "seg_test",
+        "studio_workstations_test",
+        "sirt_prod",
+        "testregistry",
+        "persistence_mgmt_test",
+        "persistence_prod",
+        "titus_ap_south_1_agents_prod",
+        "dmz",
+        "dmz_test",
+        "titusstudioworkstationstest",
+        "ieptest",
+        "titus_eu_west_1_agents_test",
+        "titusbuildtest",
+        "titus_us_west_2_test",
+        "cose_prod",
+        "prodregistry",
+        "customer_service_test",
+        "bunker_prod",
+        "infra_management_prod",
+        "ccastest",
+        "titusstudioengineeringprod",
+        "ccasstub",
+        "netflix_functions_test",
+        "titus_ap_south_1_test",
+        "dataeng_test",
+        "titus_us_east_1_prod",
+        "corp_network_prod",
+        "hrfinapps_test",
+        "microsites",
+        "titus_us_east_1_agents_test",
+        "itopsprod",
+        "cpl",
+        "dev_bootcamps_test",
+        "prod",
+        "titusdevint",
+        "studio_finance_prod",
+        "identity_prod",
+        "studio_seg_test"
+      ]
+    },
+    "origin": "deck",
+    "trigger": {
+      "type": "manual",
+      "user": "emburns@netflix.com",
+      "parameters": {
+
+      },
+      "artifacts": [
+
+      ],
+      "notifications": [
+
+      ],
+      "rebake": false,
+      "dryRun": false,
+      "strategy": false,
+      "resolvedExpectedArtifacts": [
+
+      ],
+      "expectedArtifacts": [
+
+      ]
+    },
+    "description": "Resize Server Group: emburnstest-eggo-v002 from (min: 1, max: 1, desired: 1, pinned: true) to (min: 0, max: 0, desired: 0, pinned: true)",
+    "notifications": [
+
+    ],
+    "initialConfig": {
+
+    },
+    "systemNotifications": [
+
+    ],
+    "partition": "us-west-2"
+  }
+}

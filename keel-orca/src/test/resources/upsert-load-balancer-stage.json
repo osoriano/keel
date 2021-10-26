@@ -1,0 +1,636 @@
+{
+  "id": "01FJG09CSDH7TRCJPS53T729P5",
+  "name": "Update ec2/classic-load-balancer@v1 load balancer keel-test-vpc0-ff in mgmttest/us-west-2",
+  "application": "keel",
+  "status": "SUCCEEDED",
+  "variables": [
+    {
+      "key": "notification.type",
+      "value": "upsertloadbalancer"
+    },
+    {
+      "key": "healthInterval",
+      "value": 10
+    },
+    {
+      "key": "credentials",
+      "value": "mgmttest"
+    },
+    {
+      "key": "dnsName",
+      "value": "internal-kt"
+    },
+    {
+      "key": "availabilityZones",
+      "value": {
+        "us-west-2": [
+          "us-west-2b",
+          "us-west-2a",
+          "us-west-2c"
+        ]
+      }
+    },
+    {
+      "key": "targets",
+      "value": [
+        {
+          "credentials": "mgmttest",
+          "vpcId": "vpc-00",
+          "name": "keel-test-vpc0-ff",
+          "availabilityZones": {
+            "us-west-2": [
+              "us-west-2b",
+              "us-west-2a",
+              "us-west-2c"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "key": "cloudProvider",
+      "value": "aws"
+    },
+    {
+      "key": "vpcId",
+      "value": "vpc-00"
+    },
+    {
+      "key": "kato.result.expected",
+      "value": true
+    },
+    {
+      "key": "unhealthyThreshold",
+      "value": 2
+    },
+    {
+      "key": "deploy.server.groups",
+      "value": {
+
+      }
+    },
+    {
+      "key": "healthyThreshold",
+      "value": 5
+    },
+    {
+      "key": "kato.last.task.id",
+      "value": {
+        "id": "01FJG09DAJFY23KYY4ZF7T2XNF"
+      }
+    },
+    {
+      "key": "loadBalancerType",
+      "value": "classic"
+    },
+    {
+      "key": "refreshState",
+      "value": {
+        "seenPendingCacheUpdates": false,
+        "hasRequested": true,
+        "allAreComplete": true,
+        "attempt": 0,
+        "refreshIds": [
+
+        ]
+      }
+    },
+    {
+      "key": "listeners",
+      "value": [
+        {
+          "internalProtocol": "TCP",
+          "internalPort": 7004,
+          "externalProtocol": "TCP",
+          "externalPort": 7004
+        },
+        {
+          "internalProtocol": "HTTP",
+          "internalPort": 7001,
+          "externalProtocol": "HTTP",
+          "externalPort": 80
+        },
+        {
+          "internalProtocol": "TCP",
+          "internalPort": 7002,
+          "externalProtocol": "TCP",
+          "externalPort": 443
+        }
+      ]
+    },
+    {
+      "key": "kato.task.terminalRetryCount",
+      "value": 0
+    },
+    {
+      "key": "kato.task.firstNotFoundRetry",
+      "value": -1
+    },
+    {
+      "key": "isInternal",
+      "value": true
+    },
+    {
+      "key": "application",
+      "value": "keel"
+    },
+    {
+      "key": "healthCheck",
+      "value": "HTTP:7001/health"
+    },
+    {
+      "key": "idleTimeout",
+      "value": 60
+    },
+    {
+      "key": "name",
+      "value": "keel-test-vpc0-ff"
+    },
+    {
+      "key": "securityGroups",
+      "value": [
+        "keel",
+        "nf-datacenter",
+        "spinnaker-internal-service-elb",
+        "nf-infrastructure",
+        "keel-elb"
+      ]
+    },
+    {
+      "key": "kato.tasks",
+      "value": [
+        {
+          "resultObjects": [
+            {
+              "loadBalancers": {
+                "us-west-2": {
+                  "name": "keel-test-vpc0-ff",
+                  "dnsName": "internal-kt"
+                }
+              }
+            }
+          ],
+          "id": "01FJG09DAJFY23KYY4ZF7T2XNF",
+          "history": [
+            {
+              "phase": "ORCHESTRATION",
+              "status": "Initializing Orchestration Task"
+            },
+            {
+              "phase": "ORCHESTRATION",
+              "status": "Processing op: UpsertAmazonLoadBalancerAtomicOperation"
+            },
+            {
+              "phase": "CREATE_ELB",
+              "status": "Initializing load balancer creation..."
+            },
+            {
+              "phase": "CREATE_ELB",
+              "status": "Beginning deployment to us-west-2 in [us-west-2b, us-west-2a, us-west-2c] for keel-test-vpc0-ff"
+            },
+            {
+              "phase": "CREATE_ELB",
+              "status": "Setting up listeners for keel-test-vpc0-ff in us-west-2..."
+            },
+            {
+              "phase": "CREATE_ELB",
+              "status": "Appending listener TCP:7004 -> TCP:7004"
+            },
+            {
+              "phase": "CREATE_ELB",
+              "status": "Appending listener HTTP:80 -> HTTP:7001"
+            },
+            {
+              "phase": "CREATE_ELB",
+              "status": "Appending listener TCP:443 -> TCP:7002"
+            },
+            {
+              "phase": "CREATE_ELB",
+              "status": "Creating keel-test-vpc0-ff in mgmttest:us-west-2..."
+            },
+            {
+              "phase": "CREATE_ELB",
+              "status": "Authorized app ELB Security Group com.netflix.spinnaker.clouddriver.aws.deploy.ops.loadbalancer.IngressLoadBalancerBuilder$IngressLoadBalancerGroupResult@3e3db012"
+            },
+            {
+              "phase": "UPSERT_ELB",
+              "status": "Subnets: [[submet-1, submet-2, submet-3]]"
+            },
+            {
+              "phase": "UPSERT_ELB",
+              "status": "Creating load balancer."
+            },
+            {
+              "phase": "CREATE_ELB",
+              "status": "Configuring healthcheck for keel-test-vpc0-ff in us-west-2..."
+            },
+            {
+              "phase": "CREATE_ELB",
+              "status": "Healthcheck configured."
+            },
+            {
+              "phase": "CREATE_ELB",
+              "status": "Done deploying keel-test-vpc0-ff to mgmttest in us-west-2."
+            },
+            {
+              "phase": "CREATE_ELB",
+              "status": "Done deploying load balancers."
+            },
+            {
+              "phase": "ORCHESTRATION",
+              "status": "Orchestration completed."
+            },
+            {
+              "phase": "ORCHESTRATION",
+              "status": "Orchestration completed."
+            }
+          ],
+          "status": {
+            "retryable": false,
+            "completed": true,
+            "failed": false
+          }
+        }
+      ]
+    },
+    {
+      "key": "region",
+      "value": "us-west-2"
+    },
+    {
+      "key": "kato.task.notFoundRetryCount",
+      "value": 0
+    },
+    {
+      "key": "healthTimeout",
+      "value": 5
+    },
+    {
+      "key": "user",
+      "value": "Spinnaker"
+    },
+    {
+      "key": "subnetType",
+      "value": "internal (vpc0)"
+    },
+    {
+      "key": "kato.task.lastStatus",
+      "value": "SUCCEEDED"
+    }
+  ],
+  "steps": [
+    {
+      "id": "1",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.loadbalancer.UpsertLoadBalancerTask",
+      "name": "upsertLoadBalancer",
+      "startTime": 1634772235459,
+      "endTime": 1634772235645,
+      "status": "SUCCEEDED",
+      "stageStart": true,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "2",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.MonitorKatoTask",
+      "name": "monitorUpsert",
+      "startTime": 1634772235673,
+      "endTime": 1634772241074,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "3",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.loadbalancer.UpsertLoadBalancerResultObjectExtrapolationTask",
+      "name": "extrapolateUpsertResult",
+      "startTime": 1634772241217,
+      "endTime": 1634772241367,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "4",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.loadbalancer.UpsertLoadBalancerForceRefreshTask",
+      "name": "forceCacheRefresh",
+      "startTime": 1634772241427,
+      "endTime": 1634772241791,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": true,
+      "loopStart": false,
+      "loopEnd": false
+    }
+  ],
+  "buildTime": 1634772235053,
+  "startTime": 1634772235133,
+  "endTime": 1634772241897,
+  "execution": {
+    "type": "ORCHESTRATION",
+    "id": "01FJG09CSDH7TRCJPS53T729P5",
+    "application": "keel",
+    "buildTime": 1634772235053,
+    "canceled": false,
+    "limitConcurrent": false,
+    "keepWaitingPipelines": false,
+    "stages": [
+      {
+        "id": "01FJG09CSDXFTN9DR3ZW86Z9AW",
+        "refId": "0",
+        "type": "upsertLoadBalancer",
+        "name": "upsertLoadBalancer",
+        "startTime": 1634772235168,
+        "endTime": 1634772241856,
+        "status": "SUCCEEDED",
+        "context": {
+          "notification.type": "upsertloadbalancer",
+          "healthInterval": 10,
+          "credentials": "mgmttest",
+          "dnsName": "internal-kt",
+          "availabilityZones": {
+            "us-west-2": [
+              "us-west-2b",
+              "us-west-2a",
+              "us-west-2c"
+            ]
+          },
+          "targets": [
+            {
+              "credentials": "mgmttest",
+              "vpcId": "vpc-00",
+              "name": "keel-test-vpc0-ff",
+              "availabilityZones": {
+                "us-west-2": [
+                  "us-west-2b",
+                  "us-west-2a",
+                  "us-west-2c"
+                ]
+              }
+            }
+          ],
+          "cloudProvider": "aws",
+          "vpcId": "vpc-00",
+          "kato.result.expected": true,
+          "unhealthyThreshold": 2,
+          "deploy.server.groups": {
+
+          },
+          "healthyThreshold": 5,
+          "kato.last.task.id": {
+            "id": "01FJG09DAJFY23KYY4ZF7T2XNF"
+          },
+          "loadBalancerType": "classic",
+          "refreshState": {
+            "seenPendingCacheUpdates": false,
+            "hasRequested": true,
+            "allAreComplete": true,
+            "attempt": 0,
+            "refreshIds": [
+
+            ]
+          },
+          "listeners": [
+            {
+              "internalProtocol": "TCP",
+              "internalPort": 7004,
+              "externalProtocol": "TCP",
+              "externalPort": 7004
+            },
+            {
+              "internalProtocol": "HTTP",
+              "internalPort": 7001,
+              "externalProtocol": "HTTP",
+              "externalPort": 80
+            },
+            {
+              "internalProtocol": "TCP",
+              "internalPort": 7002,
+              "externalProtocol": "TCP",
+              "externalPort": 443
+            }
+          ],
+          "kato.task.terminalRetryCount": 0,
+          "kato.task.firstNotFoundRetry": -1,
+          "isInternal": true,
+          "application": "keel",
+          "healthCheck": "HTTP:7001/health",
+          "idleTimeout": 60,
+          "name": "keel-test-vpc0-ff",
+          "securityGroups": [
+            "keel",
+            "nf-datacenter",
+            "spinnaker-internal-service-elb",
+            "nf-infrastructure",
+            "keel-elb"
+          ],
+          "kato.tasks": [
+            {
+              "resultObjects": [
+                {
+                  "loadBalancers": {
+                    "us-west-2": {
+                      "name": "keel-test-vpc0-ff",
+                      "dnsName": "internal-kt"
+                    }
+                  }
+                }
+              ],
+              "id": "01FJG09DAJFY23KYY4ZF7T2XNF",
+              "history": [
+                {
+                  "phase": "ORCHESTRATION",
+                  "status": "Initializing Orchestration Task"
+                },
+                {
+                  "phase": "ORCHESTRATION",
+                  "status": "Processing op: UpsertAmazonLoadBalancerAtomicOperation"
+                },
+                {
+                  "phase": "CREATE_ELB",
+                  "status": "Initializing load balancer creation..."
+                },
+                {
+                  "phase": "CREATE_ELB",
+                  "status": "Beginning deployment to us-west-2 in [us-west-2b, us-west-2a, us-west-2c] for keel-test-vpc0-ff"
+                },
+                {
+                  "phase": "CREATE_ELB",
+                  "status": "Setting up listeners for keel-test-vpc0-ff in us-west-2..."
+                },
+                {
+                  "phase": "CREATE_ELB",
+                  "status": "Appending listener TCP:7004 -> TCP:7004"
+                },
+                {
+                  "phase": "CREATE_ELB",
+                  "status": "Appending listener HTTP:80 -> HTTP:7001"
+                },
+                {
+                  "phase": "CREATE_ELB",
+                  "status": "Appending listener TCP:443 -> TCP:7002"
+                },
+                {
+                  "phase": "CREATE_ELB",
+                  "status": "Creating keel-test-vpc0-ff in mgmttest:us-west-2..."
+                },
+                {
+                  "phase": "CREATE_ELB",
+                  "status": "Authorized app ELB Security Group com.netflix.spinnaker.clouddriver.aws.deploy.ops.loadbalancer.IngressLoadBalancerBuilder$IngressLoadBalancerGroupResult@3e3db012"
+                },
+                {
+                  "phase": "UPSERT_ELB",
+                  "status": "Subnets: [[submet-1, submet-2, submet-3]]"
+                },
+                {
+                  "phase": "UPSERT_ELB",
+                  "status": "Creating load balancer."
+                },
+                {
+                  "phase": "CREATE_ELB",
+                  "status": "Configuring healthcheck for keel-test-vpc0-ff in us-west-2..."
+                },
+                {
+                  "phase": "CREATE_ELB",
+                  "status": "Healthcheck configured."
+                },
+                {
+                  "phase": "CREATE_ELB",
+                  "status": "Done deploying keel-test-vpc0-ff to mgmttest in us-west-2."
+                },
+                {
+                  "phase": "CREATE_ELB",
+                  "status": "Done deploying load balancers."
+                },
+                {
+                  "phase": "ORCHESTRATION",
+                  "status": "Orchestration completed."
+                },
+                {
+                  "phase": "ORCHESTRATION",
+                  "status": "Orchestration completed."
+                }
+              ],
+              "status": {
+                "retryable": false,
+                "completed": true,
+                "failed": false
+              }
+            }
+          ],
+          "region": "us-west-2",
+          "kato.task.notFoundRetryCount": 0,
+          "healthTimeout": 5,
+          "user": "Spinnaker",
+          "subnetType": "internal (vpc0)",
+          "kato.task.lastStatus": "SUCCEEDED"
+        },
+        "outputs": {
+
+        },
+        "tasks": [
+          {
+            "id": "1",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.loadbalancer.UpsertLoadBalancerTask",
+            "name": "upsertLoadBalancer",
+            "startTime": 1634772235459,
+            "endTime": 1634772235645,
+            "status": "SUCCEEDED",
+            "stageStart": true,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "2",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.MonitorKatoTask",
+            "name": "monitorUpsert",
+            "startTime": 1634772235673,
+            "endTime": 1634772241074,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "3",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.loadbalancer.UpsertLoadBalancerResultObjectExtrapolationTask",
+            "name": "extrapolateUpsertResult",
+            "startTime": 1634772241217,
+            "endTime": 1634772241367,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "4",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.loadbalancer.UpsertLoadBalancerForceRefreshTask",
+            "name": "forceCacheRefresh",
+            "startTime": 1634772241427,
+            "endTime": 1634772241791,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": true,
+            "loopStart": false,
+            "loopEnd": false
+          }
+        ],
+        "requisiteStageRefIds": [
+
+        ]
+      }
+    ],
+    "startTime": 1634772235133,
+    "endTime": 1634772241897,
+    "status": "SUCCEEDED",
+    "authentication": {
+      "user": "managed-delivery-team@netflix.com",
+      "allowedAccounts": [
+
+      ]
+    },
+    "origin": "keel",
+    "trigger": {
+      "type": "keel",
+      "correlationId": "mgmttest:keel-test-vpc0-ff:us-west-2",
+      "user": "keel",
+      "parameters": {
+
+      },
+      "artifacts": [
+
+      ],
+      "notifications": [
+
+      ],
+      "rebake": false,
+      "dryRun": false,
+      "strategy": false,
+      "resolvedExpectedArtifacts": [
+
+      ],
+      "expectedArtifacts": [
+
+      ]
+    },
+    "description": "Update ec2/classic-load-balancer@v1 load balancer keel-test-vpc0-ff in mgmttest/us-west-2",
+    "notifications": [
+
+    ],
+    "initialConfig": {
+
+    },
+    "systemNotifications": [
+
+    ],
+    "partition": "us-west-2"
+  }
+}
