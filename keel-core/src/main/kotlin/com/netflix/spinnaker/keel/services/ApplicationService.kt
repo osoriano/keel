@@ -186,6 +186,7 @@ class ApplicationService(
   }
 
   fun deletePin(user: String, application: String, targetEnvironment: String, reference: String? = null) {
+    log.info("Removing pin for application $application by user $user in environment $targetEnvironment for artifact reference $reference")
     val config = repository.getDeliveryConfigForApplication(application)
     val pinnedEnvironment = repository.pinnedEnvironments(config).find { it.targetEnvironment == targetEnvironment }
     repository.deletePin(config, targetEnvironment, reference)
@@ -198,6 +199,7 @@ class ApplicationService(
   }
 
   fun markAsVetoedIn(user: String, application: String, veto: EnvironmentArtifactVeto, force: Boolean) {
+    log.info("Vetoing ${veto.version} for application $application by user $user in environment ${veto.targetEnvironment} for artifact reference ${veto.reference}")
     val config = repository.getDeliveryConfigForApplication(application)
     val succeeded = repository.markAsVetoedIn(
       deliveryConfig = config,
@@ -217,6 +219,7 @@ class ApplicationService(
   }
 
   fun deleteVeto(application: String, targetEnvironment: String, reference: String, version: String) {
+    log.info("Removing veto of $version for application $application in environment $targetEnvironment for artifact reference $reference")
     val config = repository.getDeliveryConfigForApplication(application)
     val artifact = config.matchingArtifactByReference(reference)
       ?: throw ArtifactNotFoundException(reference, config.name)
