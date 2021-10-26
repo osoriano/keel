@@ -1,0 +1,15 @@
+databaseChangeLog:
+  - changeSet:
+      id: index-created-at-artifacts
+      author: emjburns
+      changes:
+        - createIndex:
+            tableName: artifact_versions
+            columns:
+              - column:
+                  name: name
+              - column:
+                  name: type
+              - column:
+                  name: created_at
+            indexName: artifact_versions_name_type_created_at_idx

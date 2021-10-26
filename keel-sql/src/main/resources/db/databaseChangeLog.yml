@@ -386,3 +386,6 @@ databaseChangeLog:
 - include:
     file: changelog/20211014-artifact-is-preview-column.yml
     relativeToChangelogFile: true
+- include:
+    file: changelog/20211026-index-created-at-artifacts.yml
+    relativeToChangelogFile: true
