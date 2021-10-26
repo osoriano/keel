@@ -1,0 +1,13 @@
+databaseChangeLog:
+  - changeSet:
+      id: pin-type-column
+      author: rhorev
+      changes:
+        - addColumn:
+            tableName: environment_artifact_pin
+            columns:
+              - column:
+                  name: type
+                  type: varchar(64)
+                  constraints:
+                    nullable: true

@@ -9,6 +9,7 @@ import org.dataloader.MappedBatchLoaderWithContext
 import java.util.concurrent.CompletionStage
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
+import com.netflix.spinnaker.keel.core.api.PinType
 import com.netflix.spinnaker.keel.core.api.PinnedEnvironment
 import java.util.concurrent.CompletableFuture
 
@@ -49,8 +50,10 @@ fun PinnedEnvironment.toDgs(versionData: PublishedArtifact?) =
     pinnedBy = pinnedBy,
     comment = comment,
     buildNumber = versionData?.buildNumber,
-    gitMetadata = versionData?.gitMetadata?.toDgs()
+    gitMetadata = versionData?.gitMetadata?.toDgs(),
+    type = type?.toDgs()
   )
+
 
 
 data class PinnedArtifactAndEnvironment(

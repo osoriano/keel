@@ -1562,11 +1562,13 @@ class SqlArtifactRepository(
           .set(ENVIRONMENT_ARTIFACT_PIN.PINNED_AT, now)
           .set(ENVIRONMENT_ARTIFACT_PIN.PINNED_BY, pinnedBy ?: "anonymous")
           .set(ENVIRONMENT_ARTIFACT_PIN.COMMENT, comment)
+          .set(ENVIRONMENT_ARTIFACT_PIN.TYPE, type)
           .onDuplicateKeyUpdate()
           .set(ENVIRONMENT_ARTIFACT_PIN.ARTIFACT_VERSION, version)
           .set(ENVIRONMENT_ARTIFACT_PIN.PINNED_AT, now)
           .set(ENVIRONMENT_ARTIFACT_PIN.PINNED_BY, pinnedBy ?: "anonymous")
           .set(ENVIRONMENT_ARTIFACT_PIN.COMMENT, MySQLDSL.values(ENVIRONMENT_ARTIFACT_PIN.COMMENT))
+          .set(ENVIRONMENT_ARTIFACT_PIN.TYPE, type)
           .execute()
       }
     }
@@ -1580,6 +1582,7 @@ class SqlArtifactRepository(
         ENVIRONMENT_ARTIFACT_PIN.PINNED_AT,
         ENVIRONMENT_ARTIFACT_PIN.PINNED_BY,
         ENVIRONMENT_ARTIFACT_PIN.COMMENT,
+        ENVIRONMENT_ARTIFACT_PIN.TYPE,
         DELIVERY_ARTIFACT.NAME,
         DELIVERY_ARTIFACT.TYPE,
         DELIVERY_ARTIFACT.DETAILS,
@@ -1593,7 +1596,7 @@ class SqlArtifactRepository(
         .innerJoin(DELIVERY_CONFIG)
         .on(DELIVERY_CONFIG.UID.eq(ENVIRONMENT.DELIVERY_CONFIG_UID))
         .where(DELIVERY_CONFIG.NAME.eq(deliveryConfig.name))
-        .fetch { (environmentName, version, pinnedAt, pinnedBy, comment, artifactName, type, details, reference) ->
+        .fetch { (environmentName, version, pinnedAt, pinnedBy, comment, pinType, artifactName, type, details, reference) ->
           PinnedEnvironment(
             deliveryConfigName = deliveryConfig.name,
             targetEnvironment = environmentName,
@@ -1608,7 +1611,8 @@ class SqlArtifactRepository(
             version = version,
             pinnedAt = pinnedAt,
             pinnedBy = pinnedBy,
-            comment = comment
+            comment = comment,
+            type = pinType
           )
         }
     }

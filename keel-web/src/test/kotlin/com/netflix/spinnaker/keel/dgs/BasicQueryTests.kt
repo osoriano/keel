@@ -18,6 +18,9 @@ import com.netflix.spinnaker.keel.api.ec2.EC2_CLUSTER_V1_1
 import com.netflix.spinnaker.keel.artifacts.ArtifactVersionLinks
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport
+import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactPin
+import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactVeto
+import com.netflix.spinnaker.keel.core.api.PinType
 import com.netflix.spinnaker.keel.core.api.PromotionStatus
 import com.netflix.spinnaker.keel.core.api.PublishedArtifactInEnvironment
 import com.netflix.spinnaker.keel.front50.Front50Cache
@@ -38,13 +41,19 @@ import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.keel.upsert.DeliveryConfigUpserter
 import com.netflix.spinnaker.keel.veto.unhappy.UnhappyVeto
 import com.ninjasquad.springmockk.MockkBean
-import io.mockk.coEvery
+import io.mockk.Runs
 import io.mockk.every
+import io.mockk.just
+import io.mockk.slot
+import io.mockk.verify
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.mockito.internal.stubbing.answers.Returns
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.http.HttpHeaders
 import strikt.api.expectCatching
+import strikt.api.expectThat
 import strikt.assertions.isEqualTo
 import strikt.assertions.isSuccess
 
@@ -181,9 +190,23 @@ class BasicQueryTests {
     every {
       keelRepository.getLatestApprovedInEnvArtifactVersion(any(),any(), any(), any())
     } returns artifactVersion
+
+    every {
+      applicationService.pin(any(), any(), any())
+    } just Runs
+
+    every {
+      applicationService.markAsVetoedIn(any(), any(), any(), any())
+    } just Runs
   }
 
   fun getQuery(path: String) = javaClass.getResource(path).readText().trimIndent()
+
+  fun getHeaders(): HttpHeaders {
+    val headers = HttpHeaders()
+    headers.add("X-SPINNAKER-USER", "userName")
+    return headers
+  }
 
 
   @Test
@@ -217,6 +240,39 @@ class BasicQueryTests {
         mapOf("appName" to "fnord", "reference" to "fnord", "environment" to "test")
       )
     }.isSuccess().isEqualTo("v123")
+  }
+
+  @Test
+  fun rollbackToVersion() {
+    var pinSlot = slot<EnvironmentArtifactPin>()
+    var markAsBadSlot = slot<EnvironmentArtifactVeto>()
+
+    expectCatching {
+      dgsQueryExecutor.executeAndGetDocumentContext(
+        getQuery("/dgs/rollbackTo.graphql"),
+        mapOf("payload" to mapOf(
+          "application" to "fnord",
+          "reference" to "fnord",
+          "environment" to "test",
+          "fromVersion" to "v2",
+          "toVersion" to "v1",
+          "comment" to "bad version"
+        )),
+        getHeaders()
+      )
+    }.isSuccess()
+
+    verify {
+      applicationService.pin(any(), "fnord", capture(pinSlot))
+    }
+
+    verify {
+      applicationService.markAsVetoedIn(any(), "fnord", capture(markAsBadSlot), any())
+    }
+
+    expectThat(pinSlot.captured.version).isEqualTo("v1")
+    expectThat(pinSlot.captured.type).isEqualTo(PinType.ROLLBACK)
+    expectThat(markAsBadSlot.captured.version).isEqualTo("v2")
   }
 
 }

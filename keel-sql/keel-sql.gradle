@@ -219,6 +219,11 @@ jooq {
                 enumConverter = true
                 includeExpression = "FEATURE_ROLLOUT.STATUS"
               }
+              forcedType {
+                userType = "com.netflix.spinnaker.keel.core.api.PinType"
+                enumConverter = true
+                includeExpression = "ENVIRONMENT_ARTIFACT_PIN.TYPE"
+              }
             }
           }
           target {

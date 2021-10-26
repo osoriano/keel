@@ -11,6 +11,7 @@ import com.netflix.spinnaker.keel.api.constraints.UpdatedConstraintStatus
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport
 import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactPin
 import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactVeto
+import com.netflix.spinnaker.keel.core.api.PinType
 import com.netflix.spinnaker.keel.exceptions.InvalidConstraintException
 import com.netflix.spinnaker.keel.graphql.DgsConstants
 import com.netflix.spinnaker.keel.graphql.types.MD_ConstraintStatusPayload
@@ -22,6 +23,7 @@ import com.netflix.spinnaker.keel.graphql.types.MD_MarkArtifactVersionAsGoodPayl
 import com.netflix.spinnaker.keel.graphql.types.MD_PausePayload
 import com.netflix.spinnaker.keel.graphql.types.MD_RestartConstraintEvaluationPayload
 import com.netflix.spinnaker.keel.graphql.types.MD_RetryArtifactActionPayload
+import com.netflix.spinnaker.keel.graphql.types.MD_RollbackToVersionPayload
 import com.netflix.spinnaker.keel.graphql.types.MD_ToggleResourceManagementPayload
 import com.netflix.spinnaker.keel.graphql.types.MD_UnpinArtifactVersionPayload
 import com.netflix.spinnaker.keel.pause.ActuationPauser
@@ -123,6 +125,34 @@ class Mutations(
     @RequestHeader("X-SPINNAKER-USER") user: String
   ): Boolean {
     actuationPauser.resumeApplication(application, user)
+    return true
+  }
+
+  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_rollbackToArtifactVersion)
+  @PreAuthorize(
+    """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
+    and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
+  )
+  fun rollbackToVersion(
+    @InputArgument payload: MD_RollbackToVersionPayload,
+    @RequestHeader("X-SPINNAKER-USER") user: String
+  ): Boolean {
+    log.info("Rolling back artifact ${payload.reference} in environment ${payload.environment} of application ${payload.application} from ${payload.fromVersion} to ${payload.toVersion}")
+    applicationService.pin(user, payload.application, payload.toEnvironmentArtifactPin())
+    applicationService.markAsVetoedIn(user, payload.application, payload.toEnvironmentArtifactVeto(), true)
+    return true
+  }
+
+  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_lockEnvironmentArtifact)
+  @PreAuthorize(
+    """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
+    and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
+  )
+  fun lockEnvironmentArtifact(
+    @InputArgument payload: MD_ArtifactVersionActionPayload,
+    @RequestHeader("X-SPINNAKER-USER") user: String
+  ): Boolean {
+    applicationService.pin(user, payload.application, payload.toEnvironmentArtifactPin().copy(type = PinType.LOCK))
     return true
   }
 
@@ -273,6 +303,25 @@ fun MD_ArtifactVersionActionPayload.toEnvironmentArtifactPin(): EnvironmentArtif
     version = version,
     comment = comment,
     pinnedBy = null
+  )
+
+fun MD_RollbackToVersionPayload.toEnvironmentArtifactPin(): EnvironmentArtifactPin =
+  EnvironmentArtifactPin(
+    targetEnvironment = environment,
+    reference = reference,
+    version = toVersion,
+    comment = comment,
+    type = PinType.ROLLBACK,
+    pinnedBy = null
+  )
+
+fun MD_RollbackToVersionPayload.toEnvironmentArtifactVeto(): EnvironmentArtifactVeto =
+  EnvironmentArtifactVeto(
+    targetEnvironment = environment,
+    reference = reference,
+    version = fromVersion,
+    comment = comment,
+    vetoedBy = null
   )
 
 fun MD_ArtifactVersionActionPayload.toEnvironmentArtifactVeto(): EnvironmentArtifactVeto =

@@ -62,6 +62,12 @@ type MD_PinnedVersion {
   pinnedAt: InstantTime
   pinnedBy: String
   comment: String
+  type: MD_PinType
+}
+
+enum MD_PinType {
+  ROLLBACK,
+  LOCK
 }
 
 type MD_PausedInfo {
@@ -326,9 +332,20 @@ type Mutation @extends {
   md_markArtifactVersionAsGood(payload: MD_MarkArtifactVersionAsGoodPayload!): Boolean
   md_retryArtifactVersionAction(payload: MD_RetryArtifactActionPayload): MD_Action
   md_dismissNotification(payload: MD_DismissNotificationPayload!): Boolean
-  md_updateGitIntegration(payload: MD_UpdateGitIntegrationPayload): MD_GitIntegration
-  md_toggleResourceManagement(payload: MD_ToggleResourceManagementPayload): Boolean
+  md_updateGitIntegration(payload: MD_UpdateGitIntegrationPayload!): MD_GitIntegration
+  md_toggleResourceManagement(payload: MD_ToggleResourceManagementPayload!): Boolean
   md_importDeliveryConfig(application: String!): Boolean
+  md_rollbackToArtifactVersion(payload: MD_RollbackToVersionPayload!): Boolean
+  md_lockEnvironmentArtifact(payload: MD_ArtifactVersionActionPayload!): Boolean
+}
+
+input MD_RollbackToVersionPayload {
+  application: String!
+  environment: String!
+  reference: String!
+  comment: String!
+  toVersion: String!
+  fromVersion: String!
 }
 
 input MD_RestartConstraintEvaluationPayload {

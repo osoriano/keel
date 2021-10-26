@@ -209,6 +209,7 @@ class ApplicationService(
     if (!succeeded) {
       throw InvalidVetoException(application, veto.targetEnvironment, veto.reference, veto.version)
     }
+    log.info("Successfully marked artifact version ${veto.reference}: ${veto.version} of application $application as bad")
     environmentTaskCanceler.cancelTasksForVeto(application, veto, user)
     repository.triggerDeliveryConfigRecheck(application) // recheck environments to reflect veto immediately
     publisher.publishEvent(MarkAsBadNotification(

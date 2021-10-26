@@ -1,0 +1,3 @@
+mutation RollbackToVersion($payload: MD_RollbackToVersionPayload!) {
+  md_rollbackToArtifactVersion(payload: $payload)
+}

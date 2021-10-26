@@ -15,6 +15,7 @@ import com.netflix.spinnaker.keel.actuation.Stage
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.bakery.diff.PackageDiff
+import com.netflix.spinnaker.keel.core.api.PinType
 import com.netflix.spinnaker.keel.graphql.types.MD_Artifact
 import com.netflix.spinnaker.keel.graphql.types.MD_ArtifactVersionInEnvironment
 import com.netflix.spinnaker.keel.graphql.types.MD_CommitInfo
@@ -30,6 +31,7 @@ import com.netflix.spinnaker.keel.graphql.types.MD_PackageAndVersion
 import com.netflix.spinnaker.keel.graphql.types.MD_PackageAndVersionChange
 import com.netflix.spinnaker.keel.graphql.types.MD_PackageDiff
 import com.netflix.spinnaker.keel.graphql.types.MD_PausedInfo
+import com.netflix.spinnaker.keel.graphql.types.MD_PinType
 import com.netflix.spinnaker.keel.graphql.types.MD_PullRequest
 import com.netflix.spinnaker.keel.graphql.types.MD_Resource
 import com.netflix.spinnaker.keel.graphql.types.MD_ResourceTask
@@ -209,3 +211,9 @@ fun PublishedArtifact.toDgs(environmentName: String) =
     environment = environmentName,
     reference = reference,
   )
+
+fun PinType.toDgs(): MD_PinType =
+  when(this) {
+    PinType.ROLLBACK -> MD_PinType.ROLLBACK
+    PinType.LOCK -> MD_PinType.LOCK
+  }
