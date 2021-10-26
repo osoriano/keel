@@ -1,0 +1,14 @@
+databaseChangeLog:
+- changeSet:
+    id: environment-version-reason
+    author: fletch
+    changes:
+    - addColumn:
+        tableName: environment_version
+        columns:
+        - column:
+            name: reason
+            type: json
+            constraints:
+            - nullable: false
+            value: '{"reason": "unknown"}'

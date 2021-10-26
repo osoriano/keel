@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.jooq
 
+import com.netflix.spinnaker.keel.api.EnvironmentChangeReason
 import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.events.PersistentEvent
@@ -30,3 +31,4 @@ class BuildMetadataConverter : JsonConverter<BuildMetadata>(BuildMetadata::class
 class LifecycleEventConverter : JsonConverter<LifecycleEvent>(LifecycleEvent::class.java)
 class PersistentEventConverter : JsonConverter<PersistentEvent>(PersistentEvent::class.java)
 class DismissibleNotificationConverter : JsonConverter<DismissibleNotification>(DismissibleNotification::class.java)
+class EnvironmentChangeReasonConverter : JsonConverter<EnvironmentChangeReason>(EnvironmentChangeReason::class.java)

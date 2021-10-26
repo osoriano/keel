@@ -392,3 +392,6 @@ databaseChangeLog:
 - include:
     file: changelog/20211026-pin-type.yml
     relativeToChangelogFile: true
+- include:
+    file: changelog/20211026-environment-version-reason.yml
+    relativeToChangelogFile: true

@@ -2,10 +2,12 @@ package com.netflix.spinnaker.keel.sql
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.netflix.spinnaker.keel.api.ArtifactChange
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.NotificationConfig
 import com.netflix.spinnaker.keel.api.Resource
+import com.netflix.spinnaker.keel.api.ResourceChange
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.constraints.ConstraintState
@@ -410,6 +412,7 @@ class SqlDeliveryConfigRepository(
         .set(ENVIRONMENT_VERSION.ENVIRONMENT_UID, environmentUid)
         .set(ENVIRONMENT_VERSION.VERSION, newVersion)
         .set(ENVIRONMENT_VERSION.CREATED_AT, clock.instant())
+        .set(ENVIRONMENT_VERSION.REASON, ResourceChange(currentVersionResources, newVersionResources))
         .execute()
 
       // make the new environment version 'active'
@@ -1404,6 +1407,7 @@ class SqlDeliveryConfigRepository(
             .set(ENVIRONMENT_VERSION.ENVIRONMENT_UID, environmentUid)
             .set(ENVIRONMENT_VERSION.VERSION, newVersion)
             .set(ENVIRONMENT_VERSION.CREATED_AT, clock.instant())
+            .set(ENVIRONMENT_VERSION.REASON, ArtifactChange(artifact.name, version))
             .execute()
 
           // make the new environment version 'active'

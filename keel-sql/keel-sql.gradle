@@ -127,6 +127,11 @@ jooq {
                 converter = "com.netflix.spinnaker.jooq.DismissibleNotificationConverter"
                 includeExpression = "DISMISSIBLE_NOTIFICATION.JSON"
               }
+              forcedType {
+                userType = "com.netflix.spinnaker.keel.api.EnvironmentChangeReason"
+                converter = "com.netflix.spinnaker.jooq.EnvironmentChangeReasonConverter"
+                includeExpression = "ENVIRONMENT_VERSION.REASON"
+              }
               // Automatically convert remaining JSON columns to String
               forcedType {
                 name = "LONGVARCHAR"
