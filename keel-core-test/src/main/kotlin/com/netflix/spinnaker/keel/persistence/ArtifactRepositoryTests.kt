@@ -184,18 +184,7 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
       comment = "fnord"
     )
 
-    val artifactMetadata = ArtifactMetadata(
-      BuildMetadata(
-        id = 1,
-        uid = "1234",
-        startedAt = "2020-11-24T04:44:04.000Z",
-        completedAt = "2020-11-25T03:04:02.259Z",
-        job = Job(
-          name = "job bla bla",
-          link = "enkins.com"
-        ),
-        number = "1"
-      ),
+    fun gitMetadata(branch: String?, prNumber: String? = null) =
       GitMetadata(
         commit = "a15p0",
         author = "keel-user",
@@ -203,17 +192,34 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
           name = "keel",
           link = ""
         ),
-        pullRequest = PullRequest(
-          number = "111",
-          url = "www.github.com/pr/111"
+        pullRequest = if (prNumber == null) null else PullRequest(
+          number = prNumber,
+          url = "www.github.com/pr/$prNumber"
         ),
         commitInfo = Commit(
           sha = "a15p0",
           message = "this is a commit message",
           link = ""
         ),
+        branch = branch,
         project = "spkr",
       )
+
+    val buildMetadata = BuildMetadata(
+      id = 1,
+      uid = "1234",
+      startedAt = "2020-11-24T04:44:04.000Z",
+      completedAt = "2020-11-25T03:04:02.259Z",
+      job = Job(
+        name = "job bla bla",
+        link = "enkins.com"
+      ),
+      number = "1"
+    )
+
+    val artifactMetadata = ArtifactMetadata(
+      buildMetadata,
+      gitMetadata(branch = null, prNumber = "111")
     )
 
     val limit = 15
@@ -223,21 +229,21 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
     with(subject) {
       register(versionedSnapshotDebian)
       setOf(version1, version2, version3).forEach {
-        storeArtifactVersion(versionedSnapshotDebian.toArtifactVersion(it, SNAPSHOT))
+        storeArtifactVersion(versionedSnapshotDebian.toArtifactVersion(it, SNAPSHOT, clock.tickMinutes(1)))
       }
       setOf(version4, version5).forEach {
-        storeArtifactVersion(versionedSnapshotDebian.toArtifactVersion(it, RELEASE))
+        storeArtifactVersion(versionedSnapshotDebian.toArtifactVersion(it, RELEASE, clock.tickMinutes(1)))
       }
       register(versionedReleaseDebian)
       setOf(version1, version2, version3).forEach {
-        storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(it, SNAPSHOT))
+        storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(it, SNAPSHOT, clock.tickMinutes(1)))
       }
       setOf(version4, version5).forEach {
-        storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(it, RELEASE))
+        storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(it, RELEASE, clock.tickMinutes(1)))
       }
       register(versionedDockerArtifact)
       setOf(version6).forEach {
-        storeArtifactVersion(versionedDockerArtifact.toArtifactVersion(it))
+        storeArtifactVersion(versionedDockerArtifact.toArtifactVersion(it, null, clock.tickMinutes(1)))
       }
       register(debianFilteredByBranch)
       register(debianFilteredByBranchPattern)

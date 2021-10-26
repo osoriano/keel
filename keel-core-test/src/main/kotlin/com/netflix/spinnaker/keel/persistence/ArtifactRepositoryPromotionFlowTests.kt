@@ -76,20 +76,29 @@ abstract class ArtifactRepositoryPromotionFlowTests<T : ArtifactRepository> : JU
       statuses = setOf(SNAPSHOT)
     )
 
-    // the artifact built off of master
+    // the artifact built off of main branch
     val versionedReleaseDebian = DebianArtifact(
       name = "keeldemo",
       deliveryConfigName = "my-manifest",
-      reference = "master",
+      reference = "main",
       vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2")),
-      statuses = setOf(RELEASE)
+      statuses = setOf(RELEASE),
+      from = ArtifactOriginFilter(
+        branch = BranchFilter(
+          name = "main"
+        )
+      )
     )
 
     val versionedDockerArtifact = DockerArtifact(
       name = "docker",
       deliveryConfigName = "my-manifest",
       reference = "docker-artifact",
-      tagVersionStrategy = BRANCH_JOB_COMMIT_BY_JOB
+      from = ArtifactOriginFilter(
+        branch = BranchFilter(
+          name = "main"
+        )
+      )
     )
 
     val debianFilteredByBranch = DebianArtifact(
@@ -178,7 +187,8 @@ abstract class ArtifactRepositoryPromotionFlowTests<T : ArtifactRepository> : JU
     val version3 = "keeldemo-0.0.1~dev.10-h10.1d2d542" // snapshot
     val version4 = "keeldemo-1.0.0-h11.518aea2" // release
     val version5 = "keeldemo-1.0.0-h12.4ea8a9d" // release
-    val version6 = "master-h12.4ea8a9d"
+    val version6 = "v1.0.2-rc.35-h6.322963d"
+    val version9 = "v1.0.2-rc.35-h9.c53c9cf"
     val version7 = "keeldemo-pull.7-h20.d0349c3" // pull request build
     val version8 = "keeldemo-pull.8-h21.27dc978" // pull request build
 
@@ -229,21 +239,26 @@ abstract class ArtifactRepositoryPromotionFlowTests<T : ArtifactRepository> : JU
     with(subject) {
       register(versionedSnapshotDebian)
       setOf(version1, version2, version3).forEach {
-        storeArtifactVersion(versionedSnapshotDebian.toArtifactVersion(it, SNAPSHOT))
+        storeArtifactVersion(versionedSnapshotDebian.toArtifactVersion(it, SNAPSHOT, clock.tickMinutes(1)))
       }
       setOf(version4, version5).forEach {
-        storeArtifactVersion(versionedSnapshotDebian.toArtifactVersion(it, RELEASE))
+        storeArtifactVersion(versionedSnapshotDebian.toArtifactVersion(it, RELEASE, clock.tickMinutes(1)))
       }
       register(versionedReleaseDebian)
       setOf(version1, version2, version3).forEach {
-        storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(it, SNAPSHOT))
+        storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(it, SNAPSHOT, clock.tickMinutes(1)))
       }
       setOf(version4, version5).forEach {
-        storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(it, RELEASE))
+        storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(it, RELEASE, clock.tickMinutes(1)))
       }
       register(versionedDockerArtifact)
-      setOf(version6).forEach {
-        storeArtifactVersion(versionedDockerArtifact.toArtifactVersion(it))
+      setOf(version6, version9).forEach {
+        storeArtifactVersion(versionedDockerArtifact.toArtifactVersion(
+          it,
+          null,
+          createdAt = clock.tickMinutes(5),
+          artifactMetadata.gitMetadata?.copy(pullRequest = null, branch = "main")
+        ))
       }
       register(debianFilteredByBranch)
       register(debianFilteredByBranchPattern)
@@ -575,7 +590,7 @@ abstract class ArtifactRepositoryPromotionFlowTests<T : ArtifactRepository> : JU
         expectThat(subject.isDeployingTo(manifest, testEnvironment.name)).isTrue()
 
         expectThat(versionsIn(stagingEnvironment, versionedDockerArtifact)) {
-          get(ArtifactVersionStatus::pending).isEmpty()
+          get(ArtifactVersionStatus::pending).containsExactlyInAnyOrder(version9)
           get(ArtifactVersionStatus::current).isNull()
           get(ArtifactVersionStatus::deploying).isEqualTo(version6)
           get(ArtifactVersionStatus::previous).isEmpty()
@@ -817,7 +832,7 @@ abstract class ArtifactRepositoryPromotionFlowTests<T : ArtifactRepository> : JU
       context("a version of a different artifact is promoted to the environment") {
         before {
           clock.incrementBy(Duration.ofHours(1))
-          subject.approveVersionFor(manifest, versionedReleaseDebian, version3, testEnvironment.name)
+          subject.approveVersionFor(manifest, versionedReleaseDebian, version4, testEnvironment.name)
         }
 
         test("the approved version of the original artifact remains the same") {
@@ -827,7 +842,7 @@ abstract class ArtifactRepositoryPromotionFlowTests<T : ArtifactRepository> : JU
 
         test("the approved version of the new artifact matches") {
           expectThat(subject.latestVersionApprovedIn(manifest, versionedReleaseDebian, testEnvironment.name))
-            .isEqualTo(version3)
+            .isEqualTo(version4)
         }
       }
 
@@ -846,6 +861,24 @@ abstract class ArtifactRepositoryPromotionFlowTests<T : ArtifactRepository> : JU
           expectThat(subject.latestVersionApprovedIn(manifest, versionedSnapshotDebian, stagingEnvironment.name))
             .isEqualTo(version2)
         }
+      }
+    }
+
+    context("there are skipped versions that are being evaluated") {
+      before {
+        clock.incrementBy(Duration.ofHours(1))
+        subject.approveVersionFor(manifest, versionedDockerArtifact, version9, testEnvironment.name)
+        subject.markAsDeployingTo(manifest, versionedDockerArtifact, version9, testEnvironment.name)
+        clock.incrementBy(Duration.ofMinutes(5))
+        subject.markAsSuccessfullyDeployedTo(manifest, versionedDockerArtifact, version9, testEnvironment.name)
+        clock.incrementBy(Duration.ofMinutes(9))
+        // version 1 should be skipped, approve it again
+        subject.approveVersionFor(manifest, versionedDockerArtifact, version6, testEnvironment.name)
+      }
+
+      test("latest approved version is still version9") {
+        val latestApproved = subject.latestVersionApprovedIn(manifest, versionedDockerArtifact, testEnvironment.name)
+        expectThat(latestApproved).isNotNull().isEqualTo(version9)
       }
     }
 

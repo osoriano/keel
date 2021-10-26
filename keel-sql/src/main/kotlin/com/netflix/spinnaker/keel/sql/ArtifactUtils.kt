@@ -185,6 +185,31 @@ internal fun ArtifactVersionSelectStep.fetchSortedArtifactVersions(
   }
 }
 
+private fun ArtifactVersionSelectStep.fetchAndSortByCreatedAt(
+  limit: Int? = null
+): List<PublishedArtifact> {
+  // delegate sorting and limiting to the database
+  and(ARTIFACT_VERSIONS.CREATED_AT.isNotNull)
+    .orderBy(ARTIFACT_VERSIONS.CREATED_AT.desc())
+
+  if (limit != null) {
+    limit(limit)
+  }
+
+  return fetchArtifactVersions()
+}
+
+fun ArtifactVersionSelectStep.fetchSortedArtifactVersionsForLatest(
+  artifact: DeliveryArtifact,
+  limit: Int? = null
+): List<PublishedArtifact> {
+  return if (artifact.filteredBySource) {
+    fetchAndSortByCreatedAt(limit)
+  } else {
+    fetchArtifactVersionsSortedWithComparator(artifact, limit)
+  }
+}
+
 /**
  * Given a docker artifact and a list of docker tags, filters out all tags that don't produce exactly one capture
  * group with the provided regex.
