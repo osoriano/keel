@@ -449,7 +449,10 @@ class SqlArtifactRepository(
         .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(artifactId))
         .and(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT.isNotNull)
         .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.notIn(excludeStatuses))
-        .fetchSortedArtifactVersionsForLatest(artifact, 20)
+        .orderBy(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT.desc())
+        .limit(20)
+        .fetchArtifactVersions()
+        .sortedWith(artifact.sortingStrategy.comparator)
         .firstOrNull()
     }
   }
