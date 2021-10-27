@@ -56,8 +56,8 @@ interface ScmService: ScmInfo {
   @GET("/graphql-schema")
   suspend fun getGraphqlSchema(
     @Query("scmType") repoType: String,
-    @Path("project") projectKey: String,
-    @Path("repository") repositorySlug: String,
+    @Query("project") projectKey: String,
+    @Query("repository") repositorySlug: String,
     @Query("ref") ref: String,
     @Query("schemaPath") schemaPath: String
   ) : GraphqlSchemaResult
