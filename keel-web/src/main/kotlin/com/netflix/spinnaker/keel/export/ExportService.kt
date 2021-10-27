@@ -90,6 +90,11 @@ class ExportService(
     val application = runBlocking {
       front50Cache.applicationByName(applicationName)
     }
+    if (application.managedDelivery?.importDeliveryConfig == true) {
+      // This heuristic is not perfect - this value will exist for apps that were on MD and then removed. Good enough for now
+      // TODO: check if it's currently managed in our DB
+      return ExportSkippedResult(isManaged = true)
+    }
     val serviceAccount = application.email ?: DEFAULT_SERVICE_ACCOUNT
     val nonExportablePipelines = pipelines.findNonExportable(maxAgeDays)
     val exportablePipelines = pipelines - nonExportablePipelines.keys
@@ -375,6 +380,10 @@ class ExportService(
 }
 
 interface ExportResult
+
+data class ExportSkippedResult(
+  val isManaged: Boolean
+): ExportResult
 
 data class ExportErrorResult(
   val error: String,
