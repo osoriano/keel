@@ -23,6 +23,7 @@ import com.netflix.spinnaker.keel.api.ClusterDeployStrategy
 import com.netflix.spinnaker.keel.api.Constraint
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Dependent
+import com.netflix.spinnaker.keel.api.EnvironmentChangeReason
 import com.netflix.spinnaker.keel.api.Locatable
 import com.netflix.spinnaker.keel.api.Monikered
 import com.netflix.spinnaker.keel.api.PreviewEnvironmentSpec
@@ -45,6 +46,7 @@ import com.netflix.spinnaker.keel.jackson.mixins.ConstraintStateMixin
 import com.netflix.spinnaker.keel.jackson.mixins.DeliveryArtifactMixin
 import com.netflix.spinnaker.keel.jackson.mixins.DeliveryConfigMixin
 import com.netflix.spinnaker.keel.jackson.mixins.DependentMixin
+import com.netflix.spinnaker.keel.jackson.mixins.EnvironmentChangeReasonMixin
 import com.netflix.spinnaker.keel.jackson.mixins.LocatableMixin
 import com.netflix.spinnaker.keel.jackson.mixins.MonikeredMixin
 import com.netflix.spinnaker.keel.jackson.mixins.PreviewEnvironmentSpecMixin
@@ -79,6 +81,7 @@ object KeelApiModule : SimpleModule("Keel API") {
       setMixInAnnotations<Verification, VerificationMixin>()
       setMixInAnnotations<PreviewEnvironmentSpec, PreviewEnvironmentSpecMixin>()
       setMixInAnnotations<Dependent, DependentMixin>()
+      setMixInAnnotations<EnvironmentChangeReason, EnvironmentChangeReasonMixin>()
       insertAnnotationIntrospector(FactoryAnnotationIntrospector())
     }
   }
