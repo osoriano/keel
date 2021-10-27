@@ -4,6 +4,10 @@ import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import java.time.Instant
 
+/**
+ * The declarative delivery configuration for an application, which is the top-level object holding
+ * information about application environments (with their resources, constraints, verifications, etc.).
+ */
 data class DeliveryConfig(
   val application: String,
   val name: String,
@@ -61,4 +65,7 @@ data class DeliveryConfig(
     requireNotNull(environments.firstOrNull { it.name == name }) {
       "No environment named $name exists in the configuration for application ${this.application}"
     }
+
+  fun environmentOfResource(resource: Resource<*>): Environment? =
+    environments.find { resource in it.resources }
 }

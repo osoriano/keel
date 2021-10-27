@@ -14,6 +14,5 @@ data class GraphqlSchemaResult(
   val schemas: List<GraphqlSchemaFile>,
 ) {
   val schema : String
-    get() = "" // SLIMED! TODO: test properly!
+    get() = schemas.joinToString("\n") { it.contents }
 }
-
