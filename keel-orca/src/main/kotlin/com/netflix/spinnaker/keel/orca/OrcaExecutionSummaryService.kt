@@ -64,7 +64,7 @@ class OrcaExecutionSummaryService(
 
     val currentStage = typedStages
       .filter { it.status == RUNNING }
-      .maxByOrNull { it.refId.length } //grab the longest ref id, which will be the most nested running stage
+      .maxByOrNull { it.refId?.length ?: 0 } //grab the longest ref id, which will be the most nested running stage
 
     val targets = getTargets(taskDetails, typedStages)
 

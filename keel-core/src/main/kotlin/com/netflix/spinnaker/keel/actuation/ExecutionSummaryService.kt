@@ -31,7 +31,7 @@ data class Stage(
   val startTime: Instant?,
   val endTime: Instant?,
   val status: TaskStatus,
-  val refId: String, //this is a short code for the stage, used in ordering
+  val refId: String?, //this is a short code for the stage, used in ordering
   val requisiteStageRefIds: List<String> //this is a coded form of what stage goes after another stage/belongs to a stage
 )
 

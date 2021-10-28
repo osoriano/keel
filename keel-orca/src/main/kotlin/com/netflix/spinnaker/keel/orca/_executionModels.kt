@@ -49,7 +49,7 @@ data class OrcaStage(
   val outputs: Map<String, Any>,
   val tasks: List<OrcaStageTask>,
   val syntheticStageOwner: String?, // only appears with a before stage/after stage
-  val refId: String, //this is a short code for the stage, used in ordering
+  val refId: String?, //this is a short code for the stage, used in ordering
   val requisiteStageRefIds: List<String> //this is a coded form of what stage goes after another stage/belongs to a stage
 )
 
