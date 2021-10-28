@@ -89,7 +89,7 @@ class DeliveryConfigUpserter(
       existing == null -> true
       diffFactory.compare(existing, new).also {
         if (it.hasChanges()) {
-          log.debug("Found diffs in delivery config ${it.affectedRootPropertyNames}")
+          log.debug("Found diffs of app ${new.application} in delivery config ${it.affectedRootPropertyNames} - ${it.toDebug()}")
         }
       }.hasChanges() -> true
       else -> false
