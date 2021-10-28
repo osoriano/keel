@@ -46,7 +46,7 @@ abstract class BaseLoadBalancerHandler<SPEC : LoadBalancerSpec, MODEL>(
         listOf(
           taskLauncher.submitJob(
             resource = resource,
-            description = "Delete load balancer ${resource.name} in account $account (${regions.joinToString()})",
+            description = "Delete load balancer [${resource.name} in account $account (${regions.joinToString()})]",
             correlationId = "${resource.id}:delete",
             stages = stages
           )

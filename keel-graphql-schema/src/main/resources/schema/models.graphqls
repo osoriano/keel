@@ -207,7 +207,8 @@ type MD_ResourceActuationState {
 type MD_ResourceTask {
   id: String!
   name: String!
-  running: Boolean!
+  fullName: String
+  running: Boolean
   summary: MD_ExecutionSummary
 }
 

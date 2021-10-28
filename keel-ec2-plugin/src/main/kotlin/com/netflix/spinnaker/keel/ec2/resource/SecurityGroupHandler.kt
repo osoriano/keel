@@ -113,7 +113,7 @@ open class SecurityGroupHandler(
           async {
             taskLauncher.submitJob(
               resource = resource,
-              description = "${verb.first} security group ${spec.moniker} in ${spec.location.account}/${spec.location.region}",
+              description = "${verb.first} security group [${spec.moniker} in ${spec.location.account}/${spec.location.region}]",
               correlationId = "${resource.id}:${spec.location.region}",
               job = job
             )
@@ -187,7 +187,7 @@ open class SecurityGroupHandler(
         listOf(
           taskLauncher.submitJob(
             resource = resource,
-            description = "Delete security group ${resource.name} in account $account (${regions.joinToString()})",
+            description = "Delete security group [${resource.name} in account $account (${regions.joinToString()})]",
             correlationId = "${resource.id}:delete",
             stages = stages
           )

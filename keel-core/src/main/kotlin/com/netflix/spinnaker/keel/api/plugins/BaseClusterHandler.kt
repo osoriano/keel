@@ -139,8 +139,7 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Any>(
       listOf(
         taskLauncher.submitJob(
           resource = resource,
-          description = "Delete cluster ${resource.name} in account ${resource.spec.locations.account}" +
-            " (${regions.joinToString()})",
+          description = "Delete cluster [${resource.name} in account ${resource.spec.locations.account} (${regions.joinToString()})]",
           correlationId = "${resource.id}:delete",
           stages = stages,
           artifactVersion = null
@@ -202,31 +201,26 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Any>(
     "${resource.account()}/${diffs.map { getDesiredRegion(it) }.joinToString(",")}"
 
   fun ResourceDiff<RESOLVED>.capacityOnlyMessage(): String =
-    "Resize server group ${moniker()} in " +
-      accountRegionString(this)
+    "Resize server group [${moniker()} in ${accountRegionString(this)}]"
 
   fun ResourceDiff<RESOLVED>.autoScalingOnlyMessage(): String =
-    "Modify auto-scaling of server group ${moniker()} in " +
-      accountRegionString(this)
+    "Modify auto-scaling of server group [${moniker()} in ${accountRegionString(this)}]"
+
 
   fun ResourceDiff<RESOLVED>.enabledOnlyMessage(job: Job): String =
-    "Disable extra active server group ${job["asgName"]} in " +
-      accountRegionString(this)
+    "Disable extra active server group [${job["asgName"]} in ${accountRegionString(this)}]"
 
   fun ResourceDiff<RESOLVED>.capacityAndAutoscalingMessage(): String=
-    "Modify capacity and auto-scaling of server group ${moniker()} in " +
-      accountRegionString(this)
+    "Modify capacity and auto-scaling of server group [${moniker()} in ${accountRegionString(this)}]"
 
   fun ResourceDiff<RESOLVED>.upsertMessage(version: String): String =
-    "Deploy $version to server group ${moniker()} in " +
-      accountRegionString(this)
+    "Deploy $version to server group [${moniker()} in ${accountRegionString(this)}]"
 
   fun Resource<SPEC>.upsertManagedRolloutMessage(version: String, diffs: List<ResourceDiff<RESOLVED>>): String =
-    "Deploy $version to cluster ${moniker()} in " +
-      accountRegionString(this, diffs) + " using a managed rollout"
+    "Deploy $version to cluster [${moniker()} in ${accountRegionString(this, diffs)} using a managed rollout]"
 
   fun ResourceDiff<RESOLVED>.rollbackMessage(version: String, rollbackServerGroup: RESOLVED) =
-    "Rolling back cluster ${moniker()} to $version in ${accountRegionString(this)} (disabling ${current?.moniker()?.serverGroup}, enabling ${rollbackServerGroup.moniker().serverGroup})"
+    "Rolling back cluster [${moniker()} to $version in ${accountRegionString(this)} (disabling ${current?.moniker()?.serverGroup}, enabling ${rollbackServerGroup.moniker().serverGroup})]"
 
   abstract fun correlationId(resource: Resource<SPEC>, diff: ResourceDiff<RESOLVED>): String
   abstract fun Resource<SPEC>.isStaggeredDeploy(): Boolean

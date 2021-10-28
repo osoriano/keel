@@ -85,7 +85,7 @@ class ClassicLoadBalancerHandler(
             else -> "Update"
           }
           val description =
-            "$action ${resource.kind} load balancer ${desired.moniker} in ${desired.location.account}/${desired.location.region}"
+            "$action ${resource.kind} load balancer [${desired.moniker} in ${desired.location.account}/${desired.location.region}]"
 
           async {
             taskLauncher.submitJob(

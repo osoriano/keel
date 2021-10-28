@@ -274,5 +274,4 @@ class BasicQueryTests {
     expectThat(pinSlot.captured.type).isEqualTo(PinType.ROLLBACK)
     expectThat(markAsBadSlot.captured.version).isEqualTo("v2")
   }
-
 }

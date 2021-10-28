@@ -144,12 +144,17 @@ fun ExecutionSummary.toDgs() =
     error = error
   )
 
-fun TaskForResource.toDgs() =
-  MD_ResourceTask(
+val TaskForResource.shortName: String
+  get() = name.substringBefore("[").trim()
+
+fun TaskForResource.toDgs(): MD_ResourceTask {
+  return MD_ResourceTask(
     id = id,
-    name = name,
+    name = shortName,
+    fullName = name,
     running = endedAt == null
   )
+}
 
 fun RolloutTargetWithStatus.toDgs() =
   MD_DeployTarget(
