@@ -17,6 +17,7 @@ data class DockerArtifact(
   override val name: String,
   override val deliveryConfigName: String? = null,
   override val reference: String = name,
+  override val isPreview: Boolean = false,
   val tagVersionStrategy: TagVersionStrategy? = null,
   val captureGroupRegex: String? = null,
   @JsonIgnore val branch: String? = null,

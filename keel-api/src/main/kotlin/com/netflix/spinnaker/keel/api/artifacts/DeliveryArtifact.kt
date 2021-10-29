@@ -63,6 +63,7 @@ data class BranchFilter(
 fun branchStartsWith(startsWith: String) = BranchFilter(startsWith = startsWith)
 fun branchName(name: String) = BranchFilter(name = name)
 fun branchRegex(regex: String) = BranchFilter(regex = regex)
+fun from(branchFilter: BranchFilter) = ArtifactOriginFilter(branch = branchFilter)
 
 /**
  * Filters for the origin of an artifact in source control.

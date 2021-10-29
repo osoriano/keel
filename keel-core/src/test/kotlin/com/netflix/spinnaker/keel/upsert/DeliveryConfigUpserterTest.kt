@@ -2,6 +2,11 @@ package com.netflix.spinnaker.keel.upsert
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.config.PersistenceRetryConfig
+import com.netflix.spinnaker.keel.api.Environment
+import com.netflix.spinnaker.keel.api.artifacts.ArtifactOriginFilter
+import com.netflix.spinnaker.keel.api.artifacts.branchStartsWith
+import com.netflix.spinnaker.keel.api.artifacts.from
+import com.netflix.spinnaker.keel.artifacts.DockerArtifact
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.events.DeliveryConfigChangedNotification
@@ -20,7 +25,7 @@ import io.mockk.verify
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.context.ApplicationEventPublisher
-import org.springframework.core.env.Environment
+import org.springframework.core.env.Environment as SpringEnv
 import strikt.api.expectThrows
 
 internal class DeliveryConfigUpserterTest {
@@ -28,7 +33,7 @@ internal class DeliveryConfigUpserterTest {
   private val mapper: ObjectMapper = mockk()
   private val validator: DeliveryConfigValidator = mockk()
   private val publisher: ApplicationEventPublisher = mockk()
-  private val springEnv: Environment = mockk()
+  private val springEnv: SpringEnv = mockk()
   private val persistenceRetry = PersistenceRetry(PersistenceRetryConfig())
 
   private val subject = DeliveryConfigUpserter(
@@ -99,13 +104,29 @@ internal class DeliveryConfigUpserterTest {
   }
 
   @Test
-  fun `ignores changes in object metadata`() {
+  fun `ignores changes in object metadata when comparing current with new delivery config`() {
     every {
       repository.getDeliveryConfigForApplication(any())
     } returns deliveryConfig.run {
       copy(
         metadata = metadata + ("another" to "value"),
         environments = environments.map { it.copy().addMetadata("another" to "value") }.toSet()
+      )
+    }
+
+    subject.upsertConfig(submittedDeliveryConfig)
+
+    verify { publisher wasNot called }
+  }
+
+  @Test
+  fun `ignores preview objects when comparing current with new delivery config`() {
+    every {
+      repository.getDeliveryConfigForApplication(any())
+    } returns deliveryConfig.run {
+      copy(
+        artifacts = artifacts + DockerArtifact("myimage", from = from(branchStartsWith("feature.")), isPreview = true),
+        environments = environments + Environment("preview", isPreview = true)
       )
     }
 

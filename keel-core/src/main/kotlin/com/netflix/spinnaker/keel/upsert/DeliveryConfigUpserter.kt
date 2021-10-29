@@ -38,11 +38,18 @@ class DeliveryConfigUpserter(
     get() = springEnv.getProperty("keel.notifications.send-config-changed", Boolean::class.java, true)
 
   /**
-   * This function returns the upsertted [DeliveryConfig] and a boolean indicating if the config was just inserted for the first time
+   * This function returns the [DeliveryConfig] as stored in the database, and a boolean indicating if the config was
+   * just inserted for the first time.
    */
   fun upsertConfig(deliveryConfig: SubmittedDeliveryConfig, gitMetadata: GitMetadata? = null): Pair<DeliveryConfig, Boolean>  {
     val existing: DeliveryConfig? = try {
       repository.getDeliveryConfigForApplication(deliveryConfig.application)
+        .run {
+          copy(
+            artifacts = artifacts.filterNot { it.isPreview }.toSet(),
+            environments = environments.filterNot { it.isPreview }.toSet()
+          )
+        }
     } catch (e: NoDeliveryConfigForApplication) {
       null
     }
