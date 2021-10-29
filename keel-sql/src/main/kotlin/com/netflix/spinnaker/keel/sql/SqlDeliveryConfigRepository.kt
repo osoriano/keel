@@ -586,6 +586,21 @@ class SqlDeliveryConfigRepository(
         }
     } ?: throw OrphanedResourceException(resourceId)
 
+  private fun ConstraintState.log(msg: String) =
+    log.debug("{} {}:{}:{}:{}:{}:{}:{}:{}:{}",
+      msg,
+      deliveryConfigName,
+      environmentName,
+      artifactReference,
+      artifactVersion,
+      type,
+      status,
+      createdAt,
+      uid,
+      comment
+    )
+
+
   /**
    * gets or creates constraint id
    * saves constraint
@@ -593,6 +608,8 @@ class SqlDeliveryConfigRepository(
    * if all constraints pass, puts in queue for approval table
    */
   override fun storeConstraintState(state: ConstraintState) {
+    state.log("storeConstraintState (before)")
+
     environmentUidByName(state.deliveryConfigName, state.environmentName)
       ?.also { envUid ->
         val uid = sqlRetry.withRetry(READ) {
@@ -702,6 +719,7 @@ class SqlDeliveryConfigRepository(
           state.uid = parseUID(uid)
         }
       }
+    state.log("storeConstraintState (after)")
   }
 
   override fun getConstraintState(
@@ -760,7 +778,9 @@ class SqlDeliveryConfigRepository(
             judgedAt,
             comment,
             objectMapper.readValue(attributes)
-          )
+          ).also {
+            it.log("getConstraintState")
+          }
         }
     }
   }
@@ -810,7 +830,9 @@ class SqlDeliveryConfigRepository(
             judgedAt,
             comment,
             objectMapper.readValue(attributes)
-          )
+          ).also {
+           it.log("getConstraintStateById")
+          }
         }
     }
   }
