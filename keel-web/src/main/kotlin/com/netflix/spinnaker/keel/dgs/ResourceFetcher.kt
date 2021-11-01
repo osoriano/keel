@@ -20,6 +20,8 @@ import com.netflix.spinnaker.keel.persistence.TaskTrackingRepository
 import com.netflix.spinnaker.keel.scm.ScmUtils
 import com.netflix.spinnaker.keel.services.ResourceStatusService
 import graphql.schema.DataFetchingEnvironment
+import org.slf4j.LoggerFactory
+import retrofit2.HttpException
 
 /**
  * Fetches details about resources, as defined in [schema.graphql]
@@ -37,6 +39,8 @@ class ResourceFetcher(
   private val executionSummaryService: ExecutionSummaryService,
   private val taskTrackingRepository: TaskTrackingRepository
 ) {
+
+  private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
   @DgsData(parentType = DgsConstants.MD_ARTIFACT.TYPE_NAME, field = DgsConstants.MD_ARTIFACT.Resources)
   fun artifactResources(dfe: DataFetchingEnvironment): List<MD_Resource>? {
@@ -61,17 +65,21 @@ class ResourceFetcher(
 
   @DgsData(parentType = DgsConstants.MD_RESOURCEACTUATIONSTATE.TYPE_NAME, field = DgsConstants.MD_RESOURCEACTUATIONSTATE.Tasks)
   fun resourceTask(dfe: DgsDataFetchingEnvironment): List<MD_ResourceTask> {
-    val resourcceState: MD_ResourceActuationState = dfe.getSource()
-    val tasks = taskTrackingRepository.getLatestBatchOfTasks(resourceId = resourcceState.resourceId)
+    val resourceState: MD_ResourceActuationState = dfe.getSource()
+    val tasks = taskTrackingRepository.getLatestBatchOfTasks(resourceId = resourceState.resourceId)
     return tasks.map { it.toDgs() }
   }
 
-
   @DgsData(parentType = DgsConstants.MD_RESOURCETASK.TYPE_NAME, field = DgsConstants.MD_RESOURCETASK.Summary)
-  fun taskSummary(dfe: DgsDataFetchingEnvironment): MD_ExecutionSummary {
+  fun taskSummary(dfe: DgsDataFetchingEnvironment): MD_ExecutionSummary? {
     val task: MD_ResourceTask = dfe.getSource()
-    val summary = executionSummaryService.getSummary(task.id)
-    return summary.toDgs()
+    try {
+      val summary = executionSummaryService.getSummary(task.id)
+      return summary.toDgs()
+    } catch (e: HttpException) {
+      log.debug("Failed to fetch task ID ${task.id} - $e")
+    }
+    return null
   }
 
 }
