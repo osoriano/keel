@@ -273,7 +273,8 @@ class TitusClusterScalingPolicyTests {
             actionsEnabled = true // TODO: is this reflected in CloudDriver?
           )
         )
-      )
+      ),
+      iamProfile = "arn:aws:iam::149510111645:role/${application}InstanceProfile"
     )
   )
 

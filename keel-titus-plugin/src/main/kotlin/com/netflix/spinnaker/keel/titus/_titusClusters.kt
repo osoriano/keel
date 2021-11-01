@@ -70,7 +70,7 @@ internal fun TitusClusterSpec.resolveResources(region: String? = null): TitusSer
 }
 
 internal fun TitusClusterSpec.resolveIamProfile(region: String) =
-  overrides[region]?.iamProfile ?: defaults.iamProfile ?: moniker.app + "InstanceProfile"
+  overrides[region]?.iamProfile ?: defaults.iamProfile ?: "${moniker.app}InstanceProfile"
 
 internal fun TitusClusterSpec.resolveEntryPoint(region: String? = null) =
   when (region) {
@@ -147,7 +147,8 @@ internal fun TitusClusterSpec.resolve(): Set<TitusServerGroup> =
       artifactName = artifactName,
       artifactVersion = artifactVersion,
       scaling = resolveScaling(it.name),
-      efs = resolveEfs(it.name)
+      efs = resolveEfs(it.name),
+      iamProfile = resolveIamProfile(it.name)
     )
   }
     .toSet()
