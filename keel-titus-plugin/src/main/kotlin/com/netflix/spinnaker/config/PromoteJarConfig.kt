@@ -6,9 +6,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties
  * Defines the docker image that the promote jar runner will run
  */
 @ConfigurationProperties("keel.post-deploy.promote-jar")
-class PromoteJarConfig {
-  var imageId: String? = null
-  var account: String? = null
-  var region: String? = null
+class PromoteJarConfig(var imageId: String?, var account: String?, var region: String?) {
   var application: String? = "keel"
 }

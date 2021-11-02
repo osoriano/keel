@@ -69,13 +69,17 @@ class PromoteJarHandler(
       location = config.location(),
       environmentVariables = mapOf(
         "REPO_URL" to fullArtifact.repoUrl(gitConfig.gitUrlPrefix),
-        "BUILD_NUMBER" to fullArtifact.buildNumber()
+        "BUILD_NUMBER" to fullArtifact.buildNumber(),
+        "GIT_BRANCH" to fullArtifact.branch()
       )
     )
   }
 
   fun PublishedArtifact.buildNumber(): String =
     "$buildNumber"
+
+  fun PublishedArtifact.branch(): String =
+    gitMetadata?.branch ?: "master"
 
   private fun PromoteJarConfig.location() : TitusServerGroup.Location {
     requireNotNull(account) { "Titus account must be set in the promote jar config"}
