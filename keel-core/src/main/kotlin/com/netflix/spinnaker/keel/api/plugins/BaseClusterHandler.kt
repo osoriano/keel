@@ -248,13 +248,20 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Any>(
     return serverGroupsByRegion.mapValues { regionalList ->
       val region = regionalList.key
       val regionalServerGroups = regionalList.value
-      val result = find { getDesiredRegion(it) == region }?.let { regionalDiff ->
-        regionalServerGroups.firstOrNull {
-          val diff = diffFactory.compare(regionalDiff.desired, it)
-          !diff.hasChanges() || diff.isIgnorableForRollback()
+      if (regionalServerGroups.size < 2) {
+        // if there aren't at least 2 server groups we know there isn't a rollback candidate
+        null
+      } else {
+        val result = find { regionalDiff ->
+          getDesiredRegion(regionalDiff) == region
+        }?.let { regionalDiff ->
+          regionalServerGroups.firstOrNull {
+            val diff = diffFactory.compare(regionalDiff.desired, it)
+            !diff.hasChanges() || diff.isIgnorableForRollback()
+          }
         }
+        result
       }
-      result
     }.filterValues { it != null } as Map<String, RESOLVED>
   }
 
@@ -302,9 +309,10 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Any>(
 
       val modifyDiffs = diffs
         .filter {
-          it.isCapacityOrAutoScalingOnly() || it.isEnabledOnly() || it.isCapacityOnly() || rollbackServerGroups[getDesiredRegion(
-            it
-          )] != null
+          it.isCapacityOrAutoScalingOnly() ||
+            it.isEnabledOnly() ||
+            it.isCapacityOnly() ||
+            rollbackServerGroups.containsKey(getDesiredRegion(it))
         }
       val createDiffs = diffs - modifyDiffs
 

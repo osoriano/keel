@@ -219,22 +219,51 @@ class Ec2BaseClusterHandlerTests : BaseClusterHandlerTests<ClusterSpec, ServerGr
     resource: Resource<ClusterSpec>,
     version: String,
     rollbackMoniker: Moniker
-  ): Map<String, List<ServerGroup>> =
-    resource
+  ): Map<String, List<ServerGroup>> {
+    val regionKeys = resource.spec.locations.regions.map { it.name }
+   val current = resource
+     .spec
+     .resolve()
+     .associate { it.location.region to listOf(it) }
+    val rollback = resource
       .spec
       .resolve()
       .map { it.withADifferentImage(version).withMoniker(rollbackMoniker) }
       .associate { it.location.region to listOf(it) }
 
+    return regionKeys.associateWith {
+      (current[it] ?: emptyList()) + (rollback [it] ?: emptyList())
+    }
+  }
+
   override fun getRollbackServerGroupsByRegionZeroCapacity(
     resource: Resource<ClusterSpec>,
     version: String,
     rollbackMoniker: Moniker
+  ): Map<String, List<ServerGroup>>  {
+    val regionKeys = resource.spec.locations.regions.map { it.name }
+    val current: Map<String, List<ServerGroup>> = resource
+      .spec
+      .resolve()
+      .associate { it.location.region to listOf(it) }
+    val rollback = resource
+      .spec
+      .resolve()
+      .map { it.withADifferentImage(version).withMoniker(rollbackMoniker).withZeroCapacity() }
+      .associate { it.location.region to listOf(it) }
+
+    return regionKeys.associateWith {
+      (current[it] ?: emptyList()) + (rollback [it] ?: emptyList())
+    }
+  }
+
+  override fun getSingleRollbackServerGroupByRegion(
+    resource: Resource<ClusterSpec>,
+    version: String
   ): Map<String, List<ServerGroup>> =
     resource
       .spec
       .resolve()
-      .map { it.withADifferentImage(version).withMoniker(rollbackMoniker).withZeroCapacity() }
       .associate { it.location.region to listOf(it) }
 
   private fun ServerGroup.withDoubleCapacity(): ServerGroup =

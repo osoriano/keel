@@ -220,22 +220,51 @@ class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, T
     resource: Resource<TitusClusterSpec>,
     version: String,
     rollbackMoniker: Moniker
-  ): Map<String, List<TitusServerGroup>> =
-    resource
+  ): Map<String, List<TitusServerGroup>> {
+    val regionKeys = resource.spec.locations.regions.map { it.name }
+    val current = resource
+      .spec
+      .resolve()
+      .associate { it.location.region to listOf(it) }
+    val rollback = resource
       .spec
       .resolve()
       .map { it.withADifferentImage(version).withMoniker(rollbackMoniker) }
       .associate { it.location.region to listOf(it) }
 
+    return regionKeys.associateWith {
+      (current[it] ?: emptyList()) + (rollback [it] ?: emptyList())
+    }
+  }
+
   override fun getRollbackServerGroupsByRegionZeroCapacity(
     resource: Resource<TitusClusterSpec>,
     version: String,
     rollbackMoniker: Moniker
+  ): Map<String, List<TitusServerGroup>> {
+    val regionKeys = resource.spec.locations.regions.map { it.name }
+    val current: Map<String, List<TitusServerGroup>> = resource
+      .spec
+      .resolve()
+      .associate { it.location.region to listOf(it) }
+    val rollback: Map<String, List<TitusServerGroup>> = resource
+      .spec
+      .resolve()
+      .map { it.withADifferentImage(version).withMoniker(rollbackMoniker).withZeroCapacity() }
+      .associate { it.location.region to listOf(it) }
+
+    return regionKeys.associateWith {
+      (current[it] ?: emptyList()) + (rollback [it] ?: emptyList())
+    }
+  }
+
+  override fun getSingleRollbackServerGroupByRegion(
+    resource: Resource<TitusClusterSpec>,
+    version: String
   ): Map<String, List<TitusServerGroup>> =
     resource
       .spec
       .resolve()
-      .map { it.withADifferentImage(version).withMoniker(rollbackMoniker).withZeroCapacity() }
       .associate { it.location.region to listOf(it) }
 
   private fun TitusServerGroup.withDoubleCapacity(): TitusServerGroup =

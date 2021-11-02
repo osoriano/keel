@@ -56,6 +56,7 @@ abstract class BaseClusterHandlerTests<
 
   abstract fun getRollbackServerGroupsByRegion(resource: Resource<SPEC>, version: String, rollbackMoniker: Moniker): Map<String, List<RESOLVED>>
   abstract fun getRollbackServerGroupsByRegionZeroCapacity(resource: Resource<SPEC>, version: String, rollbackMoniker: Moniker): Map<String, List<RESOLVED>>
+  abstract fun getSingleRollbackServerGroupByRegion(resource: Resource<SPEC>, version: String): Map<String, List<RESOLVED>>
 
   val clock: Clock = MutableClock()
   val eventPublisher: EventPublisher = mockk(relaxUnitFun = true)
@@ -356,6 +357,28 @@ abstract class BaseClusterHandlerTests<
       that(stages.size).isEqualTo(1)
       val stage = stages.first()
       that(stage["type"]).isEqualTo("createServerGroup")
+    }
+  }
+
+  @Test
+  fun `will not consider a rollback task if there is only one server group`() {
+    val resource = getSingleRegionCluster()
+    val version = "sha:222"
+    val currentMoniker = resource.spec.moniker.copy(sequence = 2)
+    coEvery { handler.getServerGroupsByRegion(resource) } returns
+      getSingleRollbackServerGroupByRegion(resource, version)
+
+    val slots = mutableListOf<List<Job>>()
+    coEvery { taskLauncher.submitJob(any(), any(), any(), capture(slots), any()) } returns Task("id", "name")
+
+    runBlocking { handler.upsert(resource, getDiffForRollback(resource, version, currentMoniker)) }
+
+    val stages = slots[0]
+    expect {
+      that(slots.size).isEqualTo(1)
+      that(stages.size).isEqualTo(1)
+      val rollbackStage = stages.first()
+      that(rollbackStage["type"]).isEqualTo("createServerGroup")
     }
   }
 
