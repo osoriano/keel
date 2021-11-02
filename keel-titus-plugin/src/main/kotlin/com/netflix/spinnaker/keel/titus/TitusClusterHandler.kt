@@ -481,9 +481,13 @@ class TitusClusterHandler(
       desired.scaling.targetTrackingPolicies - scaling.targetTrackingPolicies
     } ?: desired.scaling.targetTrackingPolicies
 
+    log.debug("Target tracking policies for resource ${desired.id}:\nNew: $newTargetPolicies.\nExisting: ${current?.scaling?.targetTrackingPolicies ?: "None"}")
+
     val newStepPolicies = current?.run {
       desired.scaling.stepScalingPolicies - scaling.stepScalingPolicies
     } ?: desired.scaling.stepScalingPolicies
+
+    log.debug("Step scaling policies for resource ${desired.id}:\nNew: $newStepPolicies.\nExisting: ${current?.scaling?.stepScalingPolicies ?: "None"}")
 
     if (newTargetPolicies.isNotEmpty()) {
       val (newRef, jobs) = newTargetPolicies.toCreateTargetTrackingPolicyJob(refId, current ?: desired)
