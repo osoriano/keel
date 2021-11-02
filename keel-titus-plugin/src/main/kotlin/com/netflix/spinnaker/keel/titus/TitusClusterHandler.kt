@@ -715,7 +715,8 @@ class TitusClusterHandler(
         "loadBalancers" to dependencies.loadBalancerNames,
         "targetGroups" to dependencies.targetGroups,
         "account" to location.account,
-        "efs" to efs
+        "efs" to efs,
+        "iamProfile" to iamProfile
       ) + image
     }
       .let { job ->
