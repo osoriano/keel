@@ -28,8 +28,6 @@ abstract class PersistentEvent {
   abstract val triggeredBy: String?
   abstract val displayName: String
   open val level: EventLevel = EventLevel.INFO
-  @JsonIgnore
-  open val ignoreRepeatedInHistory: Boolean = false
 
   companion object {
     val clock: Clock = Clock.systemUTC()
@@ -39,6 +37,15 @@ abstract class PersistentEvent {
     @JsonProperty("resource") RESOURCE,
     @JsonProperty("application") APPLICATION
   }
+}
+
+/**
+ * Interface for persistent events that should not be repeated in history, in which case we store the
+ * first time the event was triggered and the count of occurrences.
+ */
+interface NonRepeatableEvent {
+  val firstTriggeredAt: Instant
+  val count: Int
 }
 
 /**
@@ -58,6 +65,5 @@ abstract class PersistentEvent {
 interface ResourceHistoryEvent {
   val scope: PersistentEvent.EventScope
   val ref: String // the resource ID or application name
-  val ignoreRepeatedInHistory: Boolean
   val timestamp: Instant
 }

@@ -88,4 +88,6 @@ class MutableClock(
   fun reset() {
     instant = start
   }
+
+  fun clone() = MutableClock(Instant.ofEpochMilli(instant.toEpochMilli()), zone)
 }

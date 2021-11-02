@@ -58,6 +58,7 @@ import strikt.assertions.isSuccess
 import strikt.assertions.map
 import java.time.Clock
 import java.time.Duration
+import java.time.Instant
 import java.time.Period
 import java.util.UUID.randomUUID
 
@@ -267,14 +268,31 @@ abstract class ResourceRepositoryTests<T : ResourceRepository> : JUnit5Minutests
               .first()
               .isA<ResourceValid>()
           }
+
+          test("the event first detection time is set") {
+            val event = subject.eventHistory(resource.id).first() as ResourceValid
+            expectThat(event.firstTriggeredAt).isEqualTo(event.timestamp)
+          }
+
+          test("the event count is initialized") {
+            val event = subject.eventHistory(resource.id).first() as ResourceValid
+            expectThat(event.count).isEqualTo(1)
+          }
         }
 
         context("appending an identical resource event with duplicates disallowed the second time") {
+          var firstEventTimestamp: Instant? = null
+          var secondEventTimestamp: Instant? = null
+
           before {
             tick()
-            subject.appendHistory(ResourceValid(resource, clock))
+            subject.appendHistory(
+              ResourceValid(resource, clock).also { firstEventTimestamp = it.timestamp }
+            )
             tick()
-            subject.appendHistory(ResourceValid(resource, clock))
+            subject.appendHistory(
+              ResourceValid(resource, clock).also { secondEventTimestamp = it.timestamp }
+            )
           }
 
           test("the event is not included in the resource history") {
@@ -282,6 +300,21 @@ abstract class ResourceRepositoryTests<T : ResourceRepository> : JUnit5Minutests
               first().isA<ResourceValid>()
               second().not().isA<ResourceValid>()
             }
+          }
+
+          test("the event first detection time is kept") {
+            val event = subject.eventHistory(resource.id).first() as ResourceValid
+            expectThat(event.firstTriggeredAt).isEqualTo(firstEventTimestamp)
+          }
+
+          test("the original event timestamp is updated") {
+            val event = subject.eventHistory(resource.id).first() as ResourceValid
+            expectThat(event.timestamp).isEqualTo(secondEventTimestamp)
+          }
+
+          test("the event count is incremented") {
+            val event = subject.eventHistory(resource.id).first() as ResourceValid
+            expectThat(event.count).isEqualTo(2)
           }
         }
 
@@ -425,8 +458,9 @@ abstract class ResourceRepositoryTests<T : ResourceRepository> : JUnit5Minutests
     }
   }
 
-  private fun tick() {
+  private fun tick(): Instant {
     clock.incrementBy(ONE_MINUTE)
+    return clock.instant()
   }
 
   companion object {

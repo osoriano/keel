@@ -1,12 +1,14 @@
 package com.netflix.spinnaker.keel.sql
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.convertValue
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceKind.Companion.parseKind
 import com.netflix.spinnaker.keel.api.ResourceSpec
 import com.netflix.spinnaker.keel.core.api.randomUID
 import com.netflix.spinnaker.keel.events.ApplicationEvent
+import com.netflix.spinnaker.keel.events.NonRepeatableEvent
 import com.netflix.spinnaker.keel.events.PersistentEvent
 import com.netflix.spinnaker.keel.events.PersistentEvent.EventScope
 import com.netflix.spinnaker.keel.events.ResourceCheckResult
@@ -34,11 +36,13 @@ import com.netflix.spinnaker.keel.telemetry.AboutToBeChecked
 import de.huxhorn.sulky.ulid.ULID
 import org.jooq.DSLContext
 import org.jooq.Record1
+import org.jooq.Record2
 import org.jooq.Select
 import org.jooq.impl.DSL
 import org.jooq.impl.DSL.coalesce
 import org.jooq.impl.DSL.max
 import org.jooq.impl.DSL.select
+import org.jooq.impl.DSL.sql
 import org.jooq.impl.DSL.value
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
@@ -267,10 +271,10 @@ open class SqlResourceRepository(
   private fun doAppendHistory(event: PersistentEvent, ref: String) {
     log.debug("Appending event: $event")
 
-    if (event.ignoreRepeatedInHistory) {
-      val previousEvent = sqlRetry.withRetry(READ) {
+    if (event is NonRepeatableEvent) {
+      val previousEventWithUid = sqlRetry.withRetry(READ) {
         jooq
-          .select(EVENT.JSON)
+          .select(EVENT.UID, EVENT.JSON)
           .from(EVENT)
           // look for resource events that match the resource...
           .where(
@@ -284,10 +288,32 @@ open class SqlResourceRepository(
           )
           .orderBy(EVENT.TIMESTAMP.desc())
           .limit(1)
-          .fetchOne(EVENT.JSON)
+          .fetchOne()
       }
 
-      if (event.javaClass == previousEvent?.javaClass) return
+      val previousEventUid = previousEventWithUid?.value1()
+      val previousEvent = previousEventWithUid?.value2()
+
+      if (event.javaClass == previousEvent?.javaClass) {
+        // if a previous event exists, we update the timestamp and the count in the JSON
+        // TODO: the multiple conversions to/from JSON here are wasteful, but currently the table
+        //  is structured such that most columns are generated from the JSON.
+        val updatedEvent = objectMapper.convertValue<MutableMap<String, Any?>>(previousEvent)
+          .let { eventMap ->
+            eventMap["timestamp"] = event.timestamp
+            eventMap["firstTriggeredAt"] = previousEvent.timestamp
+            eventMap["count"] = (previousEvent as NonRepeatableEvent).count + 1
+            objectMapper.convertValue<PersistentEvent>(eventMap)
+          }
+        sqlRetry.withRetry(WRITE) {
+          jooq
+            .update(EVENT)
+            .set(EVENT.JSON, updatedEvent)
+            .where(EVENT.UID.eq(previousEventUid))
+            .execute()
+        }
+        return
+      }
     }
 
     sqlRetry.withRetry(WRITE) {
@@ -560,4 +586,7 @@ open class SqlResourceRepository(
 
   private val Resource<*>.uid: String
     get() = getResourceUid(id)
+
+  private fun String.unquote() =
+    if (startsWith('"') && endsWith('"')) this.substring(1, length - 1) else this
 }

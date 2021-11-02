@@ -35,9 +35,9 @@ data class ApplicationActuationPaused(
   val comment: String? = null,
   override val level: EventLevel = WARNING,
   override val displayName: String = "Application management paused",
-) : ApplicationEvent(), ResourceHistoryEvent {
-  @JsonIgnore
-  override val ignoreRepeatedInHistory = true
+  override val firstTriggeredAt: Instant = timestamp,
+  override val count: Int = 1,
+) : ApplicationEvent(), ResourceHistoryEvent, NonRepeatableEvent {
 
   constructor(application: String, triggeredBy: String, comment: String? = null, clock: Clock = Companion.clock) : this(
     application,
@@ -55,8 +55,9 @@ data class ApplicationActuationResumed(
   override val triggeredBy: String?,
   override val timestamp: Instant,
   override val displayName: String = "Application management resumed",
-) : ApplicationEvent(), ResourceHistoryEvent {
-  @JsonIgnore override val ignoreRepeatedInHistory = true
+  override val firstTriggeredAt: Instant = timestamp,
+  override val count: Int = 1,
+) : ApplicationEvent(), ResourceHistoryEvent, NonRepeatableEvent {
 
   constructor(application: String, triggeredBy: String, clock: Clock = Companion.clock) : this(
     application,

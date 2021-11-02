@@ -149,11 +149,9 @@ data class ResourceDeleted(
 
 sealed class ResourceCheckResult(
   override val message: String? = null
-) : ResourceEvent(message = message) {
+) : ResourceEvent(message = message), NonRepeatableEvent {
+  override val count: Int = 1
   abstract val state: ResourceState
-
-  @JsonIgnore
-  override val ignoreRepeatedInHistory = true
 }
 
 /**
@@ -166,6 +164,7 @@ data class ResourceMissing(
   override val application: String,
   override val timestamp: Instant,
   override val displayName: String = "Resource not found",
+  override val firstTriggeredAt: Instant = timestamp,
 ) : ResourceCheckResult() {
   @JsonIgnore
   override val state = Missing
@@ -192,6 +191,7 @@ data class ResourceDeltaDetected(
   val delta: Map<String, Any?>,
   override val timestamp: Instant,
   override val displayName: String = "Resource does not match current definition",
+  override val firstTriggeredAt: Instant = timestamp,
 ) : ResourceCheckResult() {
   @JsonIgnore
   override val state = Diff
@@ -244,9 +244,9 @@ data class ResourceActuationPaused(
   override val timestamp: Instant,
   override val triggeredBy: String?,
   override val displayName: String = "Resource management paused",
-) : ResourceEvent() {
-  @JsonIgnore
-  override val ignoreRepeatedInHistory = true
+  override val firstTriggeredAt: Instant = timestamp,
+  override val count: Int = 1,
+) : ResourceEvent(), NonRepeatableEvent {
 
   constructor(resource: Resource<*>, timestamp: Instant, triggeredBy: String) : this(
     resource.kind,
@@ -281,9 +281,9 @@ data class ResourceActuationVetoed(
   override val timestamp: Instant,
   override val level: EventLevel = WARNING,
   override val displayName: String = "Unable to update resource to match current definition${if (reason != null) " - $reason" else ""}",
-) : ResourceEvent(message = reason) {
-  @JsonIgnore
-  override val ignoreRepeatedInHistory = true
+  override val firstTriggeredAt: Instant = timestamp,
+  override val count: Int = 1,
+) : ResourceEvent(message = reason), NonRepeatableEvent {
 
   constructor(resource: Resource<*>, reason: String?, veto: String? = null, suggestedStatus: ResourceStatus? = null, clock: Clock = Companion.clock) : this(
     resource.kind,
@@ -308,9 +308,9 @@ data class ResourceActuationResumed(
   override val triggeredBy: String?,
   override val timestamp: Instant,
   override val displayName: String = "Resource management resumed",
-) : ResourceEvent() {
-  @JsonIgnore
-  override val ignoreRepeatedInHistory = true
+  override val firstTriggeredAt: Instant = timestamp,
+  override val count: Int = 1,
+) : ResourceEvent(), NonRepeatableEvent {
 
   constructor(resource: Resource<*>, triggeredBy: String, clock: Clock = Companion.clock) : this(
     resource.kind,
@@ -386,6 +386,7 @@ data class ResourceDeltaResolved(
   override val timestamp: Instant,
   override val level: EventLevel = SUCCESS,
   override val displayName: String = "Resource was matched to its definition successfully",
+  override val firstTriggeredAt: Instant = timestamp,
 ) : ResourceCheckResult() {
   @JsonIgnore
   override val state = Ok
@@ -405,14 +406,12 @@ data class ResourceValid(
   override val version: Int,
   override val application: String,
   override val timestamp: Instant,
+  override val firstTriggeredAt: Instant = timestamp,
   override val level: EventLevel = SUCCESS,
   override val displayName: String = "Resource matches its definition",
 ) : ResourceCheckResult() {
   @JsonIgnore
   override val state = Ok
-
-  @JsonIgnore
-  override val ignoreRepeatedInHistory = true
 
   constructor(resource: Resource<*>, clock: Clock = Companion.clock) :
     this(
@@ -432,13 +431,11 @@ data class ResourceCheckUnresolvable(
   override val timestamp: Instant,
   override val message: String?,
   override val level: EventLevel = WARNING,
+  override val firstTriggeredAt: Instant = timestamp,
   override val displayName: String = "Unable to compare resource to its definition${if (message != null) " - $message" else ""}",
 ) : ResourceCheckResult(message = message) {
   @JsonIgnore
   override val state = Unresolvable
-
-  @JsonIgnore
-  override val ignoreRepeatedInHistory = true
 
   constructor(resource: Resource<*>, exception: ResourceCurrentlyUnresolvable, clock: Clock = Companion.clock) :
     this(
@@ -487,6 +484,7 @@ data class ResourceCheckError(
   val exceptionMessage: String?,
   override val displayName: String = "Failed to check resource status",
   override val level: EventLevel = ERROR,
+  override val firstTriggeredAt: Instant = timestamp
 ) : ResourceCheckResult(message = exceptionMessage) {
   @JsonIgnore
   override val state = Error
@@ -514,9 +512,9 @@ data class ResourceDiffNotActionable(
   override val message: String?,
   override val level: EventLevel = WARNING,
   override val displayName: String = "Unable to update resource to match current definition${if (message != null) " - $message" else ""}",
-) : ResourceEvent() {
-  @JsonIgnore
-  override val ignoreRepeatedInHistory = true
+  override val firstTriggeredAt: Instant = timestamp,
+  override val count: Int = 1,
+) : ResourceEvent(), NonRepeatableEvent {
 
   constructor(resource: Resource<*>, message: String?, clock: Clock = Companion.clock) : this(
     resource.kind,
@@ -536,9 +534,9 @@ data class VerificationBlockedActuation(
   override val timestamp: Instant,
   override val message: String?,
   override val displayName: String = "Waiting for verification to complete before updating can start",
-) : ResourceEvent() {
-  @JsonIgnore
-  override val ignoreRepeatedInHistory = true
+  override val firstTriggeredAt: Instant = timestamp,
+  override val count: Int = 1,
+) : ResourceEvent(), NonRepeatableEvent {
 
   constructor(resource: Resource<*>, e: ActiveVerifications, clock: Clock = Companion.clock) : this (
     resource.kind,
