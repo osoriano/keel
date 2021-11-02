@@ -21,10 +21,10 @@ import org.springframework.stereotype.Component
 import java.time.Clock
 
 /**
- * Listens to commit events from applications' main source code branch to import their delivery configs from source.
+ * Listens to commit events from applications' default source code branch to import their delivery configs from source.
  */
 @Component
-class DeliveryConfigImportListener(
+class DeliveryConfigCodeEventListener(
   private val keelReadOnlyRepository: KeelReadOnlyRepository,
   private val deliveryConfigUpserter: DeliveryConfigUpserter,
   private val deliveryConfigImporter: DeliveryConfigImporter,
@@ -37,7 +37,7 @@ class DeliveryConfigImportListener(
   private val clock: Clock
 ) {
   companion object {
-    private val log by lazy { LoggerFactory.getLogger(DeliveryConfigImportListener::class.java) }
+    private val log by lazy { LoggerFactory.getLogger(DeliveryConfigCodeEventListener::class.java) }
     internal const val CODE_EVENT_COUNTER = "importConfig.codeEvent.count"
   }
 

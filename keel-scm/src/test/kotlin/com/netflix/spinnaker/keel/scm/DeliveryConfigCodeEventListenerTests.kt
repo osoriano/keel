@@ -15,7 +15,7 @@ import com.netflix.spinnaker.keel.front50.model.ManagedDeliveryConfig
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 import com.netflix.spinnaker.keel.notifications.DeliveryConfigImportFailed
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
-import com.netflix.spinnaker.keel.scm.DeliveryConfigImportListener.Companion.CODE_EVENT_COUNTER
+import com.netflix.spinnaker.keel.scm.DeliveryConfigCodeEventListener.Companion.CODE_EVENT_COUNTER
 import com.netflix.spinnaker.keel.test.submittedResource
 import com.netflix.spinnaker.keel.upsert.DeliveryConfigUpserter
 import com.netflix.spinnaker.kork.exceptions.SystemException
@@ -37,7 +37,7 @@ import strikt.assertions.one
 import io.mockk.coEvery as every
 import io.mockk.coVerify as verify
 
-class DeliveryConfigImportListenerTests : JUnit5Minutests {
+class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
   class Fixture {
     val keelReadOnlyRepository: KeelReadOnlyRepository = mockk()
     val deliveryConfigUpserter: DeliveryConfigUpserter = mockk()
@@ -49,7 +49,7 @@ class DeliveryConfigImportListenerTests : JUnit5Minutests {
     val spectator: Registry = mockk()
     val clock = MutableClock()
     val eventPublisher: ApplicationEventPublisher = mockk()
-    val subject = DeliveryConfigImportListener(
+    val subject = DeliveryConfigCodeEventListener(
       keelReadOnlyRepository = keelReadOnlyRepository,
       deliveryConfigUpserter = deliveryConfigUpserter,
       deliveryConfigImporter = importer,

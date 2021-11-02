@@ -171,17 +171,19 @@ class CombinedRepository(
    * delivery config and are not present in the [new] delivery config
    */
   override fun removeDependents(old: DeliveryConfig, new: DeliveryConfig) {
-    old.artifacts.forEach { artifact ->
-      val stillPresent = new.artifacts.any {
-        it.name == artifact.name &&
-          it.type == artifact.type &&
-          it.reference == artifact.reference
+    old.artifacts
+      .filterNot { it.isPreview }
+      .forEach { artifact ->
+        val stillPresent = new.artifacts.any {
+          it.name == artifact.name &&
+            it.type == artifact.type &&
+            it.reference == artifact.reference
+        }
+        if (!stillPresent) {
+          log.debug("Updating config ${new.name}: removing artifact $artifact")
+          artifactRepository.delete(artifact)
+        }
       }
-      if (!stillPresent) {
-        log.debug("Updating config ${new.name}: removing artifact $artifact")
-        artifactRepository.delete(artifact)
-      }
-    }
 
     val newResources = new.resources.map { it.id }
 

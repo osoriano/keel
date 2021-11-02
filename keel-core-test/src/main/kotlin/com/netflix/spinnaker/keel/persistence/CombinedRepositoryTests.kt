@@ -14,6 +14,7 @@ import com.netflix.spinnaker.keel.api.action.ActionRepository
 import com.netflix.spinnaker.keel.api.artifacts.DOCKER
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.BRANCH_JOB_COMMIT_BY_JOB
 import com.netflix.spinnaker.keel.api.artifacts.branchStartsWith
+import com.netflix.spinnaker.keel.api.artifacts.from
 import com.netflix.spinnaker.keel.api.constraints.ConstraintState
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
 import com.netflix.spinnaker.keel.api.events.ArtifactRegisteredEvent
@@ -32,6 +33,7 @@ import com.netflix.spinnaker.keel.resources.ResourceFactory
 import com.netflix.spinnaker.keel.test.DummyResourceSpec
 import com.netflix.spinnaker.keel.test.TEST_API_V1
 import com.netflix.spinnaker.keel.test.configuredTestObjectMapper
+import com.netflix.spinnaker.keel.test.dockerArtifact
 import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.keel.test.resourceFactory
 import com.netflix.spinnaker.time.MutableClock
@@ -320,7 +322,7 @@ abstract class CombinedRepositoryTests<D : DeliveryConfigRepository, R : Resourc
           }
         }
 
-        context("preview environment removed") {
+        context("preview environment config removed") {
           before {
             val updatedConfig = deliveryConfig.copy(
               previewEnvironments = emptySet()
@@ -335,7 +337,7 @@ abstract class CombinedRepositoryTests<D : DeliveryConfigRepository, R : Resourc
           }
         }
 
-        context("preview environment changed") {
+        context("preview environment config changed") {
           before {
             val updatedConfig = deliveryConfig.copy(
               previewEnvironments = setOf(
@@ -349,6 +351,39 @@ abstract class CombinedRepositoryTests<D : DeliveryConfigRepository, R : Resourc
             expect {
               that(config.previewEnvironments).hasSize(1)
               that(config.previewEnvironments.first().notifications).isNotEmpty()
+            }
+          }
+        }
+
+        context("preview environments and artifacts exist in the database") {
+          val previewArtifact = DockerArtifact("myimage", configName, from = from(branchStartsWith("feature/")), isPreview = true)
+          val previewEnvironment = Environment("preview", isPreview = true, resources = setOf(resource()))
+
+          before {
+            val updatedConfig = deliveryConfig.run {
+              copy(
+                artifacts = artifacts + previewArtifact,
+                environments = environments + previewEnvironment
+              )
+            }
+            subject.upsertDeliveryConfig(updatedConfig)
+          }
+
+          context("incoming config does not include preview objects (e.g. from git)") {
+            before {
+              subject.upsertDeliveryConfig(deliveryConfig)
+            }
+
+            test("preview objects are left alone") {
+              expectCatching {
+                resourceRepository.get(previewEnvironment.resources.first().id)
+              }.isSuccess()
+
+              expectCatching {
+                with(previewArtifact) {
+                  artifactRepository.get(name, type, reference, configName)
+                }
+              }.isSuccess()
             }
           }
         }
@@ -456,9 +491,6 @@ abstract class CombinedRepositoryTests<D : DeliveryConfigRepository, R : Resourc
           }
         }
       }
-    }
-
-    context("persisting delivery config manifests") {
     }
 
     context("don't allow resources to be managed by more than 1 config") {
