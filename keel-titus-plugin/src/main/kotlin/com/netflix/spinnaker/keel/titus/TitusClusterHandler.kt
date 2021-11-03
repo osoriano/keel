@@ -316,7 +316,7 @@ class TitusClusterHandler(
       )
     }
 
-    val container = serverGroups.values.maxByOrNull { it.capacity.desired ?: it.capacity.max }?.container
+    val container = serverGroups.values.maxByOrNull { it.capacity.desired }?.container
       ?: throw ExportError("Unable to locate container from the largest server group: $serverGroups")
 
     val registry = getRegistryForTitusAccount(exportable.account)
@@ -745,7 +745,7 @@ class TitusClusterHandler(
       "refId" to "1",
       "type" to "managedRollout",
       "input" to mapOf(
-        "selectionStrategy" to spec.managedRollout?.selectionStrategy,
+        "selectionStrategy" to spec.managedRollout.selectionStrategy,
         "targets" to spec.generateRolloutTargets(diffs),
         "clusterDefinitions" to listOf(toManagedRolloutClusterDefinition(image))
       ),

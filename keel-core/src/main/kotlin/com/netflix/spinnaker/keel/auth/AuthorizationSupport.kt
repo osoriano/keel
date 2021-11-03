@@ -51,7 +51,7 @@ class AuthorizationSupport(
 
   enum class TargetEntity {
     APPLICATION, DELIVERY_CONFIG, RESOURCE, SERVICE_ACCOUNT;
-    override fun toString() = name.toLowerCase()
+    override fun toString() = name.lowercase()
   }
 
   private fun enabled() = dynamicConfigService.isEnabled("keel.authorization", true)
@@ -63,7 +63,7 @@ class AuthorizationSupport(
    * the spring auth context.
    */
   fun hasPermission(email: String, resourceName: String, resourceType: AuthorizationResourceType, authorization: PermissionLevel): Boolean {
-    return permissionEvaluator.hasPermission(email, resourceName, resourceType.name.toLowerCase(), authorization.name)
+    return permissionEvaluator.hasPermission(email, resourceName, resourceType.name.lowercase(), authorization.name)
   }
 
   /**
@@ -196,5 +196,5 @@ class AuthorizationSupport(
 
   private fun Boolean.toAuthorization() = if (this) "ALLOWED" else "DENIED"
 
-  private fun String.humanFriendly() = this.toLowerCase().replace('_', ' ')
+  private fun String.humanFriendly() = this.lowercase().replace('_', ' ')
 }

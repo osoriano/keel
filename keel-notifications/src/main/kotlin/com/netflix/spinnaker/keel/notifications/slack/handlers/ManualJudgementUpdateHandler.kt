@@ -71,7 +71,7 @@ class ManualJudgementUpdateHandler(
 
       val newBlocks = baseBlocks + newFooterBlock
 
-      val fallbackText = "[$application] manual judgement $verb in ${targetEnvironment.toLowerCase()}"
+      val fallbackText = "[$application] manual judgement $verb in ${targetEnvironment.lowercase()}"
       slackService.updateSlackMessage(notification.channel, timestamp, newBlocks, fallbackText, application)
     }
   }

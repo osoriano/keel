@@ -23,7 +23,7 @@ class MarkAsBadNotificationHandler(
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
   private fun SlackMarkAsBadNotification.headerText(): String {
-    return "[$application] ${vetoedArtifact.buildNumber ?: vetoedArtifact.version} marked as bad in ${targetEnvironment.toLowerCase()}"
+    return "[$application] ${vetoedArtifact.buildNumber ?: vetoedArtifact.version} marked as bad in ${targetEnvironment.lowercase()}"
   }
 
   private fun SlackMarkAsBadNotification.toBlocks(): List<LayoutBlock> {

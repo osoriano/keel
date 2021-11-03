@@ -667,7 +667,7 @@ internal class SecurityGroupHandlerTests : JUnit5Minutests {
                   .first()
                   .and {
                     securityGroupSpec.inboundRules.first().also { rule ->
-                      get("type").isEqualTo(rule.protocol.name.toLowerCase())
+                      get("type").isEqualTo(rule.protocol.name.lowercase())
                       get("startPort").isEqualTo((rule.portRange as? PortRange)?.startPort)
                       get("endPort").isEqualTo((rule.portRange as? PortRange)?.endPort)
                       get("name").isEqualTo((rule as CrossAccountReferenceRule).name)
@@ -731,7 +731,7 @@ internal class SecurityGroupHandlerTests : JUnit5Minutests {
                   .first()
                   .and {
                     securityGroupSpec.inboundRules.first().also { rule ->
-                      get("type").isEqualTo(rule.protocol.name.toLowerCase())
+                      get("type").isEqualTo(rule.protocol.name.lowercase())
                       get("cidr").isEqualTo((rule as CidrRule).blockRange)
                       get("startPort").isEqualTo((rule.portRange as? PortRange)?.startPort)
                       get("endPort").isEqualTo((rule.portRange as? PortRange)?.endPort)

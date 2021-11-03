@@ -183,5 +183,5 @@ abstract class DeliveryArtifact {
       .filter { reference == (it.spec as? ArtifactReferenceProvider)?.artifactReference }
       .map { it.id }
 
-  override fun toString() = "${type.toUpperCase()} artifact $name (ref: $reference)"
+  override fun toString() = "${type.uppercase()} artifact $name (ref: $reference)"
 }

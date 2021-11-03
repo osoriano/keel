@@ -22,7 +22,7 @@ class PinnedNotificationHandler(
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
   private fun SlackPinnedNotification.headerText(): String {
-    return "[$application] ${pinnedArtifact.buildNumber ?: pinnedArtifact.version} is pinned to ${pin.targetEnvironment.toLowerCase()}"
+    return "[$application] ${pinnedArtifact.buildNumber ?: pinnedArtifact.version} is pinned to ${pin.targetEnvironment.lowercase()}"
   }
 
   private fun SlackPinnedNotification.toBlocks(): List<LayoutBlock> {

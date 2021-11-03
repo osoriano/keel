@@ -46,7 +46,7 @@ class ResourceFetcher(
   fun artifactResources(dfe: DataFetchingEnvironment): List<MD_Resource>? {
     val artifact: MD_Artifact = dfe.getSource()
     val config = applicationFetcherSupport.getDeliveryConfigFromContext(dfe)
-    return artifact.environment?.let {
+    return artifact.environment.let {
       config.resourcesUsing(artifact.reference, artifact.environment).map { it.toDgs(config, artifact.environment) }
     }
   }

@@ -274,7 +274,7 @@ data class DummyResource(
 fun randomString(length: Int = 8) =
   UUID.randomUUID()
     .toString()
-    .map { it.toInt().toString(16) }
+    .map { it.code.toString(16) }
     .joinToString("")
     .substring(0 until length)
 

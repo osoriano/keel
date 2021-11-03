@@ -96,7 +96,7 @@ class ManualJudgmentNotificationHandler(
           descriptiveBlocks + actionBlocks,
           application = application,
           type = supportedTypes,
-          fallbackText = "$application awaiting manual judgment in ${targetEnvironment.toLowerCase()}"
+          fallbackText = "$application awaiting manual judgment in ${targetEnvironment.lowercase()}"
         )
 
       if (response?.isOk == true) {

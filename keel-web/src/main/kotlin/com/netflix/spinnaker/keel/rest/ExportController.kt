@@ -157,7 +157,7 @@ class ExportController(
   }
 
   fun parseKind(cloudProvider: String, type: String) =
-    type.toLowerCase().let { t1 ->
+    type.lowercase().let { t1 ->
       val group = CLOUD_PROVIDER_OVERRIDES[cloudProvider] ?: cloudProvider
       var version: String? = null
       val normalizedType = if (versionSuffix.containsMatchIn(t1)) {

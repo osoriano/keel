@@ -380,7 +380,7 @@ open class SecurityGroupHandler(
     }
 
   private fun String.clouddriverProtocolToKeel(): Protocol =
-    if (this == "-1") Protocol.ALL else Protocol.valueOf(toUpperCase())
+    if (this == "-1") Protocol.ALL else Protocol.valueOf(uppercase())
 
   protected open fun generateCreateJob(securityGroup: SecurityGroup): Job =
     with(securityGroup) {
@@ -485,5 +485,5 @@ open class SecurityGroupHandler(
     }
 
   private val Protocol.type: String
-    get() = if (this == Protocol.ALL) "-1" else name.toLowerCase()
+    get() = if (this == Protocol.ALL) "-1" else name.lowercase()
 }

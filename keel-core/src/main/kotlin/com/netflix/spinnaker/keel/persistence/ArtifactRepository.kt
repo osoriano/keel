@@ -231,8 +231,8 @@ interface ArtifactRepository : PeriodicallyCheckedRepository<DeliveryArtifact> {
    */
   fun getArtifactVersionsByStatus(
     deliveryConfig: DeliveryConfig,
-    environmentName: String,
     artifactReference: String,
+    environmentName: String,
     statuses: List<PromotionStatus>
   ): List<PublishedArtifact>
 
@@ -414,7 +414,7 @@ interface ArtifactRepository : PeriodicallyCheckedRepository<DeliveryArtifact> {
    *
    */
   fun getApprovedInEnvArtifactVersion(
-    config: DeliveryConfig,
+    deliveryConfig: DeliveryConfig,
     artifact: DeliveryArtifact,
     environmentName: String,
     excludeCurrent: Boolean? = false

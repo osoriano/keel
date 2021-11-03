@@ -82,7 +82,7 @@ class EnvironmentConstraintRunner(
     envContext: EnvironmentContext,
     versionsWithPendingStatefulConstraintStatus: MutableList<PublishedArtifact>
   ) {
-    var version: String? = null
+    var version: String?
     var versionIsPending = false
     val vetoedVersions: Set<String> = envContext.vetoedVersions
 

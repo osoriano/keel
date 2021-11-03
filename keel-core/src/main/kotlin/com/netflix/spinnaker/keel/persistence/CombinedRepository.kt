@@ -506,7 +506,7 @@ class CombinedRepository(
     artifactReference: String,
     statuses: List<PromotionStatus>
   ): List<PublishedArtifact> =
-    artifactRepository.getArtifactVersionsByStatus(deliveryConfig, environmentName, artifactReference, statuses)
+    artifactRepository.getArtifactVersionsByStatus(deliveryConfig, artifactReference, environmentName, statuses)
 
   override fun getArtifactPromotionStatus(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact, version: String, targetEnvironment: String): PromotionStatus? =
     artifactRepository.getArtifactPromotionStatus(deliveryConfig, artifact, version, targetEnvironment)

@@ -64,7 +64,7 @@ const val THUNDERCLOUD = "\u26c8\ufe0f"
 
 fun NotificationConfig.toOrcaNotification() =
   OrcaNotification(
-    type = this.type.toString().toLowerCase(),
+    type = this.type.toString().lowercase(),
     address = this.address,
     `when` = translateFrequencyToEvents(frequency).map { it.text() },
     message = generateCustomMessages(frequency)

@@ -131,7 +131,7 @@ internal class GeneratorTests {
           .get(Foo::size.name)
           .isA<EnumSchema>()
           .get { enum }
-          .containsExactly(Size.values().map { it.name.toLowerCase() })
+          .containsExactly(Size.values().map { it.name.lowercase() })
       }
     }
 
@@ -716,8 +716,8 @@ internal class GeneratorTests {
         .isA<EnumSchema>()
         .get { enum }
         .containsExactlyInAnyOrder(
-          Bar::class.java.simpleName.toLowerCase(),
-          Baz::class.java.simpleName.toLowerCase()
+          Bar::class.java.simpleName.lowercase(),
+          Baz::class.java.simpleName.lowercase()
         )
     }
 
@@ -756,7 +756,7 @@ internal class GeneratorTests {
                   get { `if`.properties[Foo<*>::type.name] }
                     .isNotNull()
                     .get { const }
-                    .isEqualTo(subType.simpleName.toLowerCase())
+                    .isEqualTo(subType.simpleName.lowercase())
                 }
             },
 

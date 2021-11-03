@@ -41,6 +41,6 @@ interface DiffFingerprintRepository {
     val bytes = MessageDigest
       .getInstance("SHA-1")
       .digest(toDeltaJson().toString().toByteArray())
-    return ByteArrayUtil.toHexString(bytes).toUpperCase()
+    return ByteArrayUtil.toHexString(bytes).uppercase()
   }
 }

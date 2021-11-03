@@ -275,8 +275,8 @@ final class WorkQueueProcessor(
   }
 
   private val PublishedArtifact.artifactType: ArtifactType
-    get() = artifactTypeNames.find { it == type.toLowerCase() }
-      ?.let { type.toLowerCase() }
+    get() = artifactTypeNames.find { it == type.lowercase() }
+      ?.let { type.lowercase() }
       ?: throw InvalidSystemStateException("Unable to find registered artifact type for '$type'")
 
   private val artifactTypeNames by lazy {

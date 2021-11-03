@@ -29,8 +29,6 @@ import org.springframework.web.bind.annotation.RequestHeader
 class GitIntegration(
   private val front50Service: Front50Service,
   private val front50Cache: Front50Cache,
-  private val authorizationSupport: AuthorizationSupport,
-  private val applicationFetcherSupport: ApplicationFetcherSupport,
   private val scmUtils: ScmUtils,
   private val deliveryConfigUpserter: DeliveryConfigUpserter,
   private val importer: DeliveryConfigImporter,
@@ -39,7 +37,6 @@ class GitIntegration(
   @DgsData(parentType = DgsConstants.MD_APPLICATION.TYPE_NAME, field = DgsConstants.MD_APPLICATION.GitIntegration)
   fun gitIntegration(dfe: DgsDataFetchingEnvironment): MD_GitIntegration {
     val app: MD_Application = dfe.getSource()
-    val config = applicationFetcherSupport.getDeliveryConfigFromContext(dfe)
     return runBlocking {
       front50Service.applicationByName(app.name)
     }.toGitIntegration()

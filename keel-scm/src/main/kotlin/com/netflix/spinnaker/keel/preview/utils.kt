@@ -22,6 +22,7 @@ import kotlin.reflect.KClass
 import kotlin.reflect.full.instanceParameter
 import kotlin.reflect.full.memberFunctions
 
+@SuppressWarnings("UNCHECKED_CAST")
 internal fun <T : ResourceSpec> T.withDependencies(specClass: KClass<out T>, dependencies: Set<Dependency>): T {
   if (this !is Dependent) {
     return this
@@ -46,10 +47,11 @@ internal fun <T : ResourceSpec> T.withDependencies(specClass: KClass<out T>, dep
   }
 }
 
+@SuppressWarnings("UNCHECKED_CAST")
 private fun ClusterSpec.withDependencies(deps: Set<Dependency>): ClusterSpec {
   val commonDeps = deps.commonInAllRegions(locations.regions.map { it.name })
   val overrideDeps = deps.groupBy { it.region }
-    .mapValues { (key, deps) -> deps - commonDeps }
+    .mapValues { (_, deps) -> deps - commonDeps }
 
   return copy(
     _defaults = defaults.copy(
@@ -71,10 +73,11 @@ private fun ClusterSpec.withDependencies(deps: Set<Dependency>): ClusterSpec {
   )
 }
 
+@SuppressWarnings("UNCHECKED_CAST")
 private fun TitusClusterSpec.withDependencies(deps: Set<Dependency>): TitusClusterSpec {
   val commonDeps = deps.commonInAllRegions(locations.regions.map { it.name })
   val overrideDeps = deps.groupBy { it.region }
-    .mapValues { (key, deps) -> deps - commonDeps }
+    .mapValues { (_, deps) -> deps - commonDeps }
 
   return copy(
     _defaults = defaults.copy(
@@ -96,10 +99,11 @@ private fun TitusClusterSpec.withDependencies(deps: Set<Dependency>): TitusClust
   )
 }
 
+@SuppressWarnings("UNCHECKED_CAST")
 fun ClassicLoadBalancerSpec.withDependencies(deps: Set<Dependency>): ClassicLoadBalancerSpec {
   val commonDeps = deps.commonInAllRegions(locations.regions.map { it.name })
   val overrideDeps = deps.groupBy { it.region }
-    .mapValues { (key, deps) -> deps - commonDeps }
+    .mapValues { (_, deps) -> deps - commonDeps }
 
   return copy(
     dependencies = LoadBalancerDependencies(
@@ -118,7 +122,7 @@ fun ClassicLoadBalancerSpec.withDependencies(deps: Set<Dependency>): ClassicLoad
       }
     }.toMutableMap().apply {
       // for the case where the region was previously not present in the overrides
-      overrideDeps.forEach { (region, deps) ->
+      overrideDeps.forEach { (region, _) ->
         val secGroupOverrides = overrideDeps[region].namesForType(SECURITY_GROUP)
         if (secGroupOverrides.isNotEmpty()) {
           putIfAbsent(region, ClassicLoadBalancerOverride(
@@ -132,10 +136,11 @@ fun ClassicLoadBalancerSpec.withDependencies(deps: Set<Dependency>): ClassicLoad
   )
 }
 
+@SuppressWarnings("UNCHECKED_CAST")
 fun ApplicationLoadBalancerSpec.withDependencies(deps: Set<Dependency>): ApplicationLoadBalancerSpec {
   val commonDeps = deps.commonInAllRegions(locations.regions.map { it.name })
   val overrideDeps = deps.groupBy { it.region }
-    .mapValues { (key, deps) -> deps - commonDeps }
+    .mapValues { (_, deps) -> deps - commonDeps }
 
   return copy(
     dependencies = LoadBalancerDependencies(
@@ -154,7 +159,7 @@ fun ApplicationLoadBalancerSpec.withDependencies(deps: Set<Dependency>): Applica
       }
     }.toMutableMap().apply {
       // for the case where the region was previously not present in the overrides
-      overrideDeps.forEach { (region, deps) ->
+      overrideDeps.forEach { (region, _) ->
         val secGroupOverrides = overrideDeps[region].namesForType(SECURITY_GROUP)
         if (secGroupOverrides.isNotEmpty()) {
           putIfAbsent(region, ApplicationLoadBalancerOverride(

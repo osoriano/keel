@@ -80,7 +80,7 @@ class ExportService(
    */
   suspend fun exportFromPipelines(
     applicationName: String,
-    maxAgeDays: Long = 6 * 30
+    maxAgeDays: Long = 6L * 30L
   ): ExportResult {
     log.info("Exporting delivery config from pipelines for application $applicationName (max age: $maxAgeDays days)")
 
@@ -114,11 +114,6 @@ class ExportService(
           handler.export(cluster)
         } catch (e: Exception) {
           log.error("Unable to export cluster ${cluster.moniker}: $e. Ignoring.")
-          return@mapNotNull null
-        }
-
-        if (spec == null) {
-          log.warn("No cluster exported for kind $kind")
           return@mapNotNull null
         }
 

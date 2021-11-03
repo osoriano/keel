@@ -211,11 +211,11 @@ class ImageHandler(
             mapOf(
               "amiSuffix" to "",
               "baseOs" to artifact.vmOptions.baseOs,
-              "baseLabel" to artifact.vmOptions.baseLabel.name.toLowerCase(),
+              "baseLabel" to artifact.vmOptions.baseLabel.name.lowercase(),
               "cloudProviderType" to "aws",
               "package" to artifactRef.substringAfterLast("/"),
               "regions" to regions,
-              "storeType" to artifact.vmOptions.storeType.name.toLowerCase(),
+              "storeType" to artifact.vmOptions.storeType.name.lowercase(),
               "vmType" to "hvm"
             )
           )

@@ -260,7 +260,7 @@ class ClusterHandler(
       .toSet()
 
     // let's assume that the largest server group is the most important and should be the base
-    val base = serverGroups.values.maxByOrNull { it.capacity.desired ?: it.capacity.max }
+    val base = serverGroups.values.maxByOrNull { it.capacity.desired }
       ?: throw ExportError("Unable to calculate the server group with the largest capacity from server groups $serverGroups")
 
     // Construct the minimal locations object
@@ -618,7 +618,7 @@ class ClusterHandler(
       "refId" to "1",
       "type" to "managedRollout",
       "input" to mapOf(
-        "selectionStrategy" to spec.managedRollout?.selectionStrategy,
+        "selectionStrategy" to spec.managedRollout.selectionStrategy,
         "targets" to spec.generateRolloutTargets(diffs),
         "clusterDefinitions" to listOf(toManagedRolloutClusterDefinition(diffs))
       ),

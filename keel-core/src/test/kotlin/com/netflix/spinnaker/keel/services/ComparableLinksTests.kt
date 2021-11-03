@@ -317,12 +317,12 @@ class ComparableLinksTests : JUnit5Minutests {
           val summaries = applicationService.getArtifactSummariesFor(application1, limit)
           expectThat(summaries.first())
             .withVersionInEnvironment(version2, "test") {
-              state.isEqualTo(CURRENT.name.toLowerCase())
+              state.isEqualTo(CURRENT.name.lowercase())
               compareLink
                 .isEqualTo("https://stash/projects/spkr/repos/keel/compare/commits?targetBranch=${version1}&sourceBranch=${version2}")
             }
             .withVersionInEnvironment(version1, "staging") {
-              state.isEqualTo(CURRENT.name.toLowerCase())
+              state.isEqualTo(CURRENT.name.lowercase())
               compareLink.isEqualTo("https://stash/projects/spkr/repos/keel/compare/commits?targetBranch=${version0}&sourceBranch=${version1}")
             }
         }
@@ -332,7 +332,7 @@ class ComparableLinksTests : JUnit5Minutests {
           val summaries = applicationService.getArtifactSummariesFor(application1, limit)
           expectThat(summaries.first())
             .withVersionInEnvironment(version3, "test") {
-              state.isEqualTo(DEPLOYING.name.toLowerCase())
+              state.isEqualTo(DEPLOYING.name.lowercase())
               compareLink
                 .isEqualTo("https://stash/projects/spkr/repos/keel/compare/commits?targetBranch=${version2}&sourceBranch=${version3}")
             }
@@ -343,7 +343,7 @@ class ComparableLinksTests : JUnit5Minutests {
           val summaries = applicationService.getArtifactSummariesFor(application1, limit)
           expectThat(summaries.first())
             .withVersionInEnvironment(version0, "staging") {
-              state.isEqualTo(PREVIOUS.name.toLowerCase())
+              state.isEqualTo(PREVIOUS.name.lowercase())
               compareLink.isEqualTo("https://stash/projects/spkr/repos/keel/compare/commits?targetBranch=${version0}&sourceBranch=${version1}")
             }
         }
@@ -353,7 +353,7 @@ class ComparableLinksTests : JUnit5Minutests {
           val summaries = applicationService.getArtifactSummariesFor(application1, limit)
           expectThat(summaries.first())
             .withVersionInEnvironment(version2, "staging") {
-              state.isEqualTo(PENDING.name.toLowerCase())
+              state.isEqualTo(PENDING.name.lowercase())
               compareLink.isEqualTo("https://stash/projects/spkr/repos/keel/compare/commits?targetBranch=${version1}&sourceBranch=${version2}")
             }
         }
@@ -662,7 +662,7 @@ class ComparableLinksTests : JUnit5Minutests {
           val summaries = applicationService.getArtifactSummariesFor(application1, limit)
           expectThat(summaries.first())
             .withVersionInEnvironment(version3, "test") {
-              state.isEqualTo(DEPLOYING.name.toLowerCase())
+              state.isEqualTo(DEPLOYING.name.lowercase())
               compareLink
                 .isEqualTo("https://github.com/spkr/keel/compare/${version2}...${version3}")
             }
@@ -673,8 +673,13 @@ class ComparableLinksTests : JUnit5Minutests {
           val summaries = applicationService.getArtifactSummariesFor(application1, limit)
           expectThat(summaries.first())
             .withVersionInEnvironment(version0, "staging") {
+<<<<<<< cbdf4c0af44d9b70471b200ba4fa82ec5e345dc0
               state.isEqualTo(PREVIOUS.name.toLowerCase())
               compareLink.isEqualTo("https://github.com/spkr/keel/compare/${version0}...${version1}")
+=======
+              state.isEqualTo(PREVIOUS.name.lowercase())
+              compareLink.isEqualTo("https://github.com/repo/123")
+>>>>>>> 3c2b11617b319cff451ef5e59b1ea518c69aad88
             }
         }
 
@@ -683,8 +688,13 @@ class ComparableLinksTests : JUnit5Minutests {
           val summaries = applicationService.getArtifactSummariesFor(application1, limit)
           expectThat(summaries.first())
             .withVersionInEnvironment(version2, "staging") {
+<<<<<<< cbdf4c0af44d9b70471b200ba4fa82ec5e345dc0
               state.isEqualTo(PENDING.name.toLowerCase())
               compareLink.isEqualTo("https://github.com/spkr/keel/compare/${version1}...${version2}")
+=======
+              state.isEqualTo(PENDING.name.lowercase())
+              compareLink.isEqualTo("https://github.com/repo/123")
+>>>>>>> 3c2b11617b319cff451ef5e59b1ea518c69aad88
             }
         }
 

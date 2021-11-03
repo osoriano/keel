@@ -388,7 +388,7 @@ class ApplicationServiceTests : JUnit5Minutests {
                     with(ArtifactVersionSummary::environments) {
                       hasSize(singleArtifactEnvironments.size)
                       all {
-                        state.isEqualTo(PENDING.name.toLowerCase())
+                        state.isEqualTo(PENDING.name.lowercase())
                       }
                     }
                   }
@@ -484,13 +484,13 @@ class ApplicationServiceTests : JUnit5Minutests {
             expectThat(summaries) {
               first()
                 .withVersionInEnvironment(version3, "test") {
-                  state.isEqualTo(CURRENT.name.toLowerCase())
+                  state.isEqualTo(CURRENT.name.lowercase())
                 }
                 .withVersionInEnvironment(version2, "staging") {
-                  state.isEqualTo(CURRENT.name.toLowerCase())
+                  state.isEqualTo(CURRENT.name.lowercase())
                 }
                 .withVersionInEnvironment(version1, "production") {
-                  state.isEqualTo(CURRENT.name.toLowerCase())
+                  state.isEqualTo(CURRENT.name.lowercase())
                 }
             }
           }
@@ -500,22 +500,22 @@ class ApplicationServiceTests : JUnit5Minutests {
             expectThat(summaries) {
               first()
                 .withVersionInEnvironment(version2, "test") {
-                  state.isEqualTo(PREVIOUS.name.toLowerCase())
+                  state.isEqualTo(PREVIOUS.name.lowercase())
                 }
                 .withVersionInEnvironment(version1, "test") {
-                  state.isEqualTo(PREVIOUS.name.toLowerCase())
+                  state.isEqualTo(PREVIOUS.name.lowercase())
                 }
                 .withVersionInEnvironment(version0, "test") {
-                  state.isEqualTo(PREVIOUS.name.toLowerCase())
+                  state.isEqualTo(PREVIOUS.name.lowercase())
                 }
                 .withVersionInEnvironment(version1, "staging") {
-                  state.isEqualTo(PREVIOUS.name.toLowerCase())
+                  state.isEqualTo(PREVIOUS.name.lowercase())
                 }
                 .withVersionInEnvironment(version0, "staging") {
-                  state.isEqualTo(PREVIOUS.name.toLowerCase())
+                  state.isEqualTo(PREVIOUS.name.lowercase())
                 }
                 .withVersionInEnvironment(version0, "production") {
-                  state.isEqualTo(PREVIOUS.name.toLowerCase())
+                  state.isEqualTo(PREVIOUS.name.lowercase())
                 }
             }
           }
@@ -525,22 +525,22 @@ class ApplicationServiceTests : JUnit5Minutests {
             expectThat(summaries) {
               first()
                 .withVersionInEnvironment(version4, "test") {
-                  state.isEqualTo(DEPLOYING.name.toLowerCase())
+                  state.isEqualTo(DEPLOYING.name.lowercase())
                 }
                 .withVersionInEnvironment(version4, "staging") {
-                  state.isEqualTo(PENDING.name.toLowerCase())
+                  state.isEqualTo(PENDING.name.lowercase())
                 }
                 .withVersionInEnvironment(version3, "staging") {
-                  state.isEqualTo(PENDING.name.toLowerCase())
+                  state.isEqualTo(PENDING.name.lowercase())
                 }
                 .withVersionInEnvironment(version4, "production") {
-                  state.isEqualTo(PENDING.name.toLowerCase())
+                  state.isEqualTo(PENDING.name.lowercase())
                 }
                 .withVersionInEnvironment(version3, "production") {
-                  state.isEqualTo(PENDING.name.toLowerCase())
+                  state.isEqualTo(PENDING.name.lowercase())
                 }
                 .withVersionInEnvironment(version2, "production") {
-                  state.isEqualTo(PENDING.name.toLowerCase())
+                  state.isEqualTo(PENDING.name.lowercase())
                 }
             }
           }
@@ -708,7 +708,7 @@ class ApplicationServiceTests : JUnit5Minutests {
               expectThat(summaries) {
                 first()
                   .withVersionInEnvironment(version1, "test") {
-                    state.isEqualTo(VETOED.name.toLowerCase())
+                    state.isEqualTo(VETOED.name.lowercase())
                   }
               }
             }
@@ -721,7 +721,7 @@ class ApplicationServiceTests : JUnit5Minutests {
               expectThat(summaries) {
                 first()
                   .withVersionInEnvironment(version1, "test") {
-                    state.isEqualTo(SKIPPED.name.toLowerCase())
+                    state.isEqualTo(SKIPPED.name.lowercase())
                   }
               }
             }
@@ -734,7 +734,7 @@ class ApplicationServiceTests : JUnit5Minutests {
               expectThat(summaries) {
                 first()
                   .withVersionInEnvironment(version1, "test") {
-                    state.isEqualTo(SKIPPED.name.toLowerCase())
+                    state.isEqualTo(SKIPPED.name.lowercase())
                   }
               }
             }
@@ -892,11 +892,11 @@ class ApplicationServiceTests : JUnit5Minutests {
               hasSize(2)
               first { it.reference == snapshotArtifact.reference }
                 .withVersionInEnvironment(snapshotVersion2, "pr") {
-                  state.isEqualTo(CURRENT.name.toLowerCase())
+                  state.isEqualTo(CURRENT.name.lowercase())
                 }
               first { it.reference == releaseArtifact.reference }
                 .withVersionInEnvironment(version3, "test") {
-                  state.isEqualTo(CURRENT.name.toLowerCase())
+                  state.isEqualTo(CURRENT.name.lowercase())
                 }
             }
           }
@@ -906,17 +906,17 @@ class ApplicationServiceTests : JUnit5Minutests {
             expectThat(summaries) {
               first { it.reference == snapshotArtifact.reference }
                 .withVersionInEnvironment(snapshotVersion1, "pr") {
-                  state.isEqualTo(PREVIOUS.name.toLowerCase())
+                  state.isEqualTo(PREVIOUS.name.lowercase())
                 }
               first { it.reference == releaseArtifact.reference }
                 .withVersionInEnvironment(version2, "test") {
-                  state.isEqualTo(PREVIOUS.name.toLowerCase())
+                  state.isEqualTo(PREVIOUS.name.lowercase())
                 }
                 .withVersionInEnvironment(version1, "test") {
-                  state.isEqualTo(PREVIOUS.name.toLowerCase())
+                  state.isEqualTo(PREVIOUS.name.lowercase())
                 }
                 .withVersionInEnvironment(version0, "test") {
-                  state.isEqualTo(PREVIOUS.name.toLowerCase())
+                  state.isEqualTo(PREVIOUS.name.lowercase())
                 }
             }
           }

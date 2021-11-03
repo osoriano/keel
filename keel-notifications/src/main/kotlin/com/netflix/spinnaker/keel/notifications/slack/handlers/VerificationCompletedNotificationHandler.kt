@@ -47,7 +47,7 @@ class VerificationCompletedNotificationHandler(
           }
         }
       }
-      slackService.sendSlackNotification(channel, blocks, application = application, type = supportedTypes, fallbackText = "[$application] $verb in ${targetEnvironment.toLowerCase()} ")
+      slackService.sendSlackNotification(channel, blocks, application = application, type = supportedTypes, fallbackText = "[$application] $verb in ${targetEnvironment.lowercase()} ")
     }
   }
 }

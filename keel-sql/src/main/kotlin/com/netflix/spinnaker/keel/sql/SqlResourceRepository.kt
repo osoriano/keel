@@ -259,16 +259,14 @@ open class SqlResourceRepository(
 
   // todo: add sql retries once we've rethought repository structure: https://github.com/spinnaker/keel/issues/740
   override fun appendHistory(event: ResourceEvent) {
-    // for historical reasons, we use the resource UID (not the ID) as an identifier in resource events
-    val ref = getResourceUid(event.ref)
-    doAppendHistory(event, ref)
+    doAppendHistory(event)
   }
 
   override fun appendHistory(event: ApplicationEvent) {
-    doAppendHistory(event, event.application)
+    doAppendHistory(event)
   }
 
-  private fun doAppendHistory(event: PersistentEvent, ref: String) {
+  private fun doAppendHistory(event: PersistentEvent) {
     log.debug("Appending event: $event")
 
     if (event is NonRepeatableEvent) {

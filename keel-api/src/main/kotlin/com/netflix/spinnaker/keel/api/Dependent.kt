@@ -37,7 +37,7 @@ data class Dependency(
   fun matchesKind(resourceKind: ResourceKind): Boolean =
     when (type) {
       GENERIC_RESOURCE -> kind == resourceKind
-      else -> resourceKind.kind.contains(type.name.replace('_', '-').toLowerCase())
+      else -> resourceKind.kind.contains(type.name.replace('_', '-').lowercase())
     }
 }
 

@@ -137,7 +137,7 @@ class ManualJudgementNotifier(
     )
 
     return EchoNotification(
-      notificationType = EchoNotification.Type.valueOf(config.type.name.toUpperCase()),
+      notificationType = EchoNotification.Type.valueOf(config.type.name.uppercase()),
       to = listOf(config.address),
       severity = EchoNotification.Severity.NORMAL,
       source = EchoNotification.Source(

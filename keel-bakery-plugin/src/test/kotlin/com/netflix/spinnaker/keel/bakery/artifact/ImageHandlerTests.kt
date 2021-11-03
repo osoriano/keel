@@ -376,10 +376,10 @@ internal class ImageHandlerTests : JUnit5Minutests {
                       get("package").isEqualTo("${appVersion.replaceFirst('-', '_')}_all.deb")
                       get("baseOs").isEqualTo(artifact.vmOptions.baseOs)
                       get("baseLabel").isEqualTo(
-                        artifact.vmOptions.baseLabel.toString().toLowerCase()
+                        artifact.vmOptions.baseLabel.toString().lowercase()
                       )
                       get("storeType").isEqualTo(
-                        artifact.vmOptions.storeType.toString().toLowerCase()
+                        artifact.vmOptions.storeType.toString().lowercase()
                       )
                       get("regions").isEqualTo(artifact.vmOptions.regions)
                     }
@@ -525,7 +525,7 @@ internal class ImageHandlerTests : JUnit5Minutests {
                       get("type") isEqualTo "bake"
                       get("baseOs") isEqualTo artifact.vmOptions.baseOs
                       get("baseLabel") isEqualTo artifact.vmOptions.baseLabel.toString()
-                        .toLowerCase()
+                        .lowercase()
                     }
                 }
               }

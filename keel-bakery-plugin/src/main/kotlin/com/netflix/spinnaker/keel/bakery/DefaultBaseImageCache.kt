@@ -18,7 +18,7 @@ class DefaultBaseImageCache(
   private val baseImages: Map<String, Map<String, String>>
 ) : BaseImageCache {
   override fun getBaseAmiName(os: String, label: BaseLabel) =
-    baseImages[os]?.get(label.name.toLowerCase()) ?: throw UnknownBaseImage(os, label)
+    baseImages[os]?.get(label.name.lowercase()) ?: throw UnknownBaseImage(os, label)
 
   override val allVersions: Map<String, Map<String, String>>
     get() = baseImages

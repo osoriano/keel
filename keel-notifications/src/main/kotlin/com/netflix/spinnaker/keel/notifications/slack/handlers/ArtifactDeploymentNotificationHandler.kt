@@ -32,7 +32,7 @@ class ArtifactDeploymentNotificationHandler(
       FAILED -> "failed"
       SUCCEEDED ->  "succeeded"
     }
-    return "[$application] deploy $verb for ${artifact.buildNumber ?: artifact.version} to ${targetEnvironment.toLowerCase()}"
+    return "[$application] deploy $verb for ${artifact.buildNumber ?: artifact.version} to ${targetEnvironment.lowercase()}"
   }
 
   private fun SlackArtifactDeploymentNotification.toBlocks(): List<LayoutBlock> {

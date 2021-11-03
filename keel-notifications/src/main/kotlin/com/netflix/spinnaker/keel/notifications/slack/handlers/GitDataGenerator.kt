@@ -61,7 +61,7 @@ class GitDataGenerator(
   fun linkedApp(application: String) =
     "<${envUrl(config, application)}|$application>"
 
-  fun toCode(env: String) = "`${env.toLowerCase()}`"
+  fun toCode(env: String) = "`${env.lowercase()}`"
 
   fun linkedTitleSnippet(artifact: PublishedArtifact,
                          application: String,

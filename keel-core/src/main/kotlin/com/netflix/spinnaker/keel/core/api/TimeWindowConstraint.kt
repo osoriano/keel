@@ -131,8 +131,8 @@ private val shortDayFormatter = DateTimeFormatter.ofPattern("EEE", Locale.getDef
 private val daysOfWeek = DayOfWeek.values()
   .map {
     listOf(
-      it.toString().toLowerCase(),
-      it.getDisplayName(SHORT, Locale.getDefault()).toLowerCase()
+      it.toString().lowercase(),
+      it.getDisplayName(SHORT, Locale.getDefault()).lowercase()
     )
   }
   .flatten()
@@ -147,7 +147,7 @@ private fun validateHours(hours: String): Boolean {
 }
 
 private fun validateDays(days: String): Boolean {
-  return days.toLowerCase().split(separators).all {
+  return days.lowercase().split(separators).all {
     daysOfWeek.contains(it) || dayAliases.contains(it)
   }
 }
@@ -196,7 +196,7 @@ private fun parseDays(dayConfig: String?): Set<Int> {
 
   val days = mutableSetOf<DayOfWeek>()
   val trimmed = dayConfig.replace(whiteSpace, "")
-    .toLowerCase()
+    .lowercase()
   val elements = trimmed.split(",")
 
   elements.forEach {

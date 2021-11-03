@@ -20,7 +20,7 @@ internal class DebugVisitor(
   override fun print(node: DiffNode, level: Int) {
     if (!node.isRootNode) {
       if (node.hasChildren()) {
-        print(indent(level - 2, "${node.path} : ${node.state.name.toLowerCase()}"))
+        print(indent(level - 2, "${node.path} : ${node.state.name.lowercase()}"))
       } else {
         print(indent(level - 2, "${node.path} : ${translateState(node.state, node.canonicalGet(base), node.canonicalGet(working))}"))
       }

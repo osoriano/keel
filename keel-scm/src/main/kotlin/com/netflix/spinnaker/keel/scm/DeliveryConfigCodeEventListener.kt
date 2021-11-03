@@ -74,8 +74,7 @@ class DeliveryConfigCodeEventListener(
     // Hopefully this returns a single matching app, but who knows... ¯\_(ツ)_/¯
     val matchingApps = apps
       .filter { app ->
-        app != null
-          && app.managedDelivery?.importDeliveryConfig == true
+        app.managedDelivery?.importDeliveryConfig == true
           && event.matchesApplicationConfig(app)
           && event.targetBranch == scmUtils.getDefaultBranch(app)
           && keelReadOnlyRepository.isApplicationConfigured(app.name)

@@ -76,7 +76,7 @@ abstract class RolloutAwareResolver<SPEC : ResourceSpec, RESOLVED : Any>(
       }
     }
 
-    val (status, attemptCount) = featureRolloutRepository.rolloutStatus(featureName, resource.id)
+    val (status, _) = featureRolloutRepository.rolloutStatus(featureName, resource.id)
 
     return when {
       isExplicitlySpecified(resource) -> {

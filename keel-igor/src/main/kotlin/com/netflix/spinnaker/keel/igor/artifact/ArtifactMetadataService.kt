@@ -118,8 +118,8 @@ internal fun Build.toArtifactMetadata() =
           link = url,
           name = name
         ),
-        startedAt = properties?.get("startedAt") as String?,
-        completedAt = properties?.get("completedAt") as String?,
+        startedAt = properties["startedAt"] as String?,
+        completedAt = properties["completedAt"] as String?,
         number = number.toString(),
         status = result?.toString()
       ),
@@ -138,16 +138,16 @@ internal fun Build.toArtifactMetadata() =
         ),
         author = scm.first().committer,
         pullRequest = PullRequest(
-          number = properties?.get("pullRequestNumber") as String?,
-          url = properties?.get("pullRequestUrl") as String?
+          number = properties["pullRequestNumber"] as String?,
+          url = properties["pullRequestUrl"] as String?
         ),
         repo = Repo(
-          name = properties?.get("repoSlug") as String?,
+          name = properties["repoSlug"] as String?,
           //TODO[gyardeni]: add link (will come from Igor)
           link = ""
         ),
         branch = scm.first().branch,
-        project = properties?.get("projectKey") as String?,
+        project = properties["projectKey"] as String?,
       )
     )
   }

@@ -105,7 +105,7 @@ class ImageResolver(
     val bakedVmImages: Map<String, VirtualMachineImage> = bakedImageRepository
       .getByArtifactVersion(artifactVersion, artifact)
       ?.let { bakedImage ->
-        bakedImage.amiIdsByRegion.mapValues { (region, amiId) ->
+        bakedImage.amiIdsByRegion.mapValues { (_, amiId) ->
           VirtualMachineImage(
             id = amiId,
             appVersion = bakedImage.appVersion,

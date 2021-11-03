@@ -81,7 +81,7 @@ internal fun SqlStorageContext.attachDependents(
           mapToArtifact(
             artifactSuppliers.supporting(type),
             name,
-            type.toLowerCase(),
+            type.lowercase(),
             details,
             reference,
             configName

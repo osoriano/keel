@@ -304,7 +304,6 @@ class ApplicationFetcher(
 
   @DgsData(parentType = DgsConstants.MD_ARTIFACTVERSIONINENVIRONMENT.TYPE_NAME, field = DgsConstants.MD_ARTIFACTVERSIONINENVIRONMENT.Veto)
   fun versionVetoed(dfe: DataFetchingEnvironment): CompletableFuture<MD_VersionVeto?>? {
-    val config = applicationFetcherSupport.getDeliveryConfigFromContext(dfe)
     val dataLoader: DataLoader<EnvironmentArtifactAndVersion, MD_VersionVeto?> = dfe.getDataLoader(VetoedDataLoader.Descriptor.name)
     val artifact: MD_ArtifactVersionInEnvironment = dfe.getSource()
     return artifact.environment?.let { environmentName ->

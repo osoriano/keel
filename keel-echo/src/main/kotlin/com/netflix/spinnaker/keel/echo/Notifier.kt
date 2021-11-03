@@ -80,7 +80,7 @@ class Notifier(
    * If / when we notify about something else, we will need to update this assumption
    */
   private fun notify(event: RepeatedNotificationEvent) {
-    log.debug("Sending notifications for ${event.scope.name.toLowerCase()} ${event.ref} with content ${event.message}")
+    log.debug("Sending notifications for ${event.scope.name.lowercase()} ${event.ref} with content ${event.message}")
     try {
       val application = keelRepository.getResource(event.ref).application
       val env = keelRepository.environmentFor(event.ref)
@@ -109,7 +109,7 @@ class Notifier(
 
   private fun NotificationConfig.toEchoNotification(application: String, event: RepeatedNotificationEvent): EchoNotification {
     return EchoNotification(
-      notificationType = EchoNotification.Type.valueOf(type.name.toUpperCase()),
+      notificationType = EchoNotification.Type.valueOf(type.name.uppercase()),
       to = listOf(address),
       severity = EchoNotification.Severity.NORMAL,
       source = EchoNotification.Source(

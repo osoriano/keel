@@ -65,7 +65,7 @@ class Front50Cache(
     if (invalidateCache) {
       invalidateApplicationByNameCache(name)
     }
-    return applicationsByNameCache.get(name.toLowerCase()).await() ?: throw ApplicationNotFound(name)
+    return applicationsByNameCache.get(name.lowercase()).await() ?: throw ApplicationNotFound(name)
   }
 
   /**
@@ -88,7 +88,7 @@ class Front50Cache(
         val apps = front50Service.allApplications(DEFAULT_SERVICE_ACCOUNT)
         log.debug("Retrieved ${apps.size} applications from Front50")
         apps.forEach {
-          applicationsByNameCache.put(it.name.toLowerCase(), CompletableFuture.supplyAsync { it })
+          applicationsByNameCache.put(it.name.lowercase(), CompletableFuture.supplyAsync { it })
         }
         log.debug("Added ${apps.size} applications to the cache")
       } catch (e: Exception) {
@@ -98,11 +98,11 @@ class Front50Cache(
   }
 
   private fun updateApplicationByName(app: Application) {
-    applicationsByNameCache.put(app.name.toLowerCase(), CompletableFuture.supplyAsync { app })
+    applicationsByNameCache.put(app.name.lowercase(), CompletableFuture.supplyAsync { app })
   }
 
   private fun invalidateApplicationByNameCache(app: String) {
-    applicationsByNameCache.synchronous().invalidate(app.toLowerCase())
+    applicationsByNameCache.synchronous().invalidate(app.lowercase())
   }
 
   private fun invalidateSearchParamsCache(app: Application) {

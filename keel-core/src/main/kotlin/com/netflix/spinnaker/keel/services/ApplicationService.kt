@@ -493,7 +493,7 @@ class ApplicationService(
         ArtifactSummaryInEnvironment(
           environment = context.environmentName,
           version = currentArtifact.version,
-          state = status.name.toLowerCase(),
+          state = status.name.lowercase(),
           // comparing PENDING (version in question, new code) vs. CURRENT (old code)
           compareLink = artifactVersionLinks.generateCompareLink(currentArtifact, olderArtifactVersion, context.artifact)
         )
@@ -503,7 +503,7 @@ class ApplicationService(
           ArtifactSummaryInEnvironment(
             environment = context.environmentName,
             version = currentArtifact.version,
-            state = status.name.toLowerCase()
+            state = status.name.lowercase()
           )
         } else {
           potentialSummary

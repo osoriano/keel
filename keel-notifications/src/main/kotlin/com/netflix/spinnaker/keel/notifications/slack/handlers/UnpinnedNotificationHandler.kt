@@ -22,7 +22,7 @@ class UnpinnedNotificationHandler(
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
   private fun SlackUnpinnedNotification.headerText(): String {
-    return "[$application] pin removed from ${targetEnvironment.toLowerCase()}"
+    return "[$application] pin removed from ${targetEnvironment.lowercase()}"
   }
 
   private fun SlackUnpinnedNotification.toBlocks(): List<LayoutBlock> =

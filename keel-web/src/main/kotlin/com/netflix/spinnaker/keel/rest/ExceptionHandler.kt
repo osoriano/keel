@@ -109,8 +109,8 @@ class ExceptionHandler(
     val authFailure: AuthorizationFailure? = FiatPermissionEvaluator.getAuthorizationFailure().orElse(null)
     val message = if (authFailure != null) {
       val user = "User ${AuthenticatedRequest.getSpinnakerUser().orElse("")}"
-      val permission = authFailure.authorization.let { if (it == null) "access" else "${it.name.toLowerCase()} permission" }
-      val resourceType = authFailure.resourceType.toString().toLowerCase().replace('_', ' ')
+      val permission = authFailure.authorization.let { if (it == null) "access" else "${it.name.lowercase()} permission" }
+      val resourceType = authFailure.resourceType.toString().lowercase().replace('_', ' ')
       "Access denied. $user does not have $permission to the ${authFailure.resourceName} $resourceType specified in the request. " +
         if (authFailure.resourceType == SERVICE_ACCOUNT) {
           "Please make sure you have access to the service account specified in your delivery config."
@@ -229,7 +229,7 @@ enum class ParsingError : ApiErrorType {
   OTHER;
 
   @JsonValue
-  fun toLowerCase() = name.toLowerCase()
+  fun toLowerCase() = name.lowercase()
 }
 
 interface ApiErrorDetails {

@@ -297,7 +297,7 @@ class ApplicationLoadBalancerHandler(
           "name" to moniker.toString(),
           "region" to location.region,
           "availabilityZones" to mapOf(location.region to location.availabilityZones),
-          "loadBalancerType" to loadBalancerType.toString().toLowerCase(),
+          "loadBalancerType" to loadBalancerType.toString().lowercase(),
           "vpcId" to cloudDriverCache.networkBy(location.vpc, location.account, location.region).id,
           "subnetType" to location.subnet,
           "isInternal" to internal,

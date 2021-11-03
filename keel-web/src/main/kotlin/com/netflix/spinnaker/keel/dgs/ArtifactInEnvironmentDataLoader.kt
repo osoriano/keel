@@ -40,7 +40,7 @@ class ArtifactInEnvironmentDataLoader(
         }
       applicationContext.allVersions = allVersions
 
-      allVersions.mapValues { (key, versions) ->
+      allVersions.mapValues { (_, versions) ->
         versions
           .sortedByDescending { it.publishedArtifact.createdAt }
           .map { it.toDgs() }

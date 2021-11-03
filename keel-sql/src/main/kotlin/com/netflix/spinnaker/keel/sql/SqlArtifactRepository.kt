@@ -219,7 +219,7 @@ class SqlArtifactRepository(
           mapToArtifact(
             artifactSuppliers.supporting(storedType),
             name,
-            storedType.toLowerCase(),
+            storedType.lowercase(),
             details,
             reference,
             configName
@@ -1603,7 +1603,7 @@ class SqlArtifactRepository(
             artifact = mapToArtifact(
               artifactSuppliers.supporting(type),
               artifactName,
-              type.toLowerCase(),
+              type.lowercase(),
               details,
               reference,
               deliveryConfig.name
@@ -1800,7 +1800,7 @@ class SqlArtifactRepository(
           ArtifactSummaryInEnvironment(
             environment = environmentName,
             version = version,
-            state = promotionStatus.name.toLowerCase(),
+            state = promotionStatus.name.lowercase(),
             deployedAt = deployedAt,
             replacedAt = replacedAt,
             replacedBy = replacedBy,
@@ -1865,7 +1865,7 @@ class SqlArtifactRepository(
           ArtifactSummaryInEnvironment(
             environment = environmentName,
             version = version,
-            state = promotionStatus.name.toLowerCase(),
+            state = promotionStatus.name.lowercase(),
             deployedAt = deployedAt,
             replacedAt = replacedAt,
             replacedBy = replacedBy,
@@ -1966,10 +1966,10 @@ class SqlArtifactRepository(
   override fun getApprovedInEnvArtifactVersion(
     deliveryConfig: DeliveryConfig,
     artifact: DeliveryArtifact,
-    targetEnvironment: String,
+    environmentName: String,
     excludeCurrent: Boolean?
   ): PublishedArtifact? {
-    val environment = deliveryConfig.environmentNamed(targetEnvironment)
+    val environment = deliveryConfig.environmentNamed(environmentName)
     val envUid = deliveryConfig.getUidFor(environment)
     val artifactId = artifact.uid
 
@@ -2076,7 +2076,7 @@ class SqlArtifactRepository(
     val bytes = MessageDigest
       .getInstance("SHA-1")
       .digest(data.toByteArray())
-    return DatatypeConverter.printHexBinary(bytes).toUpperCase()
+    return DatatypeConverter.printHexBinary(bytes).uppercase()
   }
 
   private fun vetoKey(envName: String, artifactId: String) = "$envName:$artifactId"

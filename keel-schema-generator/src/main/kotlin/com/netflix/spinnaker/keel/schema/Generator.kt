@@ -426,7 +426,7 @@ class Generator(
       }
       return (jvmErasure.java as Class<Enum<*>>)
         .enumConstants
-        .map { if (options.lowerCaseEnums) it.name.toLowerCase() else it.name }
+        .map { if (options.lowerCaseEnums) it.name.lowercase() else it.name }
     }
 
   /**
