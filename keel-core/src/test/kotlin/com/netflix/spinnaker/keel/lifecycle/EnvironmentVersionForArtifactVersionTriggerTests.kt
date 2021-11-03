@@ -87,7 +87,6 @@ internal class EnvironmentVersionForArtifactVersionTriggerTests {
       resources = setOf(
         resource(
           spec = DummyArtifactReferenceResourceSpec(
-            artifactType = DOCKER,
             artifactReference = artifactRef
           )
         )
@@ -167,7 +166,6 @@ internal class EnvironmentVersionForArtifactVersionTriggerTests {
       resources = setOf(
         resource(
           spec = DummyArtifactReferenceResourceSpec(
-            artifactType = DOCKER,
             artifactReference = artifact.reference
           )
         )

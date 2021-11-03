@@ -66,8 +66,6 @@ data class ClusterV1Spec (
   override val artifactReference: String?
     get() = imageProvider?.reference
 
-  override val artifactType: ArtifactType = DEBIAN
-
   override fun withArtifactReference(reference: String) =
     copy(imageProvider = ImageProvider(reference = reference))
 

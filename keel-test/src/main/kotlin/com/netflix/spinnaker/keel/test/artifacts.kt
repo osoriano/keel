@@ -50,14 +50,16 @@ fun defaultArtifactSuppliers(): List<ArtifactSupplier<*, *>> {
   )
 }
 
-fun debianArtifact() = DebianArtifact(
+fun debianArtifact(metadata: Map<String, Any?> = emptyMap()) = DebianArtifact(
   name ="fnord-debian",
   vmOptions = VirtualMachineOptions(baseOs = "ubuntu", regions = setOf("us-east-1", "us-west-2")),
-  from = ArtifactOriginFilter(branchName("main"))
+  from = ArtifactOriginFilter(branchName("main")),
+  metadata = metadata
 )
 
-fun dockerArtifact() = DockerArtifact(
+fun dockerArtifact(metadata: Map<String, Any?> = emptyMap()) = DockerArtifact(
   name = "org/fnord",
   reference = "fnord-docker",
-  from = ArtifactOriginFilter(branchName("main"))
+  from = ArtifactOriginFilter(branchName("main")),
+  metadata = metadata
 )

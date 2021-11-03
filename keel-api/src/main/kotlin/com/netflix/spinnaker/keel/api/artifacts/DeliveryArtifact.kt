@@ -83,7 +83,7 @@ data class ArtifactOriginFilter(
  * (i.e. the output of a build that is published to an artifact repository), but rather the high-level properties
  * that allow keel and [ArtifactSupplier] plugins to find/process the actual artifacts.
  */
-// TODO: rename to `ArtifactSpec`
+// TODO: rename to `ArtifactSpec` or `ArtifactConfig`
 abstract class DeliveryArtifact {
   abstract val name: String
   @Discriminator
@@ -107,6 +107,9 @@ abstract class DeliveryArtifact {
 
   /** Whether this artifact was created for a preview environment. */
   open val isPreview: Boolean = false
+
+  /** Arbitrary metadata that can be used to augment the generic configuration of the artifact */
+  open val metadata: Map<String, Any?> = emptyMap()
 
   @get:ExcludedFromDiff
   val filteredByBranch: Boolean

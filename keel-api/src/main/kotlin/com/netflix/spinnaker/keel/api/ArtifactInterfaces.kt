@@ -42,11 +42,10 @@ interface VersionedArtifactProvider : ArtifactProvider {
  */
 interface ArtifactReferenceProvider : ResourceSpec {
   val artifactReference: String?
-  val artifactType: ArtifactType?
 
   fun completeArtifactReferenceOrNull() =
-    if (artifactReference != null && artifactType != null) {
-      CompleteArtifactReference(artifactReference!!, artifactType!!)
+    if (artifactReference != null) {
+      CompleteArtifactReference(artifactReference!!)
     } else {
       null
     }
@@ -77,6 +76,5 @@ data class CompleteVersionedArtifact(
  * fields.
  */
 data class CompleteArtifactReference(
-  val artifactReference: String,
-  val artifactType: ArtifactType
+  val artifactReference: String
 )

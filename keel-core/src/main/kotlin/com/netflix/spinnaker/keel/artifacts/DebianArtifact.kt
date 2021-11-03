@@ -19,8 +19,8 @@ data class DebianArtifact(
   override val statuses: Set<ArtifactStatus> = emptySet(),
   val vmOptions: VirtualMachineOptions,
   @JsonIgnore val branch: String? = null,
-  override val from: ArtifactOriginFilter? =
-    branch?.let { ArtifactOriginFilter(BranchFilter(name = branch)) }
+  override val from: ArtifactOriginFilter? = branch?.let { ArtifactOriginFilter(BranchFilter(name = branch)) },
+  override val metadata: Map<String, Any?> = emptyMap()
 ) : DeliveryArtifact() {
   override val type = DEBIAN
 

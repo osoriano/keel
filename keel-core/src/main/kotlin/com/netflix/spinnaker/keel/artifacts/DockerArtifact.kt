@@ -21,8 +21,8 @@ data class DockerArtifact(
   val tagVersionStrategy: TagVersionStrategy? = null,
   val captureGroupRegex: String? = null,
   @JsonIgnore val branch: String? = null,
-  override val from: ArtifactOriginFilter? =
-    branch?.let { ArtifactOriginFilter(BranchFilter(name = branch)) }
+  override val from: ArtifactOriginFilter? = branch?.let { ArtifactOriginFilter(BranchFilter(name = branch)) },
+  override val metadata: Map<String, Any?> = emptyMap()
 ) : DeliveryArtifact() {
   init {
     require(name.count { it == '/' } <= 1) {
