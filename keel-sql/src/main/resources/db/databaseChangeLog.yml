@@ -395,3 +395,6 @@ databaseChangeLog:
 - include:
     file: changelog/20211026-environment-version-reason.yml
     relativeToChangelogFile: true
+- include:
+    file: changelog/20211103-heartbeat-instances.yml
+    relativeToChangelogFile: true

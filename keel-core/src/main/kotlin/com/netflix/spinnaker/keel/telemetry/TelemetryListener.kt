@@ -4,8 +4,7 @@ import com.netflix.spectator.api.BasicTag
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.patterns.PolledMeter
 import com.netflix.spectator.api.patterns.ThreadPoolMonitor
-import com.netflix.spinnaker.keel.activation.ApplicationDown
-import com.netflix.spinnaker.keel.activation.ApplicationUp
+import com.netflix.spinnaker.keel.activation.DiscoveryActivated
 import com.netflix.spinnaker.keel.actuation.ScheduledArtifactCheckStarting
 import com.netflix.spinnaker.keel.actuation.ScheduledEnvironmentCheckStarting
 import com.netflix.spinnaker.keel.actuation.ScheduledEnvironmentVerificationStarting
@@ -15,7 +14,6 @@ import com.netflix.spinnaker.keel.events.ResourceCheckResult
 import com.netflix.spinnaker.keel.events.VerificationBlockedActuation
 import com.netflix.spinnaker.keel.rollout.FeatureRolloutAttempted
 import com.netflix.spinnaker.keel.rollout.FeatureRolloutFailed
-import org.slf4j.LoggerFactory
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler
@@ -24,7 +22,6 @@ import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
 @Component
@@ -33,7 +30,7 @@ class TelemetryListener(
   private val clock: Clock,
   threadPoolTaskSchedulers: List<ThreadPoolTaskScheduler>,
   threadPoolTaskExecutors: List<ThreadPoolTaskExecutor>,
-) {
+): DiscoveryActivated() {
   private val lastResourceCheck: AtomicReference<Instant> =
     createDriftGauge(RESOURCE_CHECK_DRIFT_GAUGE)
   private val lastEnvironmentCheck: AtomicReference<Instant> =
@@ -44,8 +41,6 @@ class TelemetryListener(
     createDriftGauge(VERIFICATION_CHECK_DRIFT_GAUGE)
   private val lastPostDeployCheck: AtomicReference<Instant> =
     createDriftGauge(POST_DEPLOY_CHECK_DRIFT_GAUGE)
-
-  private val enabled = AtomicBoolean(false)
 
   init {
     // attach monitors for all the thread pools we have
@@ -59,16 +54,6 @@ class TelemetryListener(
 
     // todo: add coroutines once you can actually monitor them as described here: https://github.com/Kotlin/kotlinx.coroutines/issues/1360
     // need to monitor Dispatchers.Default, Dispatchers.IO, and Dispatchers.Unconfined
-  }
-
-  @EventListener(ApplicationUp::class)
-  fun onApplicationUp() {
-    enabled.set(true)
-  }
-
-  @EventListener(ApplicationDown::class)
-  fun onApplicationDown() {
-    enabled.set(false)
   }
 
   @EventListener(AboutToBeChecked::class)
@@ -328,8 +313,6 @@ class TelemetryListener(
           false -> 0.0
         }
       }
-
-  private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
   companion object {
     private const val TIME_SINCE_LAST_CHECK = "keel.periodically.checked.age"

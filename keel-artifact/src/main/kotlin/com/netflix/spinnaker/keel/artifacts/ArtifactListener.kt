@@ -3,6 +3,7 @@ package com.netflix.spinnaker.keel.artifacts
 import com.netflix.spinnaker.config.ArtifactConfig
 import com.netflix.spinnaker.keel.activation.ApplicationDown
 import com.netflix.spinnaker.keel.activation.ApplicationUp
+import com.netflix.spinnaker.keel.activation.DiscoveryActivated
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.events.ArtifactRegisteredEvent
@@ -29,22 +30,7 @@ class ArtifactListener(
   private val artifactConfig: ArtifactConfig,
   private val artifactRefreshConfig: ArtifactRefreshConfig,
   private val workQueueProcessor: WorkQueueProcessor
-) {
-  private val log by lazy { LoggerFactory.getLogger(javaClass) }
-
-  private val enabled = AtomicBoolean(false)
-
-  @EventListener(ApplicationUp::class)
-  fun onApplicationUp() {
-    log.info("Application up, enabling scheduled artifact syncing")
-    enabled.set(true)
-  }
-
-  @EventListener(ApplicationDown::class)
-  fun onApplicationDown() {
-    log.info("Application down, disabling scheduled artifact syncing")
-    enabled.set(false)
-  }
+): DiscoveryActivated() {
 
   /**
    * Fetch latest version of an artifact after it is registered.

@@ -1,0 +1,19 @@
+databaseChangeLog:
+  - changeSet:
+      id: heartbeat-instances
+      author: emjburns
+      changes:
+        - createTable:
+            tableName: heartbeat
+            columns:
+              - column:
+                  name: identity
+                  type: varchar(64)
+                  constraints:
+                    - primaryKey: true
+                    - nullable: false
+              - column:
+                  name: last_heartbeat
+                  type: datetime(3)
+                  constraints:
+                    - nullable: false

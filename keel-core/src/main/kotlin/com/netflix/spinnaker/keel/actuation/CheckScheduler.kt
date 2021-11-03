@@ -10,6 +10,7 @@ import com.netflix.spinnaker.config.PostDeployActionsConfig
 import com.netflix.spinnaker.config.ResourceCheckConfig
 import com.netflix.spinnaker.keel.activation.ApplicationDown
 import com.netflix.spinnaker.keel.activation.ApplicationUp
+import com.netflix.spinnaker.keel.activation.DiscoveryActivated
 import com.netflix.spinnaker.keel.exceptions.EnvironmentCurrentlyBeingActedOn
 import com.netflix.spinnaker.keel.logging.TracingSupport.Companion.blankMDC
 import com.netflix.spinnaker.keel.persistence.AgentLockRepository
@@ -79,22 +80,8 @@ class CheckScheduler(
   private val clock: Clock,
   private val springEnv: Environment,
   private val spectator: Registry
-  ) : CoroutineScope {
+  ) : DiscoveryActivated(), CoroutineScope {
   override val coroutineContext: CoroutineContext = Dispatchers.IO
-
-  private val enabled = AtomicBoolean(false)
-
-  @EventListener(ApplicationUp::class)
-  fun onApplicationUp() {
-    log.info("Application up, enabling scheduled resource checks")
-    enabled.set(true)
-  }
-
-  @EventListener(ApplicationDown::class)
-  fun onApplicationDown() {
-    log.info("Application down, disabling scheduled resource checks")
-    enabled.set(false)
-  }
 
   // Used for resources, environments, and artifacts.
   private val checkMinAge: Duration
@@ -335,6 +322,4 @@ class CheckScheduler(
 
   private fun recordDuration(startTime : Instant, type: String) =
     spectator.recordDurationPercentile("keel.scheduled.method.duration", clock, startTime, setOf(BasicTag("type", type)))
-
-  private val log by lazy { LoggerFactory.getLogger(javaClass) }
 }

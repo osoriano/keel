@@ -16,6 +16,7 @@ import com.netflix.spinnaker.keel.sql.SqlDismissibleNotificationRepository
 import com.netflix.spinnaker.keel.sql.SqlEnvironmentDeletionRepository
 import com.netflix.spinnaker.keel.sql.SqlEnvironmentLeaseRepository
 import com.netflix.spinnaker.keel.sql.SqlFeatureRolloutRepository
+import com.netflix.spinnaker.keel.sql.SqlHeart
 import com.netflix.spinnaker.keel.sql.SqlLifecycleEventRepository
 import com.netflix.spinnaker.keel.sql.SqlLifecycleMonitorRepository
 import com.netflix.spinnaker.keel.sql.SqlNotificationRepository
@@ -257,4 +258,10 @@ class SqlConfiguration
     jooq: DSLContext,
     clock: Clock
   ) = SqlFeatureRolloutRepository(jooq, SqlRetry(sqlRetryProperties), clock)
+
+  @Bean
+  fun heart(
+    jooq: DSLContext,
+    clock: Clock
+  ) = SqlHeart(jooq, SqlRetry(sqlRetryProperties), clock)
 }

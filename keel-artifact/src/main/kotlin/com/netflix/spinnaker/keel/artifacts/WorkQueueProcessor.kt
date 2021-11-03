@@ -3,8 +3,7 @@ package com.netflix.spinnaker.keel.artifacts
 import com.netflix.spectator.api.BasicTag
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.patterns.PolledMeter
-import com.netflix.spinnaker.keel.activation.ApplicationDown
-import com.netflix.spinnaker.keel.activation.ApplicationUp
+import com.netflix.spinnaker.keel.activation.DiscoveryActivated
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.events.ArtifactVersionDetected
@@ -28,7 +27,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withTimeout
-import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.event.EventListener
@@ -38,7 +36,6 @@ import org.springframework.stereotype.Component
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
-import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.CoroutineContext
 
@@ -59,13 +56,9 @@ final class WorkQueueProcessor(
   private val spectator: Registry,
   private val clock: Clock,
   private val springEnv: Environment
-): CoroutineScope {
+): DiscoveryActivated(), CoroutineScope {
 
   override val coroutineContext: CoroutineContext = Dispatchers.IO
-
-  private val log by lazy { LoggerFactory.getLogger(javaClass) }
-
-  private val enabled = AtomicBoolean(false)
 
   companion object {
     private const val ARTIFACT_PROCESSING_DRIFT_GAUGE = "work.processing.artifact.drift"
@@ -94,18 +87,6 @@ final class WorkQueueProcessor(
 
   private val lastCodeCheck: AtomicReference<Instant> =
     createDriftGauge(CODE_EVENT_PROCESSING_DRIFT_GAUGE)
-
-  @EventListener(ApplicationUp::class)
-  fun onApplicationUp() {
-    log.info("Application up, enabling scheduled work queue processing")
-    enabled.set(true)
-  }
-
-  @EventListener(ApplicationDown::class)
-  fun onApplicationDown() {
-    log.info("Application down, disabling scheduled work queue processing")
-    enabled.set(false)
-  }
 
   private fun queueSize(): Double =
     workQueueRepository.queueSize().toDouble()

@@ -1,11 +1,8 @@
 package com.netflix.spinnaker.keel.lifecycle
 
 import com.netflix.spectator.api.Registry
-import com.netflix.spectator.api.Timer
-import com.netflix.spectator.api.histogram.PercentileTimer
 import com.netflix.spinnaker.config.LifecycleConfig
-import com.netflix.spinnaker.keel.activation.ApplicationDown
-import com.netflix.spinnaker.keel.activation.ApplicationUp
+import com.netflix.spinnaker.keel.activation.DiscoveryActivated
 import com.netflix.spinnaker.keel.telemetry.LifecycleMonitorLoadFailed
 import com.netflix.spinnaker.keel.telemetry.LifecycleMonitorTimedOut
 import kotlinx.coroutines.CoroutineScope
@@ -16,7 +13,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withTimeout
-import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.event.EventListener
@@ -25,7 +21,6 @@ import org.springframework.stereotype.Component
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.CoroutineContext
 
 @Component
@@ -37,27 +32,10 @@ class LifecycleMonitorScheduler(
   val lifecycleConfig: LifecycleConfig,
   private val clock: Clock,
   val spectator: Registry
-) : CoroutineScope {
+) : DiscoveryActivated(), CoroutineScope {
   override val coroutineContext: CoroutineContext = Dispatchers.IO
 
-  private val enabled = AtomicBoolean(false)
-
   private val timerBuilder = spectator.createId("keel.scheduled.method.duration")
-
-
-  @EventListener(ApplicationUp::class)
-  fun onApplicationUp() {
-    log.info("Application up, enabling scheduled lifecycle monitoring")
-    enabled.set(true)
-  }
-
-  @EventListener(ApplicationDown::class)
-  fun onApplicationDown() {
-    log.info("Application down, disabling scheduled lifecycle monitoring")
-    enabled.set(false)
-  }
-
-  private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
   /**
    * Listens for an event with monitor == true that a subclass can handle, and saves that into
