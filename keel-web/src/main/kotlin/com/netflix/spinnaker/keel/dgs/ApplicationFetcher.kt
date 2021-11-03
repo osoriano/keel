@@ -5,7 +5,6 @@ import com.netflix.graphql.dgs.DgsData
 import com.netflix.graphql.dgs.DgsDataFetchingEnvironment
 import com.netflix.graphql.dgs.InputArgument
 import com.netflix.graphql.dgs.context.DgsContext
-import com.netflix.graphql.dgs.exceptions.DgsEntityNotFoundException
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.action.ActionType
 import com.netflix.spinnaker.keel.artifacts.ArtifactVersionLinks
@@ -16,6 +15,7 @@ import com.netflix.spinnaker.keel.events.EventLevel.WARNING
 import com.netflix.spinnaker.keel.graphql.DgsConstants
 import com.netflix.spinnaker.keel.graphql.types.MD_Action
 import com.netflix.spinnaker.keel.graphql.types.MD_Application
+import com.netflix.spinnaker.keel.graphql.types.MD_ApplicationResult
 import com.netflix.spinnaker.keel.graphql.types.MD_Artifact
 import com.netflix.spinnaker.keel.graphql.types.MD_ArtifactStatusInEnvironment
 import com.netflix.spinnaker.keel.graphql.types.MD_ArtifactVersionInEnvironment
@@ -23,6 +23,7 @@ import com.netflix.spinnaker.keel.graphql.types.MD_ComparisonLinks
 import com.netflix.spinnaker.keel.graphql.types.MD_Constraint
 import com.netflix.spinnaker.keel.graphql.types.MD_Environment
 import com.netflix.spinnaker.keel.graphql.types.MD_EnvironmentState
+import com.netflix.spinnaker.keel.graphql.types.MD_Error
 import com.netflix.spinnaker.keel.graphql.types.MD_GitMetadata
 import com.netflix.spinnaker.keel.graphql.types.MD_LifecycleStep
 import com.netflix.spinnaker.keel.graphql.types.MD_Notification
@@ -61,11 +62,11 @@ class ApplicationFetcher(
 
   @DgsData(parentType = DgsConstants.QUERY.TYPE_NAME, field = DgsConstants.QUERY.Md_application)
   @PreAuthorize("""@authorizationSupport.hasApplicationPermission('READ', 'APPLICATION', #appName)""")
-  fun application(dfe: DataFetchingEnvironment, @InputArgument("appName") appName: String): MD_Application {
+  fun application(dfe: DataFetchingEnvironment, @InputArgument("appName") appName: String): MD_ApplicationResult {
     val config = try {
       keelRepository.getDeliveryConfigForApplication(appName)
     } catch (ex: NoDeliveryConfigForApplication) {
-      throw DgsEntityNotFoundException(ex.message!!)
+      return MD_Error(id = appName, message = "Delivery config not found")
     }
     val context: ApplicationContext = DgsContext.getCustomContext(dfe)
     context.deliveryConfig = config

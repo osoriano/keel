@@ -1,8 +1,10 @@
 scalar InstantTime
 scalar JSON
 
+union MD_ApplicationResult = MD_Application | MD_Error
+
 type Query @extends {
-  md_application(appName: String!): MD_Application
+  md_application(appName: String!): MD_ApplicationResult
 }
 
 type MD_Application {
@@ -17,6 +19,11 @@ type MD_Application {
   config: MD_Config
   versionOnUnpinning(reference: String!, environment: String!): MD_ArtifactVersionInEnvironment
   versionOnRollback(reference: String!, environment: String!): MD_ArtifactVersionInEnvironment
+}
+
+type MD_Error {
+  id: ID!
+  message: String
 }
 
 type MD_GitIntegration {
