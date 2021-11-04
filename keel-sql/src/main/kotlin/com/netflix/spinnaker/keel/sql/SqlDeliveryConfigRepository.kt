@@ -45,6 +45,7 @@ import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_RESOU
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_VERSION
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_VERSION_ARTIFACT_VERSION
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.EVENT
+import com.netflix.spinnaker.keel.persistence.metamodel.Tables.HEARTBEAT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.PAUSED
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.PREVIEW_ENVIRONMENT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.RESOURCE
@@ -1212,7 +1213,7 @@ class SqlDeliveryConfigRepository(
     sqlRetry.withRetry(WRITE) {
       jooq.update(DELIVERY_CONFIG_LAST_CHECKED)
         .set(DELIVERY_CONFIG_LAST_CHECKED.AT, EPOCH.plusSeconds(1))
-        .set(DELIVERY_CONFIG_LAST_CHECKED.LEASED_AT, EPOCH.plusSeconds(1))
+        .setNull(DELIVERY_CONFIG_LAST_CHECKED.LEASED_AT)
         .set(DELIVERY_CONFIG_LAST_CHECKED.LEASED_BY, RECHECK_LEASE_NAME)
         .where(DELIVERY_CONFIG_LAST_CHECKED.DELIVERY_CONFIG_UID.eq(uid))
         .execute()
@@ -1225,18 +1226,22 @@ class SqlDeliveryConfigRepository(
   ): Collection<DeliveryConfig> {
     val now = clock.instant()
     val cutoff = now.minus(minTimeSinceLastCheck)
+    val oneMinuteAgo = now.minusSeconds(60)
     return sqlRetry.withRetry(WRITE) {
       jooq.inTransaction {
         select(DELIVERY_CONFIG.UID, DELIVERY_CONFIG.NAME, DELIVERY_CONFIG_LAST_CHECKED.AT)
-          .from(DELIVERY_CONFIG, DELIVERY_CONFIG_LAST_CHECKED)
+          .from(DELIVERY_CONFIG)
+          .join(DELIVERY_CONFIG_LAST_CHECKED)
+          .on(DELIVERY_CONFIG.UID.eq(DELIVERY_CONFIG_LAST_CHECKED.DELIVERY_CONFIG_UID))
+          .leftJoin(HEARTBEAT)
+          .on(DELIVERY_CONFIG_LAST_CHECKED.LEASED_BY.eq(HEARTBEAT.IDENTITY))
           .where(DELIVERY_CONFIG.UID.eq(DELIVERY_CONFIG_LAST_CHECKED.DELIVERY_CONFIG_UID))
           // has not been checked recently
           .and(DELIVERY_CONFIG_LAST_CHECKED.AT.lessOrEqual(cutoff))
-          // either no other Keel instance is working on this, or the lease has expired (e.g. due to
-          // instance termination mid-check)
           .and(
-            DELIVERY_CONFIG_LAST_CHECKED.LEASED_BY.isNull
-              .or(DELIVERY_CONFIG_LAST_CHECKED.LEASED_AT.lessOrEqual(cutoff))
+            DELIVERY_CONFIG_LAST_CHECKED.LEASED_BY.isNull // ensure no other instance is working on this
+              .or(HEARTBEAT.LAST_HEARTBEAT.isNull)
+              .or(HEARTBEAT.LAST_HEARTBEAT.lessOrEqual(oneMinuteAgo)) // instance was terminated mid-check, so it's up for grabs
           )
           // the application is not paused
           .andNotExists(

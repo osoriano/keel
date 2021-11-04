@@ -13,6 +13,7 @@ import com.netflix.spinnaker.keel.test.resourceFactory
 import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil.cleanupDb
+import com.netflix.spinnaker.time.MutableClock
 import org.junit.jupiter.api.BeforeAll
 import org.springframework.context.ApplicationEventPublisher
 import java.time.Clock
@@ -22,19 +23,35 @@ internal object SqlDeliveryConfigRepositoryTests : DeliveryConfigRepositoryTests
   private val objectMapper = configuredTestObjectMapper()
   private val retryProperties = RetryProperties(1, 0)
   private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties))
+  private var heart: SqlHeart? = null
 
-  override fun createDeliveryConfigRepository(resourceSpecIdentifier: ResourceSpecIdentifier, publisher: ApplicationEventPublisher): SqlDeliveryConfigRepository =
-    SqlDeliveryConfigRepository(jooq, Clock.systemUTC(), objectMapper, resourceFactory(resourceSpecIdentifier), sqlRetry, defaultArtifactSuppliers(), publisher = publisher)
+  override fun createDeliveryConfigRepository(resourceSpecIdentifier: ResourceSpecIdentifier, publisher: ApplicationEventPublisher, clock: MutableClock): SqlDeliveryConfigRepository {
+    heart = SqlHeart(jooq, sqlRetry, clock)
+    return SqlDeliveryConfigRepository(jooq, clock, objectMapper, resourceFactory(resourceSpecIdentifier), sqlRetry, defaultArtifactSuppliers(), publisher = publisher)
+  }
 
-  override fun createResourceRepository(resourceSpecIdentifier: ResourceSpecIdentifier, publisher: ApplicationEventPublisher): SqlResourceRepository =
-    SqlResourceRepository(jooq, Clock.systemUTC(), objectMapper, resourceFactory(resourceSpecIdentifier), sqlRetry, publisher, NoopRegistry(), springEnv = mockEnvironment()
+  override fun createResourceRepository(resourceSpecIdentifier: ResourceSpecIdentifier, publisher: ApplicationEventPublisher, clock: MutableClock): SqlResourceRepository =
+    SqlResourceRepository(jooq, clock, objectMapper, resourceFactory(resourceSpecIdentifier), sqlRetry, publisher, NoopRegistry(), springEnv = mockEnvironment())
+
+  override fun createArtifactRepository(publisher: ApplicationEventPublisher, clock: MutableClock): SqlArtifactRepository =
+    SqlArtifactRepository(
+      jooq,
+      clock,
+      objectMapper,
+      sqlRetry,
+      defaultArtifactSuppliers(),
+      publisher = publisher
     )
-
-  override fun createArtifactRepository(publisher: ApplicationEventPublisher): SqlArtifactRepository =
-    SqlArtifactRepository(jooq, Clock.systemUTC(), objectMapper, sqlRetry, defaultArtifactSuppliers(), publisher = publisher)
 
   override fun createPausedRepository(): SqlPausedRepository =
     SqlPausedRepository(jooq, sqlRetry, Clock.systemUTC())
+
+  override fun beat() {
+    heart?.beat()
+  }
+
+  override fun clearBeats() =
+    heart?.cleanOldRecords() ?: -1
 
   override fun flush() {
     cleanupDb(jooq)

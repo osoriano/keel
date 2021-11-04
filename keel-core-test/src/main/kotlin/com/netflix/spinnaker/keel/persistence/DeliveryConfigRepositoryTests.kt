@@ -74,16 +74,26 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
 
   abstract fun createDeliveryConfigRepository(
     resourceSpecIdentifier: ResourceSpecIdentifier,
-    publisher: ApplicationEventPublisher
+    publisher: ApplicationEventPublisher,
+    clock: MutableClock
   ): T
 
   abstract fun createResourceRepository(
     resourceSpecIdentifier: ResourceSpecIdentifier,
-    publisher: ApplicationEventPublisher
+    publisher: ApplicationEventPublisher,
+    clock: MutableClock
   ): R
 
-  abstract fun createArtifactRepository(publisher: ApplicationEventPublisher): A
+  abstract fun createArtifactRepository(publisher: ApplicationEventPublisher, clock: MutableClock): A
   abstract fun createPausedRepository(): P
+
+  companion object {
+    val clock = MutableClock()
+  }
+
+  abstract fun beat()
+
+  abstract fun clearBeats(): Int
 
   open fun flush() {}
 
@@ -124,7 +134,6 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
     val resourceRepository: R = resourceRepositoryProvider(resourceSpecIdentifier)
     val pausedRepository: P = pausedRepositoryProvider()
     internal val artifactRepository: A = artifactRepositoryProvider()
-    internal val clock = MutableClock()
 
     val artifact: DebianArtifact = DebianArtifact(
       name = "keel",
@@ -217,11 +226,12 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
         deliveryConfigRepositoryProvider = {
           this@DeliveryConfigRepositoryTests.createDeliveryConfigRepository(
             it,
-            publisher
+            publisher,
+            clock
           )
         },
-        resourceRepositoryProvider = { this@DeliveryConfigRepositoryTests.createResourceRepository(it, publisher) },
-        artifactRepositoryProvider = { this@DeliveryConfigRepositoryTests.createArtifactRepository(publisher) },
+        resourceRepositoryProvider = { this@DeliveryConfigRepositoryTests.createResourceRepository(it, publisher, clock) },
+        artifactRepositoryProvider = { this@DeliveryConfigRepositoryTests.createArtifactRepository(publisher, clock) },
         pausedRepositoryProvider = this@DeliveryConfigRepositoryTests::createPausedRepository
       )
     }
@@ -291,8 +301,8 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
           .isFalse()
       }
 
-
       test("config can be rechecked") {
+        beat() // signal the instance is alive, this normally happens in the background
         val firstCheck = repository.itemsDueForCheck(Duration.ofMinutes(2), 1)
         val secondCheck = repository.itemsDueForCheck(Duration.ofMinutes(2), 1)
         repository.triggerRecheck(deliveryConfig.application)
@@ -304,6 +314,29 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
           that(afterRecheck.size).isEqualTo(1)
           that(afterRecheck.first().application).isEqualTo(deliveryConfig.application)
         }
+      }
+
+      test("instance holds the lease if the heartbeat is still active") {
+        beat() // signal the instance is alive, this normally happens in the background
+        val firstCheck = repository.itemsDueForCheck(Duration.ofMinutes(2), 1)
+        clock.tickMinutes(3)
+        beat() // instance is still alive and working on the config
+        val secondCheck = repository.itemsDueForCheck(Duration.ofMinutes(2), 1)
+        repository.markCheckComplete(firstCheck.first(), null)
+        clock.tickMinutes(3)
+        beat() // instance is still alive, but has marked the check complete
+        val thirdCheck = repository.itemsDueForCheck(Duration.ofMinutes(2), 1)
+        expectThat(firstCheck.size).isEqualTo(1)
+        expectThat(secondCheck.size).isEqualTo(0)
+        expectThat(thirdCheck.size).isEqualTo(1)
+      }
+
+      test("instance forfeits the lease if the heartbeat is inactive") {
+        val firstCheck = repository.itemsDueForCheck(Duration.ofMinutes(2), 1)
+        clock.tickMinutes(3)
+        val secondCheck = repository.itemsDueForCheck(Duration.ofMinutes(2), 1)
+        expectThat(firstCheck.size).isEqualTo(1)
+        expectThat(secondCheck.size).isEqualTo(1)
       }
     }
 
