@@ -101,6 +101,7 @@ import net.swiftzer.semver.SemVer
 import retrofit2.HttpException
 import java.time.Clock
 import java.time.Duration
+import java.time.Duration.ZERO
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -1031,7 +1032,7 @@ class TitusClusterHandler(
             StepScalingPolicy(
               name = policy.id,
               adjustmentType = scalingPolicy.adjustmentType,
-              actionsEnabled = false,
+              actionsEnabled = true,
               comparisonOperator = alarmConfig.comparisonOperator,
               dimensions = emptySet(), // Titus doesn't support dimensions on step policies yet
               evaluationPeriods = alarmConfig.evaluationPeriods,
@@ -1040,11 +1041,11 @@ class TitusClusterHandler(
               metricName = alarmConfig.metricName,
               namespace = alarmConfig.metricNamespace,
               statistic = alarmConfig.statistic,
-              warmup = Duration.ZERO,
+              warmup = ZERO,
               metricAggregationType = scalingPolicy.metricAggregationType,
               stepAdjustments = scalingPolicy.stepAdjustments.mapUnique {
                 StepAdjustment(
-                  lowerBound = it.metricIntervalLowerBound,
+                  lowerBound = it.metricIntervalLowerBound ?: 0.0,
                   upperBound = it.metricIntervalUpperBound,
                   scalingAdjustment = it.scalingAdjustment
                 )

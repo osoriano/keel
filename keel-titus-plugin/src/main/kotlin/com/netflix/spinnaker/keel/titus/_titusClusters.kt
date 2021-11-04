@@ -16,6 +16,7 @@ import com.netflix.spinnaker.keel.core.parseMoniker
 import com.netflix.spinnaker.keel.docker.ContainerProvider
 import com.netflix.spinnaker.keel.docker.DigestProvider
 import com.netflix.spinnaker.keel.titus.exceptions.ErrorResolvingContainerException
+import java.time.Duration.ZERO
 
 internal fun Iterable<TitusServerGroup>.byRegion(): Map<String, TitusServerGroup> =
   associateBy { it.location.region }
@@ -111,10 +112,10 @@ fun TitusClusterSpec.resolveScaling(region: String? = null) =
   // TODO: could be smarter here and merge policies from defaults and override
   (region?.let { overrides[it] }?.scaling ?: defaults.scaling)
   ?.run {
-    // we set the warmup to ZERO as Titus doesn't use the warmup setting
+    // we set the warmup to ZERO/null as Titus doesn't use the warmup setting
     Scaling(
       targetTrackingPolicies = targetTrackingPolicies.map { it.copy(warmup = null, scaleOutCooldown = it.scaleOutCooldown ?: DEFAULT_AUTOSCALE_SCALE_OUT_COOLDOWN, scaleInCooldown = it.scaleInCooldown ?: DEFAULT_AUTOSCALE_SCALE_IN_COOLDOWN) }.toSet(),
-      stepScalingPolicies = stepScalingPolicies.map { it.copy(warmup = null) }.toSet()
+      stepScalingPolicies = stepScalingPolicies.map { it.copy(warmup = ZERO) }.toSet()
     )
   } ?: Scaling()
 
