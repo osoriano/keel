@@ -75,7 +75,7 @@ class OrcaExecutionSummaryService(
       currentStage = currentStage?.toStage(),
       stages = typedStages.map { it.toStage() },
       deployTargets = targets,
-      error = taskDetails.execution?.stages.getFailureMessage(mapper)
+      error = if (taskDetails.status.isFailure()) taskDetails.execution?.stages.getFailureMessage(mapper) else null
     )
   }
 
