@@ -43,13 +43,7 @@ class DeliveryConfigUpserter(
    */
   fun upsertConfig(deliveryConfig: SubmittedDeliveryConfig, gitMetadata: GitMetadata? = null): Pair<DeliveryConfig, Boolean>  {
     val existing: DeliveryConfig? = try {
-      repository.getDeliveryConfigForApplication(deliveryConfig.application)
-        .run {
-          copy(
-            artifacts = artifacts.filterNot { it.isPreview }.toSet(),
-            environments = environments.filterNot { it.isPreview }.toSet()
-          )
-        }
+      repository.getDeliveryConfigForApplication(deliveryConfig.application).withoutPreview()
     } catch (e: NoDeliveryConfigForApplication) {
       null
     }
@@ -58,7 +52,7 @@ class DeliveryConfigUpserter(
     log.debug("Upserting delivery config '${deliveryConfig.name}' for app '${deliveryConfig.application}'")
     val config = persistenceRetry.withRetry(RetryCategory.WRITE) {
         repository.upsertDeliveryConfig(deliveryConfig)
-      }
+      }.withoutPreview()
     if (shouldNotifyOfConfigChange(existing, config)) {
       log.debug("Publish deliveryConfigChange event for app ${deliveryConfig.application}")
       publisher.publishEvent(

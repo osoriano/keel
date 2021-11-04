@@ -68,4 +68,11 @@ data class DeliveryConfig(
 
   fun environmentOfResource(resource: Resource<*>): Environment? =
     environments.find { resource in it.resources }
+
+  fun withoutPreview(): DeliveryConfig {
+    return copy(
+      artifacts = artifacts.filterNot { it.isPreview }.toSet(),
+      environments = environments.filterNot { it.isPreview }.toSet()
+    )
+  }
 }
