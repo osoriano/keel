@@ -507,6 +507,25 @@ class SqlArtifactRepository(
     }
   }
 
+  override fun getApprovedAt(
+    deliveryConfig: DeliveryConfig,
+    artifact: DeliveryArtifact,
+    version: String,
+    targetEnvironment: String
+  ): Instant? {
+    val environment = deliveryConfig.environmentNamed(targetEnvironment)
+    return sqlRetry.withRetry(READ) {
+      jooq
+        .select(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT)
+        .from(ENVIRONMENT_ARTIFACT_VERSIONS)
+        .where(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(environment.uid))
+        .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(artifact.uid))
+        .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION.eq(version))
+        .and(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT.isNotNull)
+        .fetchOne(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT)
+    }
+  }
+
   override fun wasSuccessfullyDeployedTo(
     deliveryConfig: DeliveryConfig,
     artifact: DeliveryArtifact,

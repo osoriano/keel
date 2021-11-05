@@ -1,15 +1,23 @@
 package com.netflix.spinnaker.keel.artifacts
 
+import com.netflix.spectator.api.Registry
+import com.netflix.spinnaker.keel.api.DeliveryConfig
+import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.events.ArtifactVersionDeploying
 import com.netflix.spinnaker.keel.persistence.KeelRepository
+import com.netflix.spinnaker.keel.telemetry.ARTIFACT_DELAY
+import com.netflix.spinnaker.keel.telemetry.recordDuration
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
+import java.time.Clock
 
 @Component
 class ArtifactDeployingListener(
-  private val repository: KeelRepository
+  private val repository: KeelRepository,
+  private val spectator: Registry,
+  private val clock: Clock
 ) {
 
   private val log = LoggerFactory.getLogger(javaClass)
@@ -40,6 +48,8 @@ class ArtifactDeployingListener(
           version = event.artifactVersion,
           targetEnvironment = env.name
         )
+        // record how long it took us to deploy this version since it was approved
+        recordDeploymentDelay(deliveryConfig, artifact, event.artifactVersion, env.name)
       } else {
         log.warn(
           "Somehow {} is deploying in {} for config {} without being approved for that environment",
@@ -49,4 +59,20 @@ class ArtifactDeployingListener(
         )
       }
     }
+
+  private fun recordDeploymentDelay(
+    deliveryConfig: DeliveryConfig,
+    artifact: DeliveryArtifact,
+    version: String,
+    targetEnvironment: String
+  ) {
+    val approvedAt = repository.getApprovedAt(deliveryConfig, artifact, version, targetEnvironment)
+    if (approvedAt != null) {
+      spectator.recordDuration(ARTIFACT_DELAY, clock, approvedAt,
+        "delayType" to "deployment",
+        "artifactType" to artifact.type,
+        "artifactName" to artifact.name,
+      )
+    }
+  }
 }

@@ -19,6 +19,8 @@ import com.netflix.spinnaker.keel.logging.TracingSupport
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.WorkQueueRepository
 import com.netflix.spinnaker.keel.scm.CodeEvent
+import com.netflix.spinnaker.keel.telemetry.ARTIFACT_DELAY
+import com.netflix.spinnaker.keel.telemetry.recordDuration
 import com.netflix.spinnaker.keel.telemetry.safeIncrement
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -200,7 +202,16 @@ final class WorkQueueProcessor(
   internal fun enrichAndStore(artifact: PublishedArtifact, supplier: ArtifactSupplier<*,*>): Boolean {
     val enrichedArtifact = supplier.addMetadata(artifact.normalized())
     notifyArtifactVersionDetected(enrichedArtifact)
-    return repository.storeArtifactVersion(enrichedArtifact)
+    return repository.storeArtifactVersion(enrichedArtifact).also {
+      if (artifact.createdAt != null) {
+        // record how long it took us to store this version since the artifact was created
+        spectator.recordDuration(ARTIFACT_DELAY, clock, artifact.createdAt!!,
+          "delayType" to "storage",
+          "artifactType" to artifact.type,
+          "artifactName" to artifact.name
+        )
+      }
+    }
   }
 
   /**
@@ -294,14 +305,10 @@ final class WorkQueueProcessor(
         }
       }
 
-
   private fun secondsSince(start: AtomicReference<Instant>) : Double  =
     Duration
       .between(start.get(), clock.instant())
       .toMillis()
       .toDouble()
       .div(1000)
-
-  private fun Registry.recordDuration(metricName: String, clock:Clock, startTime: Instant, tags: Set<BasicTag> = emptySet()) =
-    timer(metricName, tags).record(Duration.between(startTime, clock.instant()))
 }

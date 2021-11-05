@@ -7,6 +7,7 @@ import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceDiffFactory
 import com.netflix.spinnaker.keel.api.ResourceSpec
 import com.netflix.spinnaker.keel.api.action.Action
+import com.netflix.spinnaker.keel.api.action.ActionRepository
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
@@ -51,6 +52,10 @@ interface KeelRepository : KeelReadOnlyRepository {
   val publisher: ApplicationEventPublisher
   val diffFactory: ResourceDiffFactory
   val log: Logger
+  val deliveryConfigRepository: DeliveryConfigRepository
+  val artifactRepository: ArtifactRepository
+  val resourceRepository: ResourceRepository
+  val actionRepository: ActionRepository
 
   @Transactional(propagation = REQUIRED)
   fun upsertDeliveryConfig(submittedDeliveryConfig: SubmittedDeliveryConfig): DeliveryConfig
@@ -196,6 +201,9 @@ interface KeelRepository : KeelReadOnlyRepository {
   fun deleteArtifact(artifact: DeliveryArtifact)
 
   fun approveVersionFor(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact, version: String, targetEnvironment: String): Boolean
+
+  fun getApprovedAt(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact, version: String, targetEnvironment: String): Instant? =
+    artifactRepository.getApprovedAt(deliveryConfig, artifact, version, targetEnvironment)
 
   fun markAsDeployingTo(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact, version: String, targetEnvironment: String)
 
