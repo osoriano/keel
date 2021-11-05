@@ -61,10 +61,10 @@ import java.time.Instant
  */
 @Component
 class CombinedRepository(
-  val deliveryConfigRepository: DeliveryConfigRepository,
-  val artifactRepository: ArtifactRepository,
-  val resourceRepository: ResourceRepository,
-  val actionRepository: ActionRepository,
+  override val deliveryConfigRepository: DeliveryConfigRepository,
+  override val artifactRepository: ArtifactRepository,
+  override val resourceRepository: ResourceRepository,
+  override val actionRepository: ActionRepository,
   override val clock: Clock,
   override val publisher: ApplicationEventPublisher,
   val objectMapper: ObjectMapper,
