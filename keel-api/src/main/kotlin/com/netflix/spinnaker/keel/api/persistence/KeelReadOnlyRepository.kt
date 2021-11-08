@@ -22,7 +22,7 @@ import java.time.Duration
  * A read-only repository for interacting with delivery configs, artifacts, and resources.
  *
  * TODO: merge back with [KeelRepository]. It's silly to have 2 separate interfaces as a consumer could easily
- * just apply a cast and access the write operations. :-P
+ *  just apply a cast and access the write operations. :-P The challenge is [KeelRepository] is currently in keel-core.
  */
 interface KeelReadOnlyRepository {
   fun getDeliveryConfig(name: String): DeliveryConfig

@@ -10,7 +10,7 @@ import com.netflix.spinnaker.keel.api.NotificationType.slack
 import com.netflix.spinnaker.keel.api.Verification
 import com.netflix.spinnaker.keel.core.api.ManualJudgementConstraint
 import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
-import com.netflix.spinnaker.keel.persistence.CombinedRepository
+import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.PersistenceRetry
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ACTIVE_ENVIRONMENT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT
@@ -94,14 +94,13 @@ class EnvironmentVersioningTests {
     environment = MockEnvironment()
   )
 
-  private val repository = CombinedRepository(
+  private val repository = KeelRepository(
     deliveryConfigRepository,
     artifactRepository,
     resourceRepository,
     actionRepository,
     clock,
     { },
-    objectMapper,
     DefaultResourceDiffFactory(),
     PersistenceRetry(PersistenceRetryConfig())
   )

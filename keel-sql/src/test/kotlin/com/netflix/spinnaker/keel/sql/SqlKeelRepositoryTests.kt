@@ -1,5 +1,7 @@
-package com.netflix.spinnaker.keel.persistence
+package com.netflix.spinnaker.keel.sql
 
+import com.fasterxml.jackson.databind.jsontype.NamedType
+import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.config.PersistenceRetryConfig
 import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
 import com.netflix.spinnaker.keel.api.DeliveryConfig
@@ -10,13 +12,14 @@ import com.netflix.spinnaker.keel.api.NotificationType.slack
 import com.netflix.spinnaker.keel.api.PreviewEnvironmentSpec
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.Verification
-import com.netflix.spinnaker.keel.api.action.ActionRepository
 import com.netflix.spinnaker.keel.api.artifacts.DOCKER
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.BRANCH_JOB_COMMIT_BY_JOB
 import com.netflix.spinnaker.keel.api.artifacts.branchStartsWith
 import com.netflix.spinnaker.keel.api.artifacts.from
 import com.netflix.spinnaker.keel.api.constraints.ConstraintState
-import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
+import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.FAIL
+import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.OVERRIDE_FAIL
+import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PENDING
 import com.netflix.spinnaker.keel.api.events.ArtifactRegisteredEvent
 import com.netflix.spinnaker.keel.api.events.ConstraintStateChanged
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
@@ -26,16 +29,27 @@ import com.netflix.spinnaker.keel.core.api.SubmittedResource
 import com.netflix.spinnaker.keel.core.api.normalize
 import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.events.ResourceCreated
-import com.netflix.spinnaker.keel.events.ResourceState
+import com.netflix.spinnaker.keel.events.ResourceState.Ok
 import com.netflix.spinnaker.keel.events.ResourceUpdated
 import com.netflix.spinnaker.keel.exceptions.DuplicateManagedResourceException
+import com.netflix.spinnaker.keel.persistence.ArtifactNotFoundException
+import com.netflix.spinnaker.keel.persistence.ConflictingDeliveryConfigsException
+import com.netflix.spinnaker.keel.persistence.KeelRepository
+import com.netflix.spinnaker.keel.persistence.NoSuchDeliveryConfigException
+import com.netflix.spinnaker.keel.persistence.NoSuchResourceException
+import com.netflix.spinnaker.keel.persistence.PersistenceRetry
+import com.netflix.spinnaker.keel.persistence.TooManyDeliveryConfigsException
 import com.netflix.spinnaker.keel.resources.ResourceFactory
 import com.netflix.spinnaker.keel.test.DummyResourceSpec
 import com.netflix.spinnaker.keel.test.TEST_API_V1
 import com.netflix.spinnaker.keel.test.configuredTestObjectMapper
-import com.netflix.spinnaker.keel.test.dockerArtifact
+import com.netflix.spinnaker.keel.test.defaultArtifactSuppliers
+import com.netflix.spinnaker.keel.test.mockEnvironment
 import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.keel.test.resourceFactory
+import com.netflix.spinnaker.kork.sql.config.RetryProperties
+import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
+import com.netflix.spinnaker.kork.sql.test.SqlTestUtil
 import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
@@ -56,6 +70,7 @@ import strikt.assertions.isNotEmpty
 import strikt.assertions.isNotNull
 import strikt.assertions.isSuccess
 import strikt.assertions.isTrue
+import java.time.Clock
 import java.time.Duration
 
 /**
@@ -63,15 +78,39 @@ import java.time.Duration
  *
  * Tests that only apply to one repository should live in the repository-specific test classes.
  */
-abstract class CombinedRepositoryTests<D : DeliveryConfigRepository, R : ResourceRepository, A : ArtifactRepository, V : ActionRepository> :
-  JUnit5Minutests {
+class SqlKeelRepositoryTests : JUnit5Minutests {
 
-  abstract fun createDeliveryConfigRepository(resourceFactory: ResourceFactory): D
-  abstract fun createResourceRepository(resourceFactory: ResourceFactory): R
-  abstract fun createArtifactRepository(): A
-  abstract fun createVerificationRepository(resourceFactory: ResourceFactory): V
+  private val jooq = testDatabase.context
+  private val objectMapper = configuredTestObjectMapper().apply {
+    registerSubtypes(NamedType(ManualJudgementConstraint::class.java, MANUAL_JUDGEMENT_CONSTRAINT_TYPE))
+    registerSubtypes(NamedType(DummyVerification::class.java, DummyVerification.TYPE))
+  }
+  private val retryProperties = RetryProperties(1, 0)
+  private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties))
+  private val clock = Clock.systemUTC()
 
-  open fun flush() {}
+  private fun createDeliveryConfigRepository(resourceFactory: ResourceFactory): SqlDeliveryConfigRepository =
+    SqlDeliveryConfigRepository(
+      jooq,
+      clock,
+      objectMapper,
+      resourceFactory,
+      sqlRetry,
+      defaultArtifactSuppliers(),
+      publisher = mockk(relaxed = true))
+
+  private fun createResourceRepository(resourceFactory: ResourceFactory): SqlResourceRepository =
+    SqlResourceRepository(jooq, clock, objectMapper, resourceFactory, sqlRetry, publisher = mockk(relaxed = true), spectator = NoopRegistry(), springEnv = mockEnvironment())
+
+  private fun createArtifactRepository(): SqlArtifactRepository =
+    SqlArtifactRepository(jooq, clock, objectMapper, sqlRetry, defaultArtifactSuppliers(), publisher = mockk(relaxed = true))
+
+  private fun createVerificationRepository(resourceFactory: ResourceFactory): SqlActionRepository =
+    SqlActionRepository(jooq, clock, objectMapper, resourceFactory, sqlRetry, environment = mockk())
+
+  private fun flush() {
+    SqlTestUtil.cleanupDb(jooq)
+  }
 
   data class DummyVerification(val label: String) : Verification {
     override val type = TYPE
@@ -139,52 +178,49 @@ abstract class CombinedRepositoryTests<D : DeliveryConfigRepository, R : Resourc
 
   val configWithStatefulConstraint = deliveryConfig.copy(environments = setOf(firstEnv.copy(constraints = setOf(ManualJudgementConstraint()))))
 
-  data class Fixture<D : DeliveryConfigRepository, R : ResourceRepository, A : ArtifactRepository, V : ActionRepository>(
-    val deliveryConfigRepositoryProvider: (ResourceFactory) -> D,
-    val resourceRepositoryProvider: (ResourceFactory) -> R,
-    val artifactRepositoryProvider: () -> A,
-    val verificationRepositoryProvider: (ResourceFactory) -> V
+  data class Fixture(
+    val deliveryConfigRepositoryProvider: (ResourceFactory) -> SqlDeliveryConfigRepository,
+    val resourceRepositoryProvider: (ResourceFactory) -> SqlResourceRepository,
+    val artifactRepositoryProvider: () -> SqlArtifactRepository,
+    val actionRepositoryProvider: (ResourceFactory) -> SqlActionRepository
   ) {
     internal val clock = MutableClock()
     val publisher: ApplicationEventPublisher = mockk(relaxUnitFun = true)
     private val dummyResourceFactory = resourceFactory()
-    internal val deliveryConfigRepository: D =
-      deliveryConfigRepositoryProvider(dummyResourceFactory)
-    internal val resourceRepository: ResourceRepository = spyk<ResourceRepository>(resourceRepositoryProvider(dummyResourceFactory))
-    internal val artifactRepository: A = artifactRepositoryProvider()
-    internal val verificationRepository: V =
-      verificationRepositoryProvider(dummyResourceFactory)
+    internal val deliveryConfigRepository = deliveryConfigRepositoryProvider(dummyResourceFactory)
+    internal val resourceRepository = spyk(resourceRepositoryProvider(dummyResourceFactory))
+    internal val artifactRepository= artifactRepositoryProvider()
+    internal val actionRepository = actionRepositoryProvider(dummyResourceFactory)
 
-    val subject = CombinedRepository(
+    val subject = KeelRepository(
       deliveryConfigRepository,
       artifactRepository,
       resourceRepository,
-      verificationRepository,
+      actionRepository,
       clock,
       publisher,
-      configuredTestObjectMapper(),
       DefaultResourceDiffFactory(),
       PersistenceRetry(PersistenceRetryConfig())
     )
 
     fun resourcesDueForCheck() =
       subject.resourcesDueForCheck(Duration.ofMinutes(1), Int.MAX_VALUE)
-        .onEach { subject.markResourceCheckComplete(it, ResourceState.Ok) }
+        .onEach { subject.markResourceCheckComplete(it, Ok) }
 
-    fun CombinedRepository.allResourceNames(): List<String> =
+    fun KeelRepository.allResourceNames(): List<String> =
       mutableListOf<String>()
         .also { list ->
           allResources { list.add(it.id) }
         }
   }
 
-  fun tests() = rootContext<Fixture<D, R, A, V>> {
+  fun tests() = rootContext<Fixture> {
     fixture {
       Fixture(
-        deliveryConfigRepositoryProvider = this@CombinedRepositoryTests::createDeliveryConfigRepository,
-        resourceRepositoryProvider = this@CombinedRepositoryTests::createResourceRepository,
-        artifactRepositoryProvider = this@CombinedRepositoryTests::createArtifactRepository,
-        verificationRepositoryProvider = this@CombinedRepositoryTests::createVerificationRepository
+        deliveryConfigRepositoryProvider = this@SqlKeelRepositoryTests::createDeliveryConfigRepository,
+        resourceRepositoryProvider = this@SqlKeelRepositoryTests::createResourceRepository,
+        artifactRepositoryProvider = this@SqlKeelRepositoryTests::createArtifactRepository,
+        actionRepositoryProvider = this@SqlKeelRepositoryTests::createVerificationRepository
       )
     }
 
@@ -227,7 +263,7 @@ abstract class CombinedRepositoryTests<D : DeliveryConfigRepository, R : Resourc
         }
 
         test("records that each resource was created") {
-          verify(exactly=deliveryConfig.resources.size) {
+          verify(exactly = deliveryConfig.resources.size) {
             resourceRepository.appendHistory(ofType<ResourceCreated>())
           }
         }
@@ -413,7 +449,7 @@ abstract class CombinedRepositoryTests<D : DeliveryConfigRepository, R : Resourc
               get(Resource<*>::version) isEqualTo 1
               get(Resource<*>::spec)
                 .isA<DummyResourceSpec>()
-                  .get(DummyResourceSpec::data) isEqualTo "o hai"
+                .get(DummyResourceSpec::data) isEqualTo "o hai"
             }
           }
 
@@ -447,8 +483,8 @@ abstract class CombinedRepositoryTests<D : DeliveryConfigRepository, R : Resourc
               expectThat(subject.getResource(resource.id)) {
                 get(Resource<*>::version) isEqualTo 1
                 get(Resource<*>::spec)
-                .isA<DummyResourceSpec>()
-                .get(DummyResourceSpec::data) isEqualTo resource.spec.data
+                  .isA<DummyResourceSpec>()
+                  .get(DummyResourceSpec::data) isEqualTo resource.spec.data
               }
             }
 
@@ -559,7 +595,7 @@ abstract class CombinedRepositoryTests<D : DeliveryConfigRepository, R : Resourc
         artifactVersion = "1.1",
         artifactReference = "myartifact",
         type = MANUAL_JUDGEMENT_CONSTRAINT_TYPE,
-        status = ConstraintStatus.PENDING,
+        status = PENDING,
       )
       before {
         subject.upsertDeliveryConfig(configWithStatefulConstraint)
@@ -567,7 +603,7 @@ abstract class CombinedRepositoryTests<D : DeliveryConfigRepository, R : Resourc
       context("no previous state") {
         test("event sent when saving config for the first time") {
           subject.storeConstraintState(pendingState)
-          verify (exactly = 1) { publisher.publishEvent(ofType<ConstraintStateChanged>()) }
+          verify(exactly = 1) { publisher.publishEvent(ofType<ConstraintStateChanged>()) }
         }
       }
       context("a different previous state") {
@@ -579,17 +615,17 @@ abstract class CombinedRepositoryTests<D : DeliveryConfigRepository, R : Resourc
             artifactVersion = "1.1",
             artifactReference = artifact.reference,
             type = MANUAL_JUDGEMENT_CONSTRAINT_TYPE,
-            status = ConstraintStatus.FAIL,
+            status = FAIL,
           )
           subject.storeConstraintState(state)
-          verify (exactly = 2) { publisher.publishEvent(ofType<ConstraintStateChanged>()) }
+          verify(exactly = 2) { publisher.publishEvent(ofType<ConstraintStateChanged>()) }
         }
       }
       context("the same previous state") {
         test("event sent only once") {
           subject.storeConstraintState(pendingState)
           subject.storeConstraintState(pendingState)
-          verify (exactly = 1) { publisher.publishEvent(ofType<ConstraintStateChanged>()) }
+          verify(exactly = 1) { publisher.publishEvent(ofType<ConstraintStateChanged>()) }
         }
       }
     }
@@ -599,8 +635,8 @@ abstract class CombinedRepositoryTests<D : DeliveryConfigRepository, R : Resourc
       before {
         subject.upsertDeliveryConfig(deliveryConfig)
         val context = ArtifactInEnvironmentContext(deliveryConfig, firstEnv.name, artifact.reference, version)
-        subject.updateActionState(context, verification, ConstraintStatus.PENDING)
-        subject.updateActionState(context, secondVerification, ConstraintStatus.PENDING)
+        subject.updateActionState(context, verification, PENDING)
+        subject.updateActionState(context, secondVerification, PENDING)
       }
 
       context("verification deleted from delivery config") {
@@ -615,7 +651,7 @@ abstract class CombinedRepositoryTests<D : DeliveryConfigRepository, R : Resourc
           expectThat(state)
             .isNotNull()
             .get { status }
-            .isEqualTo(ConstraintStatus.OVERRIDE_FAIL)
+            .isEqualTo(OVERRIDE_FAIL)
         }
 
         test("the pending state associated with the remaining verification is still present") {
@@ -623,8 +659,8 @@ abstract class CombinedRepositoryTests<D : DeliveryConfigRepository, R : Resourc
           expectThat(state)
             .isNotNull()
             .get { status }
-            .isEqualTo(ConstraintStatus.PENDING)
-          }
+            .isEqualTo(PENDING)
+        }
       }
     }
   }

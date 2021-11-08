@@ -9,7 +9,7 @@ import com.netflix.spinnaker.keel.auth.AuthorizationSupport
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport.TargetEntity.APPLICATION
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport.TargetEntity.DELIVERY_CONFIG
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport.TargetEntity.RESOURCE
-import com.netflix.spinnaker.keel.persistence.CombinedRepository
+import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.test.locatableResource
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import dev.minutest.junit.JUnit5Minutests
@@ -31,7 +31,7 @@ import strikt.assertions.isTrue
 internal class AuthorizationSupportTests : JUnit5Minutests {
   private val dynamicConfigService: DynamicConfigService = mockk(relaxed = true)
   private val permissionEvaluator: FiatPermissionEvaluator = mockk(relaxed = true)
-  private val combinedRepository: CombinedRepository = mockk(relaxed = true)
+  private val combinedRepository: KeelRepository = mockk(relaxed = true)
   private val resource = locatableResource()
   private val deliveryConfig = DeliveryConfig(
     name = "manifest",
