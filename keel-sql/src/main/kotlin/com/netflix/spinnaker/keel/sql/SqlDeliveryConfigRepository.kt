@@ -1226,7 +1226,8 @@ class SqlDeliveryConfigRepository(
   ): Collection<DeliveryConfig> {
     val now = clock.instant()
     val cutoff = now.minus(minTimeSinceLastCheck)
-    val oneMinuteAgo = now.minusSeconds(60)
+    val oneMinuteAgo = now.minus(Duration.ofMinutes(1))
+    val threeMinutesAgo = now.minus(Duration.ofMinutes(3))
     return sqlRetry.withRetry(WRITE) {
       jooq.inTransaction {
         select(DELIVERY_CONFIG.UID, DELIVERY_CONFIG.NAME, DELIVERY_CONFIG_LAST_CHECKED.AT)
@@ -1242,6 +1243,7 @@ class SqlDeliveryConfigRepository(
             DELIVERY_CONFIG_LAST_CHECKED.LEASED_BY.isNull // ensure no other instance is working on this
               .or(HEARTBEAT.LAST_HEARTBEAT.isNull)
               .or(HEARTBEAT.LAST_HEARTBEAT.lessOrEqual(oneMinuteAgo)) // instance was terminated mid-check, so it's up for grabs
+              .or(DELIVERY_CONFIG_LAST_CHECKED.LEASED_AT.lessOrEqual(threeMinutesAgo)) // lease expired
           )
           // the application is not paused
           .andNotExists(

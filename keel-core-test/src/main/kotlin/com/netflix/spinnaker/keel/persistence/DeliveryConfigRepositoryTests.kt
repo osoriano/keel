@@ -316,25 +316,34 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
         }
       }
 
-      test("instance holds the lease if the heartbeat is still active") {
+      test("instance holds the lease if the heartbeat is still active and it's had it for less than 3 minutes") {
         beat() // signal the instance is alive, this normally happens in the background
-        val firstCheck = repository.itemsDueForCheck(Duration.ofMinutes(2), 1)
-        clock.tickMinutes(3)
+        val firstCheck = repository.itemsDueForCheck(Duration.ofMinutes(1), 1)
+        clock.tickMinutes(2)
         beat() // instance is still alive and working on the config
-        val secondCheck = repository.itemsDueForCheck(Duration.ofMinutes(2), 1)
+        val secondCheck = repository.itemsDueForCheck(Duration.ofMinutes(1), 1)
         repository.markCheckComplete(firstCheck.first(), null)
-        clock.tickMinutes(3)
+        clock.tickMinutes(2)
         beat() // instance is still alive, but has marked the check complete
-        val thirdCheck = repository.itemsDueForCheck(Duration.ofMinutes(2), 1)
+        val thirdCheck = repository.itemsDueForCheck(Duration.ofMinutes(1), 1)
         expectThat(firstCheck.size).isEqualTo(1)
         expectThat(secondCheck.size).isEqualTo(0)
         expectThat(thirdCheck.size).isEqualTo(1)
       }
 
       test("instance forfeits the lease if the heartbeat is inactive") {
-        val firstCheck = repository.itemsDueForCheck(Duration.ofMinutes(2), 1)
+        val firstCheck = repository.itemsDueForCheck(Duration.ofMinutes(1), 1)
+        clock.tickMinutes(2)
+        val secondCheck = repository.itemsDueForCheck(Duration.ofMinutes(1), 1)
+        expectThat(firstCheck.size).isEqualTo(1)
+        expectThat(secondCheck.size).isEqualTo(1)
+      }
+
+      test("instance forfeits the lease after 3 minutes") {
+        val firstCheck = repository.itemsDueForCheck(Duration.ofMinutes(1), 1)
         clock.tickMinutes(3)
-        val secondCheck = repository.itemsDueForCheck(Duration.ofMinutes(2), 1)
+        beat() // instance is still alive
+        val secondCheck = repository.itemsDueForCheck(Duration.ofMinutes(1), 1)
         expectThat(firstCheck.size).isEqualTo(1)
         expectThat(secondCheck.size).isEqualTo(1)
       }
