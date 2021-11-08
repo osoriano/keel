@@ -14,6 +14,7 @@ import io.mockk.mockk
 import org.junit.jupiter.api.Test
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo
+import strikt.assertions.isNull
 import io.mockk.coEvery as every
 
 internal class TitusIAMProfileResolverTests {
@@ -74,9 +75,9 @@ internal class TitusIAMProfileResolverTests {
   }
 
   @Test
-  fun `a missing IAM profile is resolved into the default ARN`() {
-    val resource = titusClusterSpecIamProfileLens.set(specTemplate, "fnordInstanceProfile").toResource()
+  fun `a missing IAM profile is not resolved into anything as Spinnaker provides the default`() {
+    val resource = titusClusterSpecIamProfileLens.set(specTemplate, null).toResource()
     val resolved = resolver.invoke(resource)
-    expectThat(resolved.spec.defaults.iamProfile) isEqualTo iamProfileArn
+    expectThat(resolved.spec.defaults.iamProfile).isNull()
   }
 }

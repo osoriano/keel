@@ -24,7 +24,7 @@ class TitusIAMProfileResolver(
     val account = resourceAccountLens.get(resource)
     val iamProfile = resourceIamProfileLens.get(resource)
     val updated = when {
-      iamProfile == null -> "arn:aws:iam::${accountIdFor(account)}:role/${application}InstanceProfile"
+      iamProfile == null -> null
       iamProfile.startsWith("arn:aws:iam::") -> iamProfile
       else -> "arn:aws:iam::${accountIdFor(account)}:role/${iamProfile}"
     }
