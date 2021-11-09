@@ -30,7 +30,6 @@ data class TitusServerGroup(
   val name: String,
   val container: DigestProvider,
   val location: Location,
-  val iamProfile: String,
   val env: Map<String, String> = emptyMap(),
   val containerAttributes: Map<String, String> = emptyMap(),
   val resources: Resources = Resources(),

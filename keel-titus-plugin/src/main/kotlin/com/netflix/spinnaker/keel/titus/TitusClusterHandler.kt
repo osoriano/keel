@@ -94,6 +94,7 @@ import com.netflix.spinnaker.keel.plugin.buildSpecFromDiff
 import com.netflix.spinnaker.keel.retrofit.isNotFound
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
 import com.netflix.spinnaker.keel.titus.exceptions.RegistryNotFoundException
+import com.netflix.spinnaker.keel.titus.exceptions.TitusAccountConfigurationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
@@ -716,8 +717,7 @@ class TitusClusterHandler(
         "loadBalancers" to dependencies.loadBalancerNames,
         "targetGroups" to dependencies.targetGroups,
         "account" to location.account,
-        "efs" to efs,
-        "iamProfile" to iamProfile
+        "efs" to efs
       ) + image
     }
       .let { job ->
@@ -1061,9 +1061,12 @@ class TitusClusterHandler(
           efsId = it.efsId,
           efsRelativeMountPoint = it.efsRelativeMountPoint,
         )
-      },
-      iamProfile = iamProfile
+      }
     )
+
+  fun getAwsAccountNameForTitusAccount(titusAccount: String): String =
+    cloudDriverCache.credentialBy(titusAccount).attributes["awsAccount"] as? String
+      ?: throw TitusAccountConfigurationException(titusAccount, "awsAccount")
 
   fun getRegistryForTitusAccount(titusAccount: String): String =
     cloudDriverCache.credentialBy(titusAccount).attributes["registry"] as? String
@@ -1071,7 +1074,7 @@ class TitusClusterHandler(
 
   fun TitusServerGroup.securityGroupIds(): Collection<String> =
     runBlocking {
-      val awsAccount = cloudDriverCache.awsAccountNameForTitusAccount(location.account)
+      val awsAccount = getAwsAccountNameForTitusAccount(location.account)
       dependencies
         .securityGroupNames
         // no need to specify these as Orca will auto-assign them, also the application security group

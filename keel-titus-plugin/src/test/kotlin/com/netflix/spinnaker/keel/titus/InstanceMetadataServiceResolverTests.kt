@@ -78,8 +78,7 @@ internal class InstanceMetadataServiceResolverTests :
         container = DigestProvider("fnord", "docker", UUID.randomUUID().toString()),
         id = UUID.randomUUID().toString(),
         containerAttributes = if (featureActive) mapOf("titusParameter.agent.imds.requireToken" to "true") else emptyMap(),
-        efs = null,
-        iamProfile = "${moniker.app}InstanceProfile"
+        efs = null
       )
     }
 

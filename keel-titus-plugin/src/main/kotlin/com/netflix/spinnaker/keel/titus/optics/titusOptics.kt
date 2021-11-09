@@ -52,21 +52,7 @@ val titusServerGroupSpecContainerAttributesLens: Lens<TitusServerGroupSpec, Map<
 )
 
 /**
- * Lens for getting/setting [TitusServerGroupSpec.iamProfile].
- */
-val titusServerGroupSpecIamProfileLens: Lens<TitusServerGroupSpec, String?> = Lens(
-  get = TitusServerGroupSpec::iamProfile,
-  set = { serverGroupSpec, iamProfile -> serverGroupSpec.copy(iamProfile = iamProfile) }
-)
-
-/**
- * Composed lens for getting/setting the [TitusServerGroupSpec.containerAttributes] of a [TitusClusterSpec.defaults].
+ * Composed lens for getting/setting the [TitusServerGroupSpec.containerAttributes] of a [TitusClusterSpec.moniker].
  */
 val titusClusterSpecContainerAttributesLens =
   titusClusterSpecDefaultsLens + titusServerGroupSpecContainerAttributesLens
-
-/**
- * Composed lens for getting/setting the [TitusServerGroupSpec.iamProfile] of a [TitusClusterSpec.defaults].
- */
-val titusClusterSpecIamProfileLens =
-  titusClusterSpecDefaultsLens + titusServerGroupSpecIamProfileLens
