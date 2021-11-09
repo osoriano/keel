@@ -117,17 +117,6 @@ interface ArtifactRepository : PeriodicallyCheckedRepository<DeliveryArtifact> {
   ): Boolean
 
   /**
-   * @return The [Instant] at which the specified artifact version was approved for [targetEnvironment], or null
-   * if it has not been approved.
-   */
-  fun getApprovedAt(
-    deliveryConfig: DeliveryConfig,
-    artifact: DeliveryArtifact,
-    version: String,
-    targetEnvironment: String
-  ): Instant?
-
-  /**
    * Marks [version] as currently deploying to [targetEnvironment].
    */
   fun markAsDeployingTo(
