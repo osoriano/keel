@@ -71,7 +71,7 @@ class NetworkEndpointProviderTests : JUnit5Minutests {
         }
         with(computeResource) {
           expectThat(endpoints).contains(
-            NetworkEndpoint(EUREKA_VIP_DNS, "us-east-1", "${spec.moniker.toName()}.vip.us-east-1.test.acme.net"),
+            NetworkEndpoint(EUREKA_VIP_DNS, "us-east-1", "fnordcomputeResource.vip.us-east-1.test.acme.net"), // different format for vip prefex
             NetworkEndpoint(EUREKA_CLUSTER_DNS, "us-east-1", "${spec.moniker.toName()}.cluster.us-east-1.test.acme.net")
           )
         }

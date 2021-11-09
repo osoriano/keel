@@ -2,6 +2,7 @@ package com.netflix.spinnaker.keel.network
 
 import com.netflix.spinnaker.config.DnsConfig
 import com.netflix.spinnaker.keel.api.ComputeResourceSpec
+import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ec2.LoadBalancerSpec
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
@@ -32,7 +33,7 @@ class NetworkEndpointProvider(
           locations.regions.flatMap { region ->
             listOf(
               // Example: lpollolocaltest-feature-preview.vip.us-east-1.test.acme.net
-              NetworkEndpoint(EUREKA_VIP_DNS, region.name, "${moniker.toName()}.vip.${region.name}.${locations.account.environment}.${dnsConfig.defaultDomain}"),
+              NetworkEndpoint(EUREKA_VIP_DNS, region.name, "${moniker.generateVipPrefix()}.vip.${region.name}.${locations.account.environment}.${dnsConfig.defaultDomain}"),
               NetworkEndpoint(EUREKA_CLUSTER_DNS, region.name, "${moniker.toName()}.cluster.${region.name}.${locations.account.environment}.${dnsConfig.defaultDomain}"),
             )
           }.toSet()
@@ -53,6 +54,16 @@ class NetworkEndpointProvider(
       }
     }
   }
+
+  /**
+   * todo: this is the default for SBN apps, as documented here, but won't be the case for every app:
+   * https://manuals.netflix.net/view/runtime-java/mkdocs/master/spring-reference/ipc/service_discovery/#advertising-myself-server-vips
+   *
+   * We might have to do something different in the future, but we will do that when asked for it.
+   */
+  fun Moniker.generateVipPrefix(): String =
+    app + if (stack != null) stack else ""
+
 
   private val String.environment: String
     get() = runBlocking {
