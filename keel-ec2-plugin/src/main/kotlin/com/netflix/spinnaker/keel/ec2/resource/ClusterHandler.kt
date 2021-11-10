@@ -341,7 +341,9 @@ class ClusterHandler(
       return DebianArtifact(
         name = artifactName,
         vmOptions = VirtualMachineOptions(regions = serverGroups.keys, baseOs = guessBaseOsFrom(base.image)),
-        branch = artifact.branch
+        branch = artifact.branch,
+        //provide a unique reference name
+        reference = "$artifactName:${artifact.branch}"
       )
     } else {
       // fall back to exporting the artifact in the old format if we can't retrieve metadata

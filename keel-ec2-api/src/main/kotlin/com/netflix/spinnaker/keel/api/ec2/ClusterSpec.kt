@@ -1,6 +1,5 @@
 package com.netflix.spinnaker.keel.api.ec2
 
-import com.netflix.spinnaker.keel.api.ArtifactReferenceProvider
 import com.netflix.spinnaker.keel.api.ClusterDeployStrategy
 import com.netflix.spinnaker.keel.api.ComputeResourceSpec
 import com.netflix.spinnaker.keel.api.Dependency
