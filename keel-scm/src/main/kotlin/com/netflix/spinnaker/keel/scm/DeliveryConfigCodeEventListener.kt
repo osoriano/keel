@@ -59,6 +59,11 @@ class DeliveryConfigCodeEventListener(
       return
     }
 
+    if (event is PrMergedEvent && event.isFromFork) {
+      log.debug("We currently do not handle events from forks: $event")
+      return
+    }
+
     val apps = runBlocking {
       try {
         front50Cache.searchApplicationsByRepo(GitRepository(event.repoType, event.projectKey, event.repoSlug))

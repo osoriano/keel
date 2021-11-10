@@ -60,6 +60,8 @@ abstract class PrEvent(
   override val targetBranch: String,
   override val pullRequestId: String,
   open val pullRequestBranch: String,
+  open val pullRequestProjectKey: String? = null,
+  open val pullRequestRepoSlug: String? = null,
   override val authorName: String? = null,
   override val authorEmail: String? = null,
   override val message: String? = null
@@ -67,6 +69,10 @@ abstract class PrEvent(
 
   val String.headOfBranch: String
     get() = if (this.startsWith("refs/heads/")) this else "refs/heads/$this"
+
+  val isFromFork: Boolean
+    get() = (pullRequestProjectKey != null && projectKey != pullRequestProjectKey) ||
+      (pullRequestRepoSlug != null && pullRequestRepoSlug != repoSlug)
 }
 
 /**
@@ -77,6 +83,8 @@ data class PrOpenedEvent(
   override val targetBranch: String,
   override val pullRequestId: String,
   override val pullRequestBranch: String,
+  override val pullRequestProjectKey: String? = null,
+  override val pullRequestRepoSlug: String? = null,
   override val authorName: String? = null,
   override val authorEmail: String? = null,
   override val message: String? = null
@@ -93,6 +101,8 @@ data class PrUpdatedEvent(
   override val targetBranch: String,
   override val pullRequestId: String,
   override val pullRequestBranch: String,
+  override val pullRequestProjectKey: String? = null,
+  override val pullRequestRepoSlug: String? = null,
   override val authorName: String? = null,
   override val authorEmail: String? = null,
   override val message: String? = null
@@ -109,6 +119,8 @@ data class PrMergedEvent(
   override val targetBranch: String,
   override val pullRequestId: String,
   override val pullRequestBranch: String,
+  override val pullRequestProjectKey: String? = null,
+  override val pullRequestRepoSlug: String? = null,
   override val commitHash: String,
   override val authorName: String? = null,
   override val authorEmail: String? = null,
@@ -126,6 +138,8 @@ data class PrDeclinedEvent(
   override val targetBranch: String,
   override val pullRequestId: String,
   override val pullRequestBranch: String,
+  override val pullRequestProjectKey: String? = null,
+  override val pullRequestRepoSlug: String? = null,
   override val authorName: String? = null,
   override val authorEmail: String? = null,
   override val message: String? = null
@@ -142,6 +156,8 @@ data class PrDeletedEvent(
   override val targetBranch: String,
   override val pullRequestId: String,
   override val pullRequestBranch: String,
+  override val pullRequestProjectKey: String? = null,
+  override val pullRequestRepoSlug: String? = null,
   override val authorName: String? = null,
   override val authorEmail: String? = null,
   override val message: String? = null
@@ -166,6 +182,7 @@ data class CommitCreatedEvent(
   init { validate() }
 }
 
+
 /**
  * @return a [CodeEvent] based on the properties of this "artifact" definition from an Echo event.
  */
@@ -186,6 +203,8 @@ fun PublishedArtifact.toCodeEvent(): CodeEvent? {
       targetBranch = targetBranch,
       pullRequestId = pullRequestId,
       pullRequestBranch = pullRequestBranch,
+      pullRequestProjectKey = pullRequestProjectKey,
+      pullRequestRepoSlug = pullRequestRepoSlug,
       authorName = authorName,
       authorEmail = authorEmail,
       message = message
@@ -195,6 +214,8 @@ fun PublishedArtifact.toCodeEvent(): CodeEvent? {
       targetBranch = targetBranch,
       pullRequestId = pullRequestId,
       pullRequestBranch = pullRequestBranch,
+      pullRequestProjectKey = pullRequestProjectKey,
+      pullRequestRepoSlug = pullRequestRepoSlug,
       authorName = authorName,
       authorEmail = authorEmail,
       message = message
@@ -204,6 +225,8 @@ fun PublishedArtifact.toCodeEvent(): CodeEvent? {
       targetBranch = targetBranch,
       pullRequestId = pullRequestId,
       pullRequestBranch = pullRequestBranch,
+      pullRequestProjectKey = pullRequestProjectKey,
+      pullRequestRepoSlug = pullRequestRepoSlug,
       authorName = authorName,
       authorEmail = authorEmail,
       commitHash = sha,
@@ -214,6 +237,8 @@ fun PublishedArtifact.toCodeEvent(): CodeEvent? {
       targetBranch = targetBranch,
       pullRequestId = pullRequestId,
       pullRequestBranch = pullRequestBranch,
+      pullRequestProjectKey = pullRequestProjectKey,
+      pullRequestRepoSlug = pullRequestRepoSlug,
       authorName = authorName,
       authorEmail = authorEmail,
       message = message
@@ -223,6 +248,8 @@ fun PublishedArtifact.toCodeEvent(): CodeEvent? {
       targetBranch = targetBranch,
       pullRequestId = pullRequestId,
       pullRequestBranch = pullRequestBranch,
+      pullRequestProjectKey = pullRequestProjectKey,
+      pullRequestRepoSlug = pullRequestRepoSlug,
       authorName = authorName,
       authorEmail = authorEmail,
       message = message
@@ -264,6 +291,12 @@ private val PublishedArtifact.sha: String
 
 private val PublishedArtifact.pullRequestId: String
   get() = metadata["prId"] as? String ?: throw MissingCodeEventDetails("PR ID", this)
+
+private val PublishedArtifact.pullRequestProjectKey: String?
+  get() = metadata["prProjectKey"] as? String
+
+private val PublishedArtifact.pullRequestRepoSlug: String?
+  get() = metadata["prRepoSlug"] as? String
 
 private val PublishedArtifact.pullRequestBranch: String
   get() = (metadata["prBranch"] as? String)?.let { it.replace("refs/heads/", "") }
