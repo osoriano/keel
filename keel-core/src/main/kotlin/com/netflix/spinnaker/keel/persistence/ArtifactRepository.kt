@@ -130,6 +130,17 @@ interface ArtifactRepository : PeriodicallyCheckedRepository<DeliveryArtifact> {
   ): Instant?
 
   /**
+   * @return The [Instant] at which the specified artifact version was pinned in [targetEnvironment], or null
+   * if it has never been pinned.
+   */
+  fun getPinnedAt(
+    deliveryConfig: DeliveryConfig,
+    artifact: DeliveryArtifact,
+    version: String,
+    targetEnvironment: String
+  ): Instant?
+
+  /**
    * Marks [version] as currently deploying to [targetEnvironment].
    */
   fun markAsDeployingTo(

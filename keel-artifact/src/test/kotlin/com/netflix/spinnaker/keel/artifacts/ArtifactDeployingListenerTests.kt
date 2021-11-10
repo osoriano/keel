@@ -49,6 +49,7 @@ internal class ArtifactDeployingListenerTests {
     every { repository.environmentFor(resource.id) } returns config.environments.first()
     every { repository.isApprovedFor(any(), any(), event.artifactVersion, any()) } returns true
     every { repository.getApprovedAt(any(), any(), event.artifactVersion, any()) } returns clock.instant()
+    every { repository.getPinnedAt(any(), any(), event.artifactVersion, any()) } returns null
     every { resourceSpy.findAssociatedArtifact(config) } returns artifact
     every { spectator.timer(any(), any<Iterable<Tag>>()) } returns timer
     every { timer.record(any<Duration>()) } just runs
@@ -77,7 +78,17 @@ internal class ArtifactDeployingListenerTests {
   @Test
   fun `records deployment delay when version is approved`() {
     subject.onArtifactVersionDeploying(event)
+    verifyDeploymentDelayRecorded("approved")
+  }
 
+  @Test
+  fun `records deployment delay when version is pinned`() {
+    every { repository.getPinnedAt(any(), any(), event.artifactVersion, any()) } returns clock.instant()
+    subject.onArtifactVersionDeploying(event)
+    verifyDeploymentDelayRecorded("pinned")
+  }
+
+  private fun verifyDeploymentDelayRecorded(action: String) {
     val tags = slot<Iterable<Tag>>()
 
     verify { spectator.timer(ARTIFACT_DELAY, capture(tags)) }
@@ -87,6 +98,10 @@ internal class ArtifactDeployingListenerTests {
       one {
         get { key() }.isEqualTo("delayType")
         get { value() }.isEqualTo("deployment")
+      }
+      one {
+        get { key() }.isEqualTo("action")
+        get { value() }.isEqualTo(action)
       }
       one {
         get { key() }.isEqualTo("artifactType")

@@ -205,6 +205,9 @@ interface KeelRepository : KeelReadOnlyRepository {
   fun getApprovedAt(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact, version: String, targetEnvironment: String): Instant? =
     artifactRepository.getApprovedAt(deliveryConfig, artifact, version, targetEnvironment)
 
+  fun getPinnedAt(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact, version: String, targetEnvironment: String): Instant? =
+    artifactRepository.getPinnedAt(deliveryConfig, artifact, version, targetEnvironment)
+
   fun markAsDeployingTo(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact, version: String, targetEnvironment: String)
 
   fun markAsSuccessfullyDeployedTo(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact, version: String, targetEnvironment: String)

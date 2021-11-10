@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import java.time.Clock
+import java.time.Duration
 
 @Component
 class ArtifactDeployingListener(
@@ -67,11 +68,24 @@ class ArtifactDeployingListener(
     targetEnvironment: String
   ) {
     val approvedAt = repository.getApprovedAt(deliveryConfig, artifact, version, targetEnvironment)
-    if (approvedAt != null) {
-      spectator.recordDuration(ARTIFACT_DELAY, clock, approvedAt,
+    val pinnedAt = repository.getPinnedAt(deliveryConfig, artifact, version, targetEnvironment)
+    val startTime = when {
+      pinnedAt != null && approvedAt == null -> pinnedAt
+      pinnedAt == null && approvedAt != null -> approvedAt
+      pinnedAt != null && approvedAt != null -> when {
+        pinnedAt.isAfter(approvedAt) -> pinnedAt
+        else -> approvedAt
+      }
+      else -> null
+    }
+
+    if (startTime != null) {
+      log.debug("Recording deployment delay for $artifact: ${Duration.between(startTime, clock.instant())}")
+      spectator.recordDuration(ARTIFACT_DELAY, clock, startTime,
         "delayType" to "deployment",
         "artifactType" to artifact.type,
         "artifactName" to artifact.name,
+        "action" to if (startTime == pinnedAt) "pinned" else "approved"
       )
     }
   }

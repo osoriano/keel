@@ -202,16 +202,22 @@ final class WorkQueueProcessor(
   internal fun enrichAndStore(artifact: PublishedArtifact, supplier: ArtifactSupplier<*,*>): Boolean {
     val enrichedArtifact = supplier.addMetadata(artifact.normalized())
     notifyArtifactVersionDetected(enrichedArtifact)
-    return repository.storeArtifactVersion(enrichedArtifact).also {
-      if (artifact.createdAt != null) {
+
+    val stored = repository.storeArtifactVersion(enrichedArtifact)
+
+    if (stored && enrichedArtifact.createdAt != null) {
+      with(enrichedArtifact) {
         // record how long it took us to store this version since the artifact was created
-        spectator.recordDuration(ARTIFACT_DELAY, clock, artifact.createdAt!!,
+        log.debug("Recording storage delay for $type:$name: ${Duration.between(createdAt!!, clock.instant())}")
+        spectator.recordDuration(ARTIFACT_DELAY, clock, createdAt!!,
           "delayType" to "storage",
-          "artifactType" to artifact.type,
-          "artifactName" to artifact.name
+          "artifactType" to type,
+          "artifactName" to name
         )
       }
     }
+
+    return stored
   }
 
   /**
