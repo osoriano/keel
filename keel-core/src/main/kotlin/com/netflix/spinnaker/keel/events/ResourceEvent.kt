@@ -36,6 +36,7 @@ import com.netflix.spinnaker.keel.events.ResourceState.Unresolvable
 import com.netflix.spinnaker.keel.events.EventLevel.WARNING
 import com.netflix.spinnaker.keel.events.EventLevel.ERROR
 import com.netflix.spinnaker.keel.events.EventLevel.SUCCESS
+import com.netflix.spinnaker.keel.exceptions.DetailedUserException
 import com.netflix.spinnaker.keel.persistence.ResourceStatus
 import com.netflix.spinnaker.kork.exceptions.SpinnakerException
 import com.netflix.spinnaker.kork.exceptions.SystemException
@@ -484,7 +485,8 @@ data class ResourceCheckError(
   val exceptionMessage: String?,
   override val displayName: String = "Failed to check resource status",
   override val level: EventLevel = ERROR,
-  override val firstTriggeredAt: Instant = timestamp
+  override val firstTriggeredAt: Instant = timestamp,
+  val errors: List<String> = emptyList()
 ) : ResourceCheckResult(message = exceptionMessage) {
   @JsonIgnore
   override val state = Error
@@ -499,7 +501,8 @@ data class ResourceCheckError(
     resource.application,
     clock.instant(),
     exception.javaClass,
-    exception.message
+    exception.message,
+    errors = (exception as? DetailedUserException)?.errors ?: emptyList()
   )
 }
 

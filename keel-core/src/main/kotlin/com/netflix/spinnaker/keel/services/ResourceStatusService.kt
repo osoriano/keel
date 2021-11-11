@@ -105,10 +105,10 @@ class ResourceStatusService(
       history.isCreated() -> ResourceStatusUserFriendly.PROCESSING.toActuationState(reason = "New resource will be created shortly", history = history)
       history.isResumed() -> ResourceStatusUserFriendly.PROCESSING.toActuationState(reason = "Resource management will resume shortly", history = history)
       history.isDeleting() ->  ResourceStatusUserFriendly.DELETING.toActuationState(reason = "Resource is being deleted", history = history)
-      history.isMissingDependency() -> ResourceStatusUserFriendly.ERROR.toActuationState(reason = history.getFirstMessage(), history = history)
+      history.isMissingDependency() -> ResourceStatusUserFriendly.ERROR.toActuationState(reason = history.lastRelevantMessage(), history = history)
       history.isVetoed() -> ResourceStatusUserFriendly.ERROR.toActuationState(reason = "We failed to update the resource multiple times", history = history)
       history.isDiffNotActionable() -> ResourceStatusUserFriendly.ERROR.toActuationState(reason = "We are unable to update resource to match the config", history = history)
-      history.isError() -> ResourceStatusUserFriendly.ERROR.toActuationState(reason = "Unknown reason", history = history)
+      history.isError() -> ResourceStatusUserFriendly.ERROR.toActuationState(reason = history.lastRelevantMessage(), history = history)
       history.isCurrentlyUnresolvable() -> ResourceStatusUserFriendly.ERROR.toActuationState(reason = "We are temporarily unable to check resource status", history = history)
       else -> ResourceStatusUserFriendly.ERROR.toActuationState(reason = "Unknown reason", history = history)
     }
@@ -233,14 +233,19 @@ data class ResourceActuationState(
   val reason: String? = null,
   /** The content of the last event */
   val eventMessage: String? = null,
-  /** list of tasks associated with the event if eny */
-  val tasks: List<Task>? = emptyList()
+  /** list of tasks associated with the event if any */
+  val tasks: List<Task>? = emptyList(),
+  /** list of errors associated with the event if any */
+  val errors: List<String>? = emptyList()
 )
 
-fun List<ResourceHistoryEvent>.getFirstMessage(): String? =
-  filterIsInstance<ResourceEvent>().firstOrNull()?.message
+fun List<ResourceHistoryEvent>.lastRelevantEvent(): ResourceEvent? =
+  filterIsInstance<ResourceEvent>().firstOrNull()
 
-fun List<ResourceHistoryEvent>.getLastEventTasks(): List<Task>? {
+fun List<ResourceHistoryEvent>.lastRelevantMessage(): String? =
+  lastRelevantEvent()?.message
+
+fun List<ResourceHistoryEvent>.lastEventTasks(): List<Task>? {
   val first = firstOrNull()
   return when (first) {
     is ResourceTaskSucceeded -> first.tasks
@@ -259,6 +264,13 @@ enum class ResourceStatusUserFriendly {
   DELETING;
 
   fun toActuationState(reason: String? = null, history: List<ResourceHistoryEvent>): ResourceActuationState {
-    return ResourceActuationState(status = this, reason = reason, eventMessage = history.getFirstMessage(), tasks = history.getLastEventTasks())
+    val event = history.lastRelevantEvent()
+    return ResourceActuationState(
+      status = this,
+      reason = reason,
+      eventMessage = event?.message,
+      tasks = history.lastEventTasks(),
+      errors = (event as? ResourceCheckError)?.errors
+    )
   }
 }

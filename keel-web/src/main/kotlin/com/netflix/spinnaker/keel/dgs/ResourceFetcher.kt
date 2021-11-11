@@ -59,7 +59,8 @@ class ResourceFetcher(
       resourceId = resource.id,
       status = MD_ResourceActuationStatus.valueOf(state.status.name),
       reason = state.reason,
-      event = state.eventMessage
+      event = state.eventMessage,
+      errors = state.errors
     )
   }
 

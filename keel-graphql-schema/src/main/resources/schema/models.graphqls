@@ -209,6 +209,7 @@ type MD_ResourceActuationState {
   reason: String
   event: String
   tasks: [MD_ResourceTask!]
+  errors: [String!]
 }
 
 type MD_ResourceTask {
