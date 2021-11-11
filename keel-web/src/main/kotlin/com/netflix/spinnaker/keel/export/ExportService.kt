@@ -11,11 +11,13 @@ import com.netflix.spinnaker.keel.api.Exportable
 import com.netflix.spinnaker.keel.api.ResourceKind
 import com.netflix.spinnaker.keel.api.ResourceSpec
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
+import com.netflix.spinnaker.keel.api.ec2.ApplicationLoadBalancerSpec
+import com.netflix.spinnaker.keel.api.ec2.ClassicLoadBalancerSpec
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec
 import com.netflix.spinnaker.keel.api.ec2.EC2_APPLICATION_LOAD_BALANCER_V1_2
+import com.netflix.spinnaker.keel.api.ec2.EC2_CLASSIC_LOAD_BALANCER_V1
 import com.netflix.spinnaker.keel.api.ec2.EC2_CLUSTER_V1_1
 import com.netflix.spinnaker.keel.api.ec2.EC2_SECURITY_GROUP_V1
-import com.netflix.spinnaker.keel.api.ec2.LoadBalancerSpec
 import com.netflix.spinnaker.keel.api.ec2.SecurityGroupSpec
 import com.netflix.spinnaker.keel.api.plugins.ResourceHandler
 import com.netflix.spinnaker.keel.api.plugins.supporting
@@ -34,6 +36,8 @@ import com.netflix.spinnaker.keel.front50.model.DeployStage
 import com.netflix.spinnaker.keel.front50.model.Pipeline
 import com.netflix.spinnaker.keel.orca.ExecutionDetailResponse
 import com.netflix.spinnaker.keel.orca.OrcaService
+import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
+import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.validators.DeliveryConfigValidator
 import com.netflix.spinnaker.keel.veto.unhealthy.UnsupportedResourceTypeException
 import kotlinx.coroutines.runBlocking
@@ -52,7 +56,8 @@ class ExportService(
   private val orcaService: OrcaService,
   private val baseUrlConfig: BaseUrlConfig,
   private val yamlMapper: YAMLMapper,
-  private val validator: DeliveryConfigValidator
+  private val validator: DeliveryConfigValidator,
+  private val deliveryConfigRepository: DeliveryConfigRepository
 ) {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
   private val prettyPrinter by lazy { yamlMapper.writerWithDefaultPrettyPrinter() }
@@ -100,9 +105,12 @@ class ExportService(
     val pipelines = front50Cache.pipelinesByApplication(applicationName)
     val application = front50Cache.applicationByName(applicationName)
 
-    if (application.managedDelivery?.importDeliveryConfig == true) {
-      // This heuristic is not perfect - this value will exist for apps that were on MD and then removed. Good enough for now
+    try {
+      deliveryConfigRepository.getByApplication(applicationName)
+      log.debug("found an existing config for application $applicationName. Will not process with export process.")
       return ExportSkippedResult(isManaged = true)
+    } catch (e: NoDeliveryConfigForApplication) {
+      log.debug("did not found an existing config for application $applicationName. Trying to export..")
     }
 
     val serviceAccount = application.email ?: DEFAULT_SERVICE_ACCOUNT
@@ -261,11 +269,12 @@ class ExportService(
 
     // Get all the cluster dependencies security groups and alb
     val securityGroupResources = dependentResources(dependencies, environments, cluster, EC2_SECURITY_GROUP_V1.kind)
-    val loadBalancersResources = dependentResources(dependencies, environments, cluster, EC2_APPLICATION_LOAD_BALANCER_V1_2.kind)
+    val loadBalancersResources = dependentResources(dependencies, environments, cluster, EC2_CLASSIC_LOAD_BALANCER_V1.kind)
+    val targetGroupResources = dependentResources(dependencies, environments, cluster, EC2_APPLICATION_LOAD_BALANCER_V1_2.kind)
 
     return Pair(
       // combine dependent resources and cluster resource
-      loadBalancersResources + securityGroupResources +
+      loadBalancersResources + securityGroupResources + targetGroupResources +
         setOf(SubmittedResource(
           kind = cluster.clusterKind,
           spec = when (spec) {
@@ -287,7 +296,8 @@ class ExportService(
 
     val dependencyType = when (kind) {
       EC2_SECURITY_GROUP_V1.kind -> DependencyType.SECURITY_GROUP
-      EC2_APPLICATION_LOAD_BALANCER_V1_2.kind -> DependencyType.LOAD_BALANCER
+      EC2_CLASSIC_LOAD_BALANCER_V1.kind -> DependencyType.LOAD_BALANCER
+      EC2_APPLICATION_LOAD_BALANCER_V1_2.kind -> DependencyType.TARGET_GROUP
       else -> throw UnsupportedResourceTypeException("Kind $kind is not supported")
     }
 
@@ -303,9 +313,10 @@ class ExportService(
 
     // Get the exportable for all security groups
     clusterDependencies.forEach {
-      // Check if we already exported any security group or alb when creating previous environments
-      if ((kind == EC2_SECURITY_GROUP_V1.kind && checkIfExistsSecurityGroups(account, it.name, environments)) ||
-        (kind == EC2_APPLICATION_LOAD_BALANCER_V1_2.kind && checkIfExistsLoadBalancer(account, it.name, environments))) {
+      // Check if we already exported any security group or load balancers when creating previous environments
+      if ((kind == EC2_SECURITY_GROUP_V1.kind && checkIfSecurityGroupExists(account, it.name, environments)) ||
+        (kind == EC2_APPLICATION_LOAD_BALANCER_V1_2.kind && checkIfApplicationLBExists(account, it.name, environments)) ||
+        (kind == EC2_CLASSIC_LOAD_BALANCER_V1.kind && checkIfClassicLBExists(account, it.name, environments))) {
         log.debug("found an existing resource with name ${it.name}, will not recreate it.")
       } else {
         try {
@@ -333,27 +344,35 @@ class ExportService(
     }.toSet()
   }
 
-  private fun checkIfExistsSecurityGroups(account: String, name: String, environments: Set<SubmittedEnvironment>): Boolean {
+  private fun checkIfSecurityGroupExists(account: String, name: String, environments: Set<SubmittedEnvironment>): Boolean {
     environments.map { environment ->
-      environment.resources.filter {
-        it.spec is SecurityGroupSpec
-      }.map {
-        val sg = it.spec as SecurityGroupSpec
-        if (sg.locations.account == account && it.spec.displayName == name) {
-          return true
+      environment.resources.filterIsInstance<SecurityGroupSpec>()
+        .map {
+          if (it.locations.account == account && it.displayName == name) {
+            return true
+          }
         }
-      }
     }
     return false
   }
 
-  private fun checkIfExistsLoadBalancer(account: String, name: String, environments: Set<SubmittedEnvironment>): Boolean {
+  private fun checkIfClassicLBExists(account: String, name: String, environments: Set<SubmittedEnvironment>): Boolean {
     environments.map { environment ->
-      environment.resources.filter {
-        it.spec is LoadBalancerSpec
-      }.map {
-        val alb = it.spec as LoadBalancerSpec
-        if (alb.locations.account == account && it.spec.displayName == name) {
+      environment.resources.filterIsInstance<ClassicLoadBalancerSpec>()
+        .map {
+          if (it.locations.account == account && it.displayName == name) {
+            return true
+          }
+        }
+    }
+    return false
+  }
+
+  private fun checkIfApplicationLBExists(account: String, name: String, environments: Set<SubmittedEnvironment>): Boolean {
+    environments.map { environment ->
+      environment.resources.filterIsInstance<ApplicationLoadBalancerSpec>()
+        .map {
+        if (it.locations.account == account && it.displayName == name) {
           return true
         }
       }
