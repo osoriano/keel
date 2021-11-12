@@ -346,21 +346,23 @@ class ExportService(
 
   private fun checkIfSecurityGroupExists(account: String, name: String, environments: Set<SubmittedEnvironment>): Boolean {
     environments.map { environment ->
-      environment.resources.filterIsInstance<SecurityGroupSpec>()
-        .map {
-          if (it.locations.account == account && it.displayName == name) {
-            return true
-          }
+      environment.resources.filterIsInstance<SubmittedResource<SecurityGroupSpec>>()
+      .map {
+        val sg = it.spec
+        if (sg.locations.account == account && sg.displayName == name) {
+          return true
         }
+      }
     }
     return false
   }
 
   private fun checkIfClassicLBExists(account: String, name: String, environments: Set<SubmittedEnvironment>): Boolean {
     environments.map { environment ->
-      environment.resources.filterIsInstance<ClassicLoadBalancerSpec>()
+      environment.resources.filterIsInstance<SubmittedResource<ClassicLoadBalancerSpec>>()
         .map {
-          if (it.locations.account == account && it.displayName == name) {
+          val clb = it.spec
+          if (clb.locations.account == account && clb.displayName == name) {
             return true
           }
         }
@@ -370,12 +372,13 @@ class ExportService(
 
   private fun checkIfApplicationLBExists(account: String, name: String, environments: Set<SubmittedEnvironment>): Boolean {
     environments.map { environment ->
-      environment.resources.filterIsInstance<ApplicationLoadBalancerSpec>()
+      environment.resources.filterIsInstance<SubmittedResource<ApplicationLoadBalancerSpec>>()
         .map {
-        if (it.locations.account == account && it.displayName == name) {
-          return true
+          val alb = it.spec
+          if (alb.locations.account == account && alb.displayName == name) {
+            return true
+          }
         }
-      }
     }
     return false
   }
