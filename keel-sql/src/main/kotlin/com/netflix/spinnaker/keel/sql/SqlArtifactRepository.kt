@@ -447,6 +447,7 @@ class SqlArtifactRepository(
         .where(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION.eq(ARTIFACT_VERSIONS.VERSION))
         .and(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(envUid))
         .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(artifactId))
+        .and(ARTIFACT_VERSIONS.NAME.eq(artifact.name)) // match name also, so if the artifact has been updated we match only the correct versions
         .and(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT.isNotNull)
         .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.notIn(excludeStatuses))
         .orderBy(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT.desc())
