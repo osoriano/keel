@@ -115,9 +115,9 @@ class ExportService(
     apps.forEach { app ->
       runBlocking {
         when (val result = exportFromPipelines(app)) {
-          is ExportErrorResult -> deliveryConfigRepository.storeFailedPipelinesExport(app, result.error)
+          is ExportErrorResult -> deliveryConfigRepository.storeFailedPipelinesExportResult(app, result.error)
           is ExportSkippedResult -> log.info("Skipping export of $app - it is already on MD")
-          is PipelineExportResult -> deliveryConfigRepository.storeExportedPipelines(
+          is PipelineExportResult -> deliveryConfigRepository.storePipelinesExportResult(
             result.deliveryConfig,
             result.toSkippedPipelines(),
             result.exportSucceeded

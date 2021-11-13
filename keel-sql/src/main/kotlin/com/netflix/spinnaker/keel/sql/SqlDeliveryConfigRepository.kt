@@ -1566,7 +1566,7 @@ class SqlDeliveryConfigRepository(
     }
   }
 
-  override fun storeExportedPipelines(
+  override fun storePipelinesExportResult(
     deliveryConfig: SubmittedDeliveryConfig,
     skippedPipelines: List<SkippedPipeline>,
     exportSucceeded: Boolean
@@ -1591,7 +1591,7 @@ class SqlDeliveryConfigRepository(
     }
   }
 
-  override fun storeFailedPipelinesExport(application: String, error: String) {
+  override fun storeFailedPipelinesExportResult(application: String, error: String) {
     sqlRetry.withRetry(WRITE) {
       jooq.insertInto(MIGRATION_STATUS)
         .set(MIGRATION_STATUS.APPLICATION, application)

@@ -1046,7 +1046,7 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
         test("App can be migrated") {
           val submittedConfig = SubmittedDeliveryConfig(name = deliveryConfig.name, application = deliveryConfig.application, serviceAccount = deliveryConfig.serviceAccount)
           repository.storeAppForPotentialMigration(deliveryConfig.application, true)
-          repository.storeExportedPipelines(submittedConfig, emptyList(), true)
+          repository.storePipelinesExportResult(submittedConfig, emptyList(), true)
           val result = expectCatching {
             repository.getApplicationMigrationStatus(deliveryConfig.application)
           }
@@ -1058,7 +1058,7 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
 
         test("App cannot be migrated") {
           val submittedConfig = SubmittedDeliveryConfig(name = deliveryConfig.name, application = deliveryConfig.application, serviceAccount = deliveryConfig.serviceAccount)
-          repository.storeExportedPipelines(submittedConfig, emptyList(), false)
+          repository.storePipelinesExportResult(submittedConfig, emptyList(), false)
           val result = expectCatching {
             repository.getApplicationMigrationStatus(deliveryConfig.application)
           }

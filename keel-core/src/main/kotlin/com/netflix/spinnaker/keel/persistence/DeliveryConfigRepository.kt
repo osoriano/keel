@@ -276,7 +276,7 @@ interface DeliveryConfigRepository : PeriodicallyCheckedRepository<DeliveryConfi
   /**
    * Store the result of the pipelines export script
    */
-  fun storeExportedPipelines(
+  fun storePipelinesExportResult(
     deliveryConfig: SubmittedDeliveryConfig,
     skippedPipelines: List<SkippedPipeline>,
     exportSucceeded: Boolean
@@ -285,7 +285,7 @@ interface DeliveryConfigRepository : PeriodicallyCheckedRepository<DeliveryConfi
   /**
    * Store the result of a failed export in which we failed to generate any delivery config
    */
-  fun storeFailedPipelinesExport(
+  fun storeFailedPipelinesExportResult(
     application: String,
     error: String,
   )
