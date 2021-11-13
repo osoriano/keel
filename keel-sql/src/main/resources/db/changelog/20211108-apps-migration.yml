@@ -1,0 +1,59 @@
+databaseChangeLog:
+  - changeSet:
+      id: apps-migration
+      author: rhorev
+      changes:
+        - createTable:
+            tableName: migration_status
+            columns:
+              - column:
+                  name: application
+                  type: varchar(255)
+                  constraints:
+                    - primaryKey: true
+                    - nullable: false
+              - column:
+                  name: updated_at
+                  type: datetime(3)
+              - column:
+                  name: last_checked
+                  type: datetime(3)
+              - column:
+                  name: export_succeeded
+                  type: boolean
+              - column:
+                  name: scm_enabled
+                  type: boolean
+              - column:
+                  name: in_allow_list
+                  type: boolean
+                  defaultValue: false
+              - column:
+                  name: delivery_config
+                  type: json
+              - column:
+                  name: skipped_pipelines
+                  type: json
+              - column:
+                  name: error
+                  type: text
+        - createIndex:
+            tableName: migration_status
+            indexName: migration_status_primary_idx
+            unique: true
+            columns:
+              - column:
+                  name: application
+        - createIndex:
+            tableName: migration_status
+            indexName: migration_status_updated_at_idx
+            columns:
+              - column:
+                  name: updated_at
+        - createIndex:
+            tableName: migration_status
+            indexName: migration_status_last_checked_idx
+            columns:
+              - column:
+                  name: last_checked
+

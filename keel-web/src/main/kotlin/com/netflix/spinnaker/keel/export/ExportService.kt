@@ -19,6 +19,7 @@ import com.netflix.spinnaker.keel.api.ec2.EC2_CLASSIC_LOAD_BALANCER_V1
 import com.netflix.spinnaker.keel.api.ec2.EC2_CLUSTER_V1_1
 import com.netflix.spinnaker.keel.api.ec2.EC2_SECURITY_GROUP_V1
 import com.netflix.spinnaker.keel.api.ec2.SecurityGroupSpec
+import com.netflix.spinnaker.keel.api.migration.SkippedPipeline
 import com.netflix.spinnaker.keel.api.plugins.ResourceHandler
 import com.netflix.spinnaker.keel.api.plugins.supporting
 import com.netflix.spinnaker.keel.api.titus.TITUS_CLUSTER_V1
@@ -42,6 +43,8 @@ import com.netflix.spinnaker.keel.validators.DeliveryConfigValidator
 import com.netflix.spinnaker.keel.veto.unhealthy.UnsupportedResourceTypeException
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
+import org.springframework.core.env.Environment
+import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.time.Duration
 import java.time.Instant
@@ -57,7 +60,8 @@ class ExportService(
   private val baseUrlConfig: BaseUrlConfig,
   private val yamlMapper: YAMLMapper,
   private val validator: DeliveryConfigValidator,
-  private val deliveryConfigRepository: DeliveryConfigRepository
+  private val deliveryConfigRepository: DeliveryConfigRepository,
+  private val springEnv: Environment,
 ) {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
   private val prettyPrinter by lazy { yamlMapper.writerWithDefaultPrettyPrinter() }
@@ -88,6 +92,39 @@ class ExportService(
     )
 
     val SPEL_REGEX = Regex("\\$\\{.+\\}")
+  }
+
+  private val isScheduledExportEnabled : Boolean
+    get() = springEnv.getProperty("keel.pipelines-export.scheduled.is-enabled", Boolean::class.java, false)
+
+  private val exportMinAge : Duration
+    get() = springEnv.getProperty("keel.pipelines-export.scheduled.min-age-duration", Duration::class.java, Duration.ofDays(1))
+
+  private val exportBatchSize : Int
+    get() = springEnv.getProperty("keel.pipelines-export.scheduled.batch-size", Int::class.java, 5)
+
+
+  /**
+   * Run [exportFromPipelines] on all available apps and store their results
+   */
+  @Scheduled(fixedDelayString = "\${keel.pipelines-export.scheduled.frequency:PT5M}")
+  fun checkAppsForExport() {
+    if (!isScheduledExportEnabled) return
+    val apps = deliveryConfigRepository.getAppsToExport( exportMinAge, exportBatchSize)
+    log.debug("Running the migration export on apps: $apps")
+    apps.forEach { app ->
+      runBlocking {
+        when (val result = exportFromPipelines(app)) {
+          is ExportErrorResult -> deliveryConfigRepository.storeFailedPipelinesExport(app, result.error)
+          is ExportSkippedResult -> log.info("Skipping export of $app - it is already on MD")
+          is PipelineExportResult -> deliveryConfigRepository.storeExportedPipelines(
+            result.deliveryConfig,
+            result.toSkippedPipelines(),
+            result.exportSucceeded
+          )
+        }
+      }
+    }
   }
 
   /**
@@ -580,6 +617,9 @@ data class PipelineExportResult(
       )
     }
   )
+
+  val exportSucceeded: Boolean
+    get() = skipped.isNullOrEmpty()
 }
 
 private val Exportable.clusterKind: ResourceKind
@@ -591,5 +631,16 @@ private val Pair<Set<SubmittedResource<ResourceSpec>>, DeliveryArtifact?>.artifa
 
 private val Pair<Set<SubmittedResource<ResourceSpec>>, DeliveryArtifact?>.resources: Set<SubmittedResource<ResourceSpec>>
   get() = this.first
+
+fun PipelineExportResult.toSkippedPipelines(): List<SkippedPipeline> =
+  skipped.map { (pipeline, reason) ->
+    SkippedPipeline(
+      pipeline.id,
+      pipeline.name,
+      pipeline.link(baseUrl),
+      pipeline.shape.joinToString(" -> "),
+      reason
+    )
+  }
 
 private fun Pipeline.link(baseUrl: String) = "$baseUrl/#/applications/${application}/executions/configure/${id}"

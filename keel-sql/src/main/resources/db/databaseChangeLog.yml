@@ -398,3 +398,6 @@ databaseChangeLog:
 - include:
     file: changelog/20211103-heartbeat-instances.yml
     relativeToChangelogFile: true
+- include:
+    file: changelog/20211108-apps-migration.yml
+    relativeToChangelogFile: true

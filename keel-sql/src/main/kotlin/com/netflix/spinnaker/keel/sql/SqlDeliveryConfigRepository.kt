@@ -13,9 +13,12 @@ import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.constraints.ConstraintState
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
 import com.netflix.spinnaker.keel.api.constraints.allPass
+import com.netflix.spinnaker.keel.api.migration.ApplicationMigrationStatus
+import com.netflix.spinnaker.keel.api.migration.SkippedPipeline
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.api.statefulCount
 import com.netflix.spinnaker.keel.core.api.ApplicationSummary
+import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.core.api.UID
 import com.netflix.spinnaker.keel.core.api.parseUID
 import com.netflix.spinnaker.keel.core.api.randomUID
@@ -51,6 +54,7 @@ import com.netflix.spinnaker.keel.persistence.metamodel.Tables.PREVIEW_ENVIRONME
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.RESOURCE
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.RESOURCE_LAST_CHECKED
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.RESOURCE_VERSION
+import com.netflix.spinnaker.keel.persistence.metamodel.tables.MigrationStatus.MIGRATION_STATUS
 import com.netflix.spinnaker.keel.resources.ResourceFactory
 import com.netflix.spinnaker.keel.sql.RetryCategory.READ
 import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
@@ -1494,6 +1498,111 @@ class SqlDeliveryConfigRepository(
             .execute()
         }
       }
+    }
+  }
+
+  override fun storeAppForPotentialMigration(app: String, inAllowList: Boolean) {
+    sqlRetry.withRetry(WRITE) {
+      jooq.insertInto(MIGRATION_STATUS)
+        .set(MIGRATION_STATUS.APPLICATION, app)
+        .set(MIGRATION_STATUS.IN_ALLOW_LIST, inAllowList)
+        .onDuplicateKeyUpdate()
+        .set(MIGRATION_STATUS.IN_ALLOW_LIST, inAllowList)
+        .execute()
+    }
+  }
+
+  override fun getApplicationMigrationStatus(application: String): ApplicationMigrationStatus {
+    return sqlRetry.withRetry(READ) {
+      if (jooq.fetchExists(
+          DELIVERY_CONFIG,
+          DELIVERY_CONFIG.APPLICATION.eq(application)
+        )
+      ) {
+        // Can't migrate if app is already managed
+        ApplicationMigrationStatus(false)
+      }
+      jooq
+        .select(MIGRATION_STATUS.EXPORT_SUCCEEDED,
+                MIGRATION_STATUS.SCM_ENABLED,
+                MIGRATION_STATUS.IN_ALLOW_LIST,
+                MIGRATION_STATUS.DELIVERY_CONFIG,
+        )
+        .from(MIGRATION_STATUS)
+        .where(MIGRATION_STATUS.APPLICATION.eq(application))
+        .fetchOne { (exportSucceeded, scmEnabled, inAllowList, deliveryConfig) ->
+          // TODO: add scmEnabled to the condition below once we support it
+          ApplicationMigrationStatus(exportSucceeded && inAllowList, deliveryConfig)
+        }
+        ?: ApplicationMigrationStatus(false)
+    }
+  }
+
+  override fun getAppsToExport(minTimeSinceLastCheck: Duration, batchSize: Int): List<String> {
+    val now = clock.instant()
+    val cutoff = now.minus(minTimeSinceLastCheck)
+    return sqlRetry.withRetry(READ) {
+      jooq.inTransaction {
+        select(MIGRATION_STATUS.APPLICATION)
+        .from(MIGRATION_STATUS)
+        .leftJoin(DELIVERY_CONFIG)
+        .on(MIGRATION_STATUS.APPLICATION.eq(DELIVERY_CONFIG.APPLICATION))
+        // We're looking for apps that are not yet managed and therefore the DELIVERY_CONFIG coming from the left join should be null
+        .where(DELIVERY_CONFIG.APPLICATION.isNull)
+        .and(
+          MIGRATION_STATUS.LAST_CHECKED.isNull
+            .or(MIGRATION_STATUS.LAST_CHECKED.lessOrEqual(cutoff))
+        )
+        .orderBy(MIGRATION_STATUS.LAST_CHECKED)
+        .limit(batchSize)
+        .fetch(MIGRATION_STATUS.APPLICATION)
+        .also { apps ->
+          update(MIGRATION_STATUS)
+            .set(MIGRATION_STATUS.LAST_CHECKED, now)
+            .where(MIGRATION_STATUS.APPLICATION.`in`(apps.toList()))
+            .execute()
+        }
+      }
+    }
+  }
+
+  override fun storeExportedPipelines(
+    deliveryConfig: SubmittedDeliveryConfig,
+    skippedPipelines: List<SkippedPipeline>,
+    exportSucceeded: Boolean
+  ) {
+    val skippedPipelinesJson = skippedPipelines.toJson()
+    val now = clock.instant()
+
+    sqlRetry.withRetry(WRITE) {
+      jooq.insertInto(MIGRATION_STATUS)
+        .set(MIGRATION_STATUS.APPLICATION, deliveryConfig.application)
+        .set(MIGRATION_STATUS.DELIVERY_CONFIG, deliveryConfig.toJson())
+        .set(MIGRATION_STATUS.UPDATED_AT, now)
+        .set(MIGRATION_STATUS.SKIPPED_PIPELINES, skippedPipelinesJson)
+        .set(MIGRATION_STATUS.EXPORT_SUCCEEDED, exportSucceeded)
+        .onDuplicateKeyUpdate()
+        .set(MIGRATION_STATUS.DELIVERY_CONFIG, deliveryConfig.toJson())
+        .set(MIGRATION_STATUS.UPDATED_AT, now)
+        .set(MIGRATION_STATUS.SKIPPED_PIPELINES, skippedPipelinesJson)
+        .set(MIGRATION_STATUS.EXPORT_SUCCEEDED, exportSucceeded)
+        .where(MIGRATION_STATUS.APPLICATION.eq(deliveryConfig.application))
+        .execute()
+    }
+  }
+
+  override fun storeFailedPipelinesExport(application: String, error: String) {
+    sqlRetry.withRetry(WRITE) {
+      jooq.insertInto(MIGRATION_STATUS)
+        .set(MIGRATION_STATUS.APPLICATION, application)
+        .set(MIGRATION_STATUS.ERROR, error)
+        .set(MIGRATION_STATUS.UPDATED_AT, clock.instant())
+        .set(MIGRATION_STATUS.EXPORT_SUCCEEDED, false)
+        .onDuplicateKeyUpdate()
+        .set(MIGRATION_STATUS.ERROR, error)
+        .set(MIGRATION_STATUS.UPDATED_AT, clock.instant())
+        .set(MIGRATION_STATUS.EXPORT_SUCCEEDED, false)
+        .execute()
     }
   }
 

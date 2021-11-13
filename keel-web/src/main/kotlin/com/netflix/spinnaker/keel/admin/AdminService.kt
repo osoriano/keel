@@ -269,6 +269,12 @@ class AdminService(
     log.debug("Migrated $migrated/${configs.size} apps (${configs.size - migrated} skipped) in ${duration.toSeconds()} seconds")
   }
 
+  fun storeAppForPotentialMigration(apps: List<String>, inAllowList: Boolean) {
+    apps.forEach {
+      repository.storeAppForPotentialMigration(it, inAllowList)
+    }
+  }
+
   fun getTaskSummary(id: String): ExecutionSummary =
       executionSummaryService.getSummary(id)
 }

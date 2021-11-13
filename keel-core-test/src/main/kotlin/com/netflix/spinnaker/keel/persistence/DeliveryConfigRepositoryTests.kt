@@ -25,6 +25,7 @@ import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.core.api.ApplicationSummary
 import com.netflix.spinnaker.keel.core.api.DependsOnConstraint
 import com.netflix.spinnaker.keel.core.api.ManualJudgementConstraint
+import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.events.ApplicationActuationPaused
 import com.netflix.spinnaker.keel.events.ResourceCreated
 import com.netflix.spinnaker.keel.pause.PauseScope
@@ -1009,6 +1010,67 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
       test("storing the config updates the last modified") {
         expectThat(deliveryConfig.updatedAt).isNull()
         expectThat(getByApplication().isSuccess().get { updatedAt }.isNotNull())
+      }
+    }
+
+    context("apps migration") {
+      context("can store and get apps for migration") {
+        before {
+          val deliveryConfig2 = deliveryConfig.copy(name="fnord2", application="fnord2")
+          repository.storeAppForPotentialMigration(deliveryConfig.application, false)
+          repository.storeAppForPotentialMigration(deliveryConfig2.application, false)
+        }
+
+        test("get all apps") {
+          val apps = expectCatching {
+            repository.getAppsToExport(Duration.ofDays(1), 10)
+          }
+          expectThat(apps.isSuccess().hasSize(2))
+        }
+
+        test("Ignore apps that are already managed") {
+          store()
+          val apps = expectCatching {
+            repository.getAppsToExport(Duration.ofDays(1), 10)
+          }
+          expectThat(apps.isSuccess().hasSize(1).first().isEqualTo("fnord2"))
+        }
+
+        test("Ignore apps that were exported recently") {
+          repository.getAppsToExport(Duration.ofDays(1), 10)
+          val apps = expectCatching {
+            repository.getAppsToExport(Duration.ofDays(1), 10)
+          }
+          expectThat(apps.isSuccess().isEmpty())
+        }
+        test("App can be migrated") {
+          val submittedConfig = SubmittedDeliveryConfig(name = deliveryConfig.name, application = deliveryConfig.application, serviceAccount = deliveryConfig.serviceAccount)
+          repository.storeAppForPotentialMigration(deliveryConfig.application, true)
+          repository.storeExportedPipelines(submittedConfig, emptyList(), true)
+          val result = expectCatching {
+            repository.getApplicationMigrationStatus(deliveryConfig.application)
+          }
+          expectThat(result.isSuccess().and {
+            get { isMigratable }.isTrue()
+            get { deliveryConfig }.isNotNull()
+          })
+        }
+
+        test("App cannot be migrated") {
+          val submittedConfig = SubmittedDeliveryConfig(name = deliveryConfig.name, application = deliveryConfig.application, serviceAccount = deliveryConfig.serviceAccount)
+          repository.storeExportedPipelines(submittedConfig, emptyList(), false)
+          val result = expectCatching {
+            repository.getApplicationMigrationStatus(deliveryConfig.application)
+          }
+          expectThat(result.isSuccess().get { isMigratable }.isFalse())
+        }
+
+        test("App is not in the migration list") {
+          val result = expectCatching {
+            repository.getApplicationMigrationStatus("not-in-list-app")
+          }
+          expectThat(result.isSuccess().get { isMigratable }.isFalse())
+        }
       }
     }
   }

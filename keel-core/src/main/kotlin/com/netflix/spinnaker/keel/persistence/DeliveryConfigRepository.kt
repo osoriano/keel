@@ -7,12 +7,16 @@ import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.constraints.ConstraintState
+import com.netflix.spinnaker.keel.api.migration.ApplicationMigrationStatus
+import com.netflix.spinnaker.keel.api.migration.SkippedPipeline
 import com.netflix.spinnaker.keel.core.api.ApplicationSummary
+import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.core.api.UID
 import com.netflix.spinnaker.keel.events.ResourceState
 import com.netflix.spinnaker.keel.persistence.DependentAttachFilter.ATTACH_ALL
 import com.netflix.spinnaker.kork.exceptions.ConfigurationException
 import com.netflix.spinnaker.kork.exceptions.SystemException
+import java.time.Duration
 import java.time.Instant
 
 interface DeliveryConfigRepository : PeriodicallyCheckedRepository<DeliveryConfig> {
@@ -251,6 +255,39 @@ interface DeliveryConfigRepository : PeriodicallyCheckedRepository<DeliveryConfi
     environmentName: String,
     artifact: DeliveryArtifact,
     version: String,
+  )
+
+  /**
+   * Returns the migration status of the app
+   */
+  fun getApplicationMigrationStatus(application: String): ApplicationMigrationStatus
+
+  /**
+   * Get a list of apps to run the export on. Excluding apps that are managed already
+   */
+  fun getAppsToExport(minTimeSinceLastCheck: Duration, batchSize: Int): List<String>
+
+  /**
+   * Store app in the migration DB if not exist.
+   * [inAllowedList] defines if the app could be actively migrated if the export completed successfully
+   */
+  fun storeAppForPotentialMigration(app: String, inAllowedList: Boolean)
+
+  /**
+   * Store the result of the pipelines export script
+   */
+  fun storeExportedPipelines(
+    deliveryConfig: SubmittedDeliveryConfig,
+    skippedPipelines: List<SkippedPipeline>,
+    exportSucceeded: Boolean
+  )
+
+  /**
+   * Store the result of a failed export in which we failed to generate any delivery config
+   */
+  fun storeFailedPipelinesExport(
+    application: String,
+    error: String,
   )
 }
 

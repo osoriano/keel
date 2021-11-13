@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.rest
 
 import com.netflix.spinnaker.keel.admin.AdminService
+import com.netflix.spinnaker.keel.export.ExportService
 import com.netflix.spinnaker.keel.yaml.APPLICATION_YAML_VALUE
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -22,7 +23,8 @@ import java.time.Duration
 @RestController
 @RequestMapping(path = ["/poweruser"])
 class AdminController(
-  private val adminService: AdminService
+  private val adminService: AdminService,
+  private val exportService: ExportService
 ) {
   private val log by lazy { getLogger(javaClass) }
 
@@ -154,6 +156,34 @@ class AdminController(
     GlobalScope.launch { adminService.migrateImportPipelinesToGitIntegration() }
   }
 
+  data class AddAppsToMigrationPayload(
+    val apps: List<String>,
+    val inAllowedList: Boolean,
+  )
+
+  /**
+   * Add apps to the list we track for migration.
+   * [payload.inAllowedList] defines if we ask the app owner to migrate if the app is migratable
+   */
+  @PostMapping(
+    path = ["/migration/add-apps"]
+  )
+  fun addAppsToMigrationQueue(
+    @RequestBody payload: AddAppsToMigrationPayload
+  ) {
+    adminService.storeAppForPotentialMigration(payload.apps, payload.inAllowedList)
+  }
+
+  /**
+   * Run the export
+   */
+  @PostMapping(
+    path = ["/migration/run-mass-export"]
+  )
+  fun runAppsMassExport() {
+    exportService.checkAppsForExport()
+  }
+
   @GetMapping(
     path = ["/taskSummary/{id}"],
     produces = [APPLICATION_JSON_VALUE, APPLICATION_YAML_VALUE]
@@ -162,4 +192,6 @@ class AdminController(
     @PathVariable("id") id: String
   ) =
     adminService.getTaskSummary(id)
+
+
 }

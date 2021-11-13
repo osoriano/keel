@@ -5,6 +5,7 @@ union MD_ApplicationResult = MD_Application | MD_Error
 
 type Query @extends {
   md_application(appName: String!): MD_ApplicationResult
+  md_migration(appName: String!): MD_Migration
 }
 
 type MD_Application {
@@ -24,6 +25,12 @@ type MD_Application {
 type MD_Error {
   id: ID!
   message: String
+}
+
+type MD_Migration {
+  id: String!
+  canMigrate: Boolean
+  deliveryConfig: String
 }
 
 type MD_GitIntegration {
