@@ -627,7 +627,6 @@ class ClusterHandler(
       "reason" to "Diff detected at ${clock.instant().iso()}",
     )
 
-  // todo eb: individual server group deploy strategy?
   // todo eb: scaling policies?
   private fun Resource<ClusterSpec>.toManagedRolloutClusterDefinition(diffs: List<ResourceDiff<ServerGroup>>) =
     with(spec) {

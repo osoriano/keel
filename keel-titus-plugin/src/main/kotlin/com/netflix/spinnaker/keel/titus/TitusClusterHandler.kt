@@ -39,6 +39,7 @@ import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.SEMVER_JOB_CO
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.SEMVER_TAG
 import com.netflix.spinnaker.keel.api.ec2.Capacity
 import com.netflix.spinnaker.keel.api.ec2.ClusterDependencies
+import com.netflix.spinnaker.keel.api.ec2.ClusterSpec
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec.CapacitySpec
 import com.netflix.spinnaker.keel.api.ec2.CustomizedMetricSpecification
 import com.netflix.spinnaker.keel.api.ec2.MetricDimension
@@ -748,14 +749,14 @@ class TitusClusterHandler(
       "input" to mapOf(
         "selectionStrategy" to spec.managedRollout.selectionStrategy,
         "targets" to spec.generateRolloutTargets(diffs),
-        "clusterDefinitions" to listOf(toManagedRolloutClusterDefinition(image))
+        "clusterDefinitions" to listOf(toManagedRolloutClusterDefinition(image, diffs))
       ),
       "reason" to "Diff detected at ${clock.instant().iso()}",
     )
   }
 
   // todo eb: scaling policies?
-  private fun Resource<TitusClusterSpec>.toManagedRolloutClusterDefinition(image: Map<String, Any>) =
+  private fun Resource<TitusClusterSpec>.toManagedRolloutClusterDefinition(image: Map<String, Any>, diffs: List<ResourceDiff<TitusServerGroup>>) =
     with(spec) {
       val dependencies = resolveDependencies()
       mapOf(
@@ -780,9 +781,24 @@ class TitusClusterHandler(
         "constraints" to resolveConstraints(),
         "migrationPolicy" to resolveMigrationPolicy(),
         "scaling" to resolveScaling(), //todo eb: is this even right?
-        "overrides" to spec.overrides
-      ) + image + spec.deployWith.toOrcaJobProperties("Titus")
+      ) + image +
+        mapOf("overrides" to buildOverrides(diffs)) +
+        spec.deployWith.toOrcaJobProperties("Titus")
     }
+
+  fun Resource<TitusClusterSpec>.buildOverrides(diffs: List<ResourceDiff<TitusServerGroup>>): Map<String, Any?> {
+    val overrides: MutableMap<String, Any?> = spec.overrides.toMutableMap()
+    diffs.forEach { diff ->
+      val region = getDesiredRegion(diff)
+      val existingOverride: MutableMap<String, Any?> = mapper.convertValue(overrides[region] ?: mutableMapOf<String, Any?>())
+      // todo eb: are there more things that get touched by the resolvers that we need to add?
+      // How can we go from resolvers to the cluster spec with changes?
+      val containerAttributes: Map<String, String> = mapper.convertValue(diff.desired.containerAttributes)
+      val environmentVariables: Map<String, String> = mapper.convertValue(diff.desired.env)
+      overrides[region] = existingOverride + mapOf("containerAttributes" to containerAttributes) + mapOf("env" to environmentVariables)
+    }
+    return overrides
+  }
 
   private fun TitusClusterSpec.generateRolloutTargets(diffs: List<ResourceDiff<TitusServerGroup>>): List<Map<String, Any>> =
     diffs
