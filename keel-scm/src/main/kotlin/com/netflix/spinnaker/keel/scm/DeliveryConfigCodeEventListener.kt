@@ -18,6 +18,7 @@ import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.event.EventListener
 import org.springframework.core.env.Environment
 import org.springframework.stereotype.Component
+import retrofit2.HttpException
 import java.time.Clock
 
 /**
@@ -56,11 +57,6 @@ class DeliveryConfigCodeEventListener(
   fun handleCodeEvent(event: CodeEvent) {
     if (!enabled) {
       log.debug("Importing delivery config from source disabled by feature flag. Ignoring commit event: $event")
-      return
-    }
-
-    if (event is PrMergedEvent && event.isFromFork) {
-      log.debug("We currently do not handle events from forks: $event")
       return
     }
 
@@ -125,14 +121,18 @@ class DeliveryConfigCodeEventListener(
       } catch (e: Exception) {
         log.error("Error retrieving/updating delivery config: $e", e)
         event.emitCounterMetric(CODE_EVENT_COUNTER, DELIVERY_CONFIG_RETRIEVAL_ERROR, app.name)
-        eventPublisher.publishDeliveryConfigImportFailed(
-          app.name,
-          event,
-          event.targetBranch,
-          clock.instant(),
-          e.message ?: "Unknown reason",
-          scmUtils.getCommitLink(event)
-        )
+        if (e is HttpException) {
+          log.debug("Skipping publishing an event for http errors as we assume that the file does not exist")
+        } else {
+          eventPublisher.publishDeliveryConfigImportFailed(
+            app.name,
+            event,
+            event.targetBranch,
+            clock.instant(),
+            e.message ?: "Unknown reason",
+            scmUtils.getCommitLink(event)
+          )
+        }
         return@forEach
       }
     }

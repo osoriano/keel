@@ -270,21 +270,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
 
         testEventIgnored()
       }
-
-      listOf(
-        prMergedEvent.copy(pullRequestProjectKey = "fork-org"),
-        prMergedEvent.copy(pullRequestRepoSlug = "another-repo")
-      )
-        .map { event ->
-          context("a commit event from a fork is ignored") {
-            before {
-              subject.handleCodeEvent(event)
-            }
-
-            testEventIgnored()
-          }
-        }
-
+      
       context("a commit event NOT matching the app default branch is received") {
         before {
           subject.handleCodeEvent(commitEventForAnotherBranch)
