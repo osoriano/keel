@@ -20,6 +20,8 @@ package com.netflix.spinnaker.keel.titus
 import com.fasterxml.jackson.module.kotlin.convertValue
 import com.netflix.buoy.sdk.model.RolloutTarget
 import com.netflix.spinnaker.keel.api.ClusterDeployStrategy
+import com.netflix.spinnaker.keel.api.DeliveryConfig
+import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.Exportable
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.NoStrategy
@@ -82,6 +84,7 @@ import com.netflix.spinnaker.keel.clouddriver.model.toActive
 import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.core.orcaClusterMoniker
 import com.netflix.spinnaker.keel.core.serverGroup
+import com.netflix.spinnaker.keel.diff.toIndividualDiffs
 import com.netflix.spinnaker.keel.docker.DigestProvider
 import com.netflix.spinnaker.keel.docker.ReferenceProvider
 import com.netflix.spinnaker.keel.events.ResourceHealthEvent
@@ -117,7 +120,7 @@ class TitusClusterHandler(
   private val cloudDriverService: CloudDriverService,
   private val cloudDriverCache: CloudDriverCache,
   private val orcaService: OrcaService,
-  private val clock: Clock,
+  override val clock: Clock,
   taskLauncher: TaskLauncher,
   override val eventPublisher: EventPublisher,
   resolvers: List<Resolver<*>>,
@@ -671,11 +674,12 @@ class TitusClusterHandler(
    * If a tag is provided, deploys by tag.
    * Otherwise, deploys by digest.
    */
-  override fun ResourceDiff<TitusServerGroup>.upsertServerGroupJob(
+  override fun ResourceDiff<TitusServerGroup>.upsertOrCloneServerGroupJob(
     resource: Resource<TitusClusterSpec>,
     startingRefId: Int,
-    version: String?
-  ): Job =
+    version: String?,
+    clone: Boolean
+  ) =
     with(desired) {
       val image = generateImageJson(version)
 
@@ -711,8 +715,8 @@ class TitusClusterHandler(
         "freeFormDetails" to moniker.detail,
         "tags" to tags,
         "moniker" to moniker.orcaClusterMoniker,
-        "reason" to "Diff detected at ${clock.instant().iso()}",
-        "type" to "createServerGroup",
+        "reason" to if (clone) "Redeploy ${image["imageId"]}" else "Diff detected at ${clock.instant().iso()}",
+        "type" to if (clone) "cloneServerGroup" else "createServerGroup",
         "cloudProvider" to TITUS_CLOUD_PROVIDER,
         "securityGroups" to securityGroupIds(),
         "loadBalancers" to dependencies.loadBalancerNames,
@@ -733,8 +737,12 @@ class TitusClusterHandler(
         } ?: job
       }
       .let { job ->
-        job + resource.spec.deployWith.toOrcaJobProperties("Titus") +
-          mapOf("metadata" to mapOf("resource" to resource.id))
+        // add deployment strategy properties
+        job + resource.spec.deployWith.toOrcaJobProperties("Titus")
+      }
+      .let { job ->
+        // add metadata
+        job + mapOf("metadata" to mapOf("resource" to resource.id))
       }
 
   override fun Resource<TitusClusterSpec>.upsertServerGroupManagedRolloutJob(
@@ -1080,15 +1088,15 @@ class TitusClusterHandler(
       }
     )
 
-  fun getAwsAccountNameForTitusAccount(titusAccount: String): String =
+  private fun getAwsAccountNameForTitusAccount(titusAccount: String): String =
     cloudDriverCache.credentialBy(titusAccount).attributes["awsAccount"] as? String
       ?: throw TitusAccountConfigurationException(titusAccount, "awsAccount")
 
-  fun getRegistryForTitusAccount(titusAccount: String): String =
+  private fun getRegistryForTitusAccount(titusAccount: String): String =
     cloudDriverCache.credentialBy(titusAccount).attributes["registry"] as? String
       ?: throw RegistryNotFoundException(titusAccount)
 
-  fun TitusServerGroup.securityGroupIds(): Collection<String> =
+  private fun TitusServerGroup.securityGroupIds(): Collection<String> =
     runBlocking {
       val awsAccount = getAwsAccountNameForTitusAccount(location.account)
       dependencies

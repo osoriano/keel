@@ -17,10 +17,12 @@
  */
 package com.netflix.spinnaker.keel.api.ec2
 
+import com.netflix.spinnaker.keel.api.SimpleLocationProvider
+
 data class Location(
-  val account: String,
-  val region: String,
+  override val account: String,
+  override val region: String,
   val vpc: String,
   val subnet: String,
   val availabilityZones: Set<String>
-)
+) : SimpleLocationProvider

@@ -215,6 +215,10 @@ class Ec2BaseClusterHandlerTests : BaseClusterHandlerTests<ClusterSpec, ServerGr
     return diffFactory.compare(desired, current)
   }
 
+  override fun getResolvedServerGroup(resource: Resource<ClusterSpec>): Map<String, ServerGroup> {
+    return resource.spec.resolve().byRegion()
+  }
+
   override fun getRollbackServerGroupsByRegion(
     resource: Resource<ClusterSpec>,
     version: String,

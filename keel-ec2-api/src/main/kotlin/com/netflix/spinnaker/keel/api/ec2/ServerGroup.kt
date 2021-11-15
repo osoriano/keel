@@ -21,6 +21,7 @@ import com.netflix.spinnaker.keel.api.DeployHealth
 import com.netflix.spinnaker.keel.api.DeployHealth.AUTO
 import com.netflix.spinnaker.keel.api.DeployHealth.NONE
 import com.netflix.spinnaker.keel.api.ExcludedFromDiff
+import com.netflix.spinnaker.keel.api.SimpleLocationProvider
 import com.netflix.spinnaker.keel.api.VersionedArtifactProvider
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 import com.netflix.spinnaker.keel.api.artifacts.DEBIAN
@@ -58,7 +59,7 @@ data class ServerGroup(
   override val artifactVersion: String? = null,
   @get:ExcludedFromDiff
   val instanceCounts: InstanceCounts? = null
-) : VersionedArtifactProvider {
+) : VersionedArtifactProvider, SimpleLocationProvider by location {
 
   data class ActiveServerGroupImage(
     @get:ExcludedFromDiff

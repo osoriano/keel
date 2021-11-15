@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.api.titus
 
 import com.netflix.spinnaker.keel.api.ExcludedFromDiff
+import com.netflix.spinnaker.keel.api.SimpleLocationProvider
 import com.netflix.spinnaker.keel.api.VersionedArtifactProvider
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 import com.netflix.spinnaker.keel.api.artifacts.DOCKER
@@ -55,13 +56,13 @@ data class TitusServerGroup(
   val instanceCounts: InstanceCounts? = null,
   val scaling: Scaling = Scaling(),
   val efs: ElasticFileSystem?
-) : VersionedArtifactProvider {
+) : VersionedArtifactProvider, SimpleLocationProvider by location {
 
   // todo eb: should this be more general?
   data class Location(
-    val account: String,
-    val region: String
-  )
+    override val account: String,
+    override val region: String
+  ) : SimpleLocationProvider
 
   data class Resources(
     val cpu: Int = 1,

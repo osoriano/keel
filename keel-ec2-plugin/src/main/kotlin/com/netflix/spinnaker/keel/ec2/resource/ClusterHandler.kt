@@ -116,7 +116,7 @@ class ClusterHandler(
   private val cloudDriverCache: CloudDriverCache,
   private val orcaService: OrcaService,
   taskLauncher: TaskLauncher,
-  private val clock: Clock,
+  override val clock: Clock,
   override val eventPublisher: EventPublisher,
   resolvers: List<Resolver<*>>,
   private val clusterExportHelper: ClusterExportHelper,
@@ -532,11 +532,19 @@ class ClusterHandler(
     )
   }
 
-  override fun ResourceDiff<ServerGroup>.upsertServerGroupJob(resource: Resource<ClusterSpec>, startingRefId: Int, version: String?): Job =
-    createServerGroupJobBase(startingRefId) + resource.spec.deployWith.toOrcaJobProperties("Amazon") +
+  override fun ResourceDiff<ServerGroup>.upsertOrCloneServerGroupJob(
+    resource: Resource<ClusterSpec>,
+    startingRefId: Int,
+    version: String?,
+    clone: Boolean
+  ): Job =
+    createServerGroupJobBase(startingRefId, clone) +
+      // add deployment strategy properties
+      resource.spec.deployWith.toOrcaJobProperties("Amazon") +
+      // add metadata
       mapOf("metadata" to mapOf("resource" to resource.id))
 
-  private fun ResourceDiff<ServerGroup>.createServerGroupJobBase(startingRefId: Int = 0): Job =
+  private fun ResourceDiff<ServerGroup>.createServerGroupJobBase(startingRefId: Int = 0, clone: Boolean = false): Job =
     with(desired) {
       mutableMapOf(
         "application" to moniker.app,
@@ -575,9 +583,9 @@ class ClusterHandler(
         "virtualizationType" to "hvm", // TODO: any reason to do otherwise?
         "moniker" to moniker.orcaClusterMoniker,
         "amiName" to launchConfiguration.imageId,
-        "reason" to "Diff detected at ${clock.instant().iso()}",
+        "reason" to if (clone) "Redeploy ${launchConfiguration.imageId}" else "Diff detected at ${clock.instant().iso()}",
+        "type" to if (clone) "cloneServerGroup" else "createServerGroup",
         "instanceType" to launchConfiguration.instanceType,
-        "type" to "createServerGroup",
         "cloudProvider" to EC2_CLOUD_PROVIDER,
         "loadBalancers" to dependencies.loadBalancerNames,
         "targetGroups" to dependencies.targetGroups,

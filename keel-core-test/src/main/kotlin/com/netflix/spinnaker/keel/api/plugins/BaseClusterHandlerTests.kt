@@ -4,15 +4,20 @@ import com.netflix.spinnaker.keel.api.ComputeResourceSpec
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceDiff
+import com.netflix.spinnaker.keel.api.SimpleLocationProvider
 import com.netflix.spinnaker.keel.api.actuation.Job
 import com.netflix.spinnaker.keel.api.actuation.Task
 import com.netflix.spinnaker.keel.api.actuation.TaskLauncher
+import com.netflix.spinnaker.keel.api.events.ArtifactVersionDeploying
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.core.serverGroup
+import com.netflix.spinnaker.keel.events.ResourceActuationLaunched
+import com.netflix.spinnaker.keel.test.deliveryConfig
 import com.netflix.spinnaker.time.MutableClock
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import strikt.api.expect
@@ -28,7 +33,7 @@ import java.time.Clock
 
 abstract class BaseClusterHandlerTests<
   SPEC: ComputeResourceSpec<*>, // spec type
-  RESOLVED: Any, // resolved type
+  RESOLVED: SimpleLocationProvider, // resolved type
   HANDLER : BaseClusterHandler<SPEC, RESOLVED>
   > {
 
@@ -54,6 +59,7 @@ abstract class BaseClusterHandlerTests<
   abstract fun getDiffForRollback(resource: Resource<SPEC>, version: String, currentMoniker: Moniker): ResourceDiff<Map<String, RESOLVED>>
   abstract fun getDiffForRollbackPlusCapacity(resource: Resource<SPEC>, version: String, currentMoniker: Moniker): ResourceDiff<Map<String, RESOLVED>>
 
+  abstract fun getResolvedServerGroup(resource: Resource<SPEC>): Map<String, RESOLVED>
   abstract fun getRollbackServerGroupsByRegion(resource: Resource<SPEC>, version: String, rollbackMoniker: Moniker): Map<String, List<RESOLVED>>
   abstract fun getRollbackServerGroupsByRegionZeroCapacity(resource: Resource<SPEC>, version: String, rollbackMoniker: Moniker): Map<String, List<RESOLVED>>
   abstract fun getSingleRollbackServerGroupByRegion(resource: Resource<SPEC>, version: String): Map<String, List<RESOLVED>>
@@ -63,7 +69,7 @@ abstract class BaseClusterHandlerTests<
   val resolvers: List<Resolver<*>> = emptyList()
   val taskLauncher: TaskLauncher = mockk()
 
-  data class Fixture<SPEC: ComputeResourceSpec<*>, RESOLVED: Any, HANDLER : BaseClusterHandler<SPEC, RESOLVED>>(
+  data class Fixture<SPEC: ComputeResourceSpec<*>, RESOLVED: SimpleLocationProvider, HANDLER : BaseClusterHandler<SPEC, RESOLVED>>(
     val handler: HANDLER
   )
 
@@ -382,8 +388,37 @@ abstract class BaseClusterHandlerTests<
     }
   }
 
+  @Test
+  fun `redeploy, multi region`() {
+    coEvery { handler.current(any()) } answers { getResolvedServerGroup(arg(0)) }
+
+    val slots = mutableListOf<List<Job>>() // done this way so we can capture the stages for multiple requests
+    coEvery { taskLauncher.submitJob(any(), any(), any(), capture(slots), any()) } returns Task("id", "name")
+
+    val resource = getMultiRegionCluster()
+    val deliveryConfig = deliveryConfig(resource)
+
+    runBlocking { handler.redeploy(deliveryConfig, deliveryConfig.environments.first(), resource) }
+
+    val firstRegionStages = slots[0]
+    val secondRegionStages = slots[1]
+    expect {
+      // first region
+      that(firstRegionStages).isNotEmpty().hasSize(1)
+      val deployStage1 = firstRegionStages[0]
+      that(deployStage1["type"]).isEqualTo("cloneServerGroup")
+      that(deployStage1["refId"]).isEqualTo("1")
+
+      //second region
+      that(secondRegionStages).isNotEmpty().hasSize(1)
+      val deployStage2 = secondRegionStages[0]
+      that(deployStage2["type"]).isEqualTo("cloneServerGroup")
+      that(deployStage2["refId"]).isEqualTo("1")
+    }
+
+    verify {
+      eventPublisher.publishEvent(ofType<ArtifactVersionDeploying>())
+      eventPublisher.publishEvent(ofType<ResourceActuationLaunched>())
+    }
+  }
 }
-
-
-
-

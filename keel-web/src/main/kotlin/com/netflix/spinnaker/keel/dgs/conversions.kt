@@ -12,6 +12,7 @@ import com.netflix.spinnaker.keel.actuation.ExecutionSummary
 import com.netflix.spinnaker.keel.actuation.RolloutStatus
 import com.netflix.spinnaker.keel.actuation.RolloutTargetWithStatus
 import com.netflix.spinnaker.keel.actuation.Stage
+import com.netflix.spinnaker.keel.api.DeployableResourceSpec
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.bakery.diff.PackageDiff
@@ -34,12 +35,15 @@ import com.netflix.spinnaker.keel.graphql.types.MD_PausedInfo
 import com.netflix.spinnaker.keel.graphql.types.MD_PinType
 import com.netflix.spinnaker.keel.graphql.types.MD_PullRequest
 import com.netflix.spinnaker.keel.graphql.types.MD_Resource
+import com.netflix.spinnaker.keel.graphql.types.MD_ResourceActuationState
+import com.netflix.spinnaker.keel.graphql.types.MD_ResourceActuationStatus
 import com.netflix.spinnaker.keel.graphql.types.MD_ResourceTask
 import com.netflix.spinnaker.keel.graphql.types.MD_RolloutTargetStatus
 import com.netflix.spinnaker.keel.graphql.types.MD_StageDetail
 import com.netflix.spinnaker.keel.notifications.DismissibleNotification
 import com.netflix.spinnaker.keel.pause.Pause
 import com.netflix.spinnaker.keel.persistence.TaskForResource
+import com.netflix.spinnaker.keel.services.ResourceActuationState
 
 
 fun GitMetadata.toDgs(): MD_GitMetadata =
@@ -88,7 +92,10 @@ fun Resource<*>.toDgs(config: DeliveryConfig, environmentName: String): MD_Resou
         else -> null
       }
       MD_Location(account = account, regions = it.locations.regions.map { r -> r.name })
-    }
+    },
+    // TODO: replace this with isRedeployable indicating whether the resource can *currently*
+    //  be redeployed (e.g. there are no verifications running, it's not locked, etc.)
+    isDeployable = spec is DeployableResourceSpec
   )
 
 fun Resource<*>.getMdMoniker(): MD_Moniker? {
@@ -222,3 +229,12 @@ fun PinType.toDgs(): MD_PinType =
     PinType.ROLLBACK -> MD_PinType.ROLLBACK
     PinType.LOCK -> MD_PinType.LOCK
   }
+
+fun ResourceActuationState.toDgs(): MD_ResourceActuationState =
+  MD_ResourceActuationState(
+    resourceId = resourceId,
+    status = MD_ResourceActuationStatus.valueOf(status.name),
+    reason = reason,
+    event = eventMessage,
+    errors = errors
+  )

@@ -219,7 +219,7 @@ enum MD_ResourceActuationStatus {
 }
 
 type MD_ResourceActuationState {
-  resourceId: String!
+  resourceId: ID!
   status: MD_ResourceActuationStatus!
   reason: String
   event: String
@@ -279,6 +279,7 @@ type MD_Resource {
   displayName: String
   location: MD_Location
   rawDefinition: String
+  isDeployable: Boolean
 }
 
 type MD_Moniker {
@@ -361,6 +362,13 @@ type Mutation @extends {
   md_importDeliveryConfig(application: String!): Boolean
   md_rollbackToArtifactVersion(payload: MD_RollbackToVersionPayload!): Boolean
   md_lockEnvironmentArtifact(payload: MD_ArtifactVersionActionPayload!): Boolean
+  md_redeployResource(payload: MD_RedeployResourcePayload!): Boolean
+}
+
+input MD_RedeployResourcePayload {
+  application: ID!
+  resource: ID!
+  environment: String!
 }
 
 input MD_RollbackToVersionPayload {

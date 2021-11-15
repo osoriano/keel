@@ -215,6 +215,10 @@ class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, T
     return diffFactory.compare(desired, current)
   }
 
+  override fun getResolvedServerGroup(resource: Resource<TitusClusterSpec>): Map<String, TitusServerGroup> {
+    return resource.spec.resolve().byRegion()
+  }
+
   // this needs to return server groups with an actual server group moniker
   override fun getRollbackServerGroupsByRegion(
     resource: Resource<TitusClusterSpec>,

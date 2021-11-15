@@ -90,27 +90,27 @@ class ResourceStatusService(
     // this so we don't inadvertently start actuating on a resource that had been previously paused,
     // without explicit action from the user to resume.
     if (actuationPauser.isPaused(id)) {
-      return ResourceActuationState(ResourceStatusUserFriendly.NOT_MANAGED)
+      return ResourceActuationState(id, ResourceStatusUserFriendly.NOT_MANAGED)
     }
 
     val history = resourceRepository.eventHistory(id, 10)
       .filterForStatus()
 
     return when {
-      history.isHappy() -> ResourceStatusUserFriendly.UP_TO_DATE.toActuationState(history = history)
-      history.isBlocked() -> ResourceStatusUserFriendly.WAITING.toActuationState(reason = "Resource is locked while verifications are running", history = history)
-      history.isEmpty() -> ResourceStatusUserFriendly.PROCESSING.toActuationState(reason = "New resource will be created shortly", history = history)
-      history.isDiff() -> ResourceStatusUserFriendly.PROCESSING.toActuationState(reason = "Resource does not match the config and will be updated soon", history = history)
-      history.isActuating() -> ResourceStatusUserFriendly.PROCESSING.toActuationState(reason = "Resource is being updated", history = history)
-      history.isCreated() -> ResourceStatusUserFriendly.PROCESSING.toActuationState(reason = "New resource will be created shortly", history = history)
-      history.isResumed() -> ResourceStatusUserFriendly.PROCESSING.toActuationState(reason = "Resource management will resume shortly", history = history)
-      history.isDeleting() ->  ResourceStatusUserFriendly.DELETING.toActuationState(reason = "Resource is being deleted", history = history)
-      history.isMissingDependency() -> ResourceStatusUserFriendly.ERROR.toActuationState(reason = history.lastRelevantMessage(), history = history)
-      history.isVetoed() -> ResourceStatusUserFriendly.ERROR.toActuationState(reason = "We failed to update the resource multiple times", history = history)
-      history.isDiffNotActionable() -> ResourceStatusUserFriendly.ERROR.toActuationState(reason = "We are unable to update resource to match the config", history = history)
-      history.isError() -> ResourceStatusUserFriendly.ERROR.toActuationState(reason = history.lastRelevantMessage(), history = history)
-      history.isCurrentlyUnresolvable() -> ResourceStatusUserFriendly.ERROR.toActuationState(reason = "We are temporarily unable to check resource status", history = history)
-      else -> ResourceStatusUserFriendly.ERROR.toActuationState(reason = "Unknown reason", history = history)
+      history.isHappy() -> ResourceStatusUserFriendly.UP_TO_DATE.toActuationState(id, history = history)
+      history.isBlocked() -> ResourceStatusUserFriendly.WAITING.toActuationState(id, reason = "Resource is locked while verifications are running", history = history)
+      history.isEmpty() -> ResourceStatusUserFriendly.PROCESSING.toActuationState(id, reason = "New resource will be created shortly", history = history)
+      history.isDiff() -> ResourceStatusUserFriendly.PROCESSING.toActuationState(id, reason = "Resource does not match the config and will be updated soon", history = history)
+      history.isActuating() -> ResourceStatusUserFriendly.PROCESSING.toActuationState(id, reason = "Resource is being updated", history = history)
+      history.isCreated() -> ResourceStatusUserFriendly.PROCESSING.toActuationState(id, reason = "New resource will be created shortly", history = history)
+      history.isResumed() -> ResourceStatusUserFriendly.PROCESSING.toActuationState(id, reason = "Resource management will resume shortly", history = history)
+      history.isDeleting() ->  ResourceStatusUserFriendly.DELETING.toActuationState(id, reason = "Resource is being deleted", history = history)
+      history.isMissingDependency() -> ResourceStatusUserFriendly.ERROR.toActuationState(id, reason = history.lastRelevantMessage(), history = history)
+      history.isVetoed() -> ResourceStatusUserFriendly.ERROR.toActuationState(id, reason = "We failed to update the resource multiple times", history = history)
+      history.isDiffNotActionable() -> ResourceStatusUserFriendly.ERROR.toActuationState(id, reason = "We are unable to update resource to match the config", history = history)
+      history.isError() -> ResourceStatusUserFriendly.ERROR.toActuationState(id, reason = history.lastRelevantMessage(), history = history)
+      history.isCurrentlyUnresolvable() -> ResourceStatusUserFriendly.ERROR.toActuationState(id, reason = "We are temporarily unable to check resource status", history = history)
+      else -> ResourceStatusUserFriendly.ERROR.toActuationState(id, reason = "Unknown reason", history = history)
     }
 
   }
@@ -228,6 +228,7 @@ class ResourceStatusService(
 }
 
 data class ResourceActuationState(
+  val resourceId: String,
   val status: ResourceStatusUserFriendly,
   /** A user friendly reason based on our understanding of the current state */
   val reason: String? = null,
@@ -263,9 +264,10 @@ enum class ResourceStatusUserFriendly {
   NOT_MANAGED,
   DELETING;
 
-  fun toActuationState(reason: String? = null, history: List<ResourceHistoryEvent>): ResourceActuationState {
+  fun toActuationState(resourceId: String, reason: String? = null, history: List<ResourceHistoryEvent>): ResourceActuationState {
     val event = history.lastRelevantEvent()
     return ResourceActuationState(
+      resourceId = resourceId,
       status = this,
       reason = reason,
       eventMessage = event?.message,

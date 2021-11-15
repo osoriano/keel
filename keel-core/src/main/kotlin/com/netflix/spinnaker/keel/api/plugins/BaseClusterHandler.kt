@@ -2,22 +2,28 @@ package com.netflix.spinnaker.keel.api.plugins
 
 import com.netflix.spinnaker.keel.api.ClusterDeployStrategy
 import com.netflix.spinnaker.keel.api.ComputeResourceSpec
+import com.netflix.spinnaker.keel.api.DeliveryConfig
+import com.netflix.spinnaker.keel.api.Environment
+import com.netflix.spinnaker.keel.api.Exportable
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceDiff
 import com.netflix.spinnaker.keel.api.ResourceDiffFactory
+import com.netflix.spinnaker.keel.api.SimpleLocationProvider
 import com.netflix.spinnaker.keel.api.actuation.Job
 import com.netflix.spinnaker.keel.api.actuation.Task
 import com.netflix.spinnaker.keel.api.actuation.TaskLauncher
 import com.netflix.spinnaker.keel.core.orcaClusterMoniker
 import com.netflix.spinnaker.keel.core.serverGroup
 import com.netflix.spinnaker.keel.diff.toIndividualDiffs
+import com.netflix.spinnaker.keel.events.ResourceActuationLaunched
 import com.netflix.spinnaker.keel.orca.dependsOn
 import com.netflix.spinnaker.keel.orca.restrictedExecutionWindow
 import com.netflix.spinnaker.keel.orca.waitStage
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import java.time.Clock
 
 /**
  * Common cluster functionality.
@@ -25,11 +31,13 @@ import kotlinx.coroutines.coroutineScope
  * same decision, or abstracted logic involving coordinating resources or
  * publishing events.
  */
-abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Any>(
+abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: SimpleLocationProvider>(
   resolvers: List<Resolver<*>>,
   protected val taskLauncher: TaskLauncher,
-  protected val diffFactory: ResourceDiffFactory
-) : ResolvableResourceHandler<SPEC, Map<String, RESOLVED>>(resolvers) {
+  protected val diffFactory: ResourceDiffFactory,
+) : DeployableResourceHandler<SPEC, Map<String, RESOLVED>>, ResolvableResourceHandler<SPEC, Map<String, RESOLVED>>(resolvers) {
+
+  abstract val clock: Clock
 
   /**
    * parses the desired region from a resource diff
@@ -170,7 +178,12 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Any>(
   /**
    * return the jobs needed to upsert a server group w/o using managed rollout
    */
-  abstract fun ResourceDiff<RESOLVED>.upsertServerGroupJob(resource: Resource<SPEC>, startingRefId: Int = 0, version: String? = null): Job
+  abstract fun ResourceDiff<RESOLVED>.upsertOrCloneServerGroupJob(
+    resource: Resource<SPEC>,
+    startingRefId: Int = 0,
+    version: String? = null,
+    clone: Boolean = false
+  ): Job
 
   abstract suspend fun getServerGroupsByRegion(resource: Resource<SPEC>): Map<String, List<RESOLVED>>
 
@@ -194,32 +207,32 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Any>(
     desiredVersion: String
   ): Job
 
-  fun accountRegionString(diff: ResourceDiff<RESOLVED>): String =
+  private fun accountRegionString(diff: ResourceDiff<RESOLVED>): String =
     "${getDesiredAccount(diff)}/${getDesiredRegion(diff)}"
 
-  fun accountRegionString(resource: Resource<SPEC>, diffs: List<ResourceDiff<RESOLVED>>): String =
+  private fun accountRegionString(resource: Resource<SPEC>, diffs: List<ResourceDiff<RESOLVED>>): String =
     "${resource.account()}/${diffs.map { getDesiredRegion(it) }.joinToString(",")}"
 
-  fun ResourceDiff<RESOLVED>.capacityOnlyMessage(): String =
+  private fun ResourceDiff<RESOLVED>.capacityOnlyMessage(): String =
     "Resize server group [${moniker()} in ${accountRegionString(this)}]"
 
-  fun ResourceDiff<RESOLVED>.autoScalingOnlyMessage(): String =
+  private fun ResourceDiff<RESOLVED>.autoScalingOnlyMessage(): String =
     "Modify auto-scaling [of server group ${moniker()} in ${accountRegionString(this)}]"
 
 
-  fun ResourceDiff<RESOLVED>.enabledOnlyMessage(job: Job): String =
+  private fun ResourceDiff<RESOLVED>.enabledOnlyMessage(job: Job): String =
     "Disable extra active server group [${job["asgName"]} in ${accountRegionString(this)}]"
 
-  fun ResourceDiff<RESOLVED>.capacityAndAutoscalingMessage(): String=
+  private fun ResourceDiff<RESOLVED>.capacityAndAutoscalingMessage(): String=
     "Modify capacity and auto-scaling [of server group ${moniker()} in ${accountRegionString(this)}]"
 
-  fun ResourceDiff<RESOLVED>.upsertMessage(version: String): String =
+  private fun ResourceDiff<RESOLVED>.upsertMessage(version: String): String =
     "Deploy $version [to server group ${moniker()} in ${accountRegionString(this)}]"
 
-  fun Resource<SPEC>.upsertManagedRolloutMessage(version: String, diffs: List<ResourceDiff<RESOLVED>>): String =
+  private fun Resource<SPEC>.upsertManagedRolloutMessage(version: String, diffs: List<ResourceDiff<RESOLVED>>): String =
     "Deploy $version [to cluster ${moniker()} in ${accountRegionString(this, diffs)} using a managed rollout]"
 
-  fun ResourceDiff<RESOLVED>.rollbackMessage(version: String, rollbackServerGroup: RESOLVED) =
+  private fun ResourceDiff<RESOLVED>.rollbackMessage(version: String, rollbackServerGroup: RESOLVED) =
     "Rolling back to $version [cluster ${moniker()} in ${accountRegionString(this)} (disabling ${current?.moniker()?.serverGroup}, enabling ${rollbackServerGroup.moniker().serverGroup})]"
 
   abstract fun correlationId(resource: Resource<SPEC>, diff: ResourceDiff<RESOLVED>): String
@@ -351,7 +364,7 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Any>(
    *  Modifies an existing server group instead of launching a new server group.
    *  This either modifies the enabled server group, or enables a disabled server group.
    */
-  suspend fun modifyInPlace(
+  private suspend fun modifyInPlace(
     resource: Resource<SPEC>,
     diffs: List<ResourceDiff<RESOLVED>>,
     rollbackServerGroups: Map<String, RESOLVED>
@@ -394,7 +407,7 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Any>(
   /**
    * Deploys a new server group
    */
-  suspend fun upsertUnstaggered(
+  private suspend fun upsertUnstaggered(
     resource: Resource<SPEC>,
     diffs: List<ResourceDiff<RESOLVED>>,
     version: String,
@@ -410,7 +423,7 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Any>(
           refId++
         }
 
-        stages.add(diff.upsertServerGroupJob(resource, refId, version))
+        stages.add(diff.upsertOrCloneServerGroupJob(resource, refId, version))
         refId++
 
         if (diff.shouldDeployAndModifyScalingPolicies()) {
@@ -435,7 +448,7 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Any>(
       }
     }
 
-  suspend fun upsertStaggered(
+  private suspend fun upsertStaggered(
     resource: Resource<SPEC>,
     diffs: List<ResourceDiff<RESOLVED>>,
     version: String
@@ -471,7 +484,7 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Any>(
           refId++
         }
 
-        val stage = diff.upsertServerGroupJob(resource, refId).toMutableMap()
+        val stage = diff.upsertOrCloneServerGroupJob(resource, refId).toMutableMap()
 
         refId++
 
@@ -532,7 +545,39 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Any>(
       return@coroutineScope tasks
     }
 
-  suspend fun upsertManagedRollout(
+  override suspend fun redeploy(deliveryConfig: DeliveryConfig, environment: Environment, resource: Resource<SPEC>) {
+    val current = current(resource)
+      ?: error("Resource ${resource.id} is not currently deployed and so cannot be redeployed.")
+
+    // use a no-op diff of the current state with itself, so we can leverage the same logic to generate jobs
+    val diffs = diffFactory.compare(current, current).let {
+      diffFactory.toIndividualDiffs(it)
+    }
+
+    coroutineScope {
+      diffs.forEach { diff ->
+        val version = diff.version(resource)
+        val job = diff.upsertOrCloneServerGroupJob(resource, 0, version, clone = true)
+        async {
+          with(diff.desired) {
+            val task = taskLauncher.submitJob(
+              resource = resource,
+              description = "Redeploy $version [to server group ${resource.spec.moniker} in $account/$region]",
+              correlationId = correlationId(resource, diff),
+              stages = listOf(job),
+              artifactVersion = version
+            )
+            val redeployingVersions = diff.getDeployingVersions(resource)
+            log.debug("Redeploying versions $redeployingVersions for ${resource.spec.moniker} in $account/$region")
+            notifyArtifactDeploying(resource, redeployingVersions)
+            notifyActuationLaunched(resource, task)
+          }
+        }
+      }
+    }
+  }
+
+  private suspend fun upsertManagedRollout(
     resource: Resource<SPEC>,
     diffs: List<ResourceDiff<RESOLVED>>,
     version: String
@@ -548,9 +593,22 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Any>(
       )
     }
 
-  fun notifyArtifactDeploying(resource: Resource<SPEC>, versions: Set<String>) {
+  private fun notifyArtifactDeploying(resource: Resource<SPEC>, versions: Set<String>) {
     versions.forEach { version ->
       notifyArtifactDeploying(resource, version)
     }
   }
+
+  private fun notifyActuationLaunched(resource: Resource<SPEC>, task: Task) =
+    eventPublisher?.publishEvent(ResourceActuationLaunched(resource, this@BaseClusterHandler.name, listOf(task), clock))
+
+  // The following overrides are required due to https://youtrack.jetbrains.com/issue/KT-39603
+
+  override suspend fun current(resource: Resource<SPEC>): Map<String, RESOLVED>? =
+    TODO("Not yet implemented")
+
+  override suspend fun export(exportable: Exportable): SPEC =
+    TODO("Not yet implemented")
+
+  // --- end overrides for KT-39603
 }

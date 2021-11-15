@@ -11,7 +11,6 @@ import com.netflix.spinnaker.keel.graphql.types.MD_Artifact
 import com.netflix.spinnaker.keel.graphql.types.MD_ExecutionSummary
 import com.netflix.spinnaker.keel.graphql.types.MD_Resource
 import com.netflix.spinnaker.keel.graphql.types.MD_ResourceActuationState
-import com.netflix.spinnaker.keel.graphql.types.MD_ResourceActuationStatus
 import com.netflix.spinnaker.keel.graphql.types.MD_ResourceTask
 import com.netflix.spinnaker.keel.pause.ActuationPauser
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
@@ -55,13 +54,7 @@ class ResourceFetcher(
   fun resourceStatus(dfe: DgsDataFetchingEnvironment): MD_ResourceActuationState {
     val resource: MD_Resource = dfe.getSource()
     val state = resourceStatusService.getActuationState(resource.id)
-    return MD_ResourceActuationState(
-      resourceId = resource.id,
-      status = MD_ResourceActuationStatus.valueOf(state.status.name),
-      reason = state.reason,
-      event = state.eventMessage,
-      errors = state.errors
-    )
+    return state.toDgs()
   }
 
   @DgsData(parentType = DgsConstants.MD_RESOURCEACTUATIONSTATE.TYPE_NAME, field = DgsConstants.MD_RESOURCEACTUATIONSTATE.Tasks)
