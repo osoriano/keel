@@ -29,8 +29,16 @@ type MD_Error {
 
 type MD_Migration {
   id: String!
-  canMigrate: Boolean
-  deliveryConfig: String
+  status: MD_MigrationStatus
+  deliveryConfig: JSON
+}
+
+enum MD_MigrationStatus {
+  NOT_READY, # Can't start the migration
+  READY_TO_START, # Ready to start, await user actions
+  PR_CREATED, # User created the PR
+  BLOCKED, # User requested assitance
+  COMPLETED # Migration completed
 }
 
 type MD_GitIntegration {

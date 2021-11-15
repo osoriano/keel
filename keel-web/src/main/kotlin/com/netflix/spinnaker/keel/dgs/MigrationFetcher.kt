@@ -5,6 +5,7 @@ import com.netflix.graphql.dgs.DgsData
 import com.netflix.graphql.dgs.InputArgument
 import com.netflix.spinnaker.keel.graphql.DgsConstants
 import com.netflix.spinnaker.keel.graphql.types.MD_Migration
+import com.netflix.spinnaker.keel.graphql.types.MD_MigrationStatus
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
 import graphql.schema.DataFetchingEnvironment
 import org.springframework.security.access.prepost.PreAuthorize
@@ -20,7 +21,12 @@ class MigrationFetcher(
     val status = delivertConfigRepository.getApplicationMigrationStatus(appName)
     return MD_Migration(
       id = "migration-$appName",
-      canMigrate = status.isMigratable,
+      status = when {
+        !status.isMigratable -> MD_MigrationStatus.NOT_READY
+        status.isMigratable -> MD_MigrationStatus.READY_TO_START
+        // TODO: add more states
+        else -> MD_MigrationStatus.NOT_READY
+      },
       deliveryConfig = status.deliveryConfig
     )
   }
