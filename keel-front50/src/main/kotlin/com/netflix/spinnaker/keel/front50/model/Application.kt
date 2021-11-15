@@ -18,6 +18,7 @@ data class Application(
   val repoType: String? = null,
   val createTs: String? = null,
   val managedDelivery: ManagedDeliveryConfig? = null,
+  val slackChannel: SlackChannel? = null,
   @get:JsonAnyGetter val details: MutableMap<String, Any?> = mutableMapOf()
 ) {
   @JsonAnySetter
@@ -36,3 +37,8 @@ data class ManagedDeliveryConfig(
   val importDeliveryConfig: Boolean = false,
   val manifestPath: String? = null
 )
+
+@JsonInclude(NON_NULL)
+data class SlackChannel (
+  val name: String? = null
+  )

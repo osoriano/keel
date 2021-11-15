@@ -8,6 +8,9 @@ import com.netflix.spinnaker.keel.api.Dependency
 import com.netflix.spinnaker.keel.api.DependencyType
 import com.netflix.spinnaker.keel.api.Dependent
 import com.netflix.spinnaker.keel.api.Exportable
+import com.netflix.spinnaker.keel.api.NotificationConfig
+import com.netflix.spinnaker.keel.api.NotificationFrequency
+import com.netflix.spinnaker.keel.api.NotificationType
 import com.netflix.spinnaker.keel.api.ResourceKind
 import com.netflix.spinnaker.keel.api.ResourceSpec
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
@@ -92,6 +95,9 @@ class ExportService(
     )
 
     val SPEL_REGEX = Regex("\\$\\{.+\\}")
+
+    val PRODUCTION_EVN = "production"
+    val TESTING_EVN = "testing"
   }
 
   private val isScheduledExportEnabled : Boolean
@@ -211,7 +217,8 @@ class ExportService(
       envs.map { environment ->
         val constraints = triggersToEnvironmentConstraints(applicationName, pipeline, environment, pipelinesToEnvironments)
         environment.copy(
-          constraints = environment.constraints + constraints
+          constraints = environment.constraints + constraints,
+          notifications = notifications(environment.name, application.slackChannel?.name)
         ).addMetadata(
           "exportedFrom" to pipeline.link(baseUrlConfig.baseUrl)
         )
@@ -248,12 +255,26 @@ class ExportService(
     return result
   }
 
+  /**
+   * Adding slack notifications for production environment, using the slack channel as defined in spinnaker
+  */
+  private fun notifications(envName: String, slackChannel: String?): Set<NotificationConfig> {
+    if (envName == PRODUCTION_EVN && slackChannel != null) {
+      return setOf(NotificationConfig(
+        address = slackChannel,
+        type = NotificationType.slack,
+        frequency = NotificationFrequency.normal
+      ))
+    }
+    return emptySet()
+  }
+
   private fun figureOutEnvironmentName(cluster: Exportable): String {
     return with(cluster) {
       when {
         !moniker.stack.isNullOrEmpty() -> moniker.stack!!
-        "test" in account -> "testing"
-        "prod" in account -> "production"
+        "test" in account -> TESTING_EVN
+        "prod" in account -> PRODUCTION_EVN
         else -> account
       }
     }
@@ -383,10 +404,11 @@ class ExportService(
 
   private fun checkIfSecurityGroupExists(account: String, name: String, environments: Set<SubmittedEnvironment>): Boolean {
     environments.map { environment ->
-      environment.resources.filterIsInstance<SubmittedResource<SecurityGroupSpec>>()
-      .map {
-        val sg = it.spec
-        if (sg.locations.account == account && sg.displayName == name) {
+      environment.resources.filter {
+        it.spec is SecurityGroupSpec
+      }.map {
+        val sg = it.spec as SecurityGroupSpec
+        if (sg.locations.account == account && it.spec.displayName == name) {
           return true
         }
       }
@@ -396,26 +418,28 @@ class ExportService(
 
   private fun checkIfClassicLBExists(account: String, name: String, environments: Set<SubmittedEnvironment>): Boolean {
     environments.map { environment ->
-      environment.resources.filterIsInstance<SubmittedResource<ClassicLoadBalancerSpec>>()
-        .map {
-          val clb = it.spec
-          if (clb.locations.account == account && clb.displayName == name) {
-            return true
-          }
+      environment.resources.filter {
+        it.spec is ClassicLoadBalancerSpec
+      }.map {
+        val clb = it.spec as ClassicLoadBalancerSpec
+        if (clb.locations.account == account && it.spec.displayName == name) {
+          return true
         }
+      }
     }
     return false
   }
 
   private fun checkIfApplicationLBExists(account: String, name: String, environments: Set<SubmittedEnvironment>): Boolean {
     environments.map { environment ->
-      environment.resources.filterIsInstance<SubmittedResource<ApplicationLoadBalancerSpec>>()
-        .map {
-          val alb = it.spec
-          if (alb.locations.account == account && alb.displayName == name) {
-            return true
-          }
+      environment.resources.filter {
+        it.spec is ApplicationLoadBalancerSpec
+      }.map {
+        val alb = it.spec as ApplicationLoadBalancerSpec
+        if (alb.locations.account == account && it.spec.displayName == name) {
+          return true
         }
+      }
     }
     return false
   }
