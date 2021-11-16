@@ -105,6 +105,8 @@ class EnvironmentVersioningTests {
     PersistenceRetry(PersistenceRetryConfig())
   )
 
+  private val heart = SqlHeart(jooq, sqlRetry, clock)
+
   @BeforeEach
   fun storeDeliveryConfig() {
     repository.upsertDeliveryConfig(deliveryConfig)
@@ -115,6 +117,7 @@ class EnvironmentVersioningTests {
       deliveryConfig.artifacts.single(),
       "fnord-0.1055.0-h1521.ecf8531",
     )
+    heart.beat()
   }
 
   @AfterEach

@@ -17,6 +17,7 @@ import com.netflix.spinnaker.keel.test.resourceFactory
 import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil.cleanupDb
+import com.netflix.spinnaker.time.MutableClock
 import io.mockk.mockk
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -41,6 +42,10 @@ class MigratorErrorTests {
   private val kindV1 = kind<DummyResourceSpec>(parseKind("test/whatever@v1"))
   private val kindV2 = kind<DummyResourceSpec>(parseKind("test/whatever@v2"))
 
+  companion object {
+    val clock = MutableClock()
+  }
+
   private val multiVersionResourceSpecIdentifier = ResourceSpecIdentifier(kindV1, kindV2)
 
   private val bedShittingSpecMigrator =
@@ -57,7 +62,7 @@ class MigratorErrorTests {
 
   private val resourceRepository = SqlResourceRepository(
     jooq = jooq,
-    clock = systemUTC(),
+    clock = clock,
     resourceFactory = resourceFactory,
     objectMapper = objectMapper,
     sqlRetry = sqlRetry,
@@ -68,13 +73,15 @@ class MigratorErrorTests {
 
   private val deliveryConfigRepository = SqlDeliveryConfigRepository(
     jooq = jooq,
-    clock = systemUTC(),
+    clock = clock,
     resourceFactory = resourceFactory,
     objectMapper = objectMapper,
     sqlRetry = sqlRetry,
     artifactSuppliers = defaultArtifactSuppliers(),
     publisher = mockk(relaxed = true)
   )
+
+  private val heart = SqlHeart(jooq, sqlRetry, clock)
 
   val deliveryConfig = DeliveryConfig(
     name = "fnord-manifest",
@@ -101,6 +108,7 @@ class MigratorErrorTests {
 
   @Test
   fun `the failing delivery config does not block the environment check cycle`() {
+    heart.beat()
     // The first time our un-readable delivery config will be due for a check, so the method should fail
     expectCatching {
       deliveryConfigRepository.itemsDueForCheck(ofMinutes(1), 10)
