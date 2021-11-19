@@ -60,8 +60,11 @@ class EnvironmentPromotionChecker(
               if (artifact.isUsedIn(environment)) {
 
                 val latestVersions = versions.map { it.version }
+                // note: we can't evaluate skipped versions here (yet) because we aren't reliably sorting artifacts by
+                //   created time, so sometimes it seems we sort by approval time, which means that older versions roll
+                //   out instead of newer versions :(
                 val versionsToUse = repository
-                    .getNotYetDeployedVersionsInEnvironment( // get pending and skipped versions
+                    .getPendingVersionsInEnvironment(
                       deliveryConfig,
                       artifact.reference,
                       environment.name

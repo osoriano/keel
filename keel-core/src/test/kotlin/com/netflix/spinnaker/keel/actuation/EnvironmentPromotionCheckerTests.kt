@@ -166,7 +166,7 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
         } returns listOf("2.0", "1.2", "1.1", "1.0").toArtifactVersions()
 
         every {
-          repository.getNotYetDeployedVersionsInEnvironment(any(), dockerArtifact.reference, any())
+          repository.getPendingVersionsInEnvironment(any(), dockerArtifact.reference, any())
         } returns listOf("2.0", "1.2", "1.1", "1.0").toArtifactVersions()
 
         every {
@@ -383,7 +383,7 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
             } returns setOf("2.0", "1.2", "1.1").toArtifactVersions()
 
             every {
-              repository.getNotYetDeployedVersionsInEnvironment(any(), dockerArtifact.reference, any())
+              repository.getPendingVersionsInEnvironment(any(), dockerArtifact.reference, any())
             } returns listOf("2.0", "1.2", "1.1", "1.0").toArtifactVersions()
           }
 
@@ -487,7 +487,7 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
         } returns listOf("2.0", "1.2", "1.1", "1.0").toArtifactVersions()
 
         every {
-          repository.getNotYetDeployedVersionsInEnvironment(any(), dockerArtifact.reference, any())
+          repository.getPendingVersionsInEnvironment(any(), dockerArtifact.reference, any())
         } returns listOf("2.0", "1.2", "1.1", "1.0").toArtifactVersions()
 
         every {
@@ -563,7 +563,7 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
     context("config contains multiple types of artifacts") {
       before {
         every {
-          repository.getNotYetDeployedVersionsInEnvironment(any(), any(), any())
+          repository.getPendingVersionsInEnvironment(any(), any(), any())
         } returns listOf("2.0", "1.2", "1.1", "1.0").toArtifactVersions()
 
         every {

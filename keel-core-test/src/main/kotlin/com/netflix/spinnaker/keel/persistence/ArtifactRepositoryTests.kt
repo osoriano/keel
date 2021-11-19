@@ -859,10 +859,9 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
         }
       }
 
-      // todo eb: update this test once the behavior is fixed
-      test("can approve a skipped version does nothing") {
+      test("can approve a skipped") {
         subject.approveVersionFor(manifest, versionedReleaseDebian, version1, testEnvironment.name)
-        expectThat(subject.isApprovedFor(manifest, versionedReleaseDebian, version1, testEnvironment.name)).isFalse()
+        expectThat(subject.isApprovedFor(manifest, versionedReleaseDebian, version1, testEnvironment.name)).isTrue()
       }
     }
 
