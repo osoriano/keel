@@ -10,6 +10,7 @@ import com.netflix.spinnaker.keel.front50.model.GitRepository
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 import com.netflix.spinnaker.keel.notifications.DeliveryConfigImportFailed
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
+import com.netflix.spinnaker.keel.retrofit.isNotFound
 import com.netflix.spinnaker.keel.telemetry.safeIncrement
 import com.netflix.spinnaker.keel.upsert.DeliveryConfigUpserter
 import kotlinx.coroutines.runBlocking
@@ -18,7 +19,6 @@ import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.event.EventListener
 import org.springframework.core.env.Environment
 import org.springframework.stereotype.Component
-import retrofit2.HttpException
 import java.time.Clock
 
 /**
@@ -121,8 +121,8 @@ class DeliveryConfigCodeEventListener(
       } catch (e: Exception) {
         log.error("Error retrieving/updating delivery config: $e", e)
         event.emitCounterMetric(CODE_EVENT_COUNTER, DELIVERY_CONFIG_RETRIEVAL_ERROR, app.name)
-        if (e is HttpException) {
-          log.debug("Skipping publishing an event for http errors as we assume that the file does not exist")
+        if (e.isNotFound) {
+          log.debug("Skipping publishing an event for http errors as we assume that the file does not exist - $e")
         } else {
           eventPublisher.publishDeliveryConfigImportFailed(
             app.name,
