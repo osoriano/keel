@@ -83,6 +83,8 @@ import strikt.assertions.endsWith
 import strikt.assertions.isA
 import strikt.assertions.isEmpty
 import strikt.assertions.isEqualTo
+import strikt.assertions.isLessThan
+import strikt.assertions.isLessThanOrEqualTo
 import strikt.assertions.isTrue
 import strikt.assertions.one
 import java.time.Clock
@@ -484,6 +486,11 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
               .isA<Dependent>()
               .get { dependsOn.first { it.type == LOAD_BALANCER }.name }
               .isEqualTo(dependency.spec.moniker.withSuffix(suffix).name)
+          }
+
+          test("trim apps with a long name") {
+            val moniker = Moniker(app = "nsuiexpentalapp", stack = "test", detail = "test")
+            expectThat(moniker.withSuffix("4f902bf").toName().length).isLessThanOrEqualTo(Moniker.MAX_LENGTH)
           }
 
           test("the names of the default security groups are not changed in the dependencies") {
