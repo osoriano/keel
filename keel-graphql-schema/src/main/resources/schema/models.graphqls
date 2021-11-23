@@ -363,6 +363,12 @@ type Mutation @extends {
   md_rollbackToArtifactVersion(payload: MD_RollbackToVersionPayload!): Boolean
   md_lockEnvironmentArtifact(payload: MD_ArtifactVersionActionPayload!): Boolean
   md_redeployResource(payload: MD_RedeployResourcePayload!): Boolean
+  md_migrationReportIssue(payload: MD_MigrationReportIssuePayload!): Boolean
+}
+
+input MD_MigrationReportIssuePayload {
+  application: ID!
+  issue: String!
 }
 
 input MD_RedeployResourcePayload {

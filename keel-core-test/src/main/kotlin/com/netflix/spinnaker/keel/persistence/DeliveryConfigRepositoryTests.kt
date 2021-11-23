@@ -1071,6 +1071,18 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
           }
           expectThat(result.isSuccess().get { isMigratable }.isFalse())
         }
+
+        test("App is already managed") {
+          store()
+          repository.storeAppForPotentialMigration(deliveryConfig.application, true)
+          val result = expectCatching {
+            repository.getApplicationMigrationStatus(deliveryConfig.application)
+          }
+          expectThat(result.isSuccess().and {
+            get { alreadyManaged }.isTrue()
+            get { isMigratable }.isFalse()
+          })
+        }
       }
     }
   }

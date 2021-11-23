@@ -1,0 +1,19 @@
+databaseChangeLog:
+  - changeSet:
+      id: migration-report-issue
+      author: rhorev
+      changes:
+        - addColumn:
+            tableName: migration_status
+            columns:
+              - column:
+                  name: assistance_needed
+                  type: boolean
+                  afterColumn: in_allow_list
+              - column:
+                  name: assistance_needed_by
+                  type: varchar(255)
+                  afterColumn: assistance_needed
+              - column:
+                  name: issue_details
+                  type: text

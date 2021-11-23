@@ -1156,7 +1156,7 @@ class SqlDeliveryConfigRepository(
     }
   }
 
-  /**
+    /**
    * Used in the [EnvironmentConstraintRunner] to queue artifact versions for approval by the
    * [EnvironmentPromotionChecker].
    */
@@ -1520,21 +1520,28 @@ class SqlDeliveryConfigRepository(
         )
       ) {
         // Can't migrate if app is already managed
-        ApplicationMigrationStatus(false)
+        ApplicationMigrationStatus(alreadyManaged = true)
+      } else {
+        jooq
+          .select(
+            MIGRATION_STATUS.EXPORT_SUCCEEDED,
+            MIGRATION_STATUS.SCM_ENABLED,
+            MIGRATION_STATUS.IN_ALLOW_LIST,
+            MIGRATION_STATUS.ASSISTANCE_NEEDED,
+            MIGRATION_STATUS.DELIVERY_CONFIG,
+          )
+          .from(MIGRATION_STATUS)
+          .where(MIGRATION_STATUS.APPLICATION.eq(application))
+          .fetchOne { (exportSucceeded, scmEnabled, inAllowList, assistanceNeeded, deliveryConfig) ->
+            // TODO: add scmEnabled to the condition below once we support it
+            ApplicationMigrationStatus(
+              isMigratable = exportSucceeded && inAllowList,
+              isBlocked = assistanceNeeded ?: false,
+              deliveryConfig = objectMapper.readValue(deliveryConfig)
+            )
+          }
+          ?: ApplicationMigrationStatus()
       }
-      jooq
-        .select(MIGRATION_STATUS.EXPORT_SUCCEEDED,
-                MIGRATION_STATUS.SCM_ENABLED,
-                MIGRATION_STATUS.IN_ALLOW_LIST,
-                MIGRATION_STATUS.DELIVERY_CONFIG,
-        )
-        .from(MIGRATION_STATUS)
-        .where(MIGRATION_STATUS.APPLICATION.eq(application))
-        .fetchOne { (exportSucceeded, scmEnabled, inAllowList, deliveryConfig) ->
-          // TODO: add scmEnabled to the condition below once we support it
-          ApplicationMigrationStatus(exportSucceeded && inAllowList, objectMapper.readValue(deliveryConfig))
-        }
-        ?: ApplicationMigrationStatus(false)
     }
   }
 
@@ -1603,6 +1610,17 @@ class SqlDeliveryConfigRepository(
         .set(MIGRATION_STATUS.UPDATED_AT, clock.instant())
         .set(MIGRATION_STATUS.EXPORT_SUCCEEDED, false)
         .execute()
+    }
+  }
+
+  override fun markApplicationMigrationAsBlocked(application: String, reason: String, user: String): Boolean {
+    return sqlRetry.withRetry(WRITE) {
+      jooq.update(MIGRATION_STATUS)
+        .set(MIGRATION_STATUS.ASSISTANCE_NEEDED, true)
+        .set(MIGRATION_STATUS.ISSUE_DETAILS, reason)
+        .set(MIGRATION_STATUS.ASSISTANCE_NEEDED_BY, user)
+        .where(MIGRATION_STATUS.APPLICATION.eq(application))
+        .execute() > 0
     }
   }
 

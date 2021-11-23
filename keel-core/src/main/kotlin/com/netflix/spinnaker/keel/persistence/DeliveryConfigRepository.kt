@@ -289,6 +289,11 @@ interface DeliveryConfigRepository : PeriodicallyCheckedRepository<DeliveryConfi
     application: String,
     error: String,
   )
+
+  /**
+   * Mark the application migration status as blocked
+   */
+  fun markApplicationMigrationAsBlocked(application: String, reason: String, user: String): Boolean
 }
 
 abstract class NoSuchDeliveryConfigException(message: String) :
