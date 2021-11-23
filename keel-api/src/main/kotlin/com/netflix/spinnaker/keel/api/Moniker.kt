@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.api
 
+import com.netflix.spinnaker.kork.exceptions.SystemException
+
 
 data class Moniker(
   val app: String,
@@ -22,9 +24,10 @@ data class Moniker(
     }
 
   private fun String?.dropLastOrNull(n: Int): String? {
-    if (this == null) return null;
+    if (this == null) return null
+    if (n <= 0) return this
     return this.dropLast(n).let {
-      it?.ifEmpty { null }
+      it.ifEmpty { null }
     }
   }
 
@@ -46,9 +49,14 @@ data class Moniker(
     }
     lengthDiff = newMoniker.toName().length - maxNameLength
     if (lengthDiff > 0) {
-      // If the name is still too long we trim the app
-      newMoniker = newMoniker.copy(app = app.dropLast(lengthDiff))
+      // If the name is still too long we throw an exception. Optional improvement is to make the suffix shorter
+      throw InvalidMonikerException("Cannot update moniker to match the max length - ${newMoniker.toName()}")
     }
     return newMoniker
   }
 }
+
+class InvalidMonikerException(
+  override val message: String? = null,
+  override val cause: Throwable? = null
+) : SystemException(message, cause)

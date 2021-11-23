@@ -9,6 +9,7 @@ import com.netflix.spinnaker.keel.api.DependencyType.LOAD_BALANCER
 import com.netflix.spinnaker.keel.api.DependencyType.SECURITY_GROUP
 import com.netflix.spinnaker.keel.api.Dependent
 import com.netflix.spinnaker.keel.api.Environment
+import com.netflix.spinnaker.keel.api.InvalidMonikerException
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.PreviewEnvironmentSpec
 import com.netflix.spinnaker.keel.api.Resource
@@ -76,6 +77,7 @@ import io.mockk.slot
 import io.mockk.spyk
 import org.springframework.context.ApplicationEventPublisher
 import strikt.api.expectThat
+import strikt.api.expectThrows
 import strikt.assertions.contains
 import strikt.assertions.containsExactlyInAnyOrder
 import strikt.assertions.containsKeys
@@ -86,6 +88,7 @@ import strikt.assertions.isEqualTo
 import strikt.assertions.isLessThan
 import strikt.assertions.isLessThanOrEqualTo
 import strikt.assertions.isTrue
+import strikt.assertions.length
 import strikt.assertions.one
 import java.time.Clock
 import java.time.Duration
@@ -488,11 +491,6 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
               .isEqualTo(dependency.spec.moniker.withSuffix(suffix).name)
           }
 
-          test("trim apps with a long name") {
-            val moniker = Moniker(app = "nsuiexpentalapp", stack = "test", detail = "test")
-            expectThat(moniker.withSuffix("4f902bf").toName().length).isLessThanOrEqualTo(Moniker.MAX_LENGTH)
-          }
-
           test("the names of the default security groups are not changed in the dependencies") {
             expectThat(previewEnv.resources.find { it.basedOn == clusterWithDependencies.id }?.spec)
               .isA<Dependent>()
@@ -705,6 +703,61 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
           expectThat(tags).one {
             contains(PREVIEW_ENVIRONMENT_UPSERT_ERROR.toTags())
           }
+        }
+      }
+    }
+
+    context("renaming mechanism") {
+      test("trim apps with a long name") {
+        val moniker = Moniker(app = "spkr12345678910", stack = "test", detail = "test")
+        expectThat(moniker.withSuffix("4f902bf").toName()).and {
+          isEqualTo("spkr12345678910-test-tes-4f902bf")
+          length.isLessThanOrEqualTo(Moniker.MAX_LENGTH)
+        }
+      }
+      test("apps with no stack") {
+        val moniker = Moniker(app = "spkr12345678910", detail = "test")
+        expectThat(moniker.withSuffix("4f902bf").toName()).and {
+          isEqualTo("spkr12345678910--test-4f902bf")
+          length.isLessThanOrEqualTo(Moniker.MAX_LENGTH)
+        }
+      }
+
+      test("apps with no detail") {
+        val moniker = Moniker(app = "spkr12345678910", stack = "test")
+        expectThat(moniker.withSuffix("4f902bf").toName()).and {
+          isEqualTo("spkr12345678910-test-4f902bf")
+          length.isLessThanOrEqualTo(Moniker.MAX_LENGTH)
+        }
+      }
+
+      test("apps with no stack and detail") {
+        val moniker = Moniker(app = "spkr12345678910")
+        expectThat(moniker.withSuffix("4f902bf").toName()).and {
+          isEqualTo("spkr12345678910--4f902bf")
+          length.isLessThanOrEqualTo(Moniker.MAX_LENGTH)
+        }
+      }
+      test("larger max length") {
+        val moniker = Moniker(app = "spkr12345678910", stack = "test", detail = "test")
+        expectThat(moniker.withSuffix("4f902bf", 40).toName()).and {
+          isEqualTo("spkr12345678910-test-test-4f902bf")
+          length.isLessThanOrEqualTo(40)
+        }
+      }
+
+      test("smaller max length") {
+        val moniker = Moniker(app = "spkr12345678910", stack = "test", detail = "test")
+        expectThat(moniker.withSuffix("4f902bf", 26).toName()).and {
+          isEqualTo("spkr12345678910-te-4f902bf")
+          length.isLessThanOrEqualTo(26)
+        }
+      }
+
+      test("smaller max length") {
+        val moniker = Moniker(app = "spkr12345678910123412345678910123456", stack = "test", detail = "test")
+        expectThrows<InvalidMonikerException> {
+          moniker.withSuffix("4f902bf").toName()
         }
       }
     }
