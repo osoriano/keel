@@ -567,6 +567,7 @@ class NotificationEventListener(
       ARTIFACT_MARK_AS_BAD,
       ARTIFACT_PINNED,
       ARTIFACT_UNPINNED,
+      DELIVERY_CONFIG_IMPORT_FAILED,
       LIFECYCLE_EVENT,
       APPLICATION_PAUSED,
       APPLICATION_RESUMED,
@@ -578,7 +579,6 @@ class NotificationEventListener(
     )
     val normalNotifications = quietNotifications + listOf(
       ARTIFACT_DEPLOYMENT_SUCCEEDED,
-      DELIVERY_CONFIG_IMPORT_FAILED,
       DELIVERY_CONFIG_CHANGED,
       TEST_PASSED,
       PLUGIN_NOTIFICATION_NORMAL
