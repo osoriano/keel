@@ -1,0 +1,13 @@
+databaseChangeLog:
+  - changeSet:
+      id: fix-comment-type
+      author: jonathanchang
+      changes:
+        - modifyDataType:
+            tableName: paused
+            columnName: comment
+            newDataType: text
+        - modifyDataType:
+            tableName: environment_artifact_pin
+            columnName: comment
+            newDataType: text

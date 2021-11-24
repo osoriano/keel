@@ -404,3 +404,6 @@ databaseChangeLog:
 - include:
     file: changelog/20211120-migration-report-issue.yml
     relativeToChangelogFile: true
+- include:
+    file: changelog/20211123-fix-comment-type.yml
+    relativeToChangelogFile: true
