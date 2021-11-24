@@ -17,6 +17,7 @@ import com.netflix.spinnaker.keel.persistence.DependentAttachFilter.ATTACH_PREVI
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
 import com.netflix.spinnaker.keel.persistence.EnvironmentDeletionRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
+import com.netflix.spinnaker.keel.retrofit.isNotFound
 import com.netflix.spinnaker.keel.scm.CodeEvent
 import com.netflix.spinnaker.keel.scm.CommitCreatedEvent
 import com.netflix.spinnaker.keel.scm.DELIVERY_CONFIG_RETRIEVAL_ERROR
@@ -164,14 +165,18 @@ class PreviewEnvironmentCodeEventListener(
       } catch (e: Exception) {
         log.error("Error retrieving delivery config: $e", e)
         event.emitCounterMetric(CODE_EVENT_COUNTER, DELIVERY_CONFIG_RETRIEVAL_ERROR, deliveryConfig.application)
-        eventPublisher.publishDeliveryConfigImportFailed(
-          deliveryConfig.application,
-          event,
-          event.pullRequestBranch,
-          clock.instant(),
-          e.message ?: "Unknown",
-          scmUtils.getPullRequestLink(event)
-        )
+        if (e.isNotFound) {
+          log.debug("Skipping publishing an event for http errors as we assume that the file does not exist - $e")
+        } else {
+          eventPublisher.publishDeliveryConfigImportFailed(
+            deliveryConfig.application,
+            event,
+            event.pullRequestBranch,
+            clock.instant(),
+            e.message ?: "Unknown",
+            scmUtils.getPullRequestLink(event)
+          )
+        }
         return@forEach
       }
 
