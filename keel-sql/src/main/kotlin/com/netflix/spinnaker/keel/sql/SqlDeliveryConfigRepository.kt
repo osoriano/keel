@@ -1501,6 +1501,16 @@ class SqlDeliveryConfigRepository(
     }
   }
 
+  override fun updateMigratingAppScmStatus(application: String, isScmPowered: Boolean) {
+    sqlRetry.withRetry(WRITE) {
+      jooq.update(MIGRATION_STATUS)
+        .set(MIGRATION_STATUS.APPLICATION, application)
+        .set(MIGRATION_STATUS.SCM_ENABLED, isScmPowered)
+        .where(MIGRATION_STATUS.APPLICATION.eq(application))
+        .execute()
+    }
+  }
+
   override fun storeAppForPotentialMigration(app: String, inAllowList: Boolean) {
     sqlRetry.withRetry(WRITE) {
       jooq.insertInto(MIGRATION_STATUS)
@@ -1535,8 +1545,9 @@ class SqlDeliveryConfigRepository(
           .fetchOne { (exportSucceeded, scmEnabled, inAllowList, assistanceNeeded, deliveryConfig) ->
             // TODO: add scmEnabled to the condition below once we support it
             ApplicationMigrationStatus(
-              isMigratable = exportSucceeded && inAllowList,
+              isMigratable = exportSucceeded && scmEnabled && inAllowList,
               isBlocked = assistanceNeeded ?: false,
+              isScmPowered = scmEnabled ?: false,
               deliveryConfig = objectMapper.readValue(deliveryConfig)
             )
           }
@@ -1578,20 +1589,11 @@ class SqlDeliveryConfigRepository(
     skippedPipelines: List<SkippedPipeline>,
     exportSucceeded: Boolean
   ) {
-    val skippedPipelinesJson = skippedPipelines.toJson()
-    val now = clock.instant()
-
     sqlRetry.withRetry(WRITE) {
-      jooq.insertInto(MIGRATION_STATUS)
-        .set(MIGRATION_STATUS.APPLICATION, deliveryConfig.application)
+      jooq.update(MIGRATION_STATUS)
         .set(MIGRATION_STATUS.DELIVERY_CONFIG, deliveryConfig.toJson())
-        .set(MIGRATION_STATUS.UPDATED_AT, now)
-        .set(MIGRATION_STATUS.SKIPPED_PIPELINES, skippedPipelinesJson)
-        .set(MIGRATION_STATUS.EXPORT_SUCCEEDED, exportSucceeded)
-        .onDuplicateKeyUpdate()
-        .set(MIGRATION_STATUS.DELIVERY_CONFIG, deliveryConfig.toJson())
-        .set(MIGRATION_STATUS.UPDATED_AT, now)
-        .set(MIGRATION_STATUS.SKIPPED_PIPELINES, skippedPipelinesJson)
+        .set(MIGRATION_STATUS.UPDATED_AT, clock.instant())
+        .set(MIGRATION_STATUS.SKIPPED_PIPELINES, skippedPipelines.toJson())
         .set(MIGRATION_STATUS.EXPORT_SUCCEEDED, exportSucceeded)
         .where(MIGRATION_STATUS.APPLICATION.eq(deliveryConfig.application))
         .execute()
@@ -1600,15 +1602,11 @@ class SqlDeliveryConfigRepository(
 
   override fun storeFailedPipelinesExportResult(application: String, error: String) {
     sqlRetry.withRetry(WRITE) {
-      jooq.insertInto(MIGRATION_STATUS)
-        .set(MIGRATION_STATUS.APPLICATION, application)
+      jooq.update(MIGRATION_STATUS)
         .set(MIGRATION_STATUS.ERROR, error)
         .set(MIGRATION_STATUS.UPDATED_AT, clock.instant())
         .set(MIGRATION_STATUS.EXPORT_SUCCEEDED, false)
-        .onDuplicateKeyUpdate()
-        .set(MIGRATION_STATUS.ERROR, error)
-        .set(MIGRATION_STATUS.UPDATED_AT, clock.instant())
-        .set(MIGRATION_STATUS.EXPORT_SUCCEEDED, false)
+        .where(MIGRATION_STATUS.APPLICATION.eq(application))
         .execute()
     }
   }

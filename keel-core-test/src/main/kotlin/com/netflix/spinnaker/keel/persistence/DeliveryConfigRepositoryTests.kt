@@ -136,6 +136,12 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
     val pausedRepository: P = pausedRepositoryProvider()
     internal val artifactRepository: A = artifactRepositoryProvider()
 
+    val submittedConfig = SubmittedDeliveryConfig(
+      name = deliveryConfig.name,
+      application = deliveryConfig.application,
+      serviceAccount = deliveryConfig.serviceAccount
+    )
+
     val artifact: DebianArtifact = DebianArtifact(
       name = "keel",
       deliveryConfigName = deliveryConfig.name,
@@ -231,7 +237,13 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
             clock
           )
         },
-        resourceRepositoryProvider = { this@DeliveryConfigRepositoryTests.createResourceRepository(it, publisher, clock) },
+        resourceRepositoryProvider = {
+          this@DeliveryConfigRepositoryTests.createResourceRepository(
+            it,
+            publisher,
+            clock
+          )
+        },
         artifactRepositoryProvider = { this@DeliveryConfigRepositoryTests.createArtifactRepository(publisher, clock) },
         pausedRepositoryProvider = this@DeliveryConfigRepositoryTests::createPausedRepository
       )
@@ -1016,16 +1028,17 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
     context("apps migration") {
       context("can store and get apps for migration") {
         before {
-          val deliveryConfig2 = deliveryConfig.copy(name="fnord2", application="fnord2")
+          val deliveryConfig2 = deliveryConfig.copy(name = "fnord2", application = "fnord2")
           repository.storeAppForPotentialMigration(deliveryConfig.application, false)
           repository.storeAppForPotentialMigration(deliveryConfig2.application, false)
         }
 
         test("get all apps") {
-          val apps = expectCatching {
+          expectCatching {
             repository.getAppsToExport(Duration.ofDays(1), 10)
           }
-          expectThat(apps.isSuccess().hasSize(2))
+            .isSuccess()
+            .hasSize(2)
         }
 
         test("Ignore apps that are already managed") {
@@ -1033,43 +1046,73 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
           val apps = expectCatching {
             repository.getAppsToExport(Duration.ofDays(1), 10)
           }
-          expectThat(apps.isSuccess().hasSize(1).first().isEqualTo("fnord2"))
+            .isSuccess()
+            .hasSize(1)
+            .first().isEqualTo("fnord2")
         }
 
         test("Ignore apps that were exported recently") {
           repository.getAppsToExport(Duration.ofDays(1), 10)
-          val apps = expectCatching {
+          expectCatching {
             repository.getAppsToExport(Duration.ofDays(1), 10)
           }
-          expectThat(apps.isSuccess().isEmpty())
+            .isSuccess()
+            .isEmpty()
         }
         test("App can be migrated") {
-          val submittedConfig = SubmittedDeliveryConfig(name = deliveryConfig.name, application = deliveryConfig.application, serviceAccount = deliveryConfig.serviceAccount)
           repository.storeAppForPotentialMigration(deliveryConfig.application, true)
           repository.storePipelinesExportResult(submittedConfig, emptyList(), true)
-          val result = expectCatching {
+          repository.updateMigratingAppScmStatus(deliveryConfig.application, true)
+          expectCatching {
             repository.getApplicationMigrationStatus(deliveryConfig.application)
           }
-          expectThat(result.isSuccess().and {
-            get { isMigratable }.isTrue()
-            get { deliveryConfig }.isNotNull()
-          })
+            .isSuccess()
+            .and {
+              get { isMigratable }.isTrue()
+              get { deliveryConfig }.isNotNull()
+              get { isScmPowered }.isTrue()
+            }
+
         }
 
-        test("App cannot be migrated") {
-          val submittedConfig = SubmittedDeliveryConfig(name = deliveryConfig.name, application = deliveryConfig.application, serviceAccount = deliveryConfig.serviceAccount)
-          repository.storePipelinesExportResult(submittedConfig, emptyList(), false)
-          val result = expectCatching {
+        test("App cannot be migrated - not in allowed list") {
+          repository.storePipelinesExportResult(submittedConfig, emptyList(), true)
+          repository.updateMigratingAppScmStatus(deliveryConfig.application, true)
+          expectCatching {
             repository.getApplicationMigrationStatus(deliveryConfig.application)
           }
-          expectThat(result.isSuccess().get { isMigratable }.isFalse())
+            .isSuccess()
+            .get { isMigratable }.isFalse()
+        }
+
+        test("App cannot be migrated - failed export") {
+          repository.storeAppForPotentialMigration(deliveryConfig.application, true)
+          repository.storePipelinesExportResult(submittedConfig, emptyList(), false)
+          repository.updateMigratingAppScmStatus(deliveryConfig.application, true)
+          expectCatching {
+            repository.getApplicationMigrationStatus(deliveryConfig.application)
+          }
+            .isSuccess()
+            .get { isMigratable }.isFalse()
+        }
+
+        test("App cannot be migrated - not scm powered") {
+          repository.storeAppForPotentialMigration(deliveryConfig.application, true)
+          repository.storePipelinesExportResult(submittedConfig, emptyList(), true)
+          repository.updateMigratingAppScmStatus(deliveryConfig.application, false)
+          expectCatching {
+            repository.getApplicationMigrationStatus(deliveryConfig.application)
+          }
+            .isSuccess()
+            .get { isMigratable }.isFalse()
         }
 
         test("App is not in the migration list") {
-          val result = expectCatching {
+          expectCatching {
             repository.getApplicationMigrationStatus("not-in-list-app")
           }
-          expectThat(result.isSuccess().get { isMigratable }.isFalse())
+            .isSuccess()
+            .get { isMigratable }.isFalse()
         }
 
         test("App is already managed") {
@@ -1078,10 +1121,10 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
           val result = expectCatching {
             repository.getApplicationMigrationStatus(deliveryConfig.application)
           }
-          expectThat(result.isSuccess().and {
-            get { alreadyManaged }.isTrue()
-            get { isMigratable }.isFalse()
-          })
+            .isSuccess().and {
+              get { alreadyManaged }.isTrue()
+              get { isMigratable }.isFalse()
+            }
         }
       }
     }

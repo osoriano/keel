@@ -6,6 +6,7 @@ import com.netflix.spinnaker.config.okhttp3.OkHttpClientProvider
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.igor.BuildService
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
+import com.netflix.spinnaker.keel.igor.JobService
 import com.netflix.spinnaker.keel.igor.ScmService
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactService
 import com.netflix.spinnaker.keel.retrofit.InstrumentedJacksonConverter
@@ -44,6 +45,14 @@ class IgorConfiguration {
     objectMapper: ObjectMapper,
     clientProvider: OkHttpClientProvider
   ): BuildService = buildService(objectMapper, igorEndpoint, clientProvider)
+
+  @Bean
+  fun jobService(
+    igorEndpoint: HttpUrl,
+    objectMapper: ObjectMapper,
+    clientProvider: OkHttpClientProvider
+  ): JobService = buildService(objectMapper, igorEndpoint, clientProvider)
+
 
   @Bean
   fun deliveryConfigImporter(

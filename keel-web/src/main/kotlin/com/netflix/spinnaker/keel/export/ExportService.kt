@@ -38,6 +38,7 @@ import com.netflix.spinnaker.keel.filterNotNullValues
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.model.DeployStage
 import com.netflix.spinnaker.keel.front50.model.Pipeline
+import com.netflix.spinnaker.keel.igor.JobService
 import com.netflix.spinnaker.keel.orca.ExecutionDetailResponse
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
@@ -46,6 +47,7 @@ import com.netflix.spinnaker.keel.validators.DeliveryConfigValidator
 import com.netflix.spinnaker.keel.veto.unhealthy.UnsupportedResourceTypeException
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
+import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.core.env.Environment
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -56,6 +58,7 @@ import java.time.Instant
  * Encapsulates logic to export delivery configs from pipelines.
  */
 @Component
+@EnableConfigurationProperties(ScmConfig::class)
 class ExportService(
   private val handlers: List<ResourceHandler<*, *>>,
   private val front50Cache: Front50Cache,
@@ -64,7 +67,10 @@ class ExportService(
   private val yamlMapper: YAMLMapper,
   private val validator: DeliveryConfigValidator,
   private val deliveryConfigRepository: DeliveryConfigRepository,
+  private val jobService: JobService,
   private val springEnv: Environment,
+  private val scmConfig: ScmConfig,
+
 ) {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
   private val prettyPrinter by lazy { yamlMapper.writerWithDefaultPrettyPrinter() }
@@ -116,7 +122,7 @@ class ExportService(
   @Scheduled(fixedDelayString = "\${keel.pipelines-export.scheduled.frequency:PT5M}")
   fun checkAppsForExport() {
     if (!isScheduledExportEnabled) return
-    val apps = deliveryConfigRepository.getAppsToExport( exportMinAge, exportBatchSize)
+    val apps = deliveryConfigRepository.getAppsToExport(exportMinAge, exportBatchSize)
     log.debug("Running the migration export on apps: $apps")
     apps.forEach { app ->
       runBlocking {
@@ -129,8 +135,21 @@ class ExportService(
             result.exportSucceeded
           )
         }
+        updateApplicationScmStatus(app)
       }
     }
+  }
+
+  suspend fun updateApplicationScmStatus(applicationName: String) {
+    val application = front50Cache.applicationByName(applicationName)
+    val repoProjectKey = application.repoProjectKey
+    val repoSlug = application.repoSlug
+    if (repoProjectKey.isNullOrEmpty() || repoSlug.isNullOrEmpty()) {
+      log.info("Application $applicationName is missing scm details")
+      return
+    }
+    val isScmPowered = jobService.hasJobs(projectKey = repoProjectKey, repoSlug = repoSlug, type = application.repoType, scmType = scmConfig.jobType)
+    deliveryConfigRepository.updateMigratingAppScmStatus(applicationName, isScmPowered)
   }
 
   /**

@@ -294,6 +294,11 @@ interface DeliveryConfigRepository : PeriodicallyCheckedRepository<DeliveryConfi
    * Mark the application migration status as blocked
    */
   fun markApplicationMigrationAsBlocked(application: String, reason: String, user: String): Boolean
+
+  /**
+   * Mark if the application is scm powered
+   */
+  fun updateMigratingAppScmStatus(application: String, isScmPowered: Boolean)
 }
 
 abstract class NoSuchDeliveryConfigException(message: String) :
