@@ -1545,8 +1545,9 @@ class SqlDeliveryConfigRepository(
           .fetchOne { (exportSucceeded, scmEnabled, inAllowList, assistanceNeeded, deliveryConfig) ->
             // TODO: add scmEnabled to the condition below once we support it
             ApplicationMigrationStatus(
-              isMigratable = exportSucceeded && scmEnabled && inAllowList,
-              isBlocked = assistanceNeeded ?: false,
+              exportSucceeded = exportSucceeded ?: false,
+              inAllowList = inAllowList ?: false,
+              assistanceNeeded = assistanceNeeded ?: false,
               isScmPowered = scmEnabled ?: false,
               deliveryConfig = objectMapper.readValue(deliveryConfig)
             )

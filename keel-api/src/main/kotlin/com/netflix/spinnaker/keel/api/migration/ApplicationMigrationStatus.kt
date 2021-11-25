@@ -2,9 +2,16 @@ package com.netflix.spinnaker.keel.api.migration
 
 
 data class ApplicationMigrationStatus(
-  val isMigratable: Boolean = false, // this value defines if we can initiate the migration process
-  val isBlocked: Boolean = false,
+  val exportSucceeded: Boolean = false,
+  val inAllowList: Boolean = false,
+  val assistanceNeeded: Boolean = false,
   val alreadyManaged: Boolean = false,
   val isScmPowered: Boolean = false,
   val deliveryConfig: Map<String, Any?>? = null
-)
+) {
+  val isMigratable: Boolean
+    get() = exportSucceeded && isScmPowered && inAllowList
+
+  val isBlocked: Boolean
+    get() = assistanceNeeded
+}
