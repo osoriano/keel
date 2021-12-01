@@ -55,6 +55,12 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Simple
   abstract fun RESOLVED.moniker(): Moniker
 
   /**
+   * returns the entire server group name (including version) from the resolved type.
+   *  This is found on the 'name' field in the clouddriver response.
+   */
+  abstract fun RESOLVED.serverGroup(): String
+
+  /**
    * returns true if the diff is only in whether there are too many clusters enabled
    */
   abstract fun ResourceDiff<RESOLVED>.isEnabledOnly(): Boolean
@@ -185,7 +191,13 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Simple
     clone: Boolean = false
   ): Job
 
-  abstract suspend fun getServerGroupsByRegion(resource: Resource<SPEC>): Map<String, List<RESOLVED>>
+  /**
+   * returns all the disabled server groups in each region.
+   *
+   * Used to determine rollback candidates.
+   * We only rollback to a disabled server group, so we can ignore the enabled ones.
+   */
+  abstract suspend fun getDisabledServerGroupsByRegion(resource: Resource<SPEC>): Map<String, List<RESOLVED>>
 
   abstract fun ResourceDiff<RESOLVED>.rollbackServerGroupJob(resource: Resource<SPEC>, rollbackServerGroup: RESOLVED): Job
 
@@ -249,8 +261,8 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Simple
    */
   @Suppress("UNCHECKED_CAST")
   suspend fun List<ResourceDiff<RESOLVED>>.getRollbackServerGroupsByRegion(resource: Resource<SPEC>): Map<String, RESOLVED> {
-    val serverGroupsByRegion = try {
-      getServerGroupsByRegion(resource)
+    val disabledServerGroupsByRegion = try {
+      getDisabledServerGroupsByRegion(resource)
     } catch (e: Exception) {
       log.error("Error fetching current server groups for rollback for resource ${resource.id}", e)
       // we can ignore any exceptions trying to get the current state here, because
@@ -258,25 +270,46 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Simple
       emptyMap()
     }
 
-    return serverGroupsByRegion.mapValues { regionalList ->
+    // check each region for rollback candidates
+    return disabledServerGroupsByRegion.mapValues { regionalList ->
       val region = regionalList.key
-      val regionalServerGroups = regionalList.value
-      if (regionalServerGroups.size < 2) {
-        // if there aren't at least 2 server groups we know there isn't a rollback candidate
-        null
-      } else {
-        val result = find { regionalDiff ->
-          getDesiredRegion(regionalDiff) == region
-        }?.let { regionalDiff ->
-          regionalServerGroups.firstOrNull {
-            val diff = diffFactory.compare(regionalDiff.desired, it)
-            !diff.hasChanges() || diff.isIgnorableForRollback()
-          }
-        }
-        result
+      val disabledRegionalServerGroups = regionalList.value
+      find { regionalDiff ->
+        // get the right diff for the region we're checking
+        getDesiredRegion(regionalDiff) == region
+      }?.let { regionalDiff ->
+        // use that diff to see if we have a rollback candidate
+        //  (we won't always roll back if we have a rollback candidate.
+        //   the upsert logic decides what kind of task to launch to resolve the diff.
+        //   this is just providing information)
+        disabledRegionalServerGroups.findRollbackCandidate(regionalDiff)
       }
     }.filterValues { it != null } as Map<String, RESOLVED>
   }
+
+  /**
+   * Given a regional list of server groups, the resource, and the regional diff,
+   * find the first server group that is a rollback candidate (or null if there isn't one)
+   */
+  private fun List<RESOLVED>.findRollbackCandidate(regionalDiff: ResourceDiff<RESOLVED>): RESOLVED? =
+    firstOrNull { candidateServerGroup: RESOLVED ->
+      if (candidateServerGroup.serverGroup() == regionalDiff.current?.serverGroup()) {
+        // we can't roll back to the same asg, so exclude this from the list of candidates
+        false
+      } else {
+        val candidateDiff = diffFactory.compare(regionalDiff.desired, candidateServerGroup)
+        // we can roll back if there's no diff between desired and candidate
+        //    (like, if the candidate is a disabled version of the desired)
+        // or if the diff is ignorable
+        //    (ignorable diffs will be fixed by the rollback task - like capacity differences).
+        !candidateDiff.hasChanges() || candidateDiff.isIgnorableForRollback()
+      }
+    }
+
+  /**
+   * returns true if the server group is up and healthy according to its health
+   */
+  abstract fun isHealthy(serverGroup: RESOLVED, resource: Resource<SPEC>): Boolean
 
   // rollback task fixes capacity
   private fun ResourceDiff<RESOLVED>.isIgnorableForRollback() =

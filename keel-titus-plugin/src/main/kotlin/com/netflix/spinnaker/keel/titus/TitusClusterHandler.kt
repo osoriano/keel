@@ -170,7 +170,7 @@ class TitusClusterHandler(
     return unhealthyRegions
   }
 
-  private fun isHealthy(serverGroup: TitusServerGroup, resource: Resource<TitusClusterSpec>): Boolean =
+  override fun isHealthy(serverGroup: TitusServerGroup, resource: Resource<TitusClusterSpec>): Boolean =
     serverGroup.instanceCounts?.isHealthy(
       resource.spec.deployWith.health,
       resource.spec.resolveCapacity(serverGroup.location.region)
@@ -194,6 +194,9 @@ class TitusClusterHandler(
 
   override fun TitusServerGroup.moniker(): Moniker =
     moniker
+
+  override fun TitusServerGroup.serverGroup(): String =
+    name
 
   override fun ResourceDiff<TitusServerGroup>.version(resource: Resource<TitusClusterSpec>): String {
     val tags = runBlocking {
@@ -246,10 +249,12 @@ class TitusClusterHandler(
           current!!.scaling.stepScalingPolicies != desired.scaling.stepScalingPolicies
         )
 
-  override suspend fun getServerGroupsByRegion(resource: Resource<TitusClusterSpec>): Map<String, List<TitusServerGroup>> =
+  override suspend fun getDisabledServerGroupsByRegion(resource: Resource<TitusClusterSpec>): Map<String, List<TitusServerGroup>> =
     getExistingServerGroupsByRegion(resource)
       .mapValues { regionalList ->
-        regionalList.value.map { serverGroup: ClouddriverTitusServerGroup ->
+        regionalList.value
+          .filter { it.disabled }
+          .map { serverGroup: ClouddriverTitusServerGroup ->
           serverGroup.toActive().toTitusServerGroup()
         }
       }

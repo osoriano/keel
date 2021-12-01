@@ -162,7 +162,7 @@ class ClusterHandler(
     return unhealthyRegions
   }
 
-  fun isHealthy(serverGroup: ServerGroup, resource: Resource<ClusterSpec>): Boolean =
+  override fun isHealthy(serverGroup: ServerGroup, resource: Resource<ClusterSpec>): Boolean =
     serverGroup.instanceCounts?.isHealthy(
       resource.spec.deployWith.health,
       resource.spec.resolveCapacity(serverGroup.location.region)
@@ -187,6 +187,9 @@ class ClusterHandler(
 
   override fun ServerGroup.moniker(): Moniker =
     moniker
+
+  override fun ServerGroup.serverGroup(): String =
+    name
 
   override fun Resource<ClusterSpec>.isStaggeredDeploy(): Boolean =
     spec.deployWith.isStaggered
@@ -479,10 +482,12 @@ class ClusterHandler(
           current!!.scaling.stepScalingPolicies != desired.scaling.stepScalingPolicies
         )
 
-  override suspend fun getServerGroupsByRegion(resource: Resource<ClusterSpec>): Map<String, List<ServerGroup>> =
+  override suspend fun getDisabledServerGroupsByRegion(resource: Resource<ClusterSpec>): Map<String, List<ServerGroup>> =
     getExistingServerGroupsByRegion(resource)
       .mapValues { regionalList ->
-        regionalList.value.map { serverGroup: ClouddriverServerGroup ->
+        regionalList.value
+          .filter { it.disabled }
+          .map { serverGroup: ClouddriverServerGroup ->
           serverGroup.toActive(resource.spec.locations.account).toServerGroup()
         }
       }

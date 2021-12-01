@@ -232,7 +232,7 @@ class Ec2BaseClusterHandlerTests : BaseClusterHandlerTests<ClusterSpec, ServerGr
     val rollback = resource
       .spec
       .resolve()
-      .map { it.withADifferentImage(version).withMoniker(rollbackMoniker) }
+      .map { it.outOfServiceServerGroup().withADifferentImage(version).withMoniker(rollbackMoniker) }
       .associate { it.location.region to listOf(it) }
 
     return regionKeys.associateWith {
@@ -253,7 +253,28 @@ class Ec2BaseClusterHandlerTests : BaseClusterHandlerTests<ClusterSpec, ServerGr
     val rollback = resource
       .spec
       .resolve()
-      .map { it.withADifferentImage(version).withMoniker(rollbackMoniker).withZeroCapacity() }
+      .map { it.outOfServiceServerGroup().withADifferentImage(version).withMoniker(rollbackMoniker).withZeroCapacity() }
+      .associate { it.location.region to listOf(it) }
+
+    return regionKeys.associateWith {
+      (current[it] ?: emptyList()) + (rollback [it] ?: emptyList())
+    }
+  }
+
+  override fun getRollbackServerGroupsByRegionAllEnabled(
+    resource: Resource<ClusterSpec>,
+    version: String,
+    rollbackMoniker: Moniker
+  ): Map<String, List<ServerGroup>> {
+    val regionKeys = resource.spec.locations.regions.map { it.name }
+    val current: Map<String, List<ServerGroup>> = resource
+      .spec
+      .resolve()
+      .associate { it.location.region to listOf(it) }
+    val rollback = resource
+      .spec
+      .resolve()
+      .map { it.upServerGroup().withADifferentImage(version).withMoniker(rollbackMoniker).withZeroCapacity() } //todo eb: is this enough to do the test?
       .associate { it.location.region to listOf(it) }
 
     return regionKeys.associateWith {
@@ -263,11 +284,14 @@ class Ec2BaseClusterHandlerTests : BaseClusterHandlerTests<ClusterSpec, ServerGr
 
   override fun getSingleRollbackServerGroupByRegion(
     resource: Resource<ClusterSpec>,
-    version: String
+    version: String,
+    moniker: Moniker
   ): Map<String, List<ServerGroup>> =
     resource
       .spec
+      .copy(moniker = moniker)
       .resolve()
+      .map { it.copy(name = moniker.serverGroup) }
       .associate { it.location.region to listOf(it) }
 
   private fun ServerGroup.withDoubleCapacity(): ServerGroup =
@@ -285,6 +309,30 @@ class Ec2BaseClusterHandlerTests : BaseClusterHandlerTests<ClusterSpec, ServerGr
         min = 0,
         max = 0,
         desired = 0
+      )
+    )
+
+  private fun ServerGroup.outOfServiceServerGroup(): ServerGroup =
+    copy(
+      instanceCounts = ServerGroup.InstanceCounts(
+        total = 1,
+        up = 0,
+        down = 0,
+        unknown = 0,
+        outOfService = 1,
+        starting = 0,
+      )
+    )
+
+  private fun ServerGroup.upServerGroup(): ServerGroup =
+    copy(
+      instanceCounts = ServerGroup.InstanceCounts(
+        total = 1,
+        up = 1,
+        down = 0,
+        unknown = 0,
+        outOfService = 0,
+        starting = 0,
       )
     )
 

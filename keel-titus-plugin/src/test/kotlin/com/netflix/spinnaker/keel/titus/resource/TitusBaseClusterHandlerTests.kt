@@ -13,6 +13,7 @@ import com.netflix.spinnaker.keel.api.StaggeredRegion
 import com.netflix.spinnaker.keel.api.actuation.TaskLauncher
 import com.netflix.spinnaker.keel.api.ec2.Capacity
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec
+import com.netflix.spinnaker.keel.api.ec2.ServerGroup
 import com.netflix.spinnaker.keel.api.plugins.BaseClusterHandlerTests
 import com.netflix.spinnaker.keel.api.plugins.Resolver
 import com.netflix.spinnaker.keel.api.support.EventPublisher
@@ -233,7 +234,7 @@ class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, T
     val rollback = resource
       .spec
       .resolve()
-      .map { it.withADifferentImage(version).withMoniker(rollbackMoniker) }
+      .map { it.outOfServiceServerGroup().withADifferentImage(version).withMoniker(rollbackMoniker) }
       .associate { it.location.region to listOf(it) }
 
     return regionKeys.associateWith {
@@ -254,7 +255,28 @@ class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, T
     val rollback: Map<String, List<TitusServerGroup>> = resource
       .spec
       .resolve()
-      .map { it.withADifferentImage(version).withMoniker(rollbackMoniker).withZeroCapacity() }
+      .map { it.outOfServiceServerGroup().withADifferentImage(version).withMoniker(rollbackMoniker).withZeroCapacity() }
+      .associate { it.location.region to listOf(it) }
+
+    return regionKeys.associateWith {
+      (current[it] ?: emptyList()) + (rollback [it] ?: emptyList())
+    }
+  }
+
+  override fun getRollbackServerGroupsByRegionAllEnabled(
+    resource: Resource<TitusClusterSpec>,
+    version: String,
+    rollbackMoniker: Moniker
+  ): Map<String, List<TitusServerGroup>> {
+    val regionKeys = resource.spec.locations.regions.map { it.name }
+    val current: Map<String, List<TitusServerGroup>> = resource
+      .spec
+      .resolve()
+      .associate { it.location.region to listOf(it) }
+    val rollback: Map<String, List<TitusServerGroup>> = resource
+      .spec
+      .resolve()
+      .map { it.upServerGroup().withADifferentImage(version).withMoniker(rollbackMoniker).withZeroCapacity() }
       .associate { it.location.region to listOf(it) }
 
     return regionKeys.associateWith {
@@ -264,11 +286,14 @@ class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, T
 
   override fun getSingleRollbackServerGroupByRegion(
     resource: Resource<TitusClusterSpec>,
-    version: String
+    version: String,
+    moniker: Moniker
   ): Map<String, List<TitusServerGroup>> =
     resource
       .spec
+      .copy(moniker = moniker)
       .resolve()
+      .map { it.copy(name = moniker.serverGroup) }
       .associate { it.location.region to listOf(it) }
 
   private fun TitusServerGroup.withDoubleCapacity(): TitusServerGroup =
@@ -286,6 +311,30 @@ class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, T
         min = 0,
         max = 0,
         desired = 0
+      )
+    )
+
+  private fun TitusServerGroup.outOfServiceServerGroup(): TitusServerGroup =
+    copy(
+      instanceCounts = ServerGroup.InstanceCounts(
+        total = 1,
+        up = 0,
+        down = 0,
+        unknown = 0,
+        outOfService = 1,
+        starting = 0,
+      )
+    )
+
+  private fun TitusServerGroup.upServerGroup(): TitusServerGroup =
+    copy(
+      instanceCounts = ServerGroup.InstanceCounts(
+        total = 1,
+        up = 1,
+        down = 0,
+        unknown = 0,
+        outOfService = 0,
+        starting = 0,
       )
     )
 
