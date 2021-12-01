@@ -6,6 +6,8 @@ import com.netflix.spinnaker.keel.api.artifacts.ArtifactOriginFilter
 import com.netflix.spinnaker.keel.api.artifacts.branchName
 import com.netflix.spinnaker.keel.api.persistence.KeelReadOnlyRepository
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
+import com.netflix.spinnaker.keel.auth.AuthorizationResourceType.SERVICE_ACCOUNT
+import com.netflix.spinnaker.keel.auth.AuthorizationSupport
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.core.api.SubmittedEnvironment
 import com.netflix.spinnaker.keel.front50.Front50Cache
@@ -30,6 +32,7 @@ import io.mockk.runs
 import io.mockk.slot
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.core.env.Environment
+import org.springframework.security.access.AccessDeniedException
 import strikt.api.expectThat
 import strikt.assertions.contains
 import strikt.assertions.isEqualTo
@@ -48,7 +51,8 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
     val notificationRepository: DismissibleNotificationRepository = mockk()
     val spectator: Registry = mockk()
     val clock = MutableClock()
-    val eventPublisher: ApplicationEventPublisher = mockk()
+    val eventPublisher: ApplicationEventPublisher = mockk(relaxUnitFun = true)
+    val authorizationSupport: AuthorizationSupport = mockk(relaxUnitFun = true)
     val subject = DeliveryConfigCodeEventListener(
       keelReadOnlyRepository = keelReadOnlyRepository,
       deliveryConfigUpserter = deliveryConfigUpserter,
@@ -59,6 +63,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
       springEnv = springEnv,
       spectator = spectator,
       eventPublisher = eventPublisher,
+      authorizationSupport = authorizationSupport,
       clock = clock
     )
 
@@ -117,10 +122,6 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
       }
 
       every {
-        eventPublisher.publishEvent(any<Object>())
-      } just runs
-
-      every {
         front50Cache.searchApplicationsByRepo(any())
       } returns listOf(configuredApp, notConfiguredApp)
 
@@ -155,7 +156,8 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
   val commitEvent = CommitCreatedEvent(
     repoKey = "stash/myorg/myrepo",
     targetBranch = "main",
-    commitHash = "1d52038730f431be19a8012f6f3f333e95a53772"
+    commitHash = "1d52038730f431be19a8012f6f3f333e95a53772",
+    authorEmail = "joe@keel.io"
   )
 
   val prMergedEvent = PrMergedEvent(
@@ -163,7 +165,8 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
     targetBranch = "main",
     commitHash = "1d52038730f431be19a8012f6f3f333e95a53772",
     pullRequestBranch = "pr1",
-    pullRequestId = "23"
+    pullRequestId = "23",
+    authorEmail = "joe@keel.io"
   )
 
   val commitEventForAnotherBranch = commitEvent.copy(targetBranch = "not-a-match")
@@ -179,7 +182,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
         setupMocks()
       }
 
-      listOf<CodeEvent>(commitEvent, prMergedEvent).map { event ->
+      listOf(commitEvent, prMergedEvent).map { event ->
         context("a commit event matching the repo and branch is received") {
           before {
             subject.handleCodeEvent(event)
@@ -191,6 +194,12 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
                 codeEvent = event,
                 manifestPath = any()
               )
+            }
+          }
+
+          test("access of the code change author to the service account in the delivery config is checked") {
+            verify {
+              authorizationSupport.checkPermission(event.authorEmail!!, deliveryConfig.serviceAccount!!, SERVICE_ACCOUNT, "ACCESS")
             }
           }
 
@@ -232,7 +241,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
           subject.handleCodeEvent(commitEvent)
         }
 
-        testEventIgnored()
+        verifyEventIgnored()
       }
 
       context("apps with custom manifest path") {
@@ -260,7 +269,6 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
             )
           }
         }
-
       }
 
       context("a commit event NOT matching the app repo is received") {
@@ -268,7 +276,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
           subject.handleCodeEvent(commitEventForAnotherRepo)
         }
 
-        testEventIgnored()
+        verifyEventIgnored()
       }
       
       context("a commit event NOT matching the app default branch is received") {
@@ -276,7 +284,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
           subject.handleCodeEvent(commitEventForAnotherBranch)
         }
 
-        testEventIgnored()
+        verifyEventIgnored()
       }
     }
 
@@ -290,7 +298,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
           subject.handleCodeEvent(commitEventForAnotherRepo)
         }
 
-        testEventIgnored()
+        verifyEventIgnored()
       }
     }
 
@@ -310,7 +318,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
           subject.handleCodeEvent(commitEventForAnotherRepo)
         }
 
-        testEventIgnored()
+        verifyEventIgnored()
       }
     }
 
@@ -331,29 +339,51 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
             subject.handleCodeEvent(event)
           }
 
-          test("a delivery config retrieval error is counted") {
-            val tags = mutableListOf<Iterable<Tag>>()
-            verify {
-              spectator.counter(CODE_EVENT_COUNTER, capture(tags))
-            }
-            expectThat(tags).one {
-              contains(DELIVERY_CONFIG_RETRIEVAL_ERROR.toTags())
-            }
+          verifyErrorSignalsEmitted(event)
+        }
+
+        context("code event author is not authorized to access service account for $event") {
+          modifyFixture {
+            every {
+              authorizationSupport.checkPermission(any<String>(), any(), any(), any())
+            } throws AccessDeniedException("you shall not pass!")
           }
 
-          test("an event is published") {
-            val failureEvent = slot<DeliveryConfigImportFailed>()
-            verify {
-              eventPublisher.publishEvent(capture(failureEvent))
-            }
-            expectThat(failureEvent.captured.branch).isEqualTo(event.targetBranch)
+          before {
+            subject.handleCodeEvent(event)
           }
+
+          test("access denied exception is handled") {
+            // no-op, just proves we get here
+          }
+
+          verifyErrorSignalsEmitted(event)
         }
       }
     }
   }
 
-  private fun TestContextBuilder<Fixture, Fixture>.testEventIgnored() {
+  private fun TestContextBuilder<Fixture, Fixture>.verifyErrorSignalsEmitted(event: CodeEvent) {
+    test("a delivery config retrieval error is counted") {
+      val tags = mutableListOf<Iterable<Tag>>()
+      verify {
+        spectator.counter(CODE_EVENT_COUNTER, capture(tags))
+      }
+      expectThat(tags).one {
+        contains(DELIVERY_CONFIG_RETRIEVAL_ERROR.toTags())
+      }
+    }
+
+    test("an event is published") {
+      val failureEvent = slot<DeliveryConfigImportFailed>()
+      verify {
+        eventPublisher.publishEvent(capture(failureEvent))
+      }
+      expectThat(failureEvent.captured.branch).isEqualTo(event.targetBranch)
+    }
+  }
+
+  private fun TestContextBuilder<Fixture, Fixture>.verifyEventIgnored() {
     test("the event is ignored") {
       verify {
         importer wasNot called

@@ -5,7 +5,11 @@ import com.netflix.spinnaker.keel.api.artifacts.Commit
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.Repo
 import com.netflix.spinnaker.keel.api.persistence.KeelReadOnlyRepository
+import com.netflix.spinnaker.keel.auth.AuthorizationResourceType.SERVICE_ACCOUNT
+import com.netflix.spinnaker.keel.auth.AuthorizationSupport
+import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.front50.Front50Cache
+import com.netflix.spinnaker.keel.front50.model.Application
 import com.netflix.spinnaker.keel.front50.model.GitRepository
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 import com.netflix.spinnaker.keel.notifications.DeliveryConfigImportFailed
@@ -35,6 +39,7 @@ class DeliveryConfigCodeEventListener(
   private val springEnv: Environment,
   private val spectator: Registry,
   private val eventPublisher: ApplicationEventPublisher,
+  private val authorizationSupport: AuthorizationSupport,
   private val clock: Clock
 ) {
   companion object {
@@ -103,6 +108,11 @@ class DeliveryConfigCodeEventListener(
           } else {
             it
           }
+        }.also {
+          authorizeServiceAccountAccess(
+            user = event.authorEmail ?: error("Can't authorize import due to missing author e-mail in code event: $event"),
+            deliveryConfig = it
+          )
         }
         val gitMetadata = event.commitHash?.let {
           GitMetadata(
@@ -136,6 +146,19 @@ class DeliveryConfigCodeEventListener(
         return@forEach
       }
     }
+  }
+
+  /**
+   * Checks that the owner of the app has access to the service account configured in the delivery config.
+   */
+  private fun authorizeServiceAccountAccess(user: String, deliveryConfig: SubmittedDeliveryConfig) {
+    authorizationSupport.checkPermission(
+      user = user,
+      resourceName = deliveryConfig.serviceAccount
+        ?: error("Delivery config for application ${deliveryConfig.application} is missing required service account."),
+      resourceType = SERVICE_ACCOUNT,
+      permission = "ACCESS"
+    )
   }
 
   private fun CodeEvent.emitCounterMetric(

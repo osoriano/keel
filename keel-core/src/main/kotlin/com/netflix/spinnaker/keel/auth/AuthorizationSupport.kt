@@ -1,20 +1,3 @@
-/*
- *
- * Copyright 2019 Netflix, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License")
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
 package com.netflix.spinnaker.keel.auth
 
 import com.netflix.spinnaker.fiat.shared.FiatPermissionEvaluator
@@ -39,7 +22,7 @@ import org.springframework.stereotype.Component
 /**
  * Support for authorization of API calls.
  *
- * @see https://github.com/spinnaker/keel/blob/master/docs/authorization.md
+ * @link https://github.com/spinnaker/keel/blob/master/docs/authorization.md
  */
 @Component
 class AuthorizationSupport(
@@ -108,7 +91,7 @@ class AuthorizationSupport(
         DELIVERY_CONFIG -> repository.getDeliveryConfig(identifier).application
         else -> throw InvalidRequestException("Invalid target type ${target.name} for application permission check")
       }
-      checkPermission(auth, application, "APPLICATION", action.name)
+      checkPermission(auth, application, AuthorizationResourceType.APPLICATION, action.name)
     }
   }
 
@@ -127,7 +110,7 @@ class AuthorizationSupport(
         APPLICATION -> repository.getDeliveryConfigForApplication(identifier).serviceAccount
         DELIVERY_CONFIG -> repository.getDeliveryConfig(identifier).serviceAccount
       }
-      checkPermission(auth, serviceAccount, "SERVICE_ACCOUNT", "ACCESS")
+      checkPermission(auth, serviceAccount, AuthorizationResourceType.SERVICE_ACCOUNT, "ACCESS")
     }
   }
 
@@ -154,7 +137,7 @@ class AuthorizationSupport(
       locatableResources.forEach {
         val locations = (it.spec as Locatable<*>).locations
         val account = (locations as AccountAwareLocations<*>).account
-        checkPermission(auth, account, "ACCOUNT", action.name)
+        checkPermission(auth, account, AuthorizationResourceType.ACCOUNT, action.name)
       }
     }
   }
@@ -170,19 +153,27 @@ class AuthorizationSupport(
   }
 
   /**
-   * Ensures the user (as determined by the passed in [Authentication]) has the specified permission to the
+   * Ensures the user (as determined by the current authentication context) has the specified permission to the
    * specified resource.
    */
-  private fun checkPermission(authentication: Authentication, resourceName: String, resourceType: String, permission: String) {
+  fun checkPermission(authentication: Authentication, resourceName: String, resourceType: AuthorizationResourceType, permission: String) {
     val user = AuthenticatedRequest.getSpinnakerUser().orElse("unknown")
+    log.debug("Checking $permission permission to $resourceType $resourceName for user $user (details: $authentication")
+    checkPermission(user, resourceName, resourceType, permission)
+  }
+
+  /**
+   * Ensures the [user] has the specified permission to the specified resource.
+   */
+  fun checkPermission(user: String, resourceName: String, resourceType: AuthorizationResourceType, permission: String) {
     val allowed = AuthenticatedRequest.allowAnonymous {
-      permissionEvaluator.hasPermission(authentication, resourceName, resourceType, permission)
+      permissionEvaluator.hasPermission(user, resourceName, resourceType.name, permission)
     }
 
     log.debug("[ACCESS ${allowed.toAuthorization()}] User $user: $permission permission to $resourceType $resourceName.")
     if (!allowed) {
       throw AccessDeniedException(
-        "User $user does not have ${permission.humanFriendly()} permission to ${resourceType.humanFriendly()} $resourceName")
+        "User $user does not have ${permission.humanFriendly()} permission to ${resourceType.name.humanFriendly()} $resourceName")
     }
   }
 
