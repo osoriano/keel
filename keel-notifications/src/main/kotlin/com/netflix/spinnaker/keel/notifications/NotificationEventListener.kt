@@ -132,14 +132,12 @@ class NotificationEventListener(
   @EventListener(UnpinnedNotification::class)
   fun onUnpinnedNotification(notification: UnpinnedNotification) {
     with(notification) {
-      val pinnedEnv = pinnedEnvironment
-      if (pinnedEnv == null) {
+      val pinnedEnv = pinnedEnvironment ?: run {
         log.debug("can't send unpinned notification, as no pinned artifact exists for application ${config.application} and environment $targetEnvironment")
         return
       }
 
-      val latestApprovedArtifactVersion = repository.latestVersionApprovedIn(config, pinnedEnv.artifact, targetEnvironment)
-      if (latestApprovedArtifactVersion == null) {
+      val latestApprovedArtifactVersion = repository.latestVersionApprovedIn(config, pinnedEnv.artifact, targetEnvironment) ?: run {
         log.debug("last approved artifact version is null for application ${config.application}, env $targetEnvironment. Can't send unpinned notification")
         return
       }
@@ -252,10 +250,10 @@ class NotificationEventListener(
         application = config.application,
         artifactReference = deliveryArtifact.reference,
         version = artifactVersion
-      ) ?: return
-        .also {
-          log.debug("artifact version is null for application ${config.application}. Can't send deployed artifact notification.")
-        }
+      ) ?: run {
+        log.debug("artifact version is null for application ${config.application}. Can't send deployed artifact notification.")
+        return
+      }
 
       val priorVersion = repository.getArtifactVersionByPromotionStatus(config, targetEnvironment.name, deliveryArtifact, PromotionStatus.PREVIOUS)
 
@@ -284,8 +282,7 @@ class NotificationEventListener(
       val config = constraintStateChanged.deliveryConfig
       val deliveryArtifact = config
         .matchingArtifactByReference(constraintStateChanged.currentState.artifactReference) ?: return
-      val artifact = repository.getArtifactVersion(deliveryArtifact, constraintStateChanged.currentState.artifactVersion, null)
-      if (artifact == null) {
+      val artifact = repository.getArtifactVersion(deliveryArtifact, constraintStateChanged.currentState.artifactVersion, null) ?: run {
         log.debug("artifact version is null for application ${constraintStateChanged.deliveryConfig.application}. Can't send deployed artifact notification.")
         return
       }
@@ -316,15 +313,34 @@ class NotificationEventListener(
     log.debug("Attempting to send deployment failed notification for failing task:: {}", notification)
     val resource = repository.getResource(notification.id)
     val config = repository.getDeliveryConfigForApplication(notification.application)
-    val artifact = resource.findAssociatedArtifact(config) ?: return
-    val environment = config.environments.find { it.resourceIds.contains(resource.id) } ?: return
+    val errorMsg = "Can't send notification for failing tasks ${notification.tasks} for application ${config.application} because: "
+    val artifact = resource.findAssociatedArtifact(config) ?: run {
+      log.debug(errorMsg + "can't find the associated artifact for resource ${resource.id}, config: $config")
+      return
+    }
+    val environment = config.environments.find { it.resourceIds.contains(resource.id) } ?: run {
+      log.debug(errorMsg + "can't find the resource for the environment: resource ${resource.id}, config: $config")
+      return
+    }
 
     // attempt to parse latest version from the task name, we have a convention
-    val regex = Regex(pattern = """(?<=\Deploy )(.*?)(?=\ to)""")
-    val taskName = notification.tasks.firstOrNull()?.name ?: return
-    val match = regex.find(taskName) ?: return
-    val latestApprovedVersion = match.groups[1]?.value ?: return //should be the version string
-    val latestArtifact = repository.getArtifactVersion(artifact, latestApprovedVersion, null) ?: return
+    val regex = Regex(pattern = """(?<=\Deploy )(.*?)(?=\ \[to)""")
+    val taskName = notification.tasks.firstOrNull()?.name ?: run {
+      log.debug(errorMsg + "can't find task name for first task: ${notification.tasks}")
+      return
+    }
+    val match = regex.find(taskName) ?: run {
+      log.debug(errorMsg + "can't parse the version from task name $taskName")
+      return
+    }
+    val latestApprovedVersion = match.groups[1]?.value ?: run {
+      log.debug(errorMsg + "can't parse the version string from the task name regex: $taskName, match $match")
+      return
+    }
+    val latestArtifact = repository.getArtifactVersion(artifact, latestApprovedVersion, null) ?: run {
+      log.debug(errorMsg + "can't look up version $latestApprovedVersion for artifact $artifact")
+      return
+    }
 
     sendSlackMessage(config,
       SlackArtifactDeploymentNotification(
@@ -609,23 +625,25 @@ class NotificationEventListener(
                                    config: DeliveryConfig? = null)
     : Pair<DeliveryConfig, PublishedArtifact>? {
     //get the config either by name, application name or directly from the notification
+    val identifier = application ?: deliveryConfigName ?: config?.application
+    val errorMsg = "Failed getting config and artifact for $identifier (artifact ref $artifactReference, version $version): "
     val deliveryConfig = config ?: application?.let { repository.getDeliveryConfigForApplication(it) }
-    ?: deliveryConfigName?.let { repository.getDeliveryConfig(it) }
-      .also {
-        if (it == null) log.debug("delivery config is null. Can't send notification.")
-      } ?: return null
-
+    ?: deliveryConfigName?.let { repository.getDeliveryConfig(it) } ?: run {
+      log.debug(errorMsg + "delivery config is null. Can't send notification.")
+      return null
+    }
 
     val deliveryArtifact = deliveryConfig.artifacts.find {
       it.reference == artifactReference
-    }.also {
-      if (it == null) log.debug("can't find artifact $artifactReference in config ${deliveryConfig.name}. Can't send notification.")
-    } ?: return null
+    } ?: run {
+      log.debug(errorMsg + "can't find artifact $artifactReference in config ${deliveryConfig.name}. Can't send notification.")
+      return null
+    }
 
-    val artifact = repository.getArtifactVersion(deliveryArtifact, version, null)
-      .also {
-        if (it == null) log.debug("artifact version is null for application ${deliveryConfig.application}. Can't send notification.")
-      } ?: return null
+    val artifact = repository.getArtifactVersion(deliveryArtifact, version, null) ?: run {
+      log.debug(errorMsg + "artifact version is null for application ${deliveryConfig.application}. Can't send notification.")
+      return null
+    }
 
     return Pair(deliveryConfig, artifact.copy(reference = deliveryArtifact.reference))
   }

@@ -206,7 +206,7 @@ class NotificationEventListenerTests : JUnit5Minutests {
       tasks = listOf(
         Task(
           id = "01F22T9NS1X411AG40MF5FJ188",
-          name = "Deploy $version0 to server group waffletime-test in test/us-east-1"
+          name = "Deploy $version0 [to server group waffletime-test in test/us-east-1]"
         )
       ),
       reason = "Failed to update resource to match definition - Stage createServerGroup timed out after 30 minutes 5 seconds"
