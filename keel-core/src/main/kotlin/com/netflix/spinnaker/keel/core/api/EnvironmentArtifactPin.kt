@@ -1,7 +1,6 @@
 package com.netflix.spinnaker.keel.core.api
 
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
-import com.netflix.spinnaker.keel.core.validateComment
 import java.time.Instant
 
 enum class PinType {
@@ -16,11 +15,7 @@ data class EnvironmentArtifactPin(
   val pinnedBy: String?,
   val comment: String?,
   val type: PinType? = null,
-) {
-  init {
-    validateComment(comment)
-  }
-}
+)
 
 data class PinnedEnvironment(
   val deliveryConfigName: String,
@@ -31,8 +26,4 @@ data class PinnedEnvironment(
   val pinnedAt: Instant?,
   val comment: String?,
   val type: PinType? = null,
-) {
-  init {
-    validateComment(comment)
-  }
-}
+)
