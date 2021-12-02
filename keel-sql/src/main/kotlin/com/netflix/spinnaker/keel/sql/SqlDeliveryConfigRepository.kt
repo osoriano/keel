@@ -14,6 +14,7 @@ import com.netflix.spinnaker.keel.api.constraints.ConstraintState
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
 import com.netflix.spinnaker.keel.api.constraints.allPass
 import com.netflix.spinnaker.keel.api.migration.ApplicationMigrationStatus
+import com.netflix.spinnaker.keel.migrations.ApplicationPrData
 import com.netflix.spinnaker.keel.api.migration.SkippedPipeline
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.api.statefulCount
@@ -26,6 +27,7 @@ import com.netflix.spinnaker.keel.core.api.timestampAsInstant
 import com.netflix.spinnaker.keel.events.ResourceState
 import com.netflix.spinnaker.keel.pause.PauseScope
 import com.netflix.spinnaker.keel.pause.PauseScope.APPLICATION
+import com.netflix.spinnaker.keel.persistence.ApplicationPullRequestDataIsMissing
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
 import com.netflix.spinnaker.keel.persistence.DependentAttachFilter
 import com.netflix.spinnaker.keel.persistence.DependentAttachFilter.ATTACH_NONE
@@ -1156,7 +1158,7 @@ class SqlDeliveryConfigRepository(
     }
   }
 
-    /**
+  /**
    * Used in the [EnvironmentConstraintRunner] to queue artifact versions for approval by the
    * [EnvironmentPromotionChecker].
    */
@@ -1522,6 +1524,22 @@ class SqlDeliveryConfigRepository(
     }
   }
 
+  override fun getMigratableApplicationData(app: String): ApplicationPrData {
+    return sqlRetry.withRetry(READ) {
+      jooq
+        .select(MIGRATION_STATUS.DELIVERY_CONFIG, MIGRATION_STATUS.REPO_SLUG, MIGRATION_STATUS.PROJECT_KEY)
+        .from(MIGRATION_STATUS)
+        .where(MIGRATION_STATUS.APPLICATION.eq(app))
+        .fetchOne  { (config, repoSlug, projectKey) ->
+          ApplicationPrData(
+            deliveryConfig = objectMapper.readValue<SubmittedDeliveryConfig>(config),
+            repoSlug = repoSlug,
+            projectKey = projectKey
+          )
+        } ?: throw ApplicationPullRequestDataIsMissing(app)
+    }
+  }
+
   override fun getApplicationMigrationStatus(application: String): ApplicationMigrationStatus {
     return sqlRetry.withRetry(READ) {
       if (jooq.fetchExists(
@@ -1588,14 +1606,19 @@ class SqlDeliveryConfigRepository(
   override fun storePipelinesExportResult(
     deliveryConfig: SubmittedDeliveryConfig,
     skippedPipelines: List<SkippedPipeline>,
-    exportSucceeded: Boolean
+    exportSucceeded: Boolean,
+    repoSlug: String?,
+    projectKey: String?
   ) {
     sqlRetry.withRetry(WRITE) {
       jooq.update(MIGRATION_STATUS)
+        .set(MIGRATION_STATUS.APPLICATION, deliveryConfig.application)
         .set(MIGRATION_STATUS.DELIVERY_CONFIG, deliveryConfig.toJson())
         .set(MIGRATION_STATUS.UPDATED_AT, clock.instant())
         .set(MIGRATION_STATUS.SKIPPED_PIPELINES, skippedPipelines.toJson())
         .set(MIGRATION_STATUS.EXPORT_SUCCEEDED, exportSucceeded)
+        .set(MIGRATION_STATUS.REPO_SLUG, repoSlug)
+        .set(MIGRATION_STATUS.PROJECT_KEY, projectKey)
         .where(MIGRATION_STATUS.APPLICATION.eq(deliveryConfig.application))
         .execute()
     }

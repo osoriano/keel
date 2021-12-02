@@ -1,8 +1,7 @@
 package com.netflix.spinnaker.keel.services
 
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache
-import com.netflix.spinnaker.keel.api.ScmInfo
-import com.netflix.spinnaker.keel.artifacts.ArtifactVersionLinks
+import com.netflix.spinnaker.keel.api.ScmBridge
 import com.netflix.spinnaker.keel.caffeine.CacheFactory
 import io.mockk.coEvery
 import io.mockk.every
@@ -15,7 +14,7 @@ val scmData = mapOf(
   "gitHub" to "https://github.com",
   "gitHubEnterprise" to "https://git.foo.com")
 
-fun mockScmInfo(): ScmInfo {
+fun mockScmInfo(): ScmBridge {
   return mockk() {
     coEvery<Map<String, String?>> {
       getScmInfo()

@@ -1,6 +1,5 @@
 package com.netflix.spinnaker.keel.persistence
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.keel.api.ActionStateUpdateContext
 import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
 import com.netflix.spinnaker.keel.api.DeliveryConfig
@@ -43,7 +42,6 @@ import com.netflix.spinnaker.keel.events.ResourceState
 import com.netflix.spinnaker.keel.events.ResourceUpdated
 import com.netflix.spinnaker.keel.exceptions.DuplicateManagedResourceException
 import com.netflix.spinnaker.keel.services.StatusInfoForArtifactInEnvironment
-import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
@@ -723,4 +721,11 @@ class KeelRepository(
    */
   fun storeAppForPotentialMigration(app: String, inAllowList: Boolean) =
     deliveryConfigRepository.storeAppForPotentialMigration(app, inAllowList)
+
+  /**
+   * Return the information needed in order to open a PR for an application.
+   * During a successful export process, the generated delivery config, repoSlug and projectKey and store them by app.
+   */
+  fun getMigratableApplicationData(app: String) =
+    deliveryConfigRepository.getMigratableApplicationData(app)
 }

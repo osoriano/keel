@@ -8,6 +8,7 @@ import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.constraints.ConstraintState
 import com.netflix.spinnaker.keel.api.migration.ApplicationMigrationStatus
+import com.netflix.spinnaker.keel.migrations.ApplicationPrData
 import com.netflix.spinnaker.keel.api.migration.SkippedPipeline
 import com.netflix.spinnaker.keel.core.api.ApplicationSummary
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
@@ -273,13 +274,22 @@ interface DeliveryConfigRepository : PeriodicallyCheckedRepository<DeliveryConfi
    */
   fun storeAppForPotentialMigration(app: String, inAllowedList: Boolean)
 
+
+  /**
+   * Return the information needed in order to open a PR for an application.
+   * During a successful export process, the generated delivery config, repoSlug and projectKey and store them by app.
+   */
+  fun getMigratableApplicationData(app: String): ApplicationPrData
+
   /**
    * Store the result of the pipelines export script
    */
   fun storePipelinesExportResult(
     deliveryConfig: SubmittedDeliveryConfig,
     skippedPipelines: List<SkippedPipeline>,
-    exportSucceeded: Boolean
+    exportSucceeded: Boolean,
+    repoSlug: String? = null,
+    projectKey: String? = null
   )
 
   /**
@@ -309,6 +319,9 @@ class NoSuchDeliveryConfigName(name: String) :
 
 class NoDeliveryConfigForApplication(application: String) :
   NoSuchDeliveryConfigException("No delivery config for application $application exists in the database")
+
+class ApplicationPullRequestDataIsMissing(application: String) :
+  NoSuchEntityException("Either delivery config, repoSlug or projectKey is missing for $application in the database")
 
 class NoMatchingArtifactException(deliveryConfigName: String, type: ArtifactType, reference: String) :
   NoSuchEntityException("No artifact with reference $reference and type $type found in delivery config $deliveryConfigName")

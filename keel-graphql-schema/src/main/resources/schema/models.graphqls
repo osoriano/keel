@@ -363,6 +363,7 @@ type Mutation @extends {
   md_rollbackToArtifactVersion(payload: MD_RollbackToVersionPayload!): Boolean
   md_lockEnvironmentArtifact(payload: MD_ArtifactVersionActionPayload!): Boolean
   md_redeployResource(payload: MD_RedeployResourcePayload!): Boolean
+  md_initiateApplicationMigration(payload: MD_InitiateApplicationMigrationPayload!): String
   md_migrationReportIssue(payload: MD_MigrationReportIssuePayload!): Boolean
 }
 
@@ -471,5 +472,9 @@ enum MD_EventLevel {
 input MD_DismissNotificationPayload {
   application: String!
   id: String!
+}
+
+input MD_InitiateApplicationMigrationPayload {
+  application: String!
 }
 

@@ -1126,6 +1126,19 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
               get { isMigratable }.isFalse()
             }
         }
+
+        test("Getting the app config correctly") {
+          val submittedConfig = SubmittedDeliveryConfig(name = deliveryConfig.name, application = deliveryConfig.application, serviceAccount = deliveryConfig.serviceAccount)
+          repository.storeAppForPotentialMigration(deliveryConfig.application, true)
+          repository.storePipelinesExportResult(submittedConfig, emptyList(), true, "myRepo", "myProject")
+          val result = expectCatching {
+            repository.getMigratableApplicationData(deliveryConfig.application)
+          }
+          expectThat(result.isSuccess().and {
+            get { repoSlug }.isEqualTo("myRepo")
+            get { projectKey }.isEqualTo("myProject")
+          })
+        }
       }
     }
   }

@@ -1,8 +1,15 @@
 package com.netflix.spinnaker.keel.notifications.slack.handlers
 
 import com.netflix.spinnaker.config.BaseUrlConfig
+<<<<<<< d07558a084dad969ed6803cea66edf71fb70d9de
 import com.netflix.spinnaker.keel.api.ScmInfo
 import com.netflix.spinnaker.keel.api.artifacts.*
+=======
+import com.netflix.spinnaker.keel.api.ScmBridge
+import com.netflix.spinnaker.keel.api.artifacts.Commit
+import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
+import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
+>>>>>>> 97822267f3e94067dc5c21eb03773bdd8c0fbaa9
 import com.netflix.spinnaker.keel.artifacts.ArtifactVersionLinks
 import com.netflix.spinnaker.keel.services.mockCacheFactory
 import com.netflix.spinnaker.keel.services.mockScmInfo
@@ -29,12 +36,12 @@ import strikt.assertions.isTrue
 class GitDataGeneratorTests : JUnit5Minutests {
 
   class Fixture {
-    val scmInfo: ScmInfo = mockk()
+    val scmBridge: ScmBridge = mockk()
     val slackService: SlackService = mockk()
     val config: BaseUrlConfig = BaseUrlConfig()
     val artifactVersionLinks = ArtifactVersionLinks(mockScmInfo(), mockCacheFactory())
 
-    val subject = GitDataGenerator(scmInfo, config, slackService, artifactVersionLinks)
+    val subject = GitDataGenerator(scmBridge, config, slackService, artifactVersionLinks)
 
     val clock: MutableClock = MutableClock()
 

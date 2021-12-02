@@ -1,6 +1,8 @@
 package com.netflix.spinnaker.keel.igor
 
-import com.netflix.spinnaker.keel.api.ScmInfo
+import com.netflix.spinnaker.keel.api.ScmBridge
+import com.netflix.spinnaker.keel.api.migration.MigrationCommitData
+import com.netflix.spinnaker.keel.api.migration.PrLink
 import com.netflix.spinnaker.keel.front50.model.Application
 import com.netflix.spinnaker.keel.igor.model.Branch
 import com.netflix.spinnaker.keel.igor.model.BuildResult
@@ -16,7 +18,7 @@ import retrofit2.http.Query
 /**
  * Igor methods related to Source Control Management (SCM) operations.
  */
-interface ScmService: ScmInfo {
+interface ScmService: ScmBridge {
   /**
    * Retrieves a delivery config manifest from a source control repository.
    *
@@ -94,6 +96,14 @@ interface ScmService: ScmInfo {
     @Path("commitHash") commitHash: String,
     @Body buildResult: BuildResult
   ): Response<Unit>
+
+  @POST("/delivery-config/{scmType}/{projectKey}/{repoSlug}/create-pr")
+  override suspend fun createPr(
+    @Path("scmType") scmType: String,
+    @Path("projectKey") projectKey: String,
+    @Path("repoSlug") repoSlug: String,
+    @Body migrationCommitData: MigrationCommitData
+  ): PrLink
 }
 
 fun Application.getDefaultBranch(scmService: ScmService): String = runBlocking {

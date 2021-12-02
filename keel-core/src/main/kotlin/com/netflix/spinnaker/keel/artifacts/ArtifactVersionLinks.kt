@@ -1,6 +1,6 @@
 package com.netflix.spinnaker.keel.artifacts
 
-import com.netflix.spinnaker.keel.api.ScmInfo
+import com.netflix.spinnaker.keel.api.ScmBridge
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
@@ -11,10 +11,10 @@ import org.springframework.stereotype.Component
 import java.net.URL
 
 @Component
-class ArtifactVersionLinks(private val scmInfo: ScmInfo, private val cacheFactory: CacheFactory) {
+class ArtifactVersionLinks(private val scmBridge: ScmBridge, private val cacheFactory: CacheFactory) {
   private val cacheName = "scmInfo"
   private val cache = cacheFactory.asyncLoadingCache<Any, Map<String, String?>>(cacheName) {
-    scmInfo.getScmInfo()
+    scmBridge.getScmInfo()
   }
 
   //Comparing 2 versions of a specific artifact, and generate a SCM comparable link based on old vs. new version
@@ -78,7 +78,7 @@ class ArtifactVersionLinks(private val scmInfo: ScmInfo, private val cacheFactor
     val scmType = getScmType(commitLink)
     val scmBaseURLs = runBlocking {
       val cachedValue = cache[cacheName].get()
-      cachedValue ?: scmInfo.getScmInfo()
+      cachedValue ?: scmBridge.getScmInfo()
     }
 
     return if (normScmType != null) {

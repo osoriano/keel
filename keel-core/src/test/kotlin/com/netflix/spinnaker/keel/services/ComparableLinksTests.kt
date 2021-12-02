@@ -1,11 +1,12 @@
 package com.netflix.spinnaker.keel.services
 
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.config.ArtifactConfig
 import com.netflix.spinnaker.keel.actuation.EnvironmentTaskCanceler
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
-import com.netflix.spinnaker.keel.api.ScmInfo
+import com.netflix.spinnaker.keel.api.ScmBridge
 import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
 import com.netflix.spinnaker.keel.api.artifacts.Commit
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
@@ -112,6 +113,17 @@ class ComparableLinksTests : JUnit5Minutests {
       every { parseDefaultGitMetadata(any(), any()) } returns null
     }
 
+<<<<<<< d07558a084dad969ed6803cea66edf71fb70d9de
+=======
+    private val scmInfo = mockk<ScmBridge>() {
+      coEvery {
+        getScmInfo()
+      } answers {
+        mapOf("stash" to "https://stash")
+      }
+    }
+
+>>>>>>> 97822267f3e94067dc5c21eb03773bdd8c0fbaa9
     val dependsOnEvaluator = mockk<ConstraintEvaluator<DependsOnConstraint>>() {
       every { isImplicit() } returns false
       every { supportedType } returns SupportedConstraintType<DependsOnConstraint>("depends-on")
@@ -133,6 +145,8 @@ class ComparableLinksTests : JUnit5Minutests {
     val registry = NoopRegistry()
 
     val environmentTaskCanceler: EnvironmentTaskCanceler = mockk(relaxUnitFun = true)
+    val yamlMapper: YAMLMapper = mockk(relaxUnitFun = true)
+    val scmBridge: ScmBridge  = mockk(relaxed = true)
 
     // subject
     val applicationService = ApplicationService(
@@ -147,7 +161,9 @@ class ComparableLinksTests : JUnit5Minutests {
       registry,
       ArtifactConfig(),
       artifactVersionLinks,
-      environmentTaskCanceler
+      environmentTaskCanceler,
+      yamlMapper,
+      scmBridge
     )
 
     val buildMetadata = BuildMetadata(

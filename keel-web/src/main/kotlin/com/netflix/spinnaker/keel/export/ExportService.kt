@@ -132,7 +132,9 @@ class ExportService(
           is PipelineExportResult -> deliveryConfigRepository.storePipelinesExportResult(
             result.deliveryConfig,
             result.toSkippedPipelines(),
-            result.exportSucceeded
+            result.exportSucceeded,
+            result.repoSlug,
+            result.projectKey
           )
         }
         updateApplicationScmStatus(app)
@@ -267,7 +269,9 @@ class ExportService(
       exported = pipelinesToEnvironments,
       skipped = nonExportablePipelines,
       baseUrl = baseUrlConfig.baseUrl,
-      configValidationException = configValidationExecption?.message
+      configValidationException = configValidationExecption?.message,
+      repoSlug = application.repoSlug,
+      projectKey = application.repoProjectKey
     )
 
     log.info("Successfully exported delivery config:\n${prettyPrinter.writeValueAsString(result)}")
@@ -640,7 +644,11 @@ data class PipelineExportResult(
   @JsonIgnore
   val skipped: Map<Pipeline, String>,
   @JsonIgnore
-  val baseUrl: String
+  val baseUrl: String,
+  @JsonIgnore
+  val repoSlug: String?,
+  @JsonIgnore
+  val projectKey: String?
 ) : ExportResult {
   val pipelines: Map<String, Any> = mapOf(
     "exported" to exported.entries.map { (pipeline, environments) ->

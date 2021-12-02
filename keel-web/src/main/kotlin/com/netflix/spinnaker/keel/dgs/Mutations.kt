@@ -23,6 +23,7 @@ import com.netflix.spinnaker.keel.graphql.types.MD_Action
 import com.netflix.spinnaker.keel.graphql.types.MD_ArtifactVersionActionPayload
 import com.netflix.spinnaker.keel.graphql.types.MD_ConstraintStatus
 import com.netflix.spinnaker.keel.graphql.types.MD_DismissNotificationPayload
+import com.netflix.spinnaker.keel.graphql.types.MD_InitiateApplicationMigrationPayload
 import com.netflix.spinnaker.keel.graphql.types.MD_MarkArtifactVersionAsGoodPayload
 import com.netflix.spinnaker.keel.graphql.types.MD_PausePayload
 import com.netflix.spinnaker.keel.graphql.types.MD_RedeployResourcePayload
@@ -311,6 +312,20 @@ class Mutations(
     }
 
     return true
+  }
+
+  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_initiateApplicationMigration)
+  @PreAuthorize(
+    """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
+    and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
+  )
+  suspend fun openMigrationPr(
+    @InputArgument payload: MD_InitiateApplicationMigrationPayload,
+    @RequestHeader("X-SPINNAKER-USER") user: String
+  ): String? {
+    return applicationService.openMigrationPr(
+      application = payload.application
+    )
   }
 }
 

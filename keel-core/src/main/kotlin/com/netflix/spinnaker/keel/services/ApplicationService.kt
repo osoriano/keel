@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.services
 
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import com.netflix.spectator.api.BasicTag
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.config.ArtifactConfig
@@ -9,6 +10,7 @@ import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.Locatable
 import com.netflix.spinnaker.keel.api.Resource
+import com.netflix.spinnaker.keel.api.ScmBridge
 import com.netflix.spinnaker.keel.api.StatefulConstraint
 import com.netflix.spinnaker.keel.api.Verification
 import com.netflix.spinnaker.keel.api.action.ActionState
@@ -22,6 +24,7 @@ import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PASS
 import com.netflix.spinnaker.keel.api.constraints.StatefulConstraintEvaluator
 import com.netflix.spinnaker.keel.api.constraints.StatelessConstraintEvaluator
 import com.netflix.spinnaker.keel.api.constraints.UpdatedConstraintStatus
+import com.netflix.spinnaker.keel.api.migration.MigrationCommitData
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.api.plugins.ConstraintEvaluator
 import com.netflix.spinnaker.keel.api.plugins.supporting
@@ -57,6 +60,8 @@ import com.netflix.spinnaker.keel.persistence.ArtifactNotFoundException
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.persistence.NoSuchDeliveryConfigException
+import com.netflix.spinnaker.keel.serialization.configuredYamlMapper
+import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator.Feature.WRITE_DOC_START_MARKER
 import com.netflix.spinnaker.keel.telemetry.InvalidVerificationIdSeen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -90,13 +95,22 @@ class ApplicationService(
   private val spectator: Registry,
   private val artifactConfig: ArtifactConfig,
   private val artifactVersionLinks: ArtifactVersionLinks,
-  private val environmentTaskCanceler: EnvironmentTaskCanceler
-) : CoroutineScope {
+  private val environmentTaskCanceler: EnvironmentTaskCanceler,
+  private var yamlMapper: YAMLMapper,
+  private val scmBridge: ScmBridge
+  ) : CoroutineScope {
   override val coroutineContext: CoroutineContext = Dispatchers.Default
 
   companion object {
     //attributes that should be stripped before being returned through the api
     val privateConstraintAttrs = listOf("manual-judgement")
+
+    const val COMMIT_MESSAGE = "Your first delivery config"
+    const val PR_DESCRIPTION = "Your first delivery config"
+    const val PR_TITLE = "This is a new delivery config"
+    const val BRANCH_NAME = "md-migration"
+    const val CONFIG_PATH = ".netflix/spinnaker.yml"
+    const val STASH_SCM_TYPE = "stash"
   }
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
@@ -722,6 +736,35 @@ class ApplicationService(
       }
       return repository.resetActionState(context = this, action = action, user = user)
     }
+  }
+
+  /**
+   * This function is fetching application's data like config, repo and project name
+   * And then calling Igor to create commit and open a pull request with the application's delivery config file
+   */
+  suspend fun openMigrationPr(application: String): String? {
+    val applicationPrData = repository.getMigratableApplicationData(application)
+    //this will eliminate the "---" at the begining of a new yml file
+    yamlMapper = configuredYamlMapper().disable(WRITE_DOC_START_MARKER)
+    //sending the exported config in a yml format, as string
+    val configAsString = yamlMapper.writeValueAsString(applicationPrData.deliveryConfig)
+
+    val commitMigrationData = MigrationCommitData(
+      fileContents = configAsString,
+      commitMessage = COMMIT_MESSAGE,
+      branchName = BRANCH_NAME,
+      prTitle =  PR_TITLE,
+      prDescription =  PR_DESCRIPTION,
+      filePath = CONFIG_PATH,
+      reviewers =  emptySet()
+    )
+
+    //get the newly created PR link
+    return scmBridge.createPr(
+      STASH_SCM_TYPE,
+      applicationPrData.projectKey,
+      applicationPrData.repoSlug,
+      commitMigrationData).link
   }
 
   @ResponseStatus(HttpStatus.CONFLICT)

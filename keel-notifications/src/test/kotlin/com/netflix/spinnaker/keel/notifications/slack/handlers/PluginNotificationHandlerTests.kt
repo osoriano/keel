@@ -1,10 +1,9 @@
 package com.netflix.spinnaker.keel.notifications.slack.handlers
 
 import com.netflix.spinnaker.config.BaseUrlConfig
-import com.netflix.spinnaker.keel.api.NotificationDisplay
 import com.netflix.spinnaker.keel.api.NotificationDisplay.NORMAL
 import com.netflix.spinnaker.keel.api.NotificationFrequency
-import com.netflix.spinnaker.keel.api.ScmInfo
+import com.netflix.spinnaker.keel.api.ScmBridge
 import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
 import com.netflix.spinnaker.keel.api.artifacts.Commit
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
@@ -33,7 +32,7 @@ class PluginNotificationHandlerTests {
     every { sendSlackNotification(any(), any(), any(), any(), any()) } returns null
     every { getUsernameByEmailPrefix(any()) } returns "@emburns"
   }
-  val scmInfo: ScmInfo = mockk(relaxUnitFun = true) {
+  val scmInfo: ScmBridge = mockk(relaxUnitFun = true) {
     coEvery { getScmInfo() } returns mapOf(
       "stash" to "www.stash.com"
     )

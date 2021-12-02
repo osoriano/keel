@@ -1,11 +1,13 @@
 package com.netflix.spinnaker.keel.services
 
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.config.ArtifactConfig
 import com.netflix.spinnaker.keel.actuation.EnvironmentTaskCanceler
 import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
+import com.netflix.spinnaker.keel.api.ScmBridge
 import com.netflix.spinnaker.keel.api.Verification
 import com.netflix.spinnaker.keel.api.action.ActionState
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus.RELEASE
@@ -23,6 +25,8 @@ import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.NOT_EVALUATED
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PASS
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PENDING
 import com.netflix.spinnaker.keel.api.constraints.SupportedConstraintType
+import com.netflix.spinnaker.keel.api.migration.PrLink
+import com.netflix.spinnaker.keel.migrations.ApplicationPrData
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.api.plugins.ConstraintEvaluator
 import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
@@ -42,34 +46,46 @@ import com.netflix.spinnaker.keel.core.api.PromotionStatus.DEPLOYING
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.PREVIOUS
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.SKIPPED
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.VETOED
+import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
+import com.netflix.spinnaker.keel.core.api.SubmittedEnvironment
 import com.netflix.spinnaker.keel.events.PinnedNotification
 import com.netflix.spinnaker.keel.events.UnpinnedNotification
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventRepository
+import com.netflix.spinnaker.keel.persistence.ApplicationPullRequestDataIsMissing
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.ResourceStatus.CREATED
+import com.netflix.spinnaker.keel.serialization.configuredYamlMapper
 import com.netflix.spinnaker.keel.test.DummyArtifact
 import com.netflix.spinnaker.keel.test.DummySortingStrategy
 import com.netflix.spinnaker.keel.test.artifactReferenceResource
+import com.netflix.spinnaker.keel.test.submittedResource
 import com.netflix.spinnaker.keel.test.versionedArtifactResource
 import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import io.mockk.Runs
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import kotlinx.coroutines.runBlocking
 import org.springframework.context.ApplicationEventPublisher
+import retrofit.RetrofitError
+import retrofit.client.Response
 import strikt.api.Assertion
 import strikt.api.expect
+import strikt.api.expectCatching
 import strikt.api.expectThat
 import strikt.assertions.all
 import strikt.assertions.containsExactly
 import strikt.assertions.first
 import strikt.assertions.hasSize
+import strikt.assertions.isA
 import strikt.assertions.isEmpty
 import strikt.assertions.isEqualTo
+import strikt.assertions.isFailure
 import strikt.assertions.isTrue
 import strikt.assertions.withFirst
 import java.time.Instant
@@ -132,6 +148,21 @@ class ApplicationServiceTests : JUnit5Minutests {
       serviceAccount = "keel@spinnaker",
       artifacts = setOf(releaseArtifact),
       environments = singleArtifactEnvironments.values.toSet()
+    )
+
+    val submittedDeliveryConfig = SubmittedDeliveryConfig(
+      application = application1,
+      name = "myconfig",
+      serviceAccount = "keel@keel.io",
+      artifacts = setOf(releaseArtifact),
+      environments = setOf(
+        SubmittedEnvironment(
+          name = "test",
+          resources = setOf(
+            submittedResource()
+          )
+        )
+      )
     )
 
     val dualArtifactEnvironments = listOf("pr", "test").associateWith { name ->
@@ -217,6 +248,8 @@ class ApplicationServiceTests : JUnit5Minutests {
 
     val artifactVersionLinks = ArtifactVersionLinks(mockScmInfo(), mockCacheFactory())
     val environmentTaskCanceler: EnvironmentTaskCanceler = mockk(relaxUnitFun = true)
+    val yamlMapper: YAMLMapper = configuredYamlMapper()
+    val scmBridge: ScmBridge = mockk(relaxed = true)
 
     // subject
     val applicationService = ApplicationService(
@@ -231,7 +264,9 @@ class ApplicationServiceTests : JUnit5Minutests {
       spectator,
       ArtifactConfig(),
       artifactVersionLinks,
-      environmentTaskCanceler
+      environmentTaskCanceler,
+      yamlMapper,
+      scmBridge
     )
 
     val buildMetadata = BuildMetadata(
@@ -1177,6 +1212,71 @@ class ApplicationServiceTests : JUnit5Minutests {
       test("environment summaries are ordered based on dependencies") {
         val envSummaries = applicationService.getEnvironmentSummariesFor(application1)
         expectThat(envSummaries.map { it.name }).containsExactly(listOf("test", "staging", "production"))
+      }
+    }
+
+    context("open PR with a config successfully") {
+      val expectedPrResponse = PrLink(link = "https://stash/users/bla/repos/bla-app/pull-requests/93")
+      before {
+        every { repository.getMigratableApplicationData(application1) } returns ApplicationPrData (
+          submittedDeliveryConfig,
+          "repo",
+          "project"
+          )
+        coEvery {
+
+            scmBridge.createPr("stash", any(), any(), any())
+        } returns expectedPrResponse
+      }
+
+      test ("successfully created a PR in stash with the config") {
+        runBlocking {
+          val response = applicationService.openMigrationPr(application1)
+          expectThat(response).isEqualTo(expectedPrResponse.link)
+        }
+      }
+    }
+
+    context("errors when creating PR from Igor") {
+      val retrofitError = RetrofitError.httpError(
+        "http://igor",
+        Response("http://igor", 409, "duplicate", emptyList(), null),
+        null, null
+      )
+
+      before {
+        coEvery {
+          scmBridge.createPr(any(), any(), any(), any())
+        } throws retrofitError
+
+        every { repository.getMigratableApplicationData(application1) } returns ApplicationPrData (
+          submittedDeliveryConfig,
+          "repo",
+          "project"
+        )
+      }
+
+      test("bubbles up http errors when trying to create a PR") {
+        expectCatching {
+          applicationService.openMigrationPr(application1)
+        }
+          .isFailure()
+          .isEqualTo(retrofitError)
+      }
+    }
+
+    context("application pr data does not exists") {
+      val exception = ApplicationPullRequestDataIsMissing(application = "fnord1")
+      before {
+        every { repository.getMigratableApplicationData(application1) } throws exception
+      }
+      test ("throw an exception") {
+        expectCatching {
+          applicationService.openMigrationPr(application1)
+        }
+          .isFailure()
+          .isA<ApplicationPullRequestDataIsMissing>()
+
       }
     }
   }

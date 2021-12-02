@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: repo-and-project
+      author: gyardeni
+      changes:
+        - addColumn:
+            tableName: migration_status
+            columns:
+              - column:
+                  name: repo_slug
+                  type: varchar(255)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: project_key
+                  type: varchar(255)
+                  constraints:
+                    nullable: true
