@@ -6,11 +6,14 @@ import com.netflix.spinnaker.keel.telemetry.LifecycleMonitorLoadFailed
 import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
+import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import org.springframework.context.ApplicationEventPublisher
+import org.springframework.core.env.Environment
+import java.time.Duration
 
 class LifecycleMonitorSchedulerTests : JUnit5Minutests {
   class Fixture {
@@ -49,13 +52,22 @@ class LifecycleMonitorSchedulerTests : JUnit5Minutests {
       triggeringEventUid = "uid-2"
     )
 
+    private val springEnv: Environment = mockk(relaxed = true) {
+      coEvery {
+        getProperty("keel.lifecycle-monitor.min-age-duration", Duration::class.java, any())
+      } returns Duration.ofSeconds(30)
+
+      coEvery { getProperty("keel.lifecycle-monitor.batch-size", Int::class.java, any()) } returns 1
+    }
+
     val subject = LifecycleMonitorScheduler(
       monitors,
       monitorRepository,
       publisher,
       config,
       clock,
-      registry
+      registry,
+      springEnv
     )
   }
 

@@ -6,7 +6,7 @@ import java.time.Duration
 @ConfigurationProperties(prefix = "keel.lifecycle-monitor")
 class LifecycleConfig {
   var minAgeDuration: Duration = Duration.ofSeconds(30)
-  var batchSize: Int = 1
+  var batchSize: Int = 5
   var timeoutDuration: Duration = Duration.ofMinutes(2)
   var numFailuresAllowed: Int = 5
 }

@@ -16,6 +16,7 @@ import kotlinx.coroutines.withTimeout
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.event.EventListener
+import org.springframework.core.env.Environment
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.time.Clock
@@ -31,11 +32,18 @@ class LifecycleMonitorScheduler(
   val publisher: ApplicationEventPublisher,
   val lifecycleConfig: LifecycleConfig,
   private val clock: Clock,
-  val spectator: Registry
+  val spectator: Registry,
+  val springEnv: Environment
 ) : DiscoveryActivated(), CoroutineScope {
   override val coroutineContext: CoroutineContext = Dispatchers.IO
 
   private val timerBuilder = spectator.createId("keel.scheduled.method.duration")
+
+  private val checkMinAge: Duration
+    get() = springEnv.getProperty("keel.lifecycle-monitor.min-age-duration", Duration::class.java, lifecycleConfig.minAgeDuration)
+
+  private val batchSize: Int
+    get() = springEnv.getProperty("keel.lifecycle-monitor.batch-size", Int::class.java, lifecycleConfig.batchSize)
 
   /**
    * Listens for an event with monitor == true that a subclass can handle, and saves that into
@@ -55,7 +63,7 @@ class LifecycleMonitorScheduler(
         supervisorScope {
           runCatching {
             monitorRepository
-              .tasksDueForCheck(lifecycleConfig.minAgeDuration, lifecycleConfig.batchSize)
+              .tasksDueForCheck(checkMinAge, batchSize)
           }
             .onFailure {
               publisher.publishEvent(LifecycleMonitorLoadFailed(it))
