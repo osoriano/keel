@@ -10,4 +10,5 @@ dependencies {
   testImplementation(project(":keel-test"))
   testImplementation(project(":keel-core-test"))
   testImplementation(project(":keel-titus-plugin"))
+  testImplementation(project(":keel-graphql-netflix"))
 }

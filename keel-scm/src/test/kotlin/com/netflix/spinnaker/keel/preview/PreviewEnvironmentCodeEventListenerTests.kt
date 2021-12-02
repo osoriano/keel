@@ -34,6 +34,9 @@ import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.model.Application
 import com.netflix.spinnaker.keel.front50.model.DataSources
 import com.netflix.spinnaker.keel.front50.model.ManagedDeliveryConfig
+import com.netflix.spinnaker.keel.graphql.resources.GraphqlSchemaHandler
+import com.netflix.spinnaker.keel.graphql.resources.GraphqlSchemaHandler.Companion.GRAPHQL_SCHEMA_V1
+import com.netflix.spinnaker.keel.graphql.resources.GraphqlSchemaSpec
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 import com.netflix.spinnaker.keel.notifications.DeliveryConfigImportFailed
 import com.netflix.spinnaker.keel.notifications.DismissibleNotification
@@ -85,7 +88,6 @@ import strikt.assertions.endsWith
 import strikt.assertions.isA
 import strikt.assertions.isEmpty
 import strikt.assertions.isEqualTo
-import strikt.assertions.isLessThan
 import strikt.assertions.isLessThanOrEqualTo
 import strikt.assertions.isTrue
 import strikt.assertions.length
@@ -209,6 +211,16 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
       )
     )
 
+    val graphqlSchema = resource(
+      kind = GRAPHQL_SCHEMA_V1.kind,
+      spec = GraphqlSchemaSpec(
+        application = "fnord",
+        artifactReference = "fnord-docker",
+        edge = "enterprise",
+        registryEnv = "test"
+      )
+    )
+
     var deliveryConfig = DeliveryConfig(
       application = "fnord",
       name = "myconfig",
@@ -224,7 +236,8 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
             defaultAppSecurityGroup,
             defaultElbSecurityGroup,
             clusterWithDependencies,
-            clusterWithOldSpecVersion
+            clusterWithOldSpecVersion,
+            graphqlSchema
           ),
           constraints = setOf(ManualJudgementConstraint()),
           postDeploy = listOf(TagAmiPostDeployAction())
