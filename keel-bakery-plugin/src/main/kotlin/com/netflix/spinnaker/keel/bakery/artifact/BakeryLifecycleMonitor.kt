@@ -6,6 +6,7 @@ import com.fasterxml.jackson.module.kotlin.convertValue
 import com.netflix.spinnaker.config.BaseUrlConfig
 import com.netflix.spinnaker.config.LifecycleConfig
 import com.netflix.spinnaker.keel.api.TaskStatus.BUFFERED
+import com.netflix.spinnaker.keel.api.TaskStatus.NOT_STARTED
 import com.netflix.spinnaker.keel.api.TaskStatus.RUNNING
 import com.netflix.spinnaker.keel.artifacts.BakedImage
 import com.netflix.spinnaker.keel.clouddriver.ImageService
@@ -63,7 +64,7 @@ class BakeryLifecycleMonitor(
     }
       .onSuccess { execution ->
         when {
-          execution.status == BUFFERED -> publishCorrectLink(task)
+          execution.status in listOf(BUFFERED, NOT_STARTED) -> publishCorrectLink(task)
           execution.status == RUNNING -> publishRunningEvent(task)
           execution.status.isSuccess() -> {
             publishSucceededEvent(task)
@@ -170,7 +171,7 @@ class BakeryLifecycleMonitor(
   }
 
   private fun publishUnknownEvent(task: MonitoredTask, execution: ExecutionDetailResponse) {
-    log.warn("Monitored bake ${task.triggeringEvent} in an unhandled status (${execution.status}")
+    log.warn("Monitored bake ${task.triggeringEvent} for task ${task.link} in an unhandled status (${execution.status})")
     task.publishEvent(
       UNKNOWN,
       "Bake status unknown for version ${task.triggeringEvent.artifactVersion}"
