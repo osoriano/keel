@@ -2,13 +2,17 @@ package com.netflix.spinnaker.config
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.keel.actuation.ArtifactHandler
+import com.netflix.spinnaker.keel.api.Alphabetical
 import com.netflix.spinnaker.keel.api.ClusterDeployStrategy
 import com.netflix.spinnaker.keel.api.Highlander
 import com.netflix.spinnaker.keel.api.NoStrategy
+import com.netflix.spinnaker.keel.api.OffStreamingPeak
 import com.netflix.spinnaker.keel.api.RedBlack
 import com.netflix.spinnaker.keel.api.ResourceKind
 import com.netflix.spinnaker.keel.api.ResourceSpec
 import com.netflix.spinnaker.keel.api.RollingPush
+import com.netflix.spinnaker.keel.api.RolloutStrategy
+import com.netflix.spinnaker.keel.api.Staggered
 import com.netflix.spinnaker.keel.api.constraints.StatefulConstraintEvaluator
 import com.netflix.spinnaker.keel.api.constraints.StatelessConstraintEvaluator
 import com.netflix.spinnaker.keel.api.ec2.ApplicationLoadBalancerSpec.Action
@@ -137,6 +141,13 @@ class KeelConfigurationFinalizer(
     extensionRegistry.register<ClusterDeployStrategy>(Highlander::class.java, "highlander")
     extensionRegistry.register<ClusterDeployStrategy>(NoStrategy::class.java, "none")
     extensionRegistry.register<ClusterDeployStrategy>(RollingPush::class.java, "rolling-push")
+  }
+
+  @PostConstruct
+  fun registerRolloutStrategies() {
+    extensionRegistry.register<RolloutStrategy>(Alphabetical::class.java, "alphabetical")
+    extensionRegistry.register<RolloutStrategy>(OffStreamingPeak::class.java, "off-streaming-peak")
+    extensionRegistry.register<RolloutStrategy>(Staggered::class.java, "staggered")
   }
 
   @PostConstruct

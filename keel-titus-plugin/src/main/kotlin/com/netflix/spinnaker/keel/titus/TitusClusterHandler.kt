@@ -20,8 +20,6 @@ package com.netflix.spinnaker.keel.titus
 import com.fasterxml.jackson.module.kotlin.convertValue
 import com.netflix.buoy.sdk.model.RolloutTarget
 import com.netflix.spinnaker.keel.api.ClusterDeployStrategy
-import com.netflix.spinnaker.keel.api.DeliveryConfig
-import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.Exportable
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.NoStrategy
@@ -41,7 +39,6 @@ import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.SEMVER_JOB_CO
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.SEMVER_TAG
 import com.netflix.spinnaker.keel.api.ec2.Capacity
 import com.netflix.spinnaker.keel.api.ec2.ClusterDependencies
-import com.netflix.spinnaker.keel.api.ec2.ClusterSpec
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec.CapacitySpec
 import com.netflix.spinnaker.keel.api.ec2.CustomizedMetricSpecification
 import com.netflix.spinnaker.keel.api.ec2.MetricDimension
@@ -55,6 +52,8 @@ import com.netflix.spinnaker.keel.api.plugins.BaseClusterHandler
 import com.netflix.spinnaker.keel.api.plugins.CurrentImages
 import com.netflix.spinnaker.keel.api.plugins.ImageInRegion
 import com.netflix.spinnaker.keel.api.plugins.Resolver
+import com.netflix.spinnaker.keel.api.plugins.getOrder
+import com.netflix.spinnaker.keel.api.plugins.getPostDeployWait
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.api.titus.ElasticFileSystem
 import com.netflix.spinnaker.keel.api.titus.ResourcesSpec
@@ -84,7 +83,6 @@ import com.netflix.spinnaker.keel.clouddriver.model.toActive
 import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.core.orcaClusterMoniker
 import com.netflix.spinnaker.keel.core.serverGroup
-import com.netflix.spinnaker.keel.diff.toIndividualDiffs
 import com.netflix.spinnaker.keel.docker.DigestProvider
 import com.netflix.spinnaker.keel.docker.ReferenceProvider
 import com.netflix.spinnaker.keel.events.ResourceHealthEvent
@@ -223,7 +221,7 @@ class TitusClusterHandler(
     spec.deployWith.isStaggered
 
   override fun Resource<TitusClusterSpec>.isManagedRollout(): Boolean =
-    spec.managedRollout.enabled
+    spec.rolloutWith != null
 
   override fun Resource<TitusClusterSpec>.regions(): List<String> =
     spec.locations.regions.map { it.name }
@@ -760,7 +758,7 @@ class TitusClusterHandler(
       "refId" to "1",
       "type" to "managedRollout",
       "input" to mapOf(
-        "selectionStrategy" to spec.managedRollout.selectionStrategy,
+        "selectionStrategy" to spec.rolloutWith?.strategy?.type?.enumStyleName,
         "targets" to spec.generateRolloutTargets(diffs),
         "clusterDefinitions" to listOf(toManagedRolloutClusterDefinition(image, diffs))
       ),
@@ -816,6 +814,7 @@ class TitusClusterHandler(
   private fun TitusClusterSpec.generateRolloutTargets(diffs: List<ResourceDiff<TitusServerGroup>>): List<Map<String, Any>> =
     diffs
       .map {
+        val region = getDesiredRegion(it)
         mapper.convertValue(
           RolloutTarget(
             TITUS_CLOUD_PROVIDER,
@@ -823,7 +822,9 @@ class TitusClusterHandler(
               locations.account,
               getDesiredRegion(it),
               emptyList()
-            )
+            ),
+            rolloutWith?.getOrder(region),
+            rolloutWith?.getPostDeployWait(region)
           )
         )
       }

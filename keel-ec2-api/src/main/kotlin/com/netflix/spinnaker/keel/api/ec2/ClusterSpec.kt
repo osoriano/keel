@@ -9,7 +9,7 @@ import com.netflix.spinnaker.keel.api.DependencyType.TARGET_GROUP
 import com.netflix.spinnaker.keel.api.Dependent
 import com.netflix.spinnaker.keel.api.ExcludedFromDiff
 import com.netflix.spinnaker.keel.api.Locations
-import com.netflix.spinnaker.keel.api.ManagedRolloutConfig
+import com.netflix.spinnaker.keel.api.RolloutConfig
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.RedBlack
 import com.netflix.spinnaker.keel.api.SubnetAwareLocations
@@ -151,7 +151,7 @@ data class ClusterSpec(
   override val moniker: Moniker,
   override val artifactReference: String? = null,
   val deployWith: ClusterDeployStrategy = RedBlack(),
-  val managedRollout: ManagedRolloutConfig = ManagedRolloutConfig(),
+  val rolloutWith: RolloutConfig? = null,
   override val locations: SubnetAwareLocations,
   private val _defaults: ServerGroupSpec,
   override val overrides: Map<String, ServerGroupSpec> = emptyMap(),
@@ -171,12 +171,12 @@ data class ClusterSpec(
     scaling: Scaling? = null,
     tags: Map<String, String>? = null,
     overrides: Map<String, ServerGroupSpec> = emptyMap(),
-    managedRollout: ManagedRolloutConfig = ManagedRolloutConfig()
+    rolloutWith: RolloutConfig? = null
   ) : this(
     moniker,
     artifactReference,
     deployWith,
-    managedRollout,
+    rolloutWith,
     locations,
     ServerGroupSpec(
       launchConfiguration,

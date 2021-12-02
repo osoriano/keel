@@ -1,12 +1,12 @@
 package com.netflix.spinnaker.keel.ec2.resource
 
+import com.netflix.spinnaker.keel.api.Alphabetical
 import com.netflix.spinnaker.keel.api.Highlander
-import com.netflix.spinnaker.keel.api.ManagedRolloutConfig
+import com.netflix.spinnaker.keel.api.RolloutConfig
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.RedBlack
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceDiff
-import com.netflix.spinnaker.keel.api.SelectionStrategy
 import com.netflix.spinnaker.keel.api.StaggeredRegion
 import com.netflix.spinnaker.keel.api.SubnetAwareLocations
 import com.netflix.spinnaker.keel.api.SubnetAwareRegionSpec
@@ -68,7 +68,7 @@ class Ec2BaseClusterHandlerTests : BaseClusterHandlerTests<ClusterSpec, ServerGr
       launchConfiguration = launchConfigurationSpec
     ),
     deployWith = Highlander(),
-    managedRollout = ManagedRolloutConfig(enabled = false)
+    rolloutWith = null
   )
 
   override fun createSpyHandler(
@@ -147,13 +147,18 @@ class Ec2BaseClusterHandlerTests : BaseClusterHandlerTests<ClusterSpec, ServerGr
         regions = setOf(SubnetAwareRegionSpec("east"), SubnetAwareRegionSpec("west")),
         subnet = "subnet-1"
       ),
-      managedRollout = ManagedRolloutConfig(enabled = true, selectionStrategy = SelectionStrategy.ALPHABETICAL)
+      rolloutWith = RolloutConfig(strategy = Alphabetical())
     )
     return Resource(
       kind = EC2_CLUSTER_V1_1.kind,
       metadata = metadata,
       spec = spec
     )
+  }
+
+  override fun getMultiRegionTimeDelayManagedRolloutCluster(): Resource<ClusterSpec> {
+    val baseCluster = getMultiRegionManagedRolloutCluster()
+    return baseCluster.copy(spec = baseCluster.spec.copy(rolloutWith = staggeredRollout))
   }
 
   override fun getDiffInMoreThanEnabled(resource: Resource<ClusterSpec>): ResourceDiff<Map<String, ServerGroup>> {

@@ -25,7 +25,7 @@ import com.netflix.spinnaker.keel.api.DependencyType.SECURITY_GROUP
 import com.netflix.spinnaker.keel.api.DependencyType.TARGET_GROUP
 import com.netflix.spinnaker.keel.api.Dependent
 import com.netflix.spinnaker.keel.api.ExcludedFromDiff
-import com.netflix.spinnaker.keel.api.ManagedRolloutConfig
+import com.netflix.spinnaker.keel.api.RolloutConfig
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.RedBlack
 import com.netflix.spinnaker.keel.api.SimpleLocations
@@ -49,7 +49,7 @@ import com.netflix.spinnaker.keel.docker.VersionedTagProvider
 data class TitusClusterSpec(
   override val moniker: Moniker,
   val deployWith: ClusterDeployStrategy = RedBlack(),
-  val managedRollout: ManagedRolloutConfig = ManagedRolloutConfig(),
+  val rolloutWith: RolloutConfig? = null,
   @param:Optional override val locations: SimpleLocations,
   private val _defaults: TitusServerGroupSpec,
   val overrides: Map<String, TitusServerGroupSpec> = emptyMap(),
@@ -78,7 +78,7 @@ data class TitusClusterSpec(
     tags: Map<String, String> = emptyMap(),
     scaling: TitusScalingSpec? = null,
     overrides: Map<String, TitusServerGroupSpec> = emptyMap(),
-    managedRollout: ManagedRolloutConfig = ManagedRolloutConfig()
+    rolloutWith: RolloutConfig? = null
   ) : this(
     moniker = moniker,
     deployWith = deployWith,
@@ -99,7 +99,7 @@ data class TitusClusterSpec(
     ),
     overrides = overrides,
     container = container,
-    managedRollout = managedRollout
+    rolloutWith = rolloutWith
   )
 
   override val id = "${locations.account}:$moniker"

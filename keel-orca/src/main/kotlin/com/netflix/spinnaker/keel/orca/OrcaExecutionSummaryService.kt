@@ -289,6 +289,8 @@ class OrcaExecutionSummaryService(
       RolloutTarget(
         cloudProvider,
         BuoyLocation(account, region, emptyList()),
+        null,
+        null
       )
     }
   }
@@ -304,6 +306,8 @@ class OrcaExecutionSummaryService(
       RolloutTarget(
         cloudProvider,
         BuoyLocation(account, region, emptyList()),
+        null,
+        null
       )
     }
   }
@@ -317,7 +321,14 @@ class OrcaExecutionSummaryService(
     val region: String = stage.getRegion() ?: "unable to find region"
     val account = stage.getAccount() ?: "unable to find account"
     val cloudProvider: String = stage.getCloudProvider() ?: "unable to find cloud provider"
-    return listOf(RolloutTarget(cloudProvider, BuoyLocation(account, region, emptyList())))
+    return listOf(
+      RolloutTarget(
+        cloudProvider,
+        BuoyLocation(account, region, emptyList()),
+        null,
+        null
+      )
+    )
   }
 
   data class LoadBalancerOrcaTarget(
@@ -340,8 +351,10 @@ class OrcaExecutionSummaryService(
       target.availabilityZones.forEach { (region, zones) ->
         rolloutTargets.add(
           RolloutTarget(
-          cloudProvider,
-          BuoyLocation(target.credentials, region , zones),
+            cloudProvider,
+            BuoyLocation(target.credentials, region , zones),
+            null,
+            null
           )
         )
       }

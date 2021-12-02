@@ -1,10 +1,15 @@
 package com.netflix.spinnaker.keel.api.plugins
 
+import com.fasterxml.jackson.module.kotlin.convertValue
+import com.netflix.buoy.sdk.model.RolloutTarget
+import com.netflix.spinnaker.keel.api.Alphabetical
 import com.netflix.spinnaker.keel.api.ComputeResourceSpec
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceDiff
+import com.netflix.spinnaker.keel.api.RolloutConfig
 import com.netflix.spinnaker.keel.api.SimpleLocationProvider
+import com.netflix.spinnaker.keel.api.Staggered
 import com.netflix.spinnaker.keel.api.actuation.Job
 import com.netflix.spinnaker.keel.api.actuation.Task
 import com.netflix.spinnaker.keel.api.actuation.TaskLauncher
@@ -13,6 +18,7 @@ import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.core.serverGroup
 import com.netflix.spinnaker.keel.events.ResourceActuationLaunched
 import com.netflix.spinnaker.keel.test.deliveryConfig
+import com.netflix.spinnaker.keel.test.configuredTestObjectMapper
 import com.netflix.spinnaker.time.MutableClock
 import io.mockk.coEvery
 import io.mockk.every
@@ -27,9 +33,11 @@ import strikt.assertions.isA
 import strikt.assertions.isEqualTo
 import strikt.assertions.isFalse
 import strikt.assertions.isNotEmpty
+import strikt.assertions.isNotNull
 import strikt.assertions.isNull
 import strikt.assertions.isTrue
 import java.time.Clock
+import java.time.Duration
 
 abstract class BaseClusterHandlerTests<
   SPEC: ComputeResourceSpec<*>, // spec type
@@ -48,6 +56,7 @@ abstract class BaseClusterHandlerTests<
   abstract fun getMultiRegionCluster(): Resource<SPEC>
   abstract fun getMultiRegionStaggeredDeployCluster(): Resource<SPEC>
   abstract fun getMultiRegionManagedRolloutCluster(): Resource<SPEC>
+  abstract fun getMultiRegionTimeDelayManagedRolloutCluster(): Resource<SPEC>
 
   abstract fun getRegions(resource: Resource<SPEC>): List<String>
   abstract fun getDiffInMoreThanEnabled(resource: Resource<SPEC>): ResourceDiff<Map<String, RESOLVED>>
@@ -65,10 +74,21 @@ abstract class BaseClusterHandlerTests<
   abstract fun getRollbackServerGroupsByRegionAllEnabled(resource: Resource<SPEC>, version: String, rollbackMoniker: Moniker): Map<String, List<RESOLVED>>
   abstract fun getSingleRollbackServerGroupByRegion(resource: Resource<SPEC>, version: String, moniker: Moniker): Map<String, List<RESOLVED>>
 
+  val staggeredRollout = RolloutConfig(
+    strategy = Staggered(
+      order = listOf("west", "east"),
+      postDeployWait = Duration.ofMinutes(1),
+      overrides = mapOf(
+        "east" to mapOf("postDeployWait" to Duration.ZERO)
+      )
+    )
+  )
+
   val clock: Clock = MutableClock()
   val eventPublisher: EventPublisher = mockk(relaxUnitFun = true)
   val resolvers: List<Resolver<*>> = emptyList()
   val taskLauncher: TaskLauncher = mockk()
+  val mapper = configuredTestObjectMapper()
 
   data class Fixture<SPEC: ComputeResourceSpec<*>, RESOLVED: SimpleLocationProvider, HANDLER : BaseClusterHandler<SPEC, RESOLVED>>(
     val handler: HANDLER
@@ -266,6 +286,36 @@ abstract class BaseClusterHandlerTests<
   }
 
   @Test
+  fun `managed rollout staggered`() {
+    coEvery { handler.getDisabledServerGroupsByRegion(any()) } returns emptyMap()
+
+    val slots = mutableListOf<List<Job>>()
+    coEvery { taskLauncher.submitJob(any(), any(), any(), capture(slots)) } returns Task("id", "name")
+
+    val resource = getMultiRegionTimeDelayManagedRolloutCluster()
+    runBlocking { handler.upsert(resource, getDiffInImage(resource)) }
+    val stages = slots[0]
+    expect {
+      that(slots.size).isEqualTo(1)
+      that(stages.size).isEqualTo(1)
+      val managedRolloutStage = stages.first()
+      that(managedRolloutStage["type"]).isEqualTo("managedRollout")
+      that(managedRolloutStage["refId"]).isEqualTo("1")
+      val input = managedRolloutStage["input"]
+      that(input).isA<Map<String, Any?>>()
+      val targets = (input as Map<String, Any?>)["targets"]
+      that(targets).isNotNull().isA<List<Map<String,Any?>>>()
+      val typedTargets: List<RolloutTarget> = mapper.convertValue(targets!!)
+      val east = typedTargets.find { it.location.region == "east"}
+      val west = typedTargets.find { it.location.region == "west"}
+      that(west?.deployPosition).isEqualTo(0)
+      that(west?.postDeployWait).isEqualTo(Duration.ofMinutes(1))
+      that(east?.deployPosition).isEqualTo(1)
+      that(east?.postDeployWait).isEqualTo(Duration.ZERO)
+    }
+  }
+
+  @Test
   fun `managed rollout image diff plus capacity change`() {
     coEvery { handler.getDisabledServerGroupsByRegion(any()) } returns emptyMap()
 
@@ -429,5 +479,56 @@ abstract class BaseClusterHandlerTests<
       eventPublisher.publishEvent(ofType<ArtifactVersionDeploying>())
       eventPublisher.publishEvent(ofType<ResourceActuationLaunched>())
     }
+  }
+
+  @Test
+  fun `get rollout config order`() {
+    val simpleRolloutConfig = RolloutConfig(
+      strategy = Staggered(
+        order = listOf("west", "east")
+      )
+    )
+
+    expectThat(simpleRolloutConfig.getOrder("west")).isEqualTo(0)
+    expectThat(simpleRolloutConfig.getOrder("east")).isEqualTo(1)
+
+    val alphabeticalRolloutConfig = RolloutConfig(strategy = Alphabetical())
+    // default for other strategies is 0
+    expectThat(alphabeticalRolloutConfig.getOrder("west")).isEqualTo(0)
+    expectThat(alphabeticalRolloutConfig.getOrder("east")).isEqualTo(0)
+  }
+
+  @Test
+  fun `get post deploy wait`() {
+    val threeMinutes = Duration.ofMinutes(3)
+    val simpleRolloutConfig = RolloutConfig(
+      strategy = Staggered(
+        order = listOf("west", "east"),
+        postDeployWait = threeMinutes
+      )
+    )
+
+    expectThat(simpleRolloutConfig.getPostDeployWait("west")).isEqualTo(threeMinutes)
+    expectThat(simpleRolloutConfig.getPostDeployWait("east")).isEqualTo(threeMinutes)
+
+    val alphabeticalRolloutConfig = RolloutConfig(strategy = Alphabetical())
+    // default for other strategies is Duration.ZERO
+    expectThat(alphabeticalRolloutConfig.getPostDeployWait("west")).isEqualTo(Duration.ZERO)
+    expectThat(alphabeticalRolloutConfig.getPostDeployWait("east")).isEqualTo(Duration.ZERO)
+
+    val overrideRolloutConfig = RolloutConfig(
+      strategy = Staggered(
+        order = listOf("west", "east"),
+        postDeployWait = threeMinutes,
+        overrides = mapOf(
+          "east" to mapOf(
+            "postDeployWait" to "PT1M"
+          )
+        )
+      )
+    )
+
+    expectThat(overrideRolloutConfig.getPostDeployWait("west")).isEqualTo(threeMinutes)
+    expectThat(overrideRolloutConfig.getPostDeployWait("east")).isEqualTo(Duration.ofMinutes(1))
   }
 }

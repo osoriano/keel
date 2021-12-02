@@ -9,7 +9,9 @@ import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceDiff
 import com.netflix.spinnaker.keel.api.ResourceDiffFactory
+import com.netflix.spinnaker.keel.api.RolloutConfig
 import com.netflix.spinnaker.keel.api.SimpleLocationProvider
+import com.netflix.spinnaker.keel.api.Staggered
 import com.netflix.spinnaker.keel.api.actuation.Job
 import com.netflix.spinnaker.keel.api.actuation.Task
 import com.netflix.spinnaker.keel.api.actuation.TaskLauncher
@@ -24,6 +26,7 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import java.time.Clock
+import java.time.Duration
 
 /**
  * Common cluster functionality.
@@ -644,4 +647,22 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Simple
     TODO("Not yet implemented")
 
   // --- end overrides for KT-39603
+}
+
+// todo eb: allow for the list to contain multiple regions for deploying at the same time
+fun RolloutConfig.getOrder(region: String): Int {
+  val typedStrategy = strategy as? Staggered
+  return typedStrategy?.order?.indexOf(region) ?: 0
+}
+
+fun RolloutConfig.getPostDeployWait(region: String): Duration {
+  val typedStrategy = strategy as? Staggered
+  return if (typedStrategy != null) {
+    val default = typedStrategy.postDeployWait
+    val regionalOverride = typedStrategy.overrides.getOrDefault(region, emptyMap())
+    val overrideDuration = regionalOverride["postDeployWait"]?.let { Duration.parse(it.toString()) }
+    overrideDuration ?: default ?: Duration.ofMinutes(30)
+  } else {
+    Duration.ZERO
+  }
 }

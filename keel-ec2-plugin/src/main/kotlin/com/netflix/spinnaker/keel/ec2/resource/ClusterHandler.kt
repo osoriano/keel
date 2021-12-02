@@ -62,6 +62,8 @@ import com.netflix.spinnaker.keel.api.plugins.BaseClusterHandler
 import com.netflix.spinnaker.keel.api.plugins.CurrentImages
 import com.netflix.spinnaker.keel.api.plugins.ImageInRegion
 import com.netflix.spinnaker.keel.api.plugins.Resolver
+import com.netflix.spinnaker.keel.api.plugins.getOrder
+import com.netflix.spinnaker.keel.api.plugins.getPostDeployWait
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.api.support.Tag
 import com.netflix.spinnaker.keel.api.withDefaultsOmitted
@@ -195,7 +197,7 @@ class ClusterHandler(
     spec.deployWith.isStaggered
 
   override fun Resource<ClusterSpec>.isManagedRollout(): Boolean =
-    spec.managedRollout.enabled
+    spec.rolloutWith != null
 
   override fun Resource<ClusterSpec>.regions(): List<String> =
     spec.locations.regions.map { it.name }
@@ -633,7 +635,7 @@ class ClusterHandler(
       "refId" to "1",
       "type" to "managedRollout",
       "input" to mapOf(
-        "selectionStrategy" to spec.managedRollout.selectionStrategy,
+        "selectionStrategy" to spec.rolloutWith?.strategy?.type?.enumStyleName,
         "targets" to spec.generateRolloutTargets(diffs),
         "clusterDefinitions" to listOf(toManagedRolloutClusterDefinition(diffs))
       ),
@@ -738,14 +740,17 @@ class ClusterHandler(
   private fun ClusterSpec.generateRolloutTargets(diffs: List<ResourceDiff<ServerGroup>>): List<Map<String, Any>> =
     diffs
       .map {
+        val region = getDesiredRegion(it)
         mapper.convertValue(
           RolloutTarget(
             EC2_CLOUD_PROVIDER,
             RolloutLocation(
               locations.account,
-              getDesiredRegion(it),
+              region,
               emptyList() // todo eb: should this be availability zones? is this only if you want to stagger deployment by availibility?
-            )
+            ),
+            rolloutWith?.getOrder(region),
+            rolloutWith?.getPostDeployWait(region)
           )
         )
       }

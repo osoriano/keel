@@ -1,7 +1,8 @@
 package com.netflix.spinnaker.keel.titus.resource
 
+import com.netflix.spinnaker.keel.api.Alphabetical
 import com.netflix.spinnaker.keel.api.Highlander
-import com.netflix.spinnaker.keel.api.ManagedRolloutConfig
+import com.netflix.spinnaker.keel.api.RolloutConfig
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.RedBlack
 import com.netflix.spinnaker.keel.api.Resource
@@ -71,7 +72,7 @@ class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, T
     _defaults = TitusServerGroupSpec(
       capacity = ClusterSpec.CapacitySpec(1, 4, 2)
     ),
-    managedRollout = ManagedRolloutConfig(enabled = false),
+    rolloutWith = null,
     deployWith = Highlander()
   )
 
@@ -146,13 +147,18 @@ class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, T
         account = "account",
         regions = setOf(SimpleRegionSpec("east"), SimpleRegionSpec("west"))
       ),
-      managedRollout = ManagedRolloutConfig(enabled = true, selectionStrategy = SelectionStrategy.ALPHABETICAL)
+      rolloutWith = RolloutConfig(strategy = Alphabetical())
     )
     return Resource(
       kind = TITUS_CLUSTER_V1.kind,
       metadata = metadata,
       spec = spec
     )
+  }
+
+  override fun getMultiRegionTimeDelayManagedRolloutCluster(): Resource<TitusClusterSpec> {
+    val baseCluster = getMultiRegionManagedRolloutCluster()
+    return baseCluster.copy(spec = baseCluster.spec.copy(rolloutWith = staggeredRollout))
   }
 
   private val diffFactory = DefaultResourceDiffFactory()
