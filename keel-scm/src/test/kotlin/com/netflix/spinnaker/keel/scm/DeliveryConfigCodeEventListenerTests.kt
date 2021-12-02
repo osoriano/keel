@@ -339,7 +339,8 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
             subject.handleCodeEvent(event)
           }
 
-          verifyErrorSignalsEmitted(event)
+          verifyErrorMetricIncreased(event)
+          verifyErrorEventEmitted(event)
         }
 
         context("code event author is not authorized to access service account for $event") {
@@ -357,13 +358,14 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
             // no-op, just proves we get here
           }
 
-          verifyErrorSignalsEmitted(event)
+          verifyErrorMetricIncreased(event)
+          verifyErrorEventEmitted(event, false)
         }
       }
     }
   }
 
-  private fun TestContextBuilder<Fixture, Fixture>.verifyErrorSignalsEmitted(event: CodeEvent) {
+  private fun TestContextBuilder<Fixture, Fixture>.verifyErrorMetricIncreased(event: CodeEvent) {
     test("a delivery config retrieval error is counted") {
       val tags = mutableListOf<Iterable<Tag>>()
       verify {
@@ -373,13 +375,23 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
         contains(DELIVERY_CONFIG_RETRIEVAL_ERROR.toTags())
       }
     }
+  }
 
-    test("an event is published") {
-      val failureEvent = slot<DeliveryConfigImportFailed>()
-      verify {
-        eventPublisher.publishEvent(capture(failureEvent))
+  private fun TestContextBuilder<Fixture, Fixture>.verifyErrorEventEmitted(event: CodeEvent, checkEmitted: Boolean = true) {
+    if (checkEmitted) {
+      test("an error event is published") {
+        val failureEvent = slot<DeliveryConfigImportFailed>()
+        verify {
+          eventPublisher.publishEvent(capture(failureEvent))
+        }
+        expectThat(failureEvent.captured.branch).isEqualTo(event.targetBranch)
       }
-      expectThat(failureEvent.captured.branch).isEqualTo(event.targetBranch)
+    } else {
+      test("an error event is not published") {
+        verify(exactly = 0) {
+          eventPublisher.publishEvent(ofType<DeliveryConfigImportFailed>())
+        }
+      }
     }
   }
 

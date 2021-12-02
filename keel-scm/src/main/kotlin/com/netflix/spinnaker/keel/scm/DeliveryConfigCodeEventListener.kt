@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.event.EventListener
 import org.springframework.core.env.Environment
+import org.springframework.security.access.AccessDeniedException
 import org.springframework.stereotype.Component
 import java.time.Clock
 
@@ -129,19 +130,21 @@ class DeliveryConfigCodeEventListener(
         log.debug("Delivery config for application ${app.name} updated successfully from branch ${event.targetBranch}")
         event.emitCounterMetric(CODE_EVENT_COUNTER, DELIVERY_CONFIG_RETRIEVAL_SUCCESS, app.name)
       } catch (e: Exception) {
-        log.error("Error retrieving/updating delivery config: $e", e)
+        log.error("Error retrieving/updating delivery config for application ${app.name}: $e", e)
         event.emitCounterMetric(CODE_EVENT_COUNTER, DELIVERY_CONFIG_RETRIEVAL_ERROR, app.name)
-        if (e.isNotFound) {
-          log.debug("Skipping publishing an event for http errors as we assume that the file does not exist - $e")
-        } else {
-          eventPublisher.publishDeliveryConfigImportFailed(
-            app.name,
-            event,
-            event.targetBranch,
-            clock.instant(),
-            e.message ?: "Unknown reason",
-            scmUtils.getCommitLink(event)
-          )
+        when {
+          e.isNotFound -> log.debug("Skipping publishing event for delivery config not found: $e")
+          e is AccessDeniedException -> log.debug("Skipping publishing event for access denied importing config: $e")
+          else -> {
+            eventPublisher.publishDeliveryConfigImportFailed(
+              app.name,
+              event,
+              event.targetBranch,
+              clock.instant(),
+              e.message ?: "Unknown reason",
+              scmUtils.getCommitLink(event)
+            )
+          }
         }
         return@forEach
       }
