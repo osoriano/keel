@@ -20,6 +20,7 @@ class DeliveryConfigImporter(
   ) {
   companion object {
     private val log by lazy { LoggerFactory.getLogger(DeliveryConfigImporter::class.java) }
+    const val MANIFEST_BASE_DIR = ".netflix"
     const val DEFAULT_MANIFEST_PATH = "spinnaker.yml"
   }
 

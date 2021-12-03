@@ -104,6 +104,14 @@ interface ScmService: ScmBridge {
     @Path("repoSlug") repoSlug: String,
     @Body migrationCommitData: MigrationCommitData
   ): PrLink
+
+  // Note: Stash only at this time
+  @GET("/stash/{projectKey}/{repoSlug}/commits/{commitId}/changes")
+  suspend fun getCommitChanges(
+    @Path("projectKey") projectKey: String,
+    @Path("repoSlug") repoSlug: String,
+    @Path("commitId") commitId: String,
+  ): List<String>
 }
 
 fun Application.getDefaultBranch(scmService: ScmService): String = runBlocking {

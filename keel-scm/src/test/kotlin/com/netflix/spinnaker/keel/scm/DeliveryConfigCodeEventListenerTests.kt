@@ -15,6 +15,8 @@ import com.netflix.spinnaker.keel.front50.model.Application
 import com.netflix.spinnaker.keel.front50.model.DataSources
 import com.netflix.spinnaker.keel.front50.model.ManagedDeliveryConfig
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
+import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter.Companion.MANIFEST_BASE_DIR
+import com.netflix.spinnaker.keel.igor.ScmService
 import com.netflix.spinnaker.keel.notifications.DeliveryConfigImportFailed
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
 import com.netflix.spinnaker.keel.scm.DeliveryConfigCodeEventListener.Companion.CODE_EVENT_COUNTER
@@ -47,6 +49,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
     val importer: DeliveryConfigImporter = mockk()
     val front50Cache: Front50Cache = mockk()
     val scmUtils: ScmUtils = mockk()
+    val scmService: ScmService = mockk()
     val springEnv: Environment = mockk()
     val notificationRepository: DismissibleNotificationRepository = mockk()
     val spectator: Registry = mockk()
@@ -60,6 +63,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
       notificationRepository = notificationRepository,
       front50Cache = front50Cache,
       scmUtils = scmUtils,
+      scmService = scmService,
       springEnv = springEnv,
       spectator = spectator,
       eventPublisher = eventPublisher,
@@ -150,6 +154,10 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
       } answers {
         firstArg<String>() == deliveryConfig.application
       }
+
+      every {
+        scmService.getCommitChanges(any(), any(), any())
+      } returns listOf(".netflix/spinnaker.yml")
     }
   }
 
@@ -183,7 +191,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
       }
 
       listOf(commitEvent, prMergedEvent).map { event ->
-        context("a commit event matching the repo and branch is received") {
+        context("a code event matching the repo and branch is received") {
           before {
             subject.handleCodeEvent(event)
           }
@@ -258,6 +266,10 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
             ),
             notConfiguredApp
           )
+
+          every {
+            scmService.getCommitChanges(any(), any(), any())
+          } returns listOf("$MANIFEST_BASE_DIR/$manifestPath")
         }
 
         test("importing the manifest from the correct path") {
@@ -282,6 +294,18 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
       context("a commit event NOT matching the app default branch is received") {
         before {
           subject.handleCodeEvent(commitEventForAnotherBranch)
+        }
+
+        verifyEventIgnored()
+      }
+
+      context("the delivery config was not modified in the commit") {
+        before {
+          every {
+            scmService.getCommitChanges(any(), any(), any())
+          } returns listOf("other", "files", "changed")
+
+          subject.handleCodeEvent(commitEvent)
         }
 
         verifyEventIgnored()
@@ -339,7 +363,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
             subject.handleCodeEvent(event)
           }
 
-          verifyErrorMetricIncreased(event)
+          verifyErrorMetricIncreased()
           verifyErrorEventEmitted(event)
         }
 
@@ -358,14 +382,14 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
             // no-op, just proves we get here
           }
 
-          verifyErrorMetricIncreased(event)
-          verifyErrorEventEmitted(event, false)
+          verifyErrorMetricIncreased()
+          verifyErrorEventEmitted(event)
         }
       }
     }
   }
 
-  private fun TestContextBuilder<Fixture, Fixture>.verifyErrorMetricIncreased(event: CodeEvent) {
+  private fun TestContextBuilder<Fixture, Fixture>.verifyErrorMetricIncreased() {
     test("a delivery config retrieval error is counted") {
       val tags = mutableListOf<Iterable<Tag>>()
       verify {
@@ -377,21 +401,13 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
     }
   }
 
-  private fun TestContextBuilder<Fixture, Fixture>.verifyErrorEventEmitted(event: CodeEvent, checkEmitted: Boolean = true) {
-    if (checkEmitted) {
-      test("an error event is published") {
-        val failureEvent = slot<DeliveryConfigImportFailed>()
-        verify {
-          eventPublisher.publishEvent(capture(failureEvent))
-        }
-        expectThat(failureEvent.captured.branch).isEqualTo(event.targetBranch)
+  private fun TestContextBuilder<Fixture, Fixture>.verifyErrorEventEmitted(event: CodeEvent) {
+    test("an error event is published") {
+      val failureEvent = slot<DeliveryConfigImportFailed>()
+      verify {
+        eventPublisher.publishEvent(capture(failureEvent))
       }
-    } else {
-      test("an error event is not published") {
-        verify(exactly = 0) {
-          eventPublisher.publishEvent(ofType<DeliveryConfigImportFailed>())
-        }
-      }
+      expectThat(failureEvent.captured.branch).isEqualTo(event.targetBranch)
     }
   }
 
