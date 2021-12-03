@@ -86,7 +86,9 @@ import strikt.assertions.isA
 import strikt.assertions.isEmpty
 import strikt.assertions.isEqualTo
 import strikt.assertions.isFailure
+import strikt.assertions.isSuccess
 import strikt.assertions.isTrue
+import strikt.assertions.second
 import strikt.assertions.withFirst
 import java.time.Instant
 import java.time.ZoneId
@@ -1233,11 +1235,11 @@ class ApplicationServiceTests : JUnit5Minutests {
         } returns expectedPrResponse
       }
 
-      test ("successfully created a PR in stash with the config") {
-        runBlocking {
-          val response = applicationService.openMigrationPr(application1)
-          expectThat(response).isEqualTo(expectedPrResponse.link)
-        }
+      test("successfully created a PR in stash with the config") {
+        expectCatching {
+          applicationService.openMigrationPr(application1)
+        }.isSuccess()
+          .second.isEqualTo(expectedPrResponse.link)
       }
     }
 

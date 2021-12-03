@@ -1,41 +1,64 @@
 package com.netflix.spinnaker.keel.dgs
 
 import com.netflix.graphql.dgs.DgsComponent
-import com.netflix.graphql.dgs.DgsData
+import com.netflix.graphql.dgs.DgsMutation
+import com.netflix.graphql.dgs.DgsQuery
 import com.netflix.graphql.dgs.InputArgument
 import com.netflix.spinnaker.keel.api.migration.ApplicationMigrationStatus
-import com.netflix.spinnaker.keel.graphql.DgsConstants
+import com.netflix.spinnaker.keel.graphql.types.MD_InitiateApplicationMigrationPayload
 import com.netflix.spinnaker.keel.graphql.types.MD_Migration
 import com.netflix.spinnaker.keel.graphql.types.MD_MigrationReportIssuePayload
 import com.netflix.spinnaker.keel.graphql.types.MD_MigrationStatus
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
+import com.netflix.spinnaker.keel.services.ApplicationService
 import graphql.schema.DataFetchingEnvironment
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.RequestHeader
 
 @DgsComponent
 class Migration(
-  private val deliveryConfigRepository: DeliveryConfigRepository
+  private val deliveryConfigRepository: DeliveryConfigRepository,
+  private val applicationService: ApplicationService,
 ) {
 
-  @DgsData(parentType = DgsConstants.QUERY.TYPE_NAME, field = DgsConstants.QUERY.Md_migration)
+  @DgsQuery
   @PreAuthorize("""@authorizationSupport.hasApplicationPermission('READ', 'APPLICATION', #appName)""")
-  fun appMigration(dfe: DataFetchingEnvironment, @InputArgument("appName") appName: String): MD_Migration {
+  fun md_migration(dfe: DataFetchingEnvironment, @InputArgument("appName") appName: String): MD_Migration {
     val status = deliveryConfigRepository.getApplicationMigrationStatus(appName)
     return status.toDgs(appName)
   }
 
-  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_migrationReportIssue)
+  @DgsMutation
   @PreAuthorize(
     """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
     and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
   )
-  fun reportIssue(
+  fun md_migrationReportIssue(
     @InputArgument payload: MD_MigrationReportIssuePayload,
     @RequestHeader("X-SPINNAKER-USER") user: String
   ): Boolean {
     // TODO: open a JIRA ticket
     return deliveryConfigRepository.markApplicationMigrationAsBlocked(payload.application, payload.issue, user)
+  }
+
+  @DgsMutation
+  @PreAuthorize(
+    """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
+    and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
+  )
+  suspend fun md_initiateApplicationMigration(
+    @InputArgument payload: MD_InitiateApplicationMigrationPayload,
+    @RequestHeader("X-SPINNAKER-USER") user: String
+  ): MD_Migration? {
+    val (prData, prLink) = applicationService.openMigrationPr(
+      application = payload.application
+    )
+    return MD_Migration(
+      id = "migration-${payload.application}",
+      status = MD_MigrationStatus.PR_CREATED,
+      deliveryConfig = prData.deliveryConfig,
+      prLink = prLink
+    )
   }
 }
 
@@ -43,12 +66,12 @@ fun ApplicationMigrationStatus.toDgs(appName: String) = MD_Migration(
   id = "migration-$appName",
   status = when {
     alreadyManaged -> MD_MigrationStatus.COMPLETED
+    prLink != null -> MD_MigrationStatus.PR_CREATED
     isBlocked -> MD_MigrationStatus.BLOCKED
     !isMigratable -> MD_MigrationStatus.NOT_READY
     isMigratable -> MD_MigrationStatus.READY_TO_START
-    prCreated -> MD_MigrationStatus.PR_CREATED
-    // TODO: add more states
     else -> MD_MigrationStatus.NOT_READY
   },
-  deliveryConfig = deliveryConfig
+  deliveryConfig = deliveryConfig,
+  prLink = prLink
 )

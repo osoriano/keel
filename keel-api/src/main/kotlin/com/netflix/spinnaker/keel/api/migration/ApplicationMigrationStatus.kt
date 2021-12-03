@@ -8,7 +8,7 @@ data class ApplicationMigrationStatus(
   val alreadyManaged: Boolean = false,
   val isScmPowered: Boolean = false,
   val deliveryConfig: Map<String, Any?>? = null,
-  val prCreated: Boolean = false,
+  val prLink: String? = null,
 ) {
   val isMigratable: Boolean
     get() = exportSucceeded && isScmPowered && inAllowList

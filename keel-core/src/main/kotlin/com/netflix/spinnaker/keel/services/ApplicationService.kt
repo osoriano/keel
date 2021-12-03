@@ -62,6 +62,7 @@ import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.persistence.NoSuchDeliveryConfigException
 import com.netflix.spinnaker.keel.serialization.configuredYamlMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator.Feature.WRITE_DOC_START_MARKER
+import com.netflix.spinnaker.keel.migrations.ApplicationPrData
 import com.netflix.spinnaker.keel.telemetry.InvalidVerificationIdSeen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -742,7 +743,7 @@ class ApplicationService(
    * This function is fetching application's data like config, repo and project name
    * And then calling Igor to create commit and open a pull request with the application's delivery config file
    */
-  suspend fun openMigrationPr(application: String): String? {
+  suspend fun openMigrationPr(application: String): Pair<ApplicationPrData, String> {
     val applicationPrData = repository.getMigratableApplicationData(application)
     //this will eliminate the "---" at the begining of a new yml file
     yamlMapper = configuredYamlMapper().disable(WRITE_DOC_START_MARKER)
@@ -768,7 +769,7 @@ class ApplicationService(
 
     //storing the pr link
     repository.storePrLinkForMigratedApplication(application, prLink)
-    return prLink
+    return Pair(applicationPrData, prLink)
   }
 
   @ResponseStatus(HttpStatus.CONFLICT)

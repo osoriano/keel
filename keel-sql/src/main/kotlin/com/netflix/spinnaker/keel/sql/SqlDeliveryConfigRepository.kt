@@ -1579,7 +1579,7 @@ class SqlDeliveryConfigRepository(
               assistanceNeeded = assistanceNeeded ?: false,
               isScmPowered = scmEnabled ?: false,
               deliveryConfig = objectMapper.readValue(deliveryConfig),
-              prCreated = prLink != null
+              prLink = prLink
             )
           }
           ?: ApplicationMigrationStatus()
