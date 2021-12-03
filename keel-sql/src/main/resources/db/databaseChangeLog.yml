@@ -410,3 +410,6 @@ databaseChangeLog:
 - include:
     file: changelog/20211118-repo-and-project.yml
     relativeToChangelogFile: true
+- include:
+    file: changelog/20211202-migration-save-pr.yml
+    relativeToChangelogFile: true

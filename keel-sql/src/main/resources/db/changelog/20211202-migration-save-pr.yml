@@ -1,0 +1,13 @@
+databaseChangeLog:
+  - changeSet:
+      id: migration-save-pr
+      author: gyardeni
+      changes:
+        - addColumn:
+            tableName: migration_status
+            columns:
+              - column:
+                  name: pr_link
+                  type: text
+                  constraints:
+                    - nullable: true

@@ -282,6 +282,11 @@ interface DeliveryConfigRepository : PeriodicallyCheckedRepository<DeliveryConfi
   fun getMigratableApplicationData(app: String): ApplicationPrData
 
   /**
+   * Storing the created pr link for an application
+   */
+  fun storePrLinkForMigratedApplication(app: String, prLink: String)
+
+  /**
    * Store the result of the pipelines export script
    */
   fun storePipelinesExportResult(

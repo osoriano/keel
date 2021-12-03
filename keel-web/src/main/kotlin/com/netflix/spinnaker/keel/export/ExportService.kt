@@ -205,7 +205,7 @@ class ExportService(
         }
 
         //5. infer from the cluster all dependent resources, including artifacts
-        val resourcesAndArtifacts = createResourcesBasedOnCluster(cluster, environments)
+        val resourcesAndArtifacts = createResourcesBasedOnCluster(cluster, environments, applicationName)
 
         if (resourcesAndArtifacts.resources.isEmpty()) {
           log.debug("could not create resources from cluster ${cluster.moniker.toName()}")
@@ -331,7 +331,7 @@ class ExportService(
   }
 
   //Take a cluster exportable and return a pair with its dependent resources specs (cluster, security groups, and load balancers, and the artifact).
-  private suspend fun createResourcesBasedOnCluster(cluster: Exportable, environments: Set<SubmittedEnvironment>
+  private suspend fun createResourcesBasedOnCluster(cluster: Exportable, environments: Set<SubmittedEnvironment>, applicationName: String
   ): Pair<Set<SubmittedResource<ResourceSpec>>, DeliveryArtifact?> {
     val spec = try {
       handlers.supporting(cluster.clusterKind).export(cluster)
@@ -349,9 +349,9 @@ class ExportService(
 
 
     // Get all the cluster dependencies security groups and alb
-    val securityGroupResources = dependentResources(dependencies, environments, cluster, EC2_SECURITY_GROUP_V1.kind)
-    val loadBalancersResources = dependentResources(dependencies, environments, cluster, EC2_CLASSIC_LOAD_BALANCER_V1.kind)
-    val targetGroupResources = dependentResources(dependencies, environments, cluster, EC2_APPLICATION_LOAD_BALANCER_V1_2.kind)
+    val securityGroupResources = dependentResources(dependencies, environments, cluster, EC2_SECURITY_GROUP_V1.kind, applicationName)
+    val loadBalancersResources = dependentResources(dependencies, environments, cluster, EC2_CLASSIC_LOAD_BALANCER_V1.kind, applicationName)
+    val targetGroupResources = dependentResources(dependencies, environments, cluster, EC2_APPLICATION_LOAD_BALANCER_V1_2.kind, applicationName)
 
     return Pair(
       // combine dependent resources and cluster resource
@@ -372,7 +372,8 @@ class ExportService(
   private suspend fun dependentResources(dependencies: Dependent,
                                          environments: Set<SubmittedEnvironment>,
                                          cluster: Exportable,
-                                         kind: ResourceKind
+                                         kind: ResourceKind,
+                                         applicationName: String
   ): Set<SubmittedResource<ResourceSpec>> {
 
     val dependencyType = when (kind) {
@@ -394,24 +395,28 @@ class ExportService(
 
     // Get the exportable for all security groups
     clusterDependencies.forEach {
+      val resourceName = it.name
+      if (!resourceName.startsWith(applicationName)) {
+        log.debug("resource ${it.name} doesn't start with the application name. will not create it.")
+      }
       // Check if we already exported any security group or load balancers when creating previous environments
-      if ((kind == EC2_SECURITY_GROUP_V1.kind && checkIfSecurityGroupExists(account, it.name, environments)) ||
-        (kind == EC2_APPLICATION_LOAD_BALANCER_V1_2.kind && checkIfApplicationLBExists(account, it.name, environments)) ||
-        (kind == EC2_CLASSIC_LOAD_BALANCER_V1.kind && checkIfClassicLBExists(account, it.name, environments))) {
-        log.debug("found an existing resource with name ${it.name}, will not recreate it.")
+      else if ((kind == EC2_SECURITY_GROUP_V1.kind && checkIfSecurityGroupExists(account, resourceName, environments)) ||
+        (kind == EC2_APPLICATION_LOAD_BALANCER_V1_2.kind && checkIfApplicationLBExists(account, resourceName, environments)) ||
+        (kind == EC2_CLASSIC_LOAD_BALANCER_V1.kind && checkIfClassicLBExists(account, resourceName, environments))) {
+        log.debug("found an existing resource with name $resourceName, will not recreate it.")
       } else {
         try {
           val resourceSpec = handlers.supporting(kind).export(
             //copy everything from the cluster and just change the type
             cluster.copy(
               kind = kind,
-              moniker = parseMoniker(it.name),
+              moniker = parseMoniker(resourceName),
               account = account
             )
           )
           resourcesSpec.add(resourceSpec)
         } catch (ex: Exception) {
-          log.debug("could not export ${it.name}", ex)
+          log.debug("could not export $resourceName", ex)
         }
       }
     }

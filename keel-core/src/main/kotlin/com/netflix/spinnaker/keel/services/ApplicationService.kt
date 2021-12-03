@@ -760,11 +760,15 @@ class ApplicationService(
     )
 
     //get the newly created PR link
-    return scmBridge.createPr(
+    val prLink = scmBridge.createPr(
       STASH_SCM_TYPE,
       applicationPrData.projectKey,
       applicationPrData.repoSlug,
       commitMigrationData).link
+
+    //storing the pr link
+    repository.storePrLinkForMigratedApplication(application, prLink)
+    return prLink
   }
 
   @ResponseStatus(HttpStatus.CONFLICT)

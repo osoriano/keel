@@ -1540,6 +1540,16 @@ class SqlDeliveryConfigRepository(
     }
   }
 
+  override fun storePrLinkForMigratedApplication(application: String, prLink: String) {
+    sqlRetry.withRetry(WRITE) {
+      jooq.update(MIGRATION_STATUS)
+        .set(MIGRATION_STATUS.PR_LINK, prLink)
+        .where(MIGRATION_STATUS.APPLICATION.eq(application))
+        .execute()
+    }
+  }
+
+
   override fun getApplicationMigrationStatus(application: String): ApplicationMigrationStatus {
     return sqlRetry.withRetry(READ) {
       if (jooq.fetchExists(
@@ -1557,17 +1567,19 @@ class SqlDeliveryConfigRepository(
             MIGRATION_STATUS.IN_ALLOW_LIST,
             MIGRATION_STATUS.ASSISTANCE_NEEDED,
             MIGRATION_STATUS.DELIVERY_CONFIG,
+            MIGRATION_STATUS.PR_LINK
           )
           .from(MIGRATION_STATUS)
           .where(MIGRATION_STATUS.APPLICATION.eq(application))
-          .fetchOne { (exportSucceeded, scmEnabled, inAllowList, assistanceNeeded, deliveryConfig) ->
+          .fetchOne { (exportSucceeded, scmEnabled, inAllowList, assistanceNeeded, deliveryConfig, prLink) ->
             // TODO: add scmEnabled to the condition below once we support it
             ApplicationMigrationStatus(
               exportSucceeded = exportSucceeded ?: false,
               inAllowList = inAllowList ?: false,
               assistanceNeeded = assistanceNeeded ?: false,
               isScmPowered = scmEnabled ?: false,
-              deliveryConfig = objectMapper.readValue(deliveryConfig)
+              deliveryConfig = objectMapper.readValue(deliveryConfig),
+              prCreated = prLink != null
             )
           }
           ?: ApplicationMigrationStatus()

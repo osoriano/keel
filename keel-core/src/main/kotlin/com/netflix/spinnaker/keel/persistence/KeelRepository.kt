@@ -728,4 +728,10 @@ class KeelRepository(
    */
   fun getMigratableApplicationData(app: String) =
     deliveryConfigRepository.getMigratableApplicationData(app)
+
+  /**
+   * Storing the created pr link for an application
+   */
+  fun storePrLinkForMigratedApplication(application: String, prLink: String) =
+    deliveryConfigRepository.storePrLinkForMigratedApplication(application, prLink)
 }

@@ -1223,8 +1223,12 @@ class ApplicationServiceTests : JUnit5Minutests {
           "repo",
           "project"
           )
-        coEvery {
 
+        every {
+          repository.storePrLinkForMigratedApplication(application1, any())
+        } just Runs
+
+        coEvery {
             scmBridge.createPr("stash", any(), any(), any())
         } returns expectedPrResponse
       }

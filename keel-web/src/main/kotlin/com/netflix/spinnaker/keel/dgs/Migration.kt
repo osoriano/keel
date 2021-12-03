@@ -15,13 +15,13 @@ import org.springframework.web.bind.annotation.RequestHeader
 
 @DgsComponent
 class Migration(
-  private val delivertConfigRepository: DeliveryConfigRepository
+  private val deliveryConfigRepository: DeliveryConfigRepository
 ) {
 
   @DgsData(parentType = DgsConstants.QUERY.TYPE_NAME, field = DgsConstants.QUERY.Md_migration)
   @PreAuthorize("""@authorizationSupport.hasApplicationPermission('READ', 'APPLICATION', #appName)""")
   fun appMigration(dfe: DataFetchingEnvironment, @InputArgument("appName") appName: String): MD_Migration {
-    val status = delivertConfigRepository.getApplicationMigrationStatus(appName)
+    val status = deliveryConfigRepository.getApplicationMigrationStatus(appName)
     return status.toDgs(appName)
   }
 
@@ -35,7 +35,7 @@ class Migration(
     @RequestHeader("X-SPINNAKER-USER") user: String
   ): Boolean {
     // TODO: open a JIRA ticket
-    return delivertConfigRepository.markApplicationMigrationAsBlocked(payload.application, payload.issue, user)
+    return deliveryConfigRepository.markApplicationMigrationAsBlocked(payload.application, payload.issue, user)
   }
 }
 
@@ -46,6 +46,7 @@ fun ApplicationMigrationStatus.toDgs(appName: String) = MD_Migration(
     isBlocked -> MD_MigrationStatus.BLOCKED
     !isMigratable -> MD_MigrationStatus.NOT_READY
     isMigratable -> MD_MigrationStatus.READY_TO_START
+    prCreated -> MD_MigrationStatus.PR_CREATED
     // TODO: add more states
     else -> MD_MigrationStatus.NOT_READY
   },
