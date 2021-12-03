@@ -38,21 +38,18 @@ class ArtifactListener(
   @EventListener(ArtifactRegisteredEvent::class)
   fun onArtifactRegisteredEvent(event: ArtifactRegisteredEvent) {
     val artifact = event.artifact
+    val artifactSupplier = artifactSuppliers.supporting(artifact.type)
 
-    if (repository.artifactVersions(artifact, artifactConfig.defaultMaxConsideredVersions).isEmpty()) {
-      val artifactSupplier = artifactSuppliers.supporting(artifact.type)
+    val latestArtifact = runBlocking {
+      log.debug("Retrieving latest version of registered artifact {}", artifact)
+      artifactSupplier.getLatestArtifact(artifact.deliveryConfig, artifact)
+    }
 
-      val latestArtifact = runBlocking {
-        log.debug("Retrieving latest version of registered artifact {}", artifact)
-        artifactSupplier.getLatestArtifact(artifact.deliveryConfig, artifact)
-      }
-
-      if (latestArtifact != null) {
-        log.debug("Storing latest version {} (status={}) for registered artifact {}", latestArtifact.version, latestArtifact.status, artifact)
-        workQueueProcessor.enrichAndStore(latestArtifact, artifactSupplier)
-      } else {
-        log.warn("No artifact versions found for ${artifact.type}:${artifact.name}")
-      }
+    if (latestArtifact != null) {
+      log.debug("Storing latest version {} (status={}) for registered artifact {}", latestArtifact.version, latestArtifact.status, artifact)
+      workQueueProcessor.enrichAndStore(latestArtifact, artifactSupplier)
+    } else {
+      log.warn("No artifact versions found for ${artifact.type}:${artifact.name}")
     }
   }
 

@@ -117,11 +117,14 @@ internal class ArtifactListenerTests : JUnit5Minutests {
     context("artifact already has saved versions") {
       before {
         every { repository.artifactVersions(event.artifact, any()) } returns listOf(publishedDeb)
+        every {
+          debianArtifactSupplier.getLatestArtifact(any(), any())
+        } returns publishedDeb
         listener.onArtifactRegisteredEvent(event)
       }
 
-      test("nothing is done") {
-        coVerify(exactly = 0) { workQueueProcessor.enrichAndStore(any(), any()) }
+      test("we fetch the latest versions just in case our data is old") {
+        coVerify(exactly = 1) { workQueueProcessor.enrichAndStore(any(), any()) }
       }
     }
 
