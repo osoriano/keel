@@ -34,6 +34,7 @@ import com.netflix.spinnaker.keel.sql.RetryCategory.READ
 import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
 import com.netflix.spinnaker.keel.telemetry.AboutToBeChecked
 import de.huxhorn.sulky.ulid.ULID
+import org.jooq.Comment
 import org.jooq.DSLContext
 import org.jooq.Record1
 import org.jooq.Record2
@@ -120,6 +121,16 @@ open class SqlResourceRepository(
         .map { (kind, metadata, spec) ->
           resourceFactory.create(kind, metadata, spec)
         }
+    }
+  }
+
+  override fun getResourceIdsForClusterName(name: String): List<String> {
+    return sqlRetry.withRetry(READ) {
+      jooq
+        .select(ACTIVE_RESOURCE.ID)
+        .from(ACTIVE_RESOURCE)
+        .where(ACTIVE_RESOURCE.ID.like("%:cluster:%:$name"))
+        .fetch(ACTIVE_RESOURCE.ID)
     }
   }
 

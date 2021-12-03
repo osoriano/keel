@@ -77,6 +77,11 @@ interface ResourceRepository : PeriodicallyCheckedRepository<Resource<ResourceSp
   fun getResourcesByApplication(application: String): List<Resource<*>>
 
   /**
+   * Given a cluster name, returns resources ids that match in all accounts
+   */
+  fun getResourceIdsForClusterName(name: String): List<String>
+
+  /**
    * Persists a resource.
    *
    * @return the `uid` of the stored resource.

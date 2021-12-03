@@ -27,10 +27,10 @@ import com.netflix.spinnaker.keel.pause.PauseScope.APPLICATION
 import com.netflix.spinnaker.keel.pause.PauseScope.RESOURCE
 import com.netflix.spinnaker.keel.persistence.PausedRepository
 import com.netflix.spinnaker.keel.persistence.ResourceRepository
-import java.time.Clock
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
+import java.time.Clock
 
 @Component
 class ActuationPauser(
@@ -67,7 +67,7 @@ class ActuationPauser(
     pausedRepository.resourcePaused(id)
 
   fun pauseApplication(application: String, user: String, comment: String? = null, cancelTasks: Boolean = false) {
-    log.info("Pausing application $application")
+    log.info("Pausing application $application ${logReason(comment)}")
     pausedRepository.pauseApplication(application, user, comment)
     publisher.publishEvent(ApplicationActuationPaused(application, user, comment, clock))
     if (cancelTasks) {
@@ -83,9 +83,34 @@ class ActuationPauser(
   }
 
   fun pauseResource(id: String, user: String, comment: String? = null) {
-    log.info("Pausing resource $id")
+    log.info("Pausing resource $id ${logReason(comment)}")
     pausedRepository.pauseResource(id, user, comment)
     publisher.publishEvent(ResourceActuationPaused(resourceRepository.get(id), user, clock))
+  }
+
+  fun pauseCluster(name: String, titusAccount: String, ec2Account: String, user: String, comment: String) {
+    log.info("Preparing to pause cluster $name ${logReason(comment)}")
+    getClusters(name, titusAccount, ec2Account)
+      .forEach { resourceId ->
+        pauseResource(resourceId, user, comment)
+      }
+  }
+
+  fun resumeCluster(name: String, titusAccount: String, ec2Account: String, user: String, comment: String) {
+    log.info("Preparing to resume cluster $name ${logReason(comment)}")
+    getClusters(name, titusAccount, ec2Account)
+      .forEach { resourceId ->
+        resumeResource(resourceId, user)
+      }
+  }
+
+  fun getClusters(name: String, titusAccount: String, ec2Account: String): List<String> {
+    // get clusters in all accounts with a matching name
+    val clusters = resourceRepository.getResourceIdsForClusterName(name)
+    val titusPrefix = "titus:cluster:$titusAccount"
+    val ec2prefix = "ec2:cluster:$ec2Account"
+    // limit to the specified accounts
+    return clusters.filter { it.startsWith(titusPrefix) || it.startsWith(ec2prefix) }
   }
 
   fun resumeResource(id: String, user: String) {
@@ -96,4 +121,10 @@ class ActuationPauser(
 
   fun pausedApplications(): List<String> =
     pausedRepository.getPausedApplications()
+
+  fun logReason(comment: String?) =
+    when (comment) {
+      null -> "with comment '$comment'"
+      else -> null
+    }
 }

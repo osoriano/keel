@@ -15,6 +15,7 @@
  */
 package com.netflix.spinnaker.keel.persistence
 
+import com.netflix.spinnaker.keel.api.ApiVersion
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.events.ApplicationActuationPaused
@@ -46,6 +47,7 @@ import strikt.api.expectThat
 import strikt.api.expectThrows
 import strikt.assertions.all
 import strikt.assertions.contains
+import strikt.assertions.containsExactlyInAnyOrder
 import strikt.assertions.first
 import strikt.assertions.hasSize
 import strikt.assertions.isA
@@ -73,6 +75,9 @@ abstract class ResourceRepositoryTests<T : ResourceRepository> : JUnit5Minutests
   abstract val storeDeliveryConfig: (DeliveryConfig) -> Unit
 
   open fun flush() {}
+
+  val clusterName = "im-a-cluster"
+  val clusterId = "test:$clusterName"
 
   data class Fixture<T : ResourceRepository>(
     val deliveryConfig: DeliveryConfig = DeliveryConfig(
@@ -119,7 +124,11 @@ abstract class ResourceRepositoryTests<T : ResourceRepository> : JUnit5Minutests
     context("a resource exists") {
       val resource = resource()
       val deliveryConfig = deliveryConfig(resource = resource)
-      val anotherResource = resource(application = "wow")
+      val anotherResource = resource(
+        kind = ApiVersion("ec2", "1").qualify("cluster"),
+        application = "wow",
+        id = clusterId
+      )
       val anotherDeliveryConfig = deliveryConfig(application = "wow", resource = anotherResource)
 
       before {
@@ -155,6 +164,11 @@ abstract class ResourceRepositoryTests<T : ResourceRepository> : JUnit5Minutests
             callback(match { it.id == resource.id })
             callback(match { it.id == anotherResource.id })
           }
+        }
+
+        test("it can be queried for cause the name matches the cluster pattern") {
+          val resources = subject.getResourceIdsForClusterName(clusterName)
+          expectThat(resources).hasSize(1).containsExactlyInAnyOrder("ec2:cluster:$clusterId")
         }
       }
 

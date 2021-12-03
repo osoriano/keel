@@ -34,10 +34,22 @@ import io.mockk.slot
 import io.mockk.verify
 import java.time.Clock
 import org.springframework.context.ApplicationEventPublisher
+import strikt.api.expect
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo
+import strikt.assertions.isFalse
+import strikt.assertions.isTrue
 
 class ActuationPauserTests : JUnit5Minutests {
+  val awsTest = "test"
+  val awsProd = "prod"
+  val titusTest = "titusTest"
+  val titusProd = "titusProd"
+  val testEc2 = "ec2:cluster:$awsTest:pancake"
+  val testTitus = "titus:cluster:$titusTest:pancake"
+  val prodEc2 = "ec2:cluster:$awsProd:pancake"
+  val prodTitus = "titus:cluster:$titusProd:pancake"
+
   class Fixture {
     val resource1 = resource()
     val resource2 = resource()
@@ -142,6 +154,30 @@ class ActuationPauserTests : JUnit5Minutests {
         verify(exactly = 1) { publisher.publishEvent(capture(event)) }
 
         expectThat(event.captured.triggeredBy).isEqualTo(user)
+      }
+    }
+
+    context("batch cluster operations"){
+      before {
+        every { resourceRepository.getResourceIdsForClusterName(any()) } returns
+          listOf(testEc2, testTitus, prodEc2, prodTitus)
+        every { resourceRepository.get(any()) } returns resource1 // for publishing an event
+      }
+
+      test("pauses the right resources") {
+        subject.pauseCluster("pancake", titusTest, awsTest, "me@breakfast", "testing pause")
+        verify(exactly = 1) { pausedRepository.pauseResource(testEc2, any(), any()) }
+        verify(exactly = 1) { pausedRepository.pauseResource(testTitus, any(), any()) }
+        verify(exactly = 0) { pausedRepository.pauseResource(prodEc2, any(), any()) }
+        verify(exactly = 0) { pausedRepository.pauseResource(prodTitus, any(), any()) }
+      }
+
+      test("resumes the right resources") {
+        subject.resumeCluster("pancake", titusProd, awsProd, "me@breakfast", "testing resume")
+        verify(exactly = 0) { pausedRepository.resumeResource(testEc2) }
+        verify(exactly = 0) { pausedRepository.resumeResource(testTitus) }
+        verify(exactly = 1) { pausedRepository.resumeResource(prodEc2) }
+        verify(exactly = 1) { pausedRepository.resumeResource(prodTitus) }
       }
     }
   }
