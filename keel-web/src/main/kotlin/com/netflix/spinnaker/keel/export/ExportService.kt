@@ -22,6 +22,7 @@ import com.netflix.spinnaker.keel.api.ec2.EC2_CLASSIC_LOAD_BALANCER_V1
 import com.netflix.spinnaker.keel.api.ec2.EC2_CLUSTER_V1_1
 import com.netflix.spinnaker.keel.api.ec2.EC2_SECURITY_GROUP_V1
 import com.netflix.spinnaker.keel.api.ec2.SecurityGroupSpec
+import com.netflix.spinnaker.keel.api.migration.SkipReason
 import com.netflix.spinnaker.keel.api.migration.SkippedPipeline
 import com.netflix.spinnaker.keel.api.plugins.ResourceHandler
 import com.netflix.spinnaker.keel.api.plugins.supporting
@@ -307,7 +308,7 @@ class ExportService(
   /**
    * Finds non-exportable pipelines in the list and associates them with the reason why they're not.
    */
-  private fun List<Pipeline>.findNonExportable(maxAgeDays: Long): Map<Pipeline, String> {
+  private fun List<Pipeline>.findNonExportable(maxAgeDays: Long): Map<Pipeline, SkipReason> {
     val lastExecutions = runBlocking {
       associateWith { pipeline ->
         //return a map with the pipeline and its latest execution
@@ -320,11 +321,11 @@ class ExportService(
       log.debug("Checking pipeline [${pipeline.name}], last execution: ${lastExecution?.buildTime}")
 
       when {
-        pipeline.disabled -> "pipeline disabled"
-        pipeline.fromTemplate -> "pipeline is from template"
-        pipeline.hasParallelStages -> "pipeline has parallel stages"
-        pipeline.shape !in EXPORTABLE_PIPELINE_SHAPES -> "pipeline doesn't match supported flows"
-        (lastExecution == null || lastExecution.olderThan(maxAgeDays)) -> "pipeline hasn't run in the last $maxAgeDays days"
+        pipeline.disabled -> SkipReason.DISABLED
+        (lastExecution == null || lastExecution.olderThan(maxAgeDays)) -> SkipReason.NOT_EXECUTED_RECENTLY
+        pipeline.fromTemplate -> SkipReason.FROM_TEMPLATE
+        pipeline.hasParallelStages -> SkipReason.HAS_PARALLEL_STAGES
+        pipeline.shape !in EXPORTABLE_PIPELINE_SHAPES -> SkipReason.SHAPE_NOT_SUPPORTED
         else -> null
       }
     }.filterNotNullValues()
@@ -647,7 +648,7 @@ data class PipelineExportResult(
   @JsonIgnore
   val exported: Map<Pipeline, List<SubmittedEnvironment>>,
   @JsonIgnore
-  val skipped: Map<Pipeline, String>,
+  val skipped: Map<Pipeline, SkipReason>,
   @JsonIgnore
   val baseUrl: String,
   @JsonIgnore
@@ -655,6 +656,10 @@ data class PipelineExportResult(
   @JsonIgnore
   val projectKey: String?
 ) : ExportResult {
+  companion object {
+    val VALID_SKIP_REASONS = listOf(SkipReason.DISABLED, SkipReason.NOT_EXECUTED_RECENTLY)
+  }
+
   val pipelines: Map<String, Any> = mapOf(
     "exported" to exported.entries.map { (pipeline, environments) ->
       mapOf(
@@ -675,7 +680,7 @@ data class PipelineExportResult(
   )
 
   val exportSucceeded: Boolean
-    get() = skipped.isNullOrEmpty()
+    get() = skipped.filterValues { !(VALID_SKIP_REASONS.contains(it)) }.isNullOrEmpty()
 }
 
 private val Exportable.clusterKind: ResourceKind
