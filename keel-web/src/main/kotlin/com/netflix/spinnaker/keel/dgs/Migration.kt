@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.dgs
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.graphql.dgs.DgsComponent
 import com.netflix.graphql.dgs.DgsMutation
 import com.netflix.graphql.dgs.DgsQuery
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestHeader
 class Migration(
   private val deliveryConfigRepository: DeliveryConfigRepository,
   private val applicationService: ApplicationService,
+  private val mapper: ObjectMapper
 ) {
 
   @DgsQuery
@@ -56,7 +58,7 @@ class Migration(
     return MD_Migration(
       id = "migration-${payload.application}",
       status = MD_MigrationStatus.PR_CREATED,
-      deliveryConfig = prData.deliveryConfig,
+      deliveryConfig = mapper.convertValue(prData.deliveryConfig, Map::class.java),
       prLink = prLink
     )
   }
