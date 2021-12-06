@@ -287,6 +287,11 @@ interface DeliveryConfigRepository : PeriodicallyCheckedRepository<DeliveryConfi
   fun storePrLinkForMigratedApplication(app: String, prLink: String)
 
   /**
+   * Check if a PR id is for migrating an app
+   */
+  fun isMigrationPr(application: String, prId: String): Boolean
+
+  /**
    * Store the result of the pipelines export script
    */
   fun storePipelinesExportResult(

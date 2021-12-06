@@ -4,7 +4,6 @@ import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.Tag
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactOriginFilter
 import com.netflix.spinnaker.keel.api.artifacts.branchName
-import com.netflix.spinnaker.keel.api.persistence.KeelReadOnlyRepository
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
 import com.netflix.spinnaker.keel.auth.AuthorizationResourceType.SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport
@@ -19,6 +18,7 @@ import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter.Companion.MANIFEST
 import com.netflix.spinnaker.keel.igor.ScmService
 import com.netflix.spinnaker.keel.notifications.DeliveryConfigImportFailed
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
+import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.scm.DeliveryConfigCodeEventListener.Companion.CODE_EVENT_COUNTER
 import com.netflix.spinnaker.keel.test.submittedResource
 import com.netflix.spinnaker.keel.upsert.DeliveryConfigUpserter
@@ -44,7 +44,7 @@ import io.mockk.coVerify as verify
 
 class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
   class Fixture {
-    val keelReadOnlyRepository: KeelReadOnlyRepository = mockk()
+    val keelRepository: KeelRepository = mockk()
     val deliveryConfigUpserter: DeliveryConfigUpserter = mockk()
     val importer: DeliveryConfigImporter = mockk()
     val front50Cache: Front50Cache = mockk()
@@ -57,7 +57,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
     val eventPublisher: ApplicationEventPublisher = mockk(relaxUnitFun = true)
     val authorizationSupport: AuthorizationSupport = mockk(relaxUnitFun = true)
     val subject = DeliveryConfigCodeEventListener(
-      keelReadOnlyRepository = keelReadOnlyRepository,
+      keelRepository = keelRepository,
       deliveryConfigUpserter = deliveryConfigUpserter,
       deliveryConfigImporter = importer,
       notificationRepository = notificationRepository,
@@ -89,6 +89,8 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
       repoSlug = "another-repo",
       dataSources = DataSources(enabled = emptyList(), disabled = emptyList())
     )
+
+    val migratingApp = configuredApp.copy(name = "migratingfnord")
 
     val artifactFromMain = DockerArtifact(
       name = "myorg/myartifact",
@@ -150,7 +152,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
       } returns "https://commit-link.org"
 
       every {
-        keelReadOnlyRepository.isApplicationConfigured(any())
+        keelRepository.isApplicationConfigured(any())
       } answers {
         firstArg<String>() == deliveryConfig.application
       }
@@ -158,6 +160,12 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
       every {
         scmService.getCommitChanges(any(), any(), any())
       } returns listOf(".netflix/spinnaker.yml")
+
+      every {
+        keelRepository.isMigrationPr(any(), any())
+      } answers {
+        firstArg<String>() == migratingApp.name && secondArg<String>() == "23"
+      }
     }
   }
 
@@ -252,6 +260,27 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
         verifyEventIgnored()
       }
 
+      context("onboarding a new app") {
+        before {
+          every {
+            front50Cache.searchApplicationsByRepo(any())
+          } returns listOf(migratingApp)
+        }
+
+        test("config is upserted for a new app") {
+          subject.handleCodeEvent(prMergedEvent)
+
+          verify {
+            deliveryConfigUpserter.upsertConfig(deliveryConfig, any())
+          }
+        }
+
+        test("ignoring non-matching PRs") {
+          subject.handleCodeEvent(prMergedEvent.copy(pullRequestId = "25"))
+          verifyEventIgnored()
+        }
+      }
+
       context("apps with custom manifest path") {
         val manifestPath = "custom/spinnaker.yml"
         before {
@@ -290,7 +319,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
 
         verifyEventIgnored()
       }
-      
+
       context("a commit event NOT matching the app default branch is received") {
         before {
           subject.handleCodeEvent(commitEventForAnotherBranch)

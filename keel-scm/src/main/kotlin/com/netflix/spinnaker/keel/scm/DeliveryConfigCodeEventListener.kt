@@ -9,6 +9,7 @@ import com.netflix.spinnaker.keel.auth.AuthorizationResourceType.SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.front50.Front50Cache
+import com.netflix.spinnaker.keel.front50.model.Application
 import com.netflix.spinnaker.keel.front50.model.GitRepository
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter.Companion.MANIFEST_BASE_DIR
@@ -16,6 +17,7 @@ import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter.Companion.DEFAULT_
 import com.netflix.spinnaker.keel.igor.ScmService
 import com.netflix.spinnaker.keel.notifications.DeliveryConfigImportFailed
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
+import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.retrofit.isNotFound
 import com.netflix.spinnaker.keel.telemetry.safeIncrement
 import com.netflix.spinnaker.keel.upsert.DeliveryConfigUpserter
@@ -32,7 +34,7 @@ import java.time.Clock
  */
 @Component
 class DeliveryConfigCodeEventListener(
-  private val keelReadOnlyRepository: KeelReadOnlyRepository,
+  private val keelRepository: KeelRepository,
   private val deliveryConfigUpserter: DeliveryConfigUpserter,
   private val deliveryConfigImporter: DeliveryConfigImporter,
   private val notificationRepository: DismissibleNotificationRepository,
@@ -83,10 +85,9 @@ class DeliveryConfigCodeEventListener(
     // Hopefully this returns a single matching app, but who knows... ¯\_(ツ)_/¯
     val matchingApps = apps
       .filter { app ->
-        app.managedDelivery?.importDeliveryConfig == true
-          && event.matchesApplicationConfig(app)
+        event.matchesApplicationConfig(app)
           && event.targetBranch == scmUtils.getDefaultBranch(app)
-          && keelReadOnlyRepository.isApplicationConfigured(app.name)
+          && (isAutoImportEnabled(app) || isMigrationPr(event, app))
       }
 
     if (matchingApps.isEmpty()) {
@@ -161,6 +162,15 @@ class DeliveryConfigCodeEventListener(
       }
     }
   }
+
+  private fun isMigrationPr(
+      event: CodeEvent,
+      app: Application
+  ) = (event.pullRequestId?.let { keelRepository.isMigrationPr(app.name, it) }) ?: false
+
+  private fun isAutoImportEnabled(app: Application) =
+    app.managedDelivery?.importDeliveryConfig == true && keelRepository.isApplicationConfigured(app.name)
+
 
   /**
    * Checks that the owner of the app has access to the service account configured in the delivery config.

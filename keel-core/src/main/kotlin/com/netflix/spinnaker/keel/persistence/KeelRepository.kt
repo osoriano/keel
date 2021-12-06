@@ -335,6 +335,9 @@ class KeelRepository(
   override fun isApplicationConfigured(application: String): Boolean =
     deliveryConfigRepository.isApplicationConfigured(application)
 
+  fun isMigrationPr(application: String, prId: String): Boolean =
+    deliveryConfigRepository.isMigrationPr(application, prId)
+
   override fun allDeliveryConfigs(vararg dependentAttachFilter: DependentAttachFilter): Set<DeliveryConfig> =
     deliveryConfigRepository.all(*dependentAttachFilter)
 

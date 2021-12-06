@@ -1549,6 +1549,15 @@ class SqlDeliveryConfigRepository(
     }
   }
 
+  override fun isMigrationPr(application: String, prId: String): Boolean {
+    return sqlRetry.withRetry(READ) {
+      jooq.fetchExists(
+        MIGRATION_STATUS,
+        MIGRATION_STATUS.APPLICATION.eq(application)
+          .and(MIGRATION_STATUS.PR_LINK.like("%/$prId")) // Ends with PR ID
+      )
+    }
+  }
 
   override fun getApplicationMigrationStatus(application: String): ApplicationMigrationStatus {
     return sqlRetry.withRetry(READ) {

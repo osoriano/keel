@@ -1118,13 +1118,41 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
         test("App is already managed") {
           store()
           repository.storeAppForPotentialMigration(deliveryConfig.application, true)
-          val result = expectCatching {
+          expectCatching {
             repository.getApplicationMigrationStatus(deliveryConfig.application)
           }
             .isSuccess().and {
               get { alreadyManaged }.isTrue()
               get { isMigratable }.isFalse()
             }
+        }
+
+        context("check migration PR") {
+          before {
+            repository.storeAppForPotentialMigration(deliveryConfig.application, true)
+            repository.storePrLinkForMigratedApplication(deliveryConfig.application, "https://stash/projects/SPKR/repos/keel/pull-requests/100")
+          }
+
+          test("Application does not match") {
+            expectCatching {
+              repository.isMigrationPr("random-app", "100")
+            }.isSuccess()
+              .isFalse()
+          }
+
+          test("PR id does not match") {
+            expectCatching {
+              repository.isMigrationPr(deliveryConfig.application, "101")
+            }.isSuccess()
+              .isFalse()
+          }
+
+          test("PR id and app match") {
+            expectCatching {
+              repository.isMigrationPr(deliveryConfig.application, "100")
+            }.isSuccess()
+              .isTrue()
+          }
         }
 
         test("Getting the app config correctly") {
