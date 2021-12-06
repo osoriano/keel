@@ -34,7 +34,6 @@ import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.model.Application
 import com.netflix.spinnaker.keel.front50.model.DataSources
 import com.netflix.spinnaker.keel.front50.model.ManagedDeliveryConfig
-import com.netflix.spinnaker.keel.graphql.resources.GraphqlSchemaHandler
 import com.netflix.spinnaker.keel.graphql.resources.GraphqlSchemaHandler.Companion.GRAPHQL_SCHEMA_V1
 import com.netflix.spinnaker.keel.graphql.resources.GraphqlSchemaSpec
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
@@ -211,6 +210,9 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
       )
     )
 
+    /**
+     * This is a resource where isPreviewable() == false
+     */
     val graphqlSchema = resource(
       kind = GRAPHQL_SCHEMA_V1.kind,
       spec = GraphqlSchemaSpec(
@@ -509,6 +511,11 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
               .isA<Dependent>()
               .get { dependsOn.filter { it.type == SECURITY_GROUP }.map { it.name }.toSet() }
               .containsExactlyInAnyOrder(defaultAppSecurityGroup.name, defaultElbSecurityGroup.name)
+          }
+
+          test("the non-previewable graphql schema resource does not appear in the preview environment") {
+            val graphqlSchemaPreviewResources = previewEnv.resources.filter { it.kind == graphqlSchema.kind }
+            expectThat(graphqlSchemaPreviewResources).isEmpty()
           }
         }
       }

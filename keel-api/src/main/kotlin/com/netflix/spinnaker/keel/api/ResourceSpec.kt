@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.api
 
+import com.fasterxml.jackson.annotation.JsonIgnore
+
 /**
  * Implemented by all resource specs.
  */
@@ -29,6 +31,11 @@ interface ResourceSpec {
    * other fields.
    */
   val displayName: String
+
+  /**
+   * Indicates whether this resource should be added to a preview environment
+   **/
+  fun isPreviewable(): Boolean = true
 
   /**
    * Applies the given [suffix] to the resource [id], and to all aggregate properties of the spec

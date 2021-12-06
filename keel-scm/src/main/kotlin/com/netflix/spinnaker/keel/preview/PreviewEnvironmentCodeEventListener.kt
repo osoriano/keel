@@ -254,7 +254,9 @@ class PreviewEnvironmentCodeEventListener(
         postDeploy = emptyList(),
         verifyWith = previewEnvSpec.verifyWith,
         notifications = previewEnvSpec.notifications,
-        resources = baseEnv.resources.mapNotNull { res ->
+        resources = baseEnv.resources
+          .filter { res -> res.spec.isPreviewable() }
+          .mapNotNull { res ->
           res.toPreviewResource(configFromBranch, previewEnvSpec, previewArtifacts, suffix)
         }.toSet()
       ).apply {
