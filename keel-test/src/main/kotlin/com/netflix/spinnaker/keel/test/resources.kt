@@ -343,7 +343,8 @@ fun computeResource(
 
 object DummyResourceSpecIdentifier : ResourceSpecIdentifier(
   kind<DummyLocatableResourceSpec>("test/locatable@v1"),
-  kind<DummyResourceSpec>("test/whatever@v1")
+  kind<DummyResourceSpec>("test/whatever@v1"),
+  kind<DummyResourceSpec>("test/whatever@v2")
 )
 
 fun resourceFactory(

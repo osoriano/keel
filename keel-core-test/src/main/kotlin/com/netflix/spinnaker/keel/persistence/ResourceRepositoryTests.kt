@@ -28,6 +28,8 @@ import com.netflix.spinnaker.keel.events.ResourceEvent
 import com.netflix.spinnaker.keel.events.ResourceUpdated
 import com.netflix.spinnaker.keel.events.ResourceValid
 import com.netflix.spinnaker.keel.test.DummyResourceSpec
+import com.netflix.spinnaker.keel.test.TEST_API_V1
+import com.netflix.spinnaker.keel.test.TEST_API_V2
 import com.netflix.spinnaker.keel.test.deliveryConfig
 import com.netflix.spinnaker.keel.test.locatableResource
 import com.netflix.spinnaker.keel.test.resource
@@ -233,6 +235,20 @@ abstract class ResourceRepositoryTests<T : ResourceRepository> : JUnit5Minutests
               .isFailure()
               .isA<NoSuchResourceException>()
           }
+        }
+      }
+
+      context("updating the version of the resource kind") {
+        test("the new kind gets saved") {
+          val newkind = TEST_API_V2.qualify("whatever")
+          val updatedResource = resource.copy(
+            kind = newkind
+          )
+
+          subject.store(updatedResource)
+
+          val saved = subject.get(updatedResource.id)
+          expectThat(saved.kind).isEqualTo(newkind)
         }
       }
 

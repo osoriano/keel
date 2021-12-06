@@ -189,6 +189,10 @@ open class SqlResourceRepository(
         .set(RESOURCE_VERSION.SPEC, objectMapper.writeValueAsString(resource.spec))
         .set(RESOURCE_VERSION.CREATED_AT, clock.instant())
         .execute()
+      jooq.update(RESOURCE)
+        .set(RESOURCE.KIND, resource.kind.toString())
+        .where(RESOURCE.UID.eq(uid))
+        .execute()
     } catch(e: Exception) {
       log.error("Failed to insert resource version for ${resource.id}: $e", e)
       spectator.counter(resourceVersionInsertId.withTags(
