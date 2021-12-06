@@ -38,7 +38,10 @@ import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.INCREASING_TA
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.SEMVER_JOB_COMMIT_BY_SEMVER
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.SEMVER_TAG
 import com.netflix.spinnaker.keel.api.ec2.Capacity
+import com.netflix.spinnaker.keel.api.ec2.Capacity.AutoScalingCapacity
+import com.netflix.spinnaker.keel.api.ec2.Capacity.DefaultCapacity
 import com.netflix.spinnaker.keel.api.ec2.ClusterDependencies
+import com.netflix.spinnaker.keel.api.ec2.ClusterSpec
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec.CapacitySpec
 import com.netflix.spinnaker.keel.api.ec2.CustomizedMetricSpecification
 import com.netflix.spinnaker.keel.api.ec2.MetricDimension
@@ -466,7 +469,7 @@ class TitusClusterHandler(
       "capacity" to mapOf(
         "min" to desired.capacity.min,
         "max" to desired.capacity.max,
-        "desired" to desired.capacity.desired
+        "desired" to resolveDesiredCapacity()
       ),
       "cloudProvider" to TITUS_CLOUD_PROVIDER,
       "credentials" to desired.location.account,
@@ -700,7 +703,7 @@ class TitusClusterHandler(
         "capacity" to mapOf(
           "min" to capacity.min,
           "max" to capacity.max,
-          "desired" to capacity.desired
+          "desired" to resolveDesiredCapacity()
         ),
         "targetHealthyDeployPercentage" to 100, // TODO: any reason to do otherwise?
         "useDefaultIamRole" to true,
@@ -747,6 +750,19 @@ class TitusClusterHandler(
         // add metadata
         job + mapOf("metadata" to mapOf("resource" to resource.id))
       }
+
+  /**
+   * For server groups with scaling policies, the [TitusClusterSpec] will not include a desired value. so we use the
+   * higher of the desired value the server group we're replacing uses, or the min. This means we won't catastrophically
+   * down-size a server group by deploying it.
+   */
+  private fun ResourceDiff<TitusServerGroup>.resolveDesiredCapacity() =
+    when (desired.capacity) {
+      // easy case: spec supplied the desired value as there are no scaling policies in effect
+      is DefaultCapacity -> desired.capacity.desired
+      // scaling policies exist, so use a safe value
+      is AutoScalingCapacity -> maxOf(current?.capacity?.desired ?: 0, desired.capacity.min)
+    }
 
   override fun Resource<TitusClusterSpec>.upsertServerGroupManagedRolloutJob(
     diffs: List<ResourceDiff<TitusServerGroup>>,
@@ -1004,9 +1020,9 @@ class TitusClusterHandler(
       ),
       capacity = capacity.run {
         if (scalingPolicies.isEmpty()) {
-          Capacity.DefaultCapacity(min, max, desired)
+          DefaultCapacity(min, max, desired)
         } else {
-          Capacity.AutoScalingCapacity(min, max, desired)
+          AutoScalingCapacity(min, max, desired)
         }
       },
       container = DigestProvider(
