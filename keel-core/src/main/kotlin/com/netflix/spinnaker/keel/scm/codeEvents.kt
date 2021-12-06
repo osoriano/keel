@@ -29,7 +29,8 @@ abstract class CodeEvent(
   open val pullRequestId: String? = null,
   open val authorName: String? = null,
   open val authorEmail: String? = null,
-  open val message: String? = null
+  open val message: String? = null,
+  open val startingCommitHash: String? = null
 ) {
   abstract val type: String
 
@@ -64,8 +65,9 @@ abstract class PrEvent(
   open val pullRequestRepoSlug: String? = null,
   override val authorName: String? = null,
   override val authorEmail: String? = null,
-  override val message: String? = null
-) : CodeEvent(repoKey, targetBranch, pullRequestId, authorName, authorEmail, message) {
+  override val message: String? = null,
+  override val startingCommitHash: String? = null
+) : CodeEvent(repoKey, targetBranch, pullRequestId, authorName, authorEmail, message, startingCommitHash) {
 
   val String.headOfBranch: String
     get() = if (this.startsWith("refs/heads/")) this else "refs/heads/$this"
@@ -124,8 +126,9 @@ data class PrMergedEvent(
   override val commitHash: String,
   override val authorName: String? = null,
   override val authorEmail: String? = null,
-  override val message: String? = null
-) : PrEvent(repoKey, targetBranch, pullRequestId, pullRequestBranch, authorName, authorEmail, message) {
+  override val message: String? = null,
+  override val startingCommitHash: String? = null
+) : PrEvent(repoKey, targetBranch, pullRequestId, pullRequestBranch, authorName, authorEmail, message, startingCommitHash) {
   override val type: String = "pr.merged"
   init { validate() }
 }
@@ -176,8 +179,9 @@ data class CommitCreatedEvent(
   override val commitHash: String,
   override val authorName: String? = null,
   override val authorEmail: String? = null,
-  override val message: String? = null
-) : CodeEvent(repoKey, targetBranch, pullRequestId, authorName, authorEmail, message) {
+  override val message: String? = null,
+  override val startingCommitHash: String? = null
+) : CodeEvent(repoKey, targetBranch, pullRequestId, authorName, authorEmail, message, startingCommitHash) {
   override val type: String = "commit.created"
   init { validate() }
 }
@@ -196,7 +200,8 @@ fun PublishedArtifact.toCodeEvent(): CodeEvent? {
       pullRequestId = pullRequestId,
       authorName = authorName,
       authorEmail = authorEmail,
-      message = message
+      message = message,
+      startingCommitHash = startingCommitHash
     )
     "pr_opened" -> PrOpenedEvent(
       repoKey = repoKey,
@@ -230,7 +235,8 @@ fun PublishedArtifact.toCodeEvent(): CodeEvent? {
       authorName = authorName,
       authorEmail = authorEmail,
       commitHash = sha,
-      message = message
+      message = message,
+      startingCommitHash = startingCommitHash
     )
     "pr_declined" -> PrDeclinedEvent(
       repoKey = repoKey,
@@ -310,6 +316,12 @@ private val PublishedArtifact.message: String?
 
 private val PublishedArtifact.authorEmail: String?
   get() = metadata["authorEmail"] as? String
+
+private val PublishedArtifact.originalPayload: Map<String, Any?>
+  get() = metadata["originalPayload"] as? Map<String, Any?> ?: emptyMap()
+
+private val PublishedArtifact.startingCommitHash: String?
+  get() = originalPayload["startingCommitSha"] as? String
 
 class MissingCodeEventDetails(what: String, event: PublishedArtifact) :
   SystemException("Missing $what information in code event: $event")

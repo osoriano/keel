@@ -98,7 +98,7 @@ class DeliveryConfigCodeEventListener(
     log.debug("Processing code event: $event")
     matchingApps.forEach { app ->
       with(event) {
-        val changedFilePaths = runBlocking { scmService.getCommitChanges(projectKey, repoSlug, commitHash!!) }
+        val changedFilePaths = runBlocking { scmService.getCommitChanges(projectKey, repoSlug, commitHash!!, startingCommitHash) }
         val deliveryConfigPath = "$MANIFEST_BASE_DIR/${app.managedDelivery?.manifestPath ?: DEFAULT_MANIFEST_PATH}"
         if (deliveryConfigPath !in changedFilePaths) {
           log.debug("Ignoring code event to import delivery config for ${app.name} as file was not changed" +

@@ -158,7 +158,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
       }
 
       every {
-        scmService.getCommitChanges(any(), any(), any())
+        scmService.getCommitChanges(any(), any(), any(), any())
       } returns listOf(".netflix/spinnaker.yml")
 
       every {
@@ -173,7 +173,8 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
     repoKey = "stash/myorg/myrepo",
     targetBranch = "main",
     commitHash = "1d52038730f431be19a8012f6f3f333e95a53772",
-    authorEmail = "joe@keel.io"
+    authorEmail = "joe@keel.io",
+    startingCommitHash = "2b0c52a2c9d9136c46de9217e44b4633928b8cf9"
   )
 
   val prMergedEvent = PrMergedEvent(
@@ -182,7 +183,8 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
     commitHash = "1d52038730f431be19a8012f6f3f333e95a53772",
     pullRequestBranch = "pr1",
     pullRequestId = "23",
-    authorEmail = "joe@keel.io"
+    authorEmail = "joe@keel.io",
+    startingCommitHash = "2b0c52a2c9d9136c46de9217e44b4633928b8cf9"
   )
 
   val commitEventForAnotherBranch = commitEvent.copy(targetBranch = "not-a-match")
@@ -202,6 +204,12 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
         context("a code event matching the repo and branch is received") {
           before {
             subject.handleCodeEvent(event)
+          }
+
+          test("we check if the commit actually changed the delivery config") {
+            verify {
+              scmService.getCommitChanges(event.projectKey, event.repoSlug, event.commitHash!!, event.startingCommitHash)
+            }
           }
 
           test("the delivery config is imported from the commit in the event") {
@@ -297,7 +305,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
           )
 
           every {
-            scmService.getCommitChanges(any(), any(), any())
+            scmService.getCommitChanges(any(), any(), any(), any())
           } returns listOf("$MANIFEST_BASE_DIR/$manifestPath")
         }
 
@@ -331,7 +339,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
       context("the delivery config was not modified in the commit") {
         before {
           every {
-            scmService.getCommitChanges(any(), any(), any())
+            scmService.getCommitChanges(any(), any(), any(), any())
           } returns listOf("other", "files", "changed")
 
           subject.handleCodeEvent(commitEvent)

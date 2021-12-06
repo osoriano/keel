@@ -111,6 +111,7 @@ interface ScmService: ScmBridge {
     @Path("projectKey") projectKey: String,
     @Path("repoSlug") repoSlug: String,
     @Path("commitId") commitId: String,
+    @Query("since") since: String? = null
   ): List<String>
 }
 
