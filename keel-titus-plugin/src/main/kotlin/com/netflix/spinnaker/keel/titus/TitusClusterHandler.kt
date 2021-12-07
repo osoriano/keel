@@ -74,6 +74,11 @@ import com.netflix.spinnaker.keel.artifacts.DockerArtifact
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.clouddriver.ResourceNotFound
+import com.netflix.spinnaker.keel.clouddriver.model.ComparisonOperator
+import com.netflix.spinnaker.keel.clouddriver.model.ComparisonOperator.GreaterThanOrEqualToThreshold
+import com.netflix.spinnaker.keel.clouddriver.model.ComparisonOperator.GreaterThanThreshold
+import com.netflix.spinnaker.keel.clouddriver.model.ComparisonOperator.LessThanOrEqualToThreshold
+import com.netflix.spinnaker.keel.clouddriver.model.ComparisonOperator.LessThanThreshold
 import com.netflix.spinnaker.keel.clouddriver.model.CustomizedMetricSpecificationModel
 import com.netflix.spinnaker.keel.clouddriver.model.MetricDimensionModel
 import com.netflix.spinnaker.keel.clouddriver.model.PredefinedMetricSpecificationModel
@@ -1079,7 +1084,7 @@ class TitusClusterHandler(
               name = policy.id,
               adjustmentType = scalingPolicy.adjustmentType,
               actionsEnabled = true,
-              comparisonOperator = alarmConfig.comparisonOperator,
+              comparisonOperator = alarmConfig.comparisonOperator.name,
               dimensions = emptySet(), // Titus doesn't support dimensions on step policies yet
               evaluationPeriods = alarmConfig.evaluationPeriods,
               period = Duration.ofSeconds(alarmConfig.periodSec.toLong()),
@@ -1091,8 +1096,8 @@ class TitusClusterHandler(
               metricAggregationType = scalingPolicy.metricAggregationType,
               stepAdjustments = scalingPolicy.stepAdjustments.mapUnique {
                 StepAdjustment(
-                  lowerBound = it.metricIntervalLowerBound,
-                  upperBound = it.metricIntervalUpperBound,
+                  lowerBound = it.metricIntervalLowerBound ?: if (alarmConfig.comparisonOperator in setOf(GreaterThanOrEqualToThreshold, GreaterThanThreshold)) 0.0 else null,
+                  upperBound = it.metricIntervalUpperBound ?: if (alarmConfig.comparisonOperator in setOf(LessThanOrEqualToThreshold, LessThanThreshold)) 0.0 else null,
                   scalingAdjustment = it.scalingAdjustment
                 )
               }

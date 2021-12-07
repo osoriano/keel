@@ -19,6 +19,8 @@ import com.netflix.spinnaker.keel.api.titus.TitusScalingSpec
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.clouddriver.model.Capacity
+import com.netflix.spinnaker.keel.clouddriver.model.ComparisonOperator.GreaterThanOrEqualToThreshold
+import com.netflix.spinnaker.keel.clouddriver.model.ComparisonOperator.LessThanOrEqualToThreshold
 import com.netflix.spinnaker.keel.clouddriver.model.Constraints
 import com.netflix.spinnaker.keel.clouddriver.model.Credential
 import com.netflix.spinnaker.keel.clouddriver.model.CustomizedMetricSpecificationModel
@@ -58,6 +60,7 @@ import strikt.assertions.isA
 import strikt.assertions.isEqualTo
 import strikt.assertions.isNotEmpty
 import strikt.assertions.isNotNull
+import strikt.assertions.isNull
 import strikt.assertions.map
 import strikt.mockk.withCaptured
 import java.time.Clock
@@ -140,7 +143,7 @@ class TitusClusterScalingPolicyTests {
         policy = StepPolicy(
           stepPolicyDescriptor = StepPolicyDescriptor(
             alarmConfig = StepScalingAlarm(
-              comparisonOperator = "LessThanOrEqualToThreshold",
+              comparisonOperator = LessThanOrEqualToThreshold,
               evaluationPeriods = 60,
               periodSec = 60,
               threshold = 20.0,
@@ -154,8 +157,33 @@ class TitusClusterScalingPolicyTests {
               metricAggregationType = "Average",
               stepAdjustments = listOf(
                 StepAdjustmentModel(
-                  metricIntervalUpperBound = 0.0,
                   scalingAdjustment = -3
+                )
+              )
+            )
+          )
+        )
+      ),
+      TitusScaling(
+        id = randomUUID().toString(),
+        policy = StepPolicy(
+          stepPolicyDescriptor = StepPolicyDescriptor(
+            alarmConfig = StepScalingAlarm(
+              comparisonOperator = GreaterThanOrEqualToThreshold,
+              evaluationPeriods = 60,
+              periodSec = 60,
+              threshold = 20.0,
+              metricNamespace = "NFLX/EPIC",
+              metricName = "AverageCPUUtilization",
+              statistic = "Average"
+            ),
+            scalingPolicy = StepScalingPolicy(
+              adjustmentType = "PercentChangeInCapacity",
+              cooldownSec = 120,
+              metricAggregationType = "Average",
+              stepAdjustments = listOf(
+                StepAdjustmentModel(
+                  scalingAdjustment = 3
                 )
               )
             )
@@ -266,8 +294,25 @@ class TitusClusterScalingPolicyTests {
             metricAggregationType = "Average",
             stepAdjustments = setOf(
               StepAdjustment(
-                upperBound = 0.0,
                 scalingAdjustment = -3
+              )
+            ),
+            actionsEnabled = true // TODO: is this reflected in CloudDriver?
+          ),
+          com.netflix.spinnaker.keel.api.ec2.StepScalingPolicy(
+            comparisonOperator = "GreaterThanOrEqualToThreshold",
+            evaluationPeriods = 60,
+            period = Duration.ofSeconds(60),
+            threshold = 20,
+            namespace = "NFLX/EPIC",
+            metricName = "AverageCPUUtilization",
+            statistic = "Average",
+            adjustmentType = "PercentChangeInCapacity",
+            // cooldownSec = 120, // TODO: need this in the model (seems to be Titus only)
+            metricAggregationType = "Average",
+            stepAdjustments = setOf(
+              StepAdjustment(
+                scalingAdjustment = 3
               )
             ),
             actionsEnabled = true // TODO: is this reflected in CloudDriver?
@@ -339,8 +384,6 @@ class TitusClusterScalingPolicyTests {
 
   @Test
   fun `desired state for a Titus cluster with a step scaling policy is resolved correctly`() {
-    cloudDriverService.stubActiveServerGroup(actualServerGroup)
-
     val desired = runBlocking {
       handler.desired(resource)
     }
@@ -349,6 +392,40 @@ class TitusClusterScalingPolicyTests {
       .isNotNull()
       .get { scaling.stepScalingPolicies }
       .isNotEmpty()
+  }
+
+  @Test
+  fun `step up policy defaults step lower bound`() {
+    cloudDriverService.stubActiveServerGroup(actualServerGroup)
+
+    val current = runBlocking {
+      handler.current(resource)
+    }
+
+    expectThat(current[region])
+      .isNotNull()
+      .get { scaling.stepScalingPolicies.first { it.comparisonOperator == GreaterThanOrEqualToThreshold.name }.stepAdjustments.first() }
+      .and {
+        get { lowerBound } isEqualTo 0.0
+        get { upperBound }.isNull()
+      }
+  }
+
+  @Test
+  fun `step down policy defaults step upper bound`() {
+    cloudDriverService.stubActiveServerGroup(actualServerGroup)
+
+    val current = runBlocking {
+      handler.current(resource)
+    }
+
+    expectThat(current[region])
+      .isNotNull()
+      .get { scaling.stepScalingPolicies.first { it.comparisonOperator == LessThanOrEqualToThreshold.name }.stepAdjustments.first() }
+      .and {
+        get { lowerBound }.isNull()
+        get { upperBound } isEqualTo 0.0
+      }
   }
 
   @Test
@@ -369,9 +446,9 @@ class TitusClusterScalingPolicyTests {
 
     expectThat(stages)
       .withCaptured {
-        // there are 2 upsertScalingPolicy stages, one creates the target tracking policy, the other the step scaling
-        // policy deployment is handled separately as createServerGroup does not do anything with scaling policies
-        map { it.type } isEqualTo listOf("createServerGroup", "upsertScalingPolicy", "upsertScalingPolicy")
+        // there are 3 upsertScalingPolicy stages, one creates the target tracking policy, the others the step scaling
+        // policies, deployment is handled separately as createServerGroup does not do anything with scaling policies
+        map { it.type } isEqualTo listOf("createServerGroup", "upsertScalingPolicy", "upsertScalingPolicy", "upsertScalingPolicy")
       }
   }
 
@@ -388,9 +465,9 @@ class TitusClusterScalingPolicyTests {
 
     expectThat(stages)
       .withCaptured {
-        // there are 2 upsertScalingPolicy stages, one creates the target tracking policy, the other the step scaling
-        // policy
-        map { it.type } isEqualTo listOf("upsertScalingPolicy", "upsertScalingPolicy")
+        // there are 3 upsertScalingPolicy stages, one creates the target tracking policy, the others the step scaling
+        // policies
+        map { it.type } isEqualTo listOf("upsertScalingPolicy", "upsertScalingPolicy", "upsertScalingPolicy")
       }
   }
 

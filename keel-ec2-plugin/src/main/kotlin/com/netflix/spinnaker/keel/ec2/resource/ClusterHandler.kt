@@ -1215,7 +1215,7 @@ class ClusterHandler(
           name = it.policyName,
           adjustmentType = it.adjustmentType!!,
           actionsEnabled = alarm.actionsEnabled,
-          comparisonOperator = alarm.comparisonOperator,
+          comparisonOperator = alarm.comparisonOperator.name,
           dimensions = alarm.dimensions.toSpec(),
           evaluationPeriods = alarm.evaluationPeriods,
           period = Duration.ofSeconds(alarm.period.toLong()),
