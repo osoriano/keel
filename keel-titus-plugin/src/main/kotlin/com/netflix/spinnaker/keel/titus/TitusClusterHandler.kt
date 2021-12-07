@@ -1091,7 +1091,7 @@ class TitusClusterHandler(
               metricAggregationType = scalingPolicy.metricAggregationType,
               stepAdjustments = scalingPolicy.stepAdjustments.mapUnique {
                 StepAdjustment(
-                  lowerBound = it.metricIntervalLowerBound ?: 0.0,
+                  lowerBound = it.metricIntervalLowerBound,
                   upperBound = it.metricIntervalUpperBound,
                   scalingAdjustment = it.scalingAdjustment
                 )
