@@ -102,6 +102,10 @@ data class TitusClusterSpec(
     rolloutWith = rolloutWith
   )
 
+  companion object {
+    const val MAX_NAME_LENGTH = 255
+  }
+
   override val id = "${locations.account}:$moniker"
 
   val defaults: TitusServerGroupSpec
@@ -150,7 +154,7 @@ data class TitusClusterSpec(
     }.toSet()
 
   override fun deepRename(suffix: String) =
-    copy(moniker = moniker.withSuffix(suffix))
+    copy(moniker = moniker.withSuffix(suffix, canTruncateStack = false, maxNameLength = MAX_NAME_LENGTH))
 
   override fun withArtifactReference(reference: String) =
     when(container) {

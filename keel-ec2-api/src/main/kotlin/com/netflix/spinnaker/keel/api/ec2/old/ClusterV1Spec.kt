@@ -58,6 +58,10 @@ data class ClusterV1Spec (
     overrides
   )
 
+  companion object {
+    const val MAX_NAME_LENGTH = 255
+  }
+
   override val id = "${locations.account}:$moniker"
 
   override val defaults: ServerGroupSpec
@@ -70,7 +74,7 @@ data class ClusterV1Spec (
     copy(imageProvider = ImageProvider(reference = reference))
 
   override fun deepRename(suffix: String) =
-    copy(moniker = moniker.withSuffix(suffix))
+    copy(moniker = moniker.withSuffix(suffix,canTruncateStack = false, maxNameLength = MAX_NAME_LENGTH))
 
   data class ImageProvider(
     val reference: String

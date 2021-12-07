@@ -19,6 +19,7 @@ import com.netflix.spinnaker.keel.api.artifacts.DOCKER
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.branchName
 import com.netflix.spinnaker.keel.api.artifacts.branchStartsWith
+import com.netflix.spinnaker.keel.api.ec2.ApplicationLoadBalancerSpec
 import com.netflix.spinnaker.keel.api.ec2.ClusterDependencies
 import com.netflix.spinnaker.keel.api.ec2.EC2_CLUSTER_V1
 import com.netflix.spinnaker.keel.api.ec2.EC2_SECURITY_GROUP_V1
@@ -503,7 +504,7 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
             expectThat(previewEnv.resources.find { it.basedOn == clusterWithDependencies.id }?.spec)
               .isA<Dependent>()
               .get { dependsOn.first { it.type == LOAD_BALANCER }.name }
-              .isEqualTo(dependency.spec.moniker.withSuffix(suffix).name)
+              .isEqualTo(dependency.spec.moniker.withSuffix(suffix, maxNameLength = ApplicationLoadBalancerSpec.MAX_NAME_LENGTH).name)
           }
 
           test("the names of the default security groups are not changed in the dependencies") {
@@ -728,56 +729,71 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
     }
 
     context("renaming mechanism") {
+      val baseMaxLength = 32
       test("trim apps with a long name") {
         val moniker = Moniker(app = "spkr12345678910", stack = "test", detail = "test")
-        expectThat(moniker.withSuffix("4f902bf").toName()).and {
+        expectThat(moniker.withSuffix("4f902bf", maxNameLength = baseMaxLength).toName()).and {
           isEqualTo("spkr12345678910-test-tes-4f902bf")
-          length.isLessThanOrEqualTo(Moniker.MAX_LENGTH)
+          length.isLessThanOrEqualTo(baseMaxLength)
         }
       }
       test("apps with no stack") {
         val moniker = Moniker(app = "spkr12345678910", detail = "test")
-        expectThat(moniker.withSuffix("4f902bf").toName()).and {
+        expectThat(moniker.withSuffix("4f902bf", maxNameLength = baseMaxLength).toName()).and {
           isEqualTo("spkr12345678910--test-4f902bf")
-          length.isLessThanOrEqualTo(Moniker.MAX_LENGTH)
+          length.isLessThanOrEqualTo(baseMaxLength)
         }
       }
 
       test("apps with no detail") {
         val moniker = Moniker(app = "spkr12345678910", stack = "test")
-        expectThat(moniker.withSuffix("4f902bf").toName()).and {
+        expectThat(moniker.withSuffix("4f902bf", maxNameLength = baseMaxLength).toName()).and {
           isEqualTo("spkr12345678910-test-4f902bf")
-          length.isLessThanOrEqualTo(Moniker.MAX_LENGTH)
+          length.isLessThanOrEqualTo(baseMaxLength)
         }
       }
 
       test("apps with no stack and detail") {
         val moniker = Moniker(app = "spkr12345678910")
-        expectThat(moniker.withSuffix("4f902bf").toName()).and {
+        expectThat(moniker.withSuffix("4f902bf", maxNameLength = baseMaxLength).toName()).and {
           isEqualTo("spkr12345678910--4f902bf")
-          length.isLessThanOrEqualTo(Moniker.MAX_LENGTH)
+          length.isLessThanOrEqualTo(baseMaxLength)
         }
       }
       test("larger max length") {
         val moniker = Moniker(app = "spkr12345678910", stack = "test", detail = "test")
-        expectThat(moniker.withSuffix("4f902bf", 40).toName()).and {
+        expectThat(moniker.withSuffix("4f902bf", maxNameLength = 100).toName()).and {
           isEqualTo("spkr12345678910-test-test-4f902bf")
-          length.isLessThanOrEqualTo(40)
+          length.isLessThanOrEqualTo(100)
         }
       }
 
-      test("smaller max length") {
+      test("smaller max length with truncate") {
         val moniker = Moniker(app = "spkr12345678910", stack = "test", detail = "test")
-        expectThat(moniker.withSuffix("4f902bf", 26).toName()).and {
-          isEqualTo("spkr12345678910-te-4f902bf")
+        expectThat(moniker.withSuffix("4f902bf", canTruncateStack = true, maxNameLength = 26).toName()).and {
+          isEqualTo("spkr12345678910-4f902bf")
           length.isLessThanOrEqualTo(26)
         }
       }
 
-      test("smaller max length") {
+      test("using short suffix") {
+        val moniker = Moniker(app = "spkr012345678901234567890123", stack = "test", detail = "test")
+        expectThat(moniker.withSuffix("4f902bf", canTruncateStack = true, maxNameLength = baseMaxLength).toName()).and {
+          isEqualTo("spkr012345678901234567890123-4f9")
+        }
+      }
+
+      test("app name is too long") {
         val moniker = Moniker(app = "spkr12345678910123412345678910123456", stack = "test", detail = "test")
         expectThrows<InvalidMonikerException> {
-          moniker.withSuffix("4f902bf").toName()
+          moniker.withSuffix("4f902bf", maxNameLength = baseMaxLength).toName()
+        }
+      }
+
+      test("app name is too long even without stack") {
+        val moniker = Moniker(app = "spkr0123456789012345678901234567890123456", stack = "test", detail = "test")
+        expectThrows<InvalidMonikerException> {
+          moniker.withSuffix("4f902bf", canTruncateStack = true, maxNameLength = baseMaxLength).toName()
         }
       }
     }

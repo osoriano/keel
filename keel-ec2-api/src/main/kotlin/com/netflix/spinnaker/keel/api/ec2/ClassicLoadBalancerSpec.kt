@@ -20,6 +20,10 @@ data class ClassicLoadBalancerSpec(
   val overrides: Map<String, ClassicLoadBalancerOverride> = emptyMap()
 ) : LoadBalancerSpec, Dependent {
 
+  companion object {
+    const val MAX_NAME_LENGTH = 32
+  }
+
   init {
     require(moniker.toString().length <= 32) {
       "load balancer names have a 32 character limit"
@@ -39,7 +43,7 @@ data class ClassicLoadBalancerSpec(
       }
 
   override fun deepRename(suffix: String): ClassicLoadBalancerSpec =
-    copy(moniker = moniker.withSuffix(suffix))
+    copy(moniker = moniker.withSuffix(suffix, canTruncateStack = true, maxNameLength = MAX_NAME_LENGTH))
 }
 
 data class ClassicLoadBalancerOverride(

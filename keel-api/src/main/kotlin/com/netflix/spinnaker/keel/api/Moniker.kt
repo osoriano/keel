@@ -10,7 +10,7 @@ data class Moniker(
   val sequence: Int? = null
 ) {
   companion object {
-    val MAX_LENGTH = 32
+    const val MIN_SUFFIX_LENGTH = 2
   }
 
   override fun toString(): String =
@@ -35,24 +35,31 @@ data class Moniker(
    * @return The [Moniker] with an updated [Moniker.detail] field containing as much of the specified
    * [suffix] as possible while respecting max length constraints on resource names.
    */
-  fun withSuffix(suffix: String, maxNameLength: Int = MAX_LENGTH): Moniker {
+  fun withSuffix(suffix: String, canTruncateStack: Boolean = false, maxNameLength: Int): Moniker {
     // calculates the truncation point in the detail field based on how many characters are left of the
     // max name length after removing the current detail and accounting for empty stack and detail (which
     // cause extra dashes to be added to the name)
-    var lengthDiff = toName().length + suffix.length + 1 - maxNameLength
-    var newMoniker = copy(detail = listOfNotNull(detail?.dropLastOrNull(lengthDiff), suffix).joinToString("-")) // We trim the detail as needed
+    var numExcessChars = toName().length + suffix.length + 1 - maxNameLength
+    var newMoniker = copy(detail = listOfNotNull(detail?.dropLastOrNull(numExcessChars), suffix).joinToString("-")) // We trim the detail as needed
 
-    lengthDiff = newMoniker.toName().length - maxNameLength
-    if (lengthDiff > 0 && stack != null) {
-      // If the name is still too long we trim the stack
-      newMoniker = newMoniker.copy(stack = stack.dropLastOrNull(lengthDiff))
+    numExcessChars = newMoniker.toName().length - maxNameLength
+    when {
+      numExcessChars <= 0 -> return newMoniker
+      canTruncateStack -> { // Longer than max allowed
+        // Use only the suffix and drop stack and detail
+        newMoniker = newMoniker.copy(stack = suffix, detail = null)
+        numExcessChars = newMoniker.toName().length - maxNameLength
+
+        if (numExcessChars > 0 && (suffix.length - numExcessChars < MIN_SUFFIX_LENGTH)) {
+          // If the name is still too long we throw an exception.
+          throw InvalidMonikerException("Cannot update moniker to match the max length - ${this.toName()}")
+        } else {
+          // Shorten the suffix if possible
+          return newMoniker.copy(stack = suffix.dropLastOrNull(numExcessChars), detail = null)
+        }
+      }
+      else -> throw InvalidMonikerException("Cannot update moniker to match the max length - ${this.toName()}")
     }
-    lengthDiff = newMoniker.toName().length - maxNameLength
-    if (lengthDiff > 0) {
-      // If the name is still too long we throw an exception. Optional improvement is to make the suffix shorter
-      throw InvalidMonikerException("Cannot update moniker to match the max length - ${newMoniker.toName()}")
-    }
-    return newMoniker
   }
 }
 

@@ -30,12 +30,16 @@ data class SecurityGroupSpec(
 ) : Monikered, Locatable<SimpleLocations> {
   override val id = "${locations.account}:$moniker"
 
+  companion object {
+    const val MAX_NAME_LENGTH = 255
+  }
+
   override fun deepRename(suffix: String): SecurityGroupSpec {
     return copy(
-      moniker = moniker.withSuffix(suffix),
+      moniker = moniker.withSuffix(suffix, canTruncateStack = false, maxNameLength = MAX_NAME_LENGTH),
       inboundRules = inboundRules.map { rule ->
         if (rule is ReferenceRule && rule.name == moniker.toName()) {
-          rule.copy(name = moniker.withSuffix(suffix).toName())
+          rule.copy(name = moniker.withSuffix(suffix, canTruncateStack = false, maxNameLength = MAX_NAME_LENGTH).toName())
         } else {
           rule
         }

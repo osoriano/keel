@@ -26,8 +26,12 @@ data class ApplicationLoadBalancerSpec(
   val overrides: Map<String, ApplicationLoadBalancerOverride> = emptyMap()
 ) : LoadBalancerSpec, Dependent {
 
+  companion object {
+    const val MAX_NAME_LENGTH = 32
+  }
+
   init {
-    require(moniker.toString().length <= 32) {
+    require(moniker.toString().length <= MAX_NAME_LENGTH) {
       "load balancer names have a 32 character limit"
     }
   }
@@ -46,7 +50,7 @@ data class ApplicationLoadBalancerSpec(
 
   override fun deepRename(suffix: String): ApplicationLoadBalancerSpec {
     return copy(
-      moniker = moniker.withSuffix(suffix),
+      moniker = moniker.withSuffix(suffix, canTruncateStack = true, maxNameLength = MAX_NAME_LENGTH),
       targetGroups = targetGroups.map { targetGroup ->
         targetGroup.copy(name = "${targetGroup.name}-$suffix")
       }.toSet()
