@@ -4,7 +4,6 @@ import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.keel.api.artifacts.Commit
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.Repo
-import com.netflix.spinnaker.keel.api.persistence.KeelReadOnlyRepository
 import com.netflix.spinnaker.keel.auth.AuthorizationResourceType.SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
@@ -12,9 +11,6 @@ import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.model.Application
 import com.netflix.spinnaker.keel.front50.model.GitRepository
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
-import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter.Companion.MANIFEST_BASE_DIR
-import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter.Companion.DEFAULT_MANIFEST_PATH
-import com.netflix.spinnaker.keel.igor.ScmService
 import com.netflix.spinnaker.keel.notifications.DeliveryConfigImportFailed
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
@@ -26,6 +22,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.event.EventListener
 import org.springframework.core.env.Environment
+import org.springframework.security.access.AccessDeniedException
 import org.springframework.stereotype.Component
 import java.time.Clock
 
@@ -40,7 +37,6 @@ class DeliveryConfigCodeEventListener(
   private val notificationRepository: DismissibleNotificationRepository,
   private val front50Cache: Front50Cache,
   private val scmUtils: ScmUtils,
-  private val scmService: ScmService,
   private val springEnv: Environment,
   private val spectator: Registry,
   private val eventPublisher: ApplicationEventPublisher,
@@ -97,16 +93,6 @@ class DeliveryConfigCodeEventListener(
 
     log.debug("Processing code event: $event")
     matchingApps.forEach { app ->
-      with(event) {
-        val changedFilePaths = runBlocking { scmService.getCommitChanges(projectKey, repoSlug, commitHash!!, startingCommitHash) }
-        val deliveryConfigPath = "$MANIFEST_BASE_DIR/${app.managedDelivery?.manifestPath ?: DEFAULT_MANIFEST_PATH}"
-        if (deliveryConfigPath !in changedFilePaths) {
-          log.debug("Ignoring code event to import delivery config for ${app.name} as file was not changed" +
-            " in commit ${event.commitHash}. Modified files: $changedFilePaths")
-          return@forEach
-        }
-      }
-
       log.debug("Importing delivery config for app ${app.name} from branch ${event.targetBranch}, commit ${event.commitHash}")
 
       // We always want to dismiss the previous notifications, and if needed to create a new one
@@ -147,6 +133,7 @@ class DeliveryConfigCodeEventListener(
         event.emitCounterMetric(CODE_EVENT_COUNTER, DELIVERY_CONFIG_RETRIEVAL_ERROR, app.name)
         when {
           e.isNotFound -> log.debug("Skipping publishing event for delivery config not found: $e")
+          e is AccessDeniedException -> log.debug("Skipping publishing event for access denied importing config: $e")
           else -> {
             eventPublisher.publishDeliveryConfigImportFailed(
               app.name,

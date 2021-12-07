@@ -14,8 +14,6 @@ import com.netflix.spinnaker.keel.front50.model.Application
 import com.netflix.spinnaker.keel.front50.model.DataSources
 import com.netflix.spinnaker.keel.front50.model.ManagedDeliveryConfig
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
-import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter.Companion.MANIFEST_BASE_DIR
-import com.netflix.spinnaker.keel.igor.ScmService
 import com.netflix.spinnaker.keel.notifications.DeliveryConfigImportFailed
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
@@ -49,7 +47,6 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
     val importer: DeliveryConfigImporter = mockk()
     val front50Cache: Front50Cache = mockk()
     val scmUtils: ScmUtils = mockk()
-    val scmService: ScmService = mockk()
     val springEnv: Environment = mockk()
     val notificationRepository: DismissibleNotificationRepository = mockk()
     val spectator: Registry = mockk()
@@ -63,7 +60,6 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
       notificationRepository = notificationRepository,
       front50Cache = front50Cache,
       scmUtils = scmUtils,
-      scmService = scmService,
       springEnv = springEnv,
       spectator = spectator,
       eventPublisher = eventPublisher,
@@ -158,10 +154,6 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
       }
 
       every {
-        scmService.getCommitChanges(any(), any(), any(), any())
-      } returns listOf(".netflix/spinnaker.yml")
-
-      every {
         keelRepository.isMigrationPr(any(), any())
       } answers {
         firstArg<String>() == migratingApp.name && secondArg<String>() == "23"
@@ -173,8 +165,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
     repoKey = "stash/myorg/myrepo",
     targetBranch = "main",
     commitHash = "1d52038730f431be19a8012f6f3f333e95a53772",
-    authorEmail = "joe@keel.io",
-    startingCommitHash = "2b0c52a2c9d9136c46de9217e44b4633928b8cf9"
+    authorEmail = "joe@keel.io"
   )
 
   val prMergedEvent = PrMergedEvent(
@@ -183,8 +174,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
     commitHash = "1d52038730f431be19a8012f6f3f333e95a53772",
     pullRequestBranch = "pr1",
     pullRequestId = "23",
-    authorEmail = "joe@keel.io",
-    startingCommitHash = "2b0c52a2c9d9136c46de9217e44b4633928b8cf9"
+    authorEmail = "joe@keel.io"
   )
 
   val commitEventForAnotherBranch = commitEvent.copy(targetBranch = "not-a-match")
@@ -204,12 +194,6 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
         context("a code event matching the repo and branch is received") {
           before {
             subject.handleCodeEvent(event)
-          }
-
-          test("we check if the commit actually changed the delivery config") {
-            verify {
-              scmService.getCommitChanges(event.projectKey, event.repoSlug, event.commitHash!!, event.startingCommitHash)
-            }
           }
 
           test("the delivery config is imported from the commit in the event") {
@@ -303,10 +287,6 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
             ),
             notConfiguredApp
           )
-
-          every {
-            scmService.getCommitChanges(any(), any(), any(), any())
-          } returns listOf("$MANIFEST_BASE_DIR/$manifestPath")
         }
 
         test("importing the manifest from the correct path") {
@@ -331,18 +311,6 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
       context("a commit event NOT matching the app default branch is received") {
         before {
           subject.handleCodeEvent(commitEventForAnotherBranch)
-        }
-
-        verifyEventIgnored()
-      }
-
-      context("the delivery config was not modified in the commit") {
-        before {
-          every {
-            scmService.getCommitChanges(any(), any(), any(), any())
-          } returns listOf("other", "files", "changed")
-
-          subject.handleCodeEvent(commitEvent)
         }
 
         verifyEventIgnored()
@@ -420,7 +388,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
           }
 
           verifyErrorMetricIncreased()
-          verifyErrorEventEmitted(event)
+          verifyErrorEventEmitted(event, false)
         }
       }
     }
@@ -438,13 +406,21 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
     }
   }
 
-  private fun TestContextBuilder<Fixture, Fixture>.verifyErrorEventEmitted(event: CodeEvent) {
-    test("an error event is published") {
-      val failureEvent = slot<DeliveryConfigImportFailed>()
-      verify {
-        eventPublisher.publishEvent(capture(failureEvent))
+  private fun TestContextBuilder<Fixture, Fixture>.verifyErrorEventEmitted(event: CodeEvent, checkEmitted: Boolean = true) {
+    if (checkEmitted) {
+      test("an error event is published") {
+        val failureEvent = slot<DeliveryConfigImportFailed>()
+        verify {
+          eventPublisher.publishEvent(capture(failureEvent))
+        }
+        expectThat(failureEvent.captured.branch).isEqualTo(event.targetBranch)
       }
-      expectThat(failureEvent.captured.branch).isEqualTo(event.targetBranch)
+    } else {
+      test("an error event is not published") {
+        verify(exactly = 0) {
+          eventPublisher.publishEvent(ofType<DeliveryConfigImportFailed>())
+        }
+      }
     }
   }
 
