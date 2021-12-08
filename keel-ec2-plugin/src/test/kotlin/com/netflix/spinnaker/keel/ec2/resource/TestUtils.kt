@@ -10,8 +10,6 @@ import com.netflix.spinnaker.keel.clouddriver.model.ActiveServerGroup
 import com.netflix.spinnaker.keel.clouddriver.model.ActiveServerGroupImage
 import com.netflix.spinnaker.keel.clouddriver.model.AutoScalingGroup
 import com.netflix.spinnaker.keel.clouddriver.model.Capacity
-import com.netflix.spinnaker.keel.clouddriver.model.ComparisonOperator
-import com.netflix.spinnaker.keel.clouddriver.model.ComparisonOperator.GreaterThanThreshold
 import com.netflix.spinnaker.keel.clouddriver.model.CustomizedMetricSpecificationModel
 import com.netflix.spinnaker.keel.clouddriver.model.IamInstanceProfile
 import com.netflix.spinnaker.keel.clouddriver.model.InstanceCounts
@@ -132,7 +130,7 @@ fun ServerGroup.toCloudDriverResponse(
           alarms = listOf(
             ScalingPolicyAlarm(
               true,
-              GreaterThanThreshold,
+              "GreaterThanThreshold",
               listOf(MetricDimensionModel("AutoScalingGroupName", "$name-v$sequence")),
               3,
               60,
@@ -229,7 +227,7 @@ fun ServerGroup.toMultiServerGroupResponse(
           alarms = listOf(
             ScalingPolicyAlarm(
               true,
-              GreaterThanThreshold,
+              "GreaterThanThreshold",
               listOf(MetricDimensionModel("AutoScalingGroupName", "$name-v$sequence1")),
               3,
               60,
@@ -312,7 +310,7 @@ fun ServerGroup.toMultiServerGroupResponse(
           alarms = listOf(
             ScalingPolicyAlarm(
               true,
-              GreaterThanThreshold,
+              "GreaterThanThreshold",
               listOf(MetricDimensionModel("AutoScalingGroupName", "$name-v$sequence2")),
               3,
               60,

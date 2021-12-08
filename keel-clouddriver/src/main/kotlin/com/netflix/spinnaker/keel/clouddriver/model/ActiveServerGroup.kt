@@ -290,7 +290,7 @@ data class StepAdjustmentModel(
 // these are managed by EC2 for target tracking policies, but client provided for step policies
 data class ScalingPolicyAlarm(
   val actionsEnabled: Boolean = true,
-  val comparisonOperator: ComparisonOperator,
+  val comparisonOperator: String,
   val dimensions: List<MetricDimensionModel>? = emptyList(),
   val evaluationPeriods: Int,
   val period: Int,
@@ -299,10 +299,6 @@ data class ScalingPolicyAlarm(
   val namespace: String,
   val statistic: String
 )
-
-enum class ComparisonOperator {
-  LessThanOrEqualToThreshold, LessThanThreshold, GreaterThanOrEqualToThreshold, GreaterThanThreshold
-}
 
 // https://docs.aws.amazon.com/autoscaling/ec2/APIReference/API_TargetTrackingConfiguration.html
 data class TargetTrackingConfiguration(

@@ -204,7 +204,7 @@ data class StepPolicyDescriptor(
 )
 
 data class StepScalingAlarm(
-  val comparisonOperator: ComparisonOperator,
+  val comparisonOperator: String,
   val evaluationPeriods: Int,
   val periodSec: Int,
   val threshold: Double,

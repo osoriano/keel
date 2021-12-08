@@ -3,7 +3,6 @@ package com.netflix.spinnaker.keel.clouddriver.model
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.support.Tag
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
-import com.netflix.spinnaker.keel.clouddriver.model.ComparisonOperator.GreaterThanThreshold
 import com.netflix.spinnaker.keel.retrofit.model.ModelParsingTestSupport
 import org.apache.commons.lang3.RandomStringUtils.random
 import org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric
@@ -459,7 +458,7 @@ object ActiveServerGroupTest : ModelParsingTestSupport<CloudDriverService, Activ
         ),
         alarms = listOf(
           ScalingPolicyAlarm(
-            comparisonOperator = GreaterThanThreshold,
+            comparisonOperator = "GreaterThanThreshold",
             dimensions = listOf(MetricDimensionModel(name = "AutoScalingGroupName", value = "$app-v$seq")),
             evaluationPeriods = 3,
             period = 60,
