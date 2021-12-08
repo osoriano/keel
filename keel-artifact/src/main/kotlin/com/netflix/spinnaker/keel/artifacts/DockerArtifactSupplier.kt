@@ -75,6 +75,7 @@ class DockerArtifactSupplier(
     }
 
     return findArtifactVersions(artifact)
+      .filter { shouldProcessArtifact(it) }
       .sortedWith(artifact.sortingStrategy.comparator)
       .take(limit)
   }
