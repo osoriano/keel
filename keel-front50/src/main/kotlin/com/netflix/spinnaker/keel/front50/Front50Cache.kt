@@ -6,6 +6,7 @@ import com.netflix.spinnaker.keel.caffeine.CacheLoadingException
 import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.exceptions.ApplicationNotFound
 import com.netflix.spinnaker.keel.front50.model.Application
+import com.netflix.spinnaker.keel.front50.model.DisablePipeline
 import com.netflix.spinnaker.keel.front50.model.GitRepository
 import com.netflix.spinnaker.keel.front50.model.ManagedDeliveryConfig
 import com.netflix.spinnaker.keel.front50.model.Pipeline
@@ -94,6 +95,14 @@ class Front50Cache(
       } catch (e: Exception) {
         log.error("Error priming application caches: $e. Performance will be degraded.")
       }
+    }
+  }
+
+  suspend fun disableAllPipelines(application: String) {
+    val pipelines = front50Service.pipelinesByApplication(application)
+    log.info("Disabling all pipelines (total of ${pipelines.size}) of application $application")
+    pipelines.forEach {
+      front50Service.disablePipeline(it.id, DisablePipeline(application = application, disabled = true))
     }
   }
 

@@ -2,6 +2,7 @@ package com.netflix.spinnaker.keel.front50
 
 import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.front50.model.Application
+import com.netflix.spinnaker.keel.front50.model.DisablePipeline
 import com.netflix.spinnaker.keel.front50.model.Pipeline
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -56,4 +57,11 @@ interface Front50Service {
     @Body pipeline: Pipeline,
     @Header("X-SPINNAKER-USER") user: String = DEFAULT_SERVICE_ACCOUNT
   )
+
+  @PUT("/pipelines/{id}/disabled")
+  suspend fun disablePipeline(
+    @Path("id") id: String,
+    @Body disablePipeline: DisablePipeline,
+    @Header("X-SPINNAKER-USER") user: String = DEFAULT_SERVICE_ACCOUNT
+  ): Pipeline
 }

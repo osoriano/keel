@@ -2,9 +2,11 @@ package com.netflix.spinnaker.keel.rest
 
 import com.netflix.spinnaker.keel.admin.AdminService
 import com.netflix.spinnaker.keel.export.ExportService
+import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.yaml.APPLICATION_YAML_VALUE
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory.getLogger
 import org.springframework.http.HttpStatus.NO_CONTENT
 import org.springframework.http.MediaType
@@ -24,7 +26,8 @@ import java.time.Duration
 @RequestMapping(path = ["/poweruser"])
 class AdminController(
   private val adminService: AdminService,
-  private val exportService: ExportService
+  private val exportService: ExportService,
+  private val front50Cache: Front50Cache,
 ) {
   private val log by lazy { getLogger(javaClass) }
 
@@ -138,6 +141,18 @@ class AdminController(
     }
 
   }
+
+  @PostMapping(
+    path = ["/application/{application}/disableAllPipelines"]
+  )
+  fun disableAllPipelines(
+    @PathVariable("application") app: String
+  ) {
+    runBlocking {
+      front50Cache.disableAllPipelines(app)
+    }
+  }
+
 
   /**
    * Force a refresh of the the application cache.

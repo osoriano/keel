@@ -164,6 +164,10 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
       } answers {
         firstArg<String>() == migratingApp.name && secondArg<String>() == "23"
       }
+
+      every {
+        front50Cache.disableAllPipelines(any())
+      } just runs
     }
   }
 
@@ -240,6 +244,10 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
             verify(exactly = 0) {
               front50Cache.updateManagedDeliveryConfig(any<Application>(), any(), any())
             }
+
+            verify(exactly = 0) {
+              front50Cache.disableAllPipelines(any())
+            }
           }
 
           test("a successful delivery config retrieval is counted") {
@@ -297,6 +305,10 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
 
           verify {
             front50Cache.updateManagedDeliveryConfig(migratingApp, any(), any())
+          }
+
+          verify {
+            front50Cache.disableAllPipelines(migratingApp.name)
           }
         }
 

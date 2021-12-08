@@ -131,7 +131,7 @@ class DeliveryConfigCodeEventListener(
         log.debug("Delivery config for application ${app.name} updated successfully from branch ${event.targetBranch}")
         event.emitCounterMetric(CODE_EVENT_COUNTER, DELIVERY_CONFIG_RETRIEVAL_SUCCESS, app.name)
         if (isNew) {
-          onboardNewApplication(app, user)
+          onboardNewApplication(app, user, event)
         }
       } catch (e: Exception) {
         log.error("Error retrieving/updating delivery config for application ${app.name}: $e", e)
@@ -177,9 +177,12 @@ class DeliveryConfigCodeEventListener(
     )
   }
 
-  private fun onboardNewApplication(app: Application, user: String) {
+  private fun onboardNewApplication(application: Application, user: String, event: CodeEvent) {
     runBlocking {
-      front50Cache.updateManagedDeliveryConfig(app, user, ManagedDeliveryConfig(importDeliveryConfig = true))
+      front50Cache.updateManagedDeliveryConfig(application, user, ManagedDeliveryConfig(importDeliveryConfig = true))
+      if (isMigrationPr(event, application)) {
+        front50Cache.disableAllPipelines(application.name)
+      }
     }
   }
 
