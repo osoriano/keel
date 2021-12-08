@@ -17,6 +17,7 @@ import com.netflix.spinnaker.keel.api.events.ArtifactVersionDeploying
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.core.serverGroup
 import com.netflix.spinnaker.keel.events.ResourceActuationLaunched
+import com.netflix.spinnaker.keel.telemetry.VerificationStarted
 import com.netflix.spinnaker.keel.test.deliveryConfig
 import com.netflix.spinnaker.keel.test.configuredTestObjectMapper
 import com.netflix.spinnaker.time.MutableClock
@@ -283,6 +284,8 @@ abstract class BaseClusterHandlerTests<
       that(managedRolloutStage["refId"]).isEqualTo("1")
       that(managedRolloutStage["input"]).isA<Map<String, Any?>>()
     }
+
+    verify (exactly = 1){ eventPublisher.publishEvent(ofType<ArtifactVersionDeploying>()) }
   }
 
   @Test

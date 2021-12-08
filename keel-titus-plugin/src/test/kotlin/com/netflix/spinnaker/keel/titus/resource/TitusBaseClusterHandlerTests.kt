@@ -46,6 +46,9 @@ class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, T
    coEvery { findDockerImages(any(),any(),any()) } returns listOf(
      DockerImage(
        account = "account", repository = "repo", tag = "butter", digest = "1234567890"
+     ),
+     DockerImage(
+       account = "account", repository = "repo", tag = "margerine", digest = "1255555555555555"
      )
    )
   }

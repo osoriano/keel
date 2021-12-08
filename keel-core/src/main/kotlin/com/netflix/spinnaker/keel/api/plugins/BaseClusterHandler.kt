@@ -378,22 +378,25 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Simple
         return@coroutineScope tasks + deferred.map { it.await() }
       }
 
-      // if managed rollout, do an upsert managed rollout stage.
-      if (resource.isManagedRollout() && createDiffs.isNotEmpty()) {
-        val task = upsertManagedRollout(resource, createDiffs, version)
-        return@coroutineScope listOf(task) + deferred.map { it.await() }
-      }
+      val launchedTasks = mutableListOf<Task>()
 
-      deferred.addAll(
-        upsertUnstaggered(resource, createDiffs, version)
-      )
+      if (resource.isManagedRollout() && createDiffs.isNotEmpty()) {
+        // if managed rollout, do an upsert managed rollout stage.
+        val task = upsertManagedRollout(resource, createDiffs, version)
+        launchedTasks.add(task)
+      } else {
+        // otherwise, launch a new task for each region
+        deferred.addAll(
+          upsertUnstaggered(resource, createDiffs, version)
+        )
+      }
 
       if (createDiffs.isNotEmpty()) {
         val versions = createDiffs.map { it.getDeployingVersions(resource) }.flatten().toSet()
         notifyArtifactDeploying(resource, versions)
       }
 
-      return@coroutineScope deferred.map { it.await() }
+      return@coroutineScope launchedTasks + deferred.map { it.await() }
     }
 
   /**

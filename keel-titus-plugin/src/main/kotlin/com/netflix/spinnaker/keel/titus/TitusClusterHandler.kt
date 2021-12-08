@@ -205,7 +205,7 @@ class TitusClusterHandler(
     return if (tags.size == 1) {
       tags.first() // only one tag, so use it to deploy
     } else {
-      log.debug("Container digest ${desired.container} has multiple tags: $tags")
+      log.debug("Container digest ${desired.container} has multiple tags or no tags: $tags")
       // unclear which "version" to print if there is more than one, so use a shortened version of the digest
       desired.container.digest.subSequence(0, 7).toString()
     }
@@ -928,7 +928,7 @@ class TitusClusterHandler(
       val container = activeServerGroups.first().container
       getTagsForDigest(container, resource.spec.locations.account)
         .apply {
-          log.debug("Marking ${this.size} tags for container $container as deployed to Titus cluster ${resource.id}")
+          log.debug("Marking ${this.size} tags for container $container as deployed to Titus cluster ${resource.id}: $this")
         }
         .forEach { tag ->
           // We publish an event for each tag that matches the digest
