@@ -631,6 +631,7 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Simple
 
   private fun notifyArtifactDeploying(resource: Resource<SPEC>, versions: Set<String>) {
     versions.forEach { version ->
+      log.debug("Notifying artifact deploying for version $version and resource ${resource.id}")
       notifyArtifactDeploying(resource, version)
     }
   }

@@ -31,8 +31,10 @@ class ArtifactDeployingListener(
       val deliveryConfig = repository.deliveryConfigFor(resourceId)
       val env = repository.environmentFor(resourceId)
 
-      // if there's no artifact associated with this resource, we do nothing.
-      val artifact = resource.findAssociatedArtifact(deliveryConfig) ?: return@runBlocking
+      val artifact = resource.findAssociatedArtifact(deliveryConfig) ?: run {
+        log.warn("Resource $resource has no associated artifact, so we can't mark ${event.artifactVersion} as deploying.")
+        return@runBlocking
+      }
 
       val approvedForEnv = repository.isApprovedFor(
         deliveryConfig = deliveryConfig,
