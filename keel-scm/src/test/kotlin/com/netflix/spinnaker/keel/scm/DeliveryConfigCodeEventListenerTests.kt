@@ -165,7 +165,8 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
     repoKey = "stash/myorg/myrepo",
     targetBranch = "main",
     commitHash = "1d52038730f431be19a8012f6f3f333e95a53772",
-    authorEmail = "joe@keel.io"
+    authorEmail = "author@keel.io",
+    causeByEmail = "joe@keel.io"
   )
 
   val prMergedEvent = PrMergedEvent(
@@ -174,7 +175,8 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
     commitHash = "1d52038730f431be19a8012f6f3f333e95a53772",
     pullRequestBranch = "pr1",
     pullRequestId = "23",
-    authorEmail = "joe@keel.io"
+    authorEmail = "author@keel.io",
+    causeByEmail = "joe@keel.io"
   )
 
   val commitEventForAnotherBranch = commitEvent.copy(targetBranch = "not-a-match")
@@ -207,7 +209,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
 
           test("access of the code change author to the service account in the delivery config is checked") {
             verify {
-              authorizationSupport.checkPermission(event.authorEmail!!, deliveryConfig.serviceAccount!!, SERVICE_ACCOUNT, "ACCESS")
+              authorizationSupport.checkPermission(event.causeByEmail!!, deliveryConfig.serviceAccount!!, SERVICE_ACCOUNT, "ACCESS")
             }
           }
 
@@ -236,6 +238,17 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
             expectThat(tags).one {
               contains(DELIVERY_CONFIG_RETRIEVAL_SUCCESS.toTags())
             }
+          }
+        }
+      }
+
+      context("fallback to author email if cause by is missing") {
+        before {
+          subject.handleCodeEvent(prMergedEvent.copy(causeByEmail = null))
+        }
+        test("use author email") {
+          verify {
+            authorizationSupport.checkPermission(prMergedEvent.authorEmail!!, deliveryConfig.serviceAccount!!, SERVICE_ACCOUNT, "ACCESS")
           }
         }
       }

@@ -110,7 +110,7 @@ class DeliveryConfigCodeEventListener(
           }
         }.also {
           authorizeServiceAccountAccess(
-            user = event.authorEmail ?: error("Can't authorize import due to missing author e-mail in code event: $event"),
+            user = event.causeByEmail ?: event.authorEmail ?: error("Can't authorize import due to missing author e-mail in code event: $event"),
             deliveryConfig = it
           )
         }
