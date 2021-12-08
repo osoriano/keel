@@ -974,8 +974,8 @@ class ClusterHandler(
           "metricAggregationType" to it.metricAggregationType,
           "stepAdjustments" to it.stepAdjustments.map { adjustment ->
             StepAdjustmentModel(
-              metricIntervalLowerBound = adjustment.lowerBound,
-              metricIntervalUpperBound = adjustment.upperBound,
+              MetricIntervalLowerBound = adjustment.lowerBound,
+              MetricIntervalUpperBound = adjustment.upperBound,
               scalingAdjustment = adjustment.scalingAdjustment
             )
           }
@@ -1186,8 +1186,8 @@ class ClusterHandler(
         map {
           StepAdjustment(
             scalingAdjustment = it.scalingAdjustment,
-            lowerBound = it.metricIntervalLowerBound,
-            upperBound = it.metricIntervalUpperBound
+            lowerBound = it.MetricIntervalLowerBound,
+            upperBound = it.MetricIntervalUpperBound
           )
         }
           .toSet()

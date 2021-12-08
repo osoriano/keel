@@ -282,8 +282,8 @@ data class ScalingPolicy(
 
 // https://docs.aws.amazon.com/autoscaling/ec2/APIReference/API_StepAdjustment.html
 data class StepAdjustmentModel(
-  val metricIntervalLowerBound: Double? = null,
-  val metricIntervalUpperBound: Double? = null,
+  val MetricIntervalLowerBound: Double? = null,
+  val MetricIntervalUpperBound: Double? = null,
   val scalingAdjustment: Int
 )
 
