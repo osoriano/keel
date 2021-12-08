@@ -62,6 +62,7 @@ import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.persistence.NoSuchDeliveryConfigException
 import com.netflix.spinnaker.keel.serialization.configuredYamlMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator.Feature.WRITE_DOC_START_MARKER
+import com.netflix.spinnaker.keel.getPrDescription
 import com.netflix.spinnaker.keel.migrations.ApplicationPrData
 import com.netflix.spinnaker.keel.telemetry.InvalidVerificationIdSeen
 import kotlinx.coroutines.CoroutineScope
@@ -106,9 +107,9 @@ class ApplicationService(
     //attributes that should be stripped before being returned through the api
     val privateConstraintAttrs = listOf("manual-judgement")
 
-    const val COMMIT_MESSAGE = "Your first delivery config"
+    const val COMMIT_MESSAGE = "Your first delivery config [skip ci]"
     const val PR_DESCRIPTION = "Your first delivery config"
-    const val PR_TITLE = "This is a new delivery config"
+    const val PR_TITLE = "Upgrade to Managed Delivery"
     const val BRANCH_NAME = "md-migration"
     const val CONFIG_PATH = ".netflix/spinnaker.yml"
     const val STASH_SCM_TYPE = "stash"
@@ -743,7 +744,7 @@ class ApplicationService(
    * This function is fetching application's data like config, repo and project name
    * And then calling Igor to create commit and open a pull request with the application's delivery config file
    */
-  suspend fun openMigrationPr(application: String): Pair<ApplicationPrData, String> {
+  suspend fun openMigrationPr(application: String, user: String): Pair<ApplicationPrData, String> {
     val applicationPrData = repository.getMigratableApplicationData(application)
     //this will eliminate the "---" at the begining of a new yml file
     yamlMapper = configuredYamlMapper().disable(WRITE_DOC_START_MARKER)
@@ -755,7 +756,7 @@ class ApplicationService(
       commitMessage = COMMIT_MESSAGE,
       branchName = BRANCH_NAME,
       prTitle =  PR_TITLE,
-      prDescription =  PR_DESCRIPTION,
+      prDescription =  getPrDescription(user),
       filePath = CONFIG_PATH,
       reviewers =  emptySet()
     )

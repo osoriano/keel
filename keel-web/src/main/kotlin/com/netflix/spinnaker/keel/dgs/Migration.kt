@@ -53,7 +53,8 @@ class Migration(
     @RequestHeader("X-SPINNAKER-USER") user: String
   ): MD_Migration? {
     val (prData, prLink) = applicationService.openMigrationPr(
-      application = payload.application
+      application = payload.application,
+      user = user
     )
     return MD_Migration(
       id = "migration-${payload.application}",

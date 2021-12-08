@@ -1237,7 +1237,7 @@ class ApplicationServiceTests : JUnit5Minutests {
 
       test("successfully created a PR in stash with the config") {
         expectCatching {
-          applicationService.openMigrationPr(application1)
+          applicationService.openMigrationPr(application1, "keel")
         }.isSuccess()
           .second.isEqualTo(expectedPrResponse.link)
       }
@@ -1264,7 +1264,7 @@ class ApplicationServiceTests : JUnit5Minutests {
 
       test("bubbles up http errors when trying to create a PR") {
         expectCatching {
-          applicationService.openMigrationPr(application1)
+          applicationService.openMigrationPr(application1, "keel")
         }
           .isFailure()
           .isEqualTo(retrofitError)
@@ -1278,7 +1278,7 @@ class ApplicationServiceTests : JUnit5Minutests {
       }
       test ("throw an exception") {
         expectCatching {
-          applicationService.openMigrationPr(application1)
+          applicationService.openMigrationPr(application1, "keel")
         }
           .isFailure()
           .isA<ApplicationPullRequestDataIsMissing>()
