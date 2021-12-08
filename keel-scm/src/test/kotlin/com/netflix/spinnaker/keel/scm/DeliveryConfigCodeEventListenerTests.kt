@@ -154,6 +154,12 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
       }
 
       every {
+        front50Cache.updateManagedDeliveryConfig(any<Application>(), any(), any())
+      } answers {
+        firstArg()
+      }
+
+      every {
         keelRepository.isMigrationPr(any(), any())
       } answers {
         firstArg<String>() == migratingApp.name && secondArg<String>() == "23"
@@ -230,6 +236,12 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
             }
           }
 
+          test("auto import is not enabled for an existing app") {
+            verify(exactly = 0) {
+              front50Cache.updateManagedDeliveryConfig(any<Application>(), any(), any())
+            }
+          }
+
           test("a successful delivery config retrieval is counted") {
             val tags = mutableListOf<Iterable<Tag>>()
             verify {
@@ -270,6 +282,10 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
           every {
             front50Cache.searchApplicationsByRepo(any())
           } returns listOf(migratingApp)
+
+          every {
+            deliveryConfigUpserter.upsertConfig(deliveryConfig, any())
+          } returns Pair(deliveryConfig.toDeliveryConfig(), true)
         }
 
         test("config is upserted for a new app") {
@@ -277,6 +293,10 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
 
           verify {
             deliveryConfigUpserter.upsertConfig(deliveryConfig, any())
+          }
+
+          verify {
+            front50Cache.updateManagedDeliveryConfig(migratingApp, any(), any())
           }
         }
 

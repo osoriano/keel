@@ -10,6 +10,7 @@ import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.model.Application
 import com.netflix.spinnaker.keel.front50.model.GitRepository
+import com.netflix.spinnaker.keel.front50.model.ManagedDeliveryConfig
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 import com.netflix.spinnaker.keel.notifications.DeliveryConfigImportFailed
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
@@ -99,6 +100,7 @@ class DeliveryConfigCodeEventListener(
       notificationRepository.dismissNotification(DeliveryConfigImportFailed::class.java, app.name, event.targetBranch)
 
       try {
+        val user = event.causeByEmail ?: event.authorEmail ?: error("Can't authorize import due to missing author e-mail in code event: $event")
         val deliveryConfig = deliveryConfigImporter.import(
           codeEvent = event,
           manifestPath = app.managedDelivery?.manifestPath
@@ -110,7 +112,7 @@ class DeliveryConfigCodeEventListener(
           }
         }.also {
           authorizeServiceAccountAccess(
-            user = event.causeByEmail ?: event.authorEmail ?: error("Can't authorize import due to missing author e-mail in code event: $event"),
+            user = user,
             deliveryConfig = it
           )
         }
@@ -125,9 +127,12 @@ class DeliveryConfigCodeEventListener(
           )
         }
         log.debug("Creating/updating delivery config for application ${app.name} from branch ${event.targetBranch}")
-        deliveryConfigUpserter.upsertConfig(deliveryConfig, gitMetadata)
+        val isNew = deliveryConfigUpserter.upsertConfig(deliveryConfig, gitMetadata).second
         log.debug("Delivery config for application ${app.name} updated successfully from branch ${event.targetBranch}")
         event.emitCounterMetric(CODE_EVENT_COUNTER, DELIVERY_CONFIG_RETRIEVAL_SUCCESS, app.name)
+        if (isNew) {
+          onboardNewApplication(app, user)
+        }
       } catch (e: Exception) {
         log.error("Error retrieving/updating delivery config for application ${app.name}: $e", e)
         event.emitCounterMetric(CODE_EVENT_COUNTER, DELIVERY_CONFIG_RETRIEVAL_ERROR, app.name)
@@ -170,6 +175,12 @@ class DeliveryConfigCodeEventListener(
       resourceType = SERVICE_ACCOUNT,
       permission = "ACCESS"
     )
+  }
+
+  private fun onboardNewApplication(app: Application, user: String) {
+    runBlocking {
+      front50Cache.updateManagedDeliveryConfig(app, user, ManagedDeliveryConfig(importDeliveryConfig = true))
+    }
   }
 
   private fun CodeEvent.emitCounterMetric(
