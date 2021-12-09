@@ -50,7 +50,7 @@ class ScmUtilsTests : JUnit5Minutests {
     test("commit links") {
       val commitHash = "hash123"
       expectThat(subject.getCommitLink(
-        CommitCreatedEvent(repoKey = "stash/project/repo", targetBranch =  "main", commitHash = commitHash)
+        CommitCreatedEvent(repoKey = "stash/project/repo", targetProjectKey = "project",targetRepoSlug = "repo", targetBranch =  "main", commitHash = commitHash)
       )).isNotNull().contains(commitHash)
     }
 

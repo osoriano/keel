@@ -173,6 +173,8 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
 
   val commitEvent = CommitCreatedEvent(
     repoKey = "stash/myorg/myrepo",
+    targetProjectKey = "myorg",
+    targetRepoSlug = "myrepo",
     targetBranch = "main",
     commitHash = "1d52038730f431be19a8012f6f3f333e95a53772",
     authorEmail = "author@keel.io",
@@ -181,6 +183,8 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
 
   val prMergedEvent = PrMergedEvent(
     repoKey = "stash/myorg/myrepo",
+    targetProjectKey = "myorg",
+    targetRepoSlug = "myrepo",
     targetBranch = "main",
     commitHash = "1d52038730f431be19a8012f6f3f333e95a53772",
     pullRequestBranch = "pr1",
@@ -192,7 +196,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
   val commitEventForAnotherBranch = commitEvent.copy(targetBranch = "not-a-match")
 
   // matches repo for nonConfiguredApp
-  val commitEventForAnotherRepo = commitEvent.copy(repoKey = "stash/myorg/another-repo")
+  val commitEventForAnotherRepo = commitEvent.copy(repoKey = "stash/myorg/another-repo", targetProjectKey = "myorg", targetRepoSlug = "another-repo")
 
   fun tests() = rootContext<Fixture> {
     fixture { Fixture() }

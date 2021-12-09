@@ -340,6 +340,8 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
 
   val prOpenedEvent = PrOpenedEvent(
     repoKey = "stash/myorg/myrepo",
+    targetProjectKey = "myorg",
+    targetRepoSlug = "myrepo",
     pullRequestBranch = "feature/abc",
     targetBranch = "main",
     pullRequestId = "42"
@@ -347,6 +349,8 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
 
   val prUpdatedEvent = PrUpdatedEvent(
     repoKey = "stash/myorg/myrepo",
+    targetProjectKey = "myorg",
+    targetRepoSlug = "myrepo",
     pullRequestBranch = "feature/abc",
     targetBranch = "main",
     pullRequestId = "42"
@@ -354,6 +358,8 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
 
   val prMergedEvent = PrMergedEvent(
     repoKey = "stash/myorg/myrepo",
+    targetProjectKey = "myorg",
+    targetRepoSlug = "myrepo",
     pullRequestBranch = "feature/abc",
     targetBranch = "main",
     pullRequestId = "42",
@@ -362,6 +368,8 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
 
   val prDeclinedEvent = PrDeclinedEvent(
     repoKey = "stash/myorg/myrepo",
+    targetProjectKey = "myorg",
+    targetRepoSlug = "myrepo",
     pullRequestBranch = "feature/abc",
     targetBranch = "main",
     pullRequestId = "42"
@@ -369,6 +377,8 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
 
   val prDeletedEvent = PrDeletedEvent(
     repoKey = "stash/myorg/myrepo",
+    targetProjectKey = "myorg",
+    targetRepoSlug = "myrepo",
     pullRequestBranch = "feature/abc",
     targetBranch = "main",
     pullRequestId = "42"

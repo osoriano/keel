@@ -80,7 +80,16 @@ internal class ArtifactControllerTests
             "sha" to  "953910b24a776eceab03d4dcae8ac050b2e0b668",
             "branch" to "master",
             "prBranch" to "feature/branch",
-            "targetBranch" to "master"
+            "targetBranch" to "master",
+            "originalPayload" to mapOf(
+              "causedBy" to mapOf(
+                "email" to "keel@keel"
+              ),
+              "target" to mapOf(
+                "projectKey" to "org",
+                "repoName" to "myrepo"
+              )
+            )
           )
         )
       )
@@ -89,6 +98,8 @@ internal class ArtifactControllerTests
 
   private val translatedCodeEvent = PrOpenedEvent(
     repoKey = "stash/org/myrepo",
+    targetProjectKey = "org",
+    targetRepoSlug = "myrepo",
     targetBranch = "master",
     pullRequestBranch = "feature/branch",
     pullRequestId = "11494"

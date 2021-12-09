@@ -22,7 +22,7 @@ abstract class WorkQueueRepositoryTests<IMPLEMENTATION: WorkQueueRepository> {
     version = "1.1",
     metadata = emptyMap()
   )
-  val codeEvent = CommitCreatedEvent(repoKey = "stash/project/repo", targetBranch =  "master", commitHash = "hash123")
+  val codeEvent = CommitCreatedEvent(repoKey = "stash/project/repo", targetProjectKey = "project", targetRepoSlug = "repo", targetBranch =  "master", commitHash = "hash123")
 
   @Test
   fun `initial queue size is 0`() {

@@ -69,7 +69,7 @@ class DeliveryConfigCodeEventListener(
 
     val apps = runBlocking {
       try {
-        front50Cache.searchApplicationsByRepo(GitRepository(event.repoType, event.projectKey, event.repoSlug))
+        front50Cache.searchApplicationsByRepo(GitRepository(event.repoType, event.targetProjectKey, event.targetRepoSlug))
           .also {
             log.debug("Retrieved ${it.size} applications from Front50")
           }

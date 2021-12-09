@@ -76,7 +76,13 @@ class PreviewEnvironmentCodeEventListener(
     internal const val COMMIT_HANDLING_DURATION = "previewEnvironments.commitHandlingDuration"
 
     internal fun PrEvent.toCommitEvent(): CommitCreatedEvent {
-      return CommitCreatedEvent(repoKey, pullRequestBranch, pullRequestId, pullRequestBranch.headOfBranch)
+      return CommitCreatedEvent(
+        repoKey = repoKey,
+        targetBranch = pullRequestBranch,
+        pullRequestId = pullRequestId,
+        commitHash = pullRequestBranch.headOfBranch,
+        targetRepoSlug = targetRepoSlug,
+        targetProjectKey = targetProjectKey)
     }
   }
 
