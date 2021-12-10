@@ -102,7 +102,12 @@ class Front50Cache(
     val pipelines = front50Service.pipelinesByApplication(application)
     log.info("Disabling all pipelines (total of ${pipelines.size}) of application $application")
     pipelines.forEach {
-      front50Service.disablePipeline(it.id, DisablePipeline(application = application, disabled = true))
+      try {
+        front50Service.disablePipeline(it.id, DisablePipeline(application = application, disabled = true))
+        log.debug("Successfully disabled pipeline ${it.id} for application $application")
+      } catch (e: Exception) {
+        log.error("Failed to disable pipeline ${it.id} for application $application")
+      }
     }
   }
 
