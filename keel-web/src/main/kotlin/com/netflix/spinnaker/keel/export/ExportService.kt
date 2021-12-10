@@ -34,11 +34,14 @@ import com.netflix.spinnaker.keel.core.api.ManualJudgementConstraint
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.core.api.SubmittedEnvironment
 import com.netflix.spinnaker.keel.core.api.SubmittedResource
+import com.netflix.spinnaker.keel.core.api.TimeWindow
+import com.netflix.spinnaker.keel.core.api.TimeWindowConstraint
 import com.netflix.spinnaker.keel.core.parseMoniker
 import com.netflix.spinnaker.keel.filterNotNullValues
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.model.DeployStage
 import com.netflix.spinnaker.keel.front50.model.Pipeline
+import com.netflix.spinnaker.keel.front50.model.RestrictedExecutionWindow
 import com.netflix.spinnaker.keel.igor.JobService
 import com.netflix.spinnaker.keel.orca.ExecutionDetailResponse
 import com.netflix.spinnaker.keel.orca.OrcaService
@@ -52,6 +55,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.core.env.Environment
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
+import java.time.DayOfWeek
 import java.time.Duration
 import java.time.Instant
 
@@ -205,6 +209,8 @@ class ExportService(
           emptySet()
         }
 
+        val allowedTimes = createAllowedTimeConstraint(deploy.restrictedExecutionWindow)
+
         //5. infer from the cluster all dependent resources, including artifacts
         val resourcesAndArtifacts = createResourcesBasedOnCluster(cluster, environments, applicationName)
 
@@ -216,7 +222,7 @@ class ExportService(
         val environment = SubmittedEnvironment(
           name = environmentName,
           resources = resourcesAndArtifacts.resources,
-          constraints = manualJudgement,
+          constraints = manualJudgement + allowedTimes,
         )
 
         log.debug("Exported environment $environmentName from cluster [${cluster.moniker}]")
@@ -278,6 +284,25 @@ class ExportService(
     log.info("Successfully exported delivery config:\n${prettyPrinter.writeValueAsString(result)}")
     return result
   }
+
+  private fun createAllowedTimeConstraint(executionWindow: RestrictedExecutionWindow?) =
+    if (executionWindow != null) {
+      val timeWindow = executionWindow.whitelist?.joinToString(",") { time ->
+        "${time.startHour}-${time.endHour}"
+      }
+      setOf(TimeWindowConstraint(
+        windows = listOf(
+          TimeWindow(
+            days = executionWindow.days?.joinToString(",") {
+              it.fromDayNumberToWeekday()
+            },
+            hours = timeWindow
+          )
+        )
+      ))
+    } else {
+      emptySet()
+    }
 
   /**
    * Adding slack notifications for production environment, using the slack channel as defined in spinnaker
@@ -705,3 +730,14 @@ fun PipelineExportResult.toSkippedPipelines(): List<SkippedPipeline> =
   }
 
 private fun Pipeline.link(baseUrl: String) = "$baseUrl/#/applications/${application}/executions/configure/${id}"
+
+private fun Int.fromDayNumberToWeekday() :String =
+  when (this) {
+     1 -> DayOfWeek.SUNDAY
+     2 -> DayOfWeek.MONDAY
+     3 -> DayOfWeek.TUESDAY
+     4 -> DayOfWeek.WEDNESDAY
+     5 -> DayOfWeek.THURSDAY
+     6 -> DayOfWeek.FRIDAY
+    else -> DayOfWeek.SATURDAY
+  }.toString()

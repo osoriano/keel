@@ -90,8 +90,21 @@ data class DeployStage(
   override val type: String,
   override val refId: String,
   override val requisiteStageRefIds: List<String> = emptyList(),
-  val clusters: Set<Cluster>
+  val clusters: Set<Cluster>,
+  val restrictedExecutionWindow: RestrictedExecutionWindow? = null
 ) : Stage()
+
+data class RestrictedExecutionWindow (
+  val whitelist : List<TimeWindowConfig>? = null,
+  val days: List<Int>? = null
+  )
+
+data class TimeWindowConfig (
+  val startHour: Int,
+  val startMin: Int,
+  val endHour: Int,
+  val endMin: Int
+)
 
 enum class SelectionStrategy {
   LARGEST,
