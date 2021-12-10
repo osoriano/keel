@@ -55,8 +55,7 @@ data class TitusServerGroup(
   @get:ExcludedFromDiff
   val instanceCounts: InstanceCounts? = null,
   val scaling: Scaling = Scaling(),
-  val efs: ElasticFileSystem?,
-  val platformSidecars: List<PlatformSidecar>? = null,
+  val efs: ElasticFileSystem?
 ) : VersionedArtifactProvider, SimpleLocationProvider by location {
 
   // todo eb: should this be more general?
@@ -80,11 +79,5 @@ data class TitusServerGroup(
 
   data class MigrationPolicy(
     val type: String = "systemDefault"
-  )
-
-  data class PlatformSidecar(
-    val name: String,
-    val channel: String,
-    val arguments: String? = null,
   )
 }

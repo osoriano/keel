@@ -36,7 +36,11 @@ import com.netflix.spinnaker.keel.api.events.ArtifactVersionDeployed
 import com.netflix.spinnaker.keel.api.events.ArtifactVersionDeploying
 import com.netflix.spinnaker.keel.api.plugins.Resolver
 import com.netflix.spinnaker.keel.api.support.EventPublisher
-import com.netflix.spinnaker.keel.api.titus.*
+import com.netflix.spinnaker.keel.api.titus.TITUS_CLOUD_PROVIDER
+import com.netflix.spinnaker.keel.api.titus.TITUS_CLUSTER_V1
+import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
+import com.netflix.spinnaker.keel.api.titus.TitusServerGroup
+import com.netflix.spinnaker.keel.api.titus.TitusServerGroupSpec
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.clouddriver.model.Credential
@@ -144,9 +148,8 @@ class TitusClusterHandlerTests : JUnit5Minutests {
       dependencies = ClusterDependencies(
         loadBalancerNames = setOf("keel-test-frontend"),
         securityGroupNames = setOf(sg1West.name)
-      ),
-      platformSidecars = listOf(PlatformSidecarSpec(name = "foo", channel = "bar", arguments=mapOf("foo" to "bar"))),
-      ),
+      )
+    ),
     container = digestProvider
   )
 
@@ -285,7 +288,6 @@ class TitusClusterHandlerTests : JUnit5Minutests {
 
         expectThat(slot.captured.job.first()) {
           get("type").isEqualTo("createServerGroup")
-          get("platformSidecars").isNotNull()
         }
       }
     }

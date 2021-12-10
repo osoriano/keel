@@ -40,7 +40,6 @@ interface BaseTitusServerGroup : BaseServerGroup {
   val capacityGroup: String
   val scalingPolicies: List<TitusScaling>
   val efs: ElasticFileSystem?
-  val platformSidecars: List<PlatformSidecar>?
 }
 
 /**
@@ -76,8 +75,7 @@ data class TitusServerGroup(
   override val instanceCounts: InstanceCounts,
   override val createdTime: Long,
   override val scalingPolicies: List<TitusScaling> = emptyList(),
-  override val efs: ElasticFileSystem? = null,
-  override val platformSidecars: List<PlatformSidecar>? = null
+  override val efs: ElasticFileSystem? = null
 ) : BaseTitusServerGroup, ServerGroupIdentity
 
 fun TitusServerGroup.toActive() =
@@ -105,8 +103,7 @@ fun TitusServerGroup.toActive() =
     resources = resources,
     capacityGroup = capacityGroup,
     instanceCounts = instanceCounts,
-    createdTime = createdTime,
-    platformSidecars = platformSidecars,
+    createdTime = createdTime
   )
 
 /**
@@ -141,8 +138,7 @@ data class TitusActiveServerGroup(
   override val instanceCounts: InstanceCounts,
   override val createdTime: Long,
   override val scalingPolicies: List<TitusScaling> = emptyList(),
-  override val efs: ElasticFileSystem? = null,
-  override val platformSidecars: List<PlatformSidecar>? = null
+  override val efs: ElasticFileSystem? = null
 ) : BaseTitusServerGroup
 
 data class Placement(
@@ -229,10 +225,4 @@ data class ElasticFileSystem(
   val mountPoint: String,
   val efsId: String,
   val efsRelativeMountPoint: String?
-)
-
-data class PlatformSidecar(
-  val name: String,
-  val channel: String,
-  val arguments: String? = null,
 )
