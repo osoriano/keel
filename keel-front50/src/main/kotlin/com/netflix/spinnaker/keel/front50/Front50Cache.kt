@@ -98,7 +98,8 @@ class Front50Cache(
     }
   }
 
-  suspend fun disableAllPipelines(application: String) {
+  suspend fun disableAllPipelines(rawApplication: String) {
+    val application = rawApplication.lowercase()
     val pipelines = front50Service.pipelinesByApplication(application)
     log.info("Disabling all pipelines (total of ${pipelines.size}) of application $application")
     pipelines.forEach {
@@ -106,7 +107,7 @@ class Front50Cache(
         front50Service.disablePipeline(it.id, DisablePipeline(application = application, disabled = true))
         log.debug("Successfully disabled pipeline ${it.id} for application $application")
       } catch (e: Exception) {
-        log.error("Failed to disable pipeline ${it.id} for application $application")
+        log.error("Failed to disable pipeline ${it.id} for application $application", e)
       }
     }
   }
