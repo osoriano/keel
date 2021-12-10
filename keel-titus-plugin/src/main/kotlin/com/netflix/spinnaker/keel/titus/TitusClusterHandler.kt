@@ -18,6 +18,8 @@
 package com.netflix.spinnaker.keel.titus
 
 import com.fasterxml.jackson.module.kotlin.convertValue
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.fasterxml.jackson.module.kotlin.readValue
 import com.netflix.buoy.sdk.model.RolloutTarget
 import com.netflix.spinnaker.keel.api.ClusterDeployStrategy
 import com.netflix.spinnaker.keel.api.Exportable
@@ -68,6 +70,7 @@ import com.netflix.spinnaker.keel.api.titus.TitusServerGroup.Location
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroup.MigrationPolicy
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroup.Resources
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroupSpec
+import com.netflix.spinnaker.keel.api.titus.PlatformSidecarSpec
 import com.netflix.spinnaker.keel.api.withDefaultsOmitted
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
@@ -727,7 +730,8 @@ class TitusClusterHandler(
         "loadBalancers" to dependencies.loadBalancerNames,
         "targetGroups" to dependencies.targetGroups,
         "account" to location.account,
-        "efs" to efs
+        "efs" to efs,
+        "platformSidecars" to platformSidecars,
       ) + image
     }
       .let { job ->
@@ -807,6 +811,7 @@ class TitusClusterHandler(
         "constraints" to resolveConstraints(),
         "migrationPolicy" to resolveMigrationPolicy(),
         "scaling" to resolveScaling(), //todo eb: is this even right?
+        "platformSidecars" to resolvePlatformSidecars(),
       ) + image +
         mapOf("overrides" to buildOverrides(diffs)) +
         spec.deployWith.toOrcaJobProperties("Titus")
@@ -1106,8 +1111,19 @@ class TitusClusterHandler(
           efsId = it.efsId,
           efsRelativeMountPoint = it.efsRelativeMountPoint,
         )
+      },
+      platformSidecars = platformSidecars?.map {
+        TitusServerGroup.PlatformSidecar(it.name, it.channel, it.arguments)
       }
     )
+
+  private fun jsonMapToString(arguments: String?): Map<String, Any> {
+    if (arguments == null) {
+      return emptyMap()
+    }
+    val mapper = jacksonObjectMapper()
+    return mapper.readValue(arguments)
+  }
 
   private fun getAwsAccountNameForTitusAccount(titusAccount: String): String =
     cloudDriverCache.credentialBy(titusAccount).attributes["awsAccount"] as? String

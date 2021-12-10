@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.titus
 
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.ec2.Capacity
 import com.netflix.spinnaker.keel.api.ec2.Capacity.AutoScalingCapacity
@@ -122,6 +123,18 @@ fun TitusClusterSpec.resolveScaling(region: String? = null) =
 fun TitusClusterSpec.resolveEfs(region: String? = null) =
   (region?.let { overrides[it] })?.efs ?: defaults.efs
 
+fun TitusClusterSpec.resolvePlatformSidecars(region: String? = null) =
+  run {
+    (this.overrides[region] ?: defaults).platformSidecars?.map {
+      TitusServerGroup.PlatformSidecar(name = it.name, channel = it.channel, arguments = jsonStringify(it.arguments))
+    }
+  }
+
+fun jsonStringify(arguments: Map<String, Any>?): String? {
+  val mapper = jacksonObjectMapper()
+  return mapper.writeValueAsString(arguments)
+}
+
 fun TitusClusterSpec.resolveTags(region: String? = null) =
   defaults.tags + (region?.let { overrides[it] }?.tags ?: emptyMap())
 
@@ -148,7 +161,8 @@ internal fun TitusClusterSpec.resolve(): Set<TitusServerGroup> =
       artifactName = artifactName,
       artifactVersion = artifactVersion,
       scaling = resolveScaling(it.name),
-      efs = resolveEfs(it.name)
+      efs = resolveEfs(it.name),
+      platformSidecars = resolvePlatformSidecars(it.name),
     )
   }
     .toSet()
