@@ -2,6 +2,7 @@ package com.netflix.spinnaker.keel.titus.jackson
 
 import com.fasterxml.jackson.databind.jsontype.NamedType
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.netflix.spinnaker.keel.api.titus.ResourcesSpec
 import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
 import com.netflix.spinnaker.keel.api.toSimpleLocations
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
@@ -45,6 +46,9 @@ class TitusClusterSpecDeserializationTests : JUnit5Minutests {
                |          organization: fnord
                |          image: fnord
                |          digest: sha:9e860d779528ea32b1692cdbb840c66c5d173b2c63aee0e7a75a957e06790de7
+               |        resources:
+               |          memory: 2048
+               |          cpu: 4
                |      """.trimMargin())
       }
 
@@ -53,8 +57,11 @@ class TitusClusterSpecDeserializationTests : JUnit5Minutests {
 
         expectThat(deliveryConfig.environments.first().resources.first().spec)
           .isA<TitusClusterSpec>()
-          .get(TitusClusterSpec::locations)
-          .isEqualTo(deliveryConfig.environments.first().locations!!.toSimpleLocations())
+          .and {
+            get(TitusClusterSpec::locations).isEqualTo(deliveryConfig.environments.first().locations!!.toSimpleLocations())
+            get(TitusClusterSpec::defaults).get { resources }.isEqualTo(ResourcesSpec(memory = 2048, cpu = 4))
+          }
+
       }
     }
   }

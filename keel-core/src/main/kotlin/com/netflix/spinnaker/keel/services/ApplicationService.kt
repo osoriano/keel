@@ -746,8 +746,6 @@ class ApplicationService(
    */
   suspend fun openMigrationPr(application: String, user: String): Pair<ApplicationPrData, String> {
     val applicationPrData = repository.getMigratableApplicationData(application)
-    //this will eliminate the "---" at the begining of a new yml file
-    yamlMapper = configuredYamlMapper().disable(WRITE_DOC_START_MARKER)
     //sending the exported config in a yml format, as string
     val configAsString = yamlMapper.writeValueAsString(applicationPrData.deliveryConfig)
 
