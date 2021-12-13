@@ -164,6 +164,19 @@ class OrcaExecutionSummaryServiceTests {
     }
   }
 
+
+  @Test
+  fun `redeploy`(){
+    val summary = testSetup("/redeploy-execution.json")
+    expectThat(summary.deployTargets).isNotEmpty().hasSize(1)
+    val target = summary.deployTargets.first().rolloutTarget
+    expect {
+      that(target.cloudProvider).isEqualTo("aws")
+      that(target.location.account).isEqualTo("mgmt")
+      that(target.location.region).isEqualTo("us-west-2")
+    }
+  }
+
   @Suppress("RECEIVER_NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
   fun testSetup(fileName: String): ExecutionSummary {
     val response = javaClass.getResource(fileName).readText()

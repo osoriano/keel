@@ -44,6 +44,7 @@ class OrcaExecutionSummaryService(
     val DISABLE_SERVER_GROUP_STAGE = "disableServerGroup"
     val CREATE_SERVER_GROUP_STAGE = "createServerGroup"
     val MODIFY_SCALING_POLICY_STAGE = "upsertScalingPolicy"
+    val CLONE_SERVER_GROUP_STAGE = "cloneServerGroup"
   }
 
   override fun getSummary(executionId: String): ExecutionSummary {
@@ -126,6 +127,9 @@ class OrcaExecutionSummaryService(
 
   fun ExecutionDetailResponse.isModifyScalingPolicies(): Boolean =
     containsStageType(MODIFY_SCALING_POLICY_STAGE)
+
+  fun ExecutionDetailResponse.isRedploy(): Boolean =
+    containsStageType(CLONE_SERVER_GROUP_STAGE)
 
   fun ExecutionDetailResponse.containsStageType(type: String): Boolean =
     execution?.stages?.find { it["type"] == type } != null
@@ -236,6 +240,11 @@ class OrcaExecutionSummaryService(
           generateTargetForRegion(stage)
         }
       }
+      execution.isRedploy() -> {
+        typedStages.firstOrNull { it.type == CLONE_SERVER_GROUP_STAGE }?.let { stage ->
+          generateTargetFromSource(stage)
+        }
+      }
       else -> {
         log.error("Unknown task type for task ${execution.id}, attempting generic parsing.")
         // attempt some parsing if we don't know the stage type
@@ -319,6 +328,29 @@ class OrcaExecutionSummaryService(
    */
   private fun generateTargetForRegion(stage: OrcaStage): List<RolloutTarget> {
     val region: String = stage.getRegion() ?: "unable to find region"
+    val account = stage.getAccount() ?: "unable to find account"
+    val cloudProvider: String = stage.getCloudProvider() ?: "unable to find cloud provider"
+    return listOf(
+      RolloutTarget(
+        cloudProvider,
+        BuoyLocation(account, region, emptyList()),
+        null,
+        null
+      )
+    )
+  }
+
+  /**
+   * Clone stages have target info in the "source" key in the context block, like:
+   *  source": {
+   *    "asgName": "orca-prestaging-v494",
+   *    "region": "us-west-2",
+   *    "account": "mgmt"
+   *  },
+  */
+  private fun generateTargetFromSource(stage: OrcaStage): List<RolloutTarget> {
+    val source = stage.context["source"] as? Map<String, String> ?: emptyMap()
+    val region = source["region"] ?: "unable to find region"
     val account = stage.getAccount() ?: "unable to find account"
     val cloudProvider: String = stage.getCloudProvider() ?: "unable to find cloud provider"
     return listOf(

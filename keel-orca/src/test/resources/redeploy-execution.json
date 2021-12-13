@@ -1,0 +1,1954 @@
+{
+  "id": "01FP8EEYSCMAQJT1VTBAFYK4XS",
+  "name": "Redeploy orca-1.3221.0-h2811.65a2049 [to server group orca-prestaging in mgmt/us-west-2]",
+  "application": "orca",
+  "status": "SUCCEEDED",
+  "variables": [
+    {
+      "key": "healthCheckType",
+      "value": "EC2"
+    },
+    {
+      "key": "outputs",
+      "value": {
+
+      }
+    },
+    {
+      "key": "reason",
+      "value": "Redeploy ami-1111"
+    },
+    {
+      "key": "deploy.account.name",
+      "value": "mgmt"
+    },
+    {
+      "key": "zeroDesiredCapacityCount",
+      "value": 0
+    },
+    {
+      "key": "stack",
+      "value": "prestaging"
+    },
+    {
+      "key": "metadata",
+      "value": {
+        "resource": "ec2:cluster:mgmt:orca-prestaging"
+      }
+    },
+    {
+      "key": "lastCapacityCheck",
+      "value": {
+        "outOfService": 0,
+        "up": 1,
+        "failed": 0,
+        "starting": 0,
+        "down": 1,
+        "succeeded": 0,
+        "unknown": 0
+      }
+    },
+    {
+      "key": "scaleDown",
+      "value": true
+    },
+    {
+      "key": "terminationPolicies",
+      "value": [
+        "Default"
+      ]
+    },
+    {
+      "key": "maxRemainingAsgs",
+      "value": 2
+    },
+    {
+      "key": "enabledMetrics",
+      "value": [
+
+      ]
+    },
+    {
+      "key": "availabilityZones",
+      "value": {
+        "us-west-2": [
+          "us-west-2a",
+          "us-west-2b",
+          "us-west-2c"
+        ]
+      }
+    },
+    {
+      "key": "blockDevices",
+      "value": [
+        {
+          "volumeType": "gp3",
+          "size": 80,
+          "deleteOnTermination": true,
+          "deviceName": "/dev/sdb"
+        }
+      ]
+    },
+    {
+      "key": "source",
+      "value": {
+        "asgName": "orca-prestaging-v494",
+        "region": "us-west-2",
+        "account": "mgmt"
+      }
+    },
+    {
+      "key": "currentInstanceCount",
+      "value": 2
+    },
+    {
+      "key": "healthCheckGracePeriod",
+      "value": 0
+    },
+    {
+      "key": "cooldown",
+      "value": 300
+    },
+    {
+      "key": "requireIMDSv2",
+      "value": true
+    },
+    {
+      "key": "useAmiBlockDeviceMappings",
+      "value": false
+    },
+    {
+      "key": "copySourceCustomBlockDeviceMappings",
+      "value": true
+    },
+    {
+      "key": "ebsOptimized",
+      "value": true
+    },
+    {
+      "key": "loadBalancers",
+      "value": [
+
+      ]
+    },
+    {
+      "key": "workflowResult",
+      "value": {
+        "childWorkflowExecutionInfos": {
+          "2826c7143c31e6adcc6f8362e8d8adcca06de51728ab49726e33537d4033db06": {
+            "namespace": "spinnaker",
+            "workflowType": "StageContextCloudOperationRunner",
+            "runId": "268c8f9d-4cf7-44c7-bde3-0cf1164a6104",
+            "permalink": "https://temporal/namespaces/spinnaker/workflows/2826c7143c31e6adcc6f8362e8d8adcca06de51728ab49726e33537d4033db06/268c8f9d-4cf7-44c7-bde3-0cf1164a6104/summary",
+            "workflowId": "2826c7143c31e6adcc6f8362e8d8adcca06de51728ab49726e33537d4033db06",
+            "uiTarget": "https://temporal"
+          },
+          "fc6335de9e0808fcb7928a5a51a2be0063b6cbd4f509e332618a5d6899203275": {
+            "namespace": "spinnaker",
+            "workflowType": "StageContextCloudOperationRunner",
+            "runId": "c67fd089-e557-4eeb-9ee1-764acfb48f09",
+            "permalink": "https://temporal/namespaces/spinnaker/workflows/fc6335de9e0808fcb7928a5a51a2be0063b6cbd4f509e332618a5d6899203275/c67fd089-e557-4eeb-9ee1-764acfb48f09/summary",
+            "workflowId": "fc6335de9e0808fcb7928a5a51a2be0063b6cbd4f509e332618a5d6899203275",
+            "uiTarget": "https://temporal"
+          }
+        },
+        "childWorkflowExecutionResults": {
+          "2826c7143c31e6adcc6f8362e8d8adcca06de51728ab49726e33537d4033db06": {
+            "output": {
+              "outputType": "voidOperation"
+            },
+            "childWorkflowExecutionInfos": {
+
+            },
+            "childWorkflowExecutionResults": {
+
+            },
+            "logs": [
+
+            ],
+            "status": "WORKFLOW_EXECUTION_STATUS_UNSPECIFIED",
+            "isCompleted": true
+          },
+          "fc6335de9e0808fcb7928a5a51a2be0063b6cbd4f509e332618a5d6899203275": {
+            "output": {
+              "outputType": "voidOperation"
+            },
+            "childWorkflowExecutionInfos": {
+
+            },
+            "childWorkflowExecutionResults": {
+
+            },
+            "logs": [
+
+            ],
+            "status": "WORKFLOW_EXECUTION_STATUS_UNSPECIFIED",
+            "isCompleted": true
+          }
+        },
+        "logs": [
+          "Resizing server group 'mgmt:us-west-2:orca-prestaging-v494' to Capacity(min=0, max=0, desired=0)",
+          "Resized server group 'mgmt:us-west-2:orca-prestaging-v494' to Capacity(min=0, max=0, desired=0)",
+          "Terminating 2 instances",
+          "Terminated 2 instances"
+        ],
+        "status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+        "isCompleted": true
+      }
+    },
+    {
+      "key": "tags",
+      "value": {
+
+      }
+    },
+    {
+      "key": "capacitySnapshot",
+      "value": {
+        "minSize": 2,
+        "maxSize": 2,
+        "desiredCapacity": 2
+      }
+    },
+    {
+      "key": "commits",
+      "value": [
+
+      ]
+    },
+    {
+      "key": "keyPair",
+      "value": "nf-keypair-1234-us-west-2"
+    },
+    {
+      "key": "kato.tasks",
+      "value": [
+        {
+          "resultObjects": [
+            {
+              "outputType": "voidOperation"
+            },
+            {
+              "outputType": "voidOperation"
+            }
+          ],
+          "history": [
+
+          ],
+          "id": "n/a",
+          "status": {
+
+          }
+        }
+      ]
+    },
+    {
+      "key": "suspendedProcesses",
+      "value": [
+
+      ]
+    },
+    {
+      "key": "amiName",
+      "value": "ami-1111"
+    },
+    {
+      "key": "notification.type",
+      "value": "resizeservergroup"
+    },
+    {
+      "key": "virtualizationType",
+      "value": "hvm"
+    },
+    {
+      "key": "jarDiffs",
+      "value": {
+        "totalLibraries": 0,
+        "duplicates": [
+
+        ],
+        "upgraded": [
+
+        ],
+        "downgraded": [
+
+        ],
+        "removed": [
+
+        ],
+        "added": [
+
+        ],
+        "unchanged": [
+
+        ],
+        "hasDiff": false,
+        "unknown": [
+
+        ]
+      }
+    },
+    {
+      "key": "credentials",
+      "value": "mgmt"
+    },
+    {
+      "key": "delayBeforeDisableSec",
+      "value": 0
+    },
+    {
+      "key": "targetHealthyDeployPercentage",
+      "value": 100
+    },
+    {
+      "key": "capacity",
+      "value": {
+        "min": 2,
+        "desired": 2,
+        "max": 2
+      }
+    },
+    {
+      "key": "targetDesiredSize",
+      "value": 2
+    },
+    {
+      "key": "cloudProvider",
+      "value": "aws"
+    },
+    {
+      "key": "kato.result.expected",
+      "value": true
+    },
+    {
+      "key": "stageTimeoutMs",
+      "value": 1800000
+    },
+    {
+      "key": "deploy.server.groups",
+      "value": {
+        "us-west-2": [
+          "orca-prestaging-v494"
+        ]
+      }
+    },
+    {
+      "key": "rollback",
+      "value": {
+        "onFailure": false
+      }
+    },
+    {
+      "key": "workflowExecution",
+      "value": {
+        "namespace": "spinnaker",
+        "workflowType": "WorkflowDispatcher",
+        "runId": "ec8aad39-6d57-411b-ab1a-047d12f27fa5",
+        "permalink": "https://temporal/namespaces/spinnaker/workflows/stage:01FP8EEYSCMAQJT1VTBAFYK4XS:01FP8ESB150ZTTZESCERCNNBDB:1638814110454/ec8aad39-6d57-411b-ab1a-047d12f27fa5/summary",
+        "workflowId": "stage:01FP8EEYSCMAQJT1VTBAFYK4XS:01FP8ESB150ZTTZESCERCNNBDB:1638814110454",
+        "uiTarget": "https://temporal"
+      }
+    },
+    {
+      "key": "delayBeforeScaleDownSec",
+      "value": 0
+    },
+    {
+      "key": "instanceType",
+      "value": "m5.2xlarge"
+    },
+    {
+      "key": "moniker",
+      "value": {
+        "app": "orca",
+        "cluster": "orca-prestaging",
+        "sequence": 494,
+        "stack": "prestaging"
+      }
+    },
+    {
+      "key": "iamRole",
+      "value": "orcaInstanceProfile"
+    },
+    {
+      "key": "application",
+      "value": "orca"
+    },
+    {
+      "key": "targetGroups",
+      "value": [
+
+      ]
+    },
+    {
+      "key": "securityGroups",
+      "value": [
+        "sg-11",
+        "sg-22",
+        "sg-33"
+      ]
+    },
+    {
+      "key": "strategy",
+      "value": "redblack"
+    },
+    {
+      "key": "instanceMonitoring",
+      "value": true
+    },
+    {
+      "key": "subnetType",
+      "value": "internal (vpc0)"
+    },
+    {
+      "key": "account",
+      "value": "mgmt"
+    },
+    {
+      "key": "cluster",
+      "value": "orca-prestaging"
+    },
+    {
+      "key": "force.cache.refresh.errors",
+      "value": [
+
+      ]
+    },
+    {
+      "key": "processed.server.groups",
+      "value": [
+
+      ]
+    },
+    {
+      "key": "retainLargerOverNewer",
+      "value": false
+    },
+    {
+      "key": "refreshed.server.groups",
+      "value": [
+
+      ]
+    },
+    {
+      "key": "zones",
+      "value": [
+
+      ]
+    },
+    {
+      "key": "shrinkToSize",
+      "value": 2
+    },
+    {
+      "key": "allowDeleteActive",
+      "value": false
+    },
+    {
+      "key": "region",
+      "value": "us-west-2"
+    },
+    {
+      "key": "remainingDeployServerGroups",
+      "value": [
+        {
+          "name": "orca-prestaging-v494",
+          "region": "us-west-2"
+        }
+      ]
+    },
+    {
+      "key": "preferLargerOverNewer",
+      "value": false
+    },
+    {
+      "key": "remainingEnabledServerGroups",
+      "value": 1
+    },
+    {
+      "key": "allowScaleDownActive",
+      "value": false
+    },
+    {
+      "key": "remainingFullSizeServerGroups",
+      "value": 1
+    }
+  ],
+  "steps": [
+    {
+      "id": "1",
+      "implementingClass": "com.netflix.spinnaker.orca.kato.pipeline.strategy.DetermineSourceServerGroupTask",
+      "name": "determineSourceServerGroup",
+      "startTime": 1638813633560,
+      "endTime": 1638813633761,
+      "status": "SUCCEEDED",
+      "stageStart": true,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "2",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.DetermineHealthProvidersTask",
+      "name": "determineHealthProviders",
+      "startTime": 1638813633845,
+      "endTime": 1638813634065,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "3",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.pipeline.providers.aws.CaptureSourceServerGroupCapacityTask",
+      "name": "snapshotSourceServerGroup",
+      "startTime": 1638813634169,
+      "endTime": 1638813634279,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "4",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.CloneServerGroupTask",
+      "name": "cloneServerGroup",
+      "startTime": 1638813634357,
+      "endTime": 1638813634530,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "5",
+      "implementingClass": "com.netflix.spinnaker.orca.temporal.stage.MonitorTemporalWorkflowTask",
+      "name": "monitorDeploy",
+      "startTime": 1638813634570,
+      "endTime": 1638813650295,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "6",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.AddServerGroupEntityTagsTask",
+      "name": "tagServerGroup",
+      "startTime": 1638813650351,
+      "endTime": 1638813650582,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "7",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.instance.WaitForUpInstancesTask",
+      "name": "waitForUpInstances",
+      "startTime": 1638813650677,
+      "endTime": 1638813960747,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "8",
+      "implementingClass": "com.netflix.spinnaker.orca.kato.tasks.JarDiffsTask",
+      "name": "jarDiffs",
+      "startTime": 1638813960807,
+      "endTime": 1638813969082,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "9",
+      "implementingClass": "com.netflix.spinnaker.orca.igor.tasks.GetCommitsTask",
+      "name": "getCommits",
+      "startTime": 1638813969113,
+      "endTime": 1638813969404,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": true,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "1",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.DetermineHealthProvidersTask",
+      "name": "determineHealthProviders",
+      "startTime": 1638813969525,
+      "endTime": 1638813969619,
+      "status": "SUCCEEDED",
+      "stageStart": true,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "2",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.cluster.ShrinkClusterTask",
+      "name": "shrinkCluster",
+      "startTime": 1638813969677,
+      "endTime": 1638813969903,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "3",
+      "implementingClass": "com.netflix.spinnaker.orca.temporal.stage.MonitorTemporalWorkflowTask",
+      "name": "monitorShrinkCluster",
+      "startTime": 1638813969962,
+      "endTime": 1638813975311,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "4",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.ServerGroupCacheForceRefreshTask",
+      "name": "forceCacheRefresh",
+      "startTime": 1638813975403,
+      "endTime": 1638813975816,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "5",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.cluster.WaitForClusterShrinkTask",
+      "name": "waitForClusterShrink",
+      "startTime": 1638813975872,
+      "endTime": 1638813976089,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "6",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.ServerGroupCacheForceRefreshTask",
+      "name": "forceCacheRefresh",
+      "startTime": 1638813976154,
+      "endTime": 1638813976487,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": true,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "1",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.DetermineHealthProvidersTask",
+      "name": "determineHealthProviders",
+      "startTime": 1638813976721,
+      "endTime": 1638813976870,
+      "status": "SUCCEEDED",
+      "stageStart": true,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "2",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.cluster.DisableClusterTask",
+      "name": "disableCluster",
+      "startTime": 1638813976953,
+      "endTime": 1638813977178,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "3",
+      "implementingClass": "com.netflix.spinnaker.orca.temporal.stage.MonitorTemporalWorkflowTask",
+      "name": "monitorDisableCluster",
+      "startTime": 1638813977259,
+      "endTime": 1638813983618,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "4",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.ServerGroupCacheForceRefreshTask",
+      "name": "forceCacheRefresh",
+      "startTime": 1638813984005,
+      "endTime": 1638814016654,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "5",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.cluster.WaitForClusterDisableTask",
+      "name": "waitForClusterDisable",
+      "startTime": 1638814016715,
+      "endTime": 1638814088014,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "6",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.ServerGroupCacheForceRefreshTask",
+      "name": "forceCacheRefresh",
+      "startTime": 1638814088099,
+      "endTime": 1638814110112,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": true,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "1",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.DetermineHealthProvidersTask",
+      "name": "determineHealthProviders",
+      "startTime": 1638814110243,
+      "endTime": 1638814110328,
+      "status": "SUCCEEDED",
+      "stageStart": true,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "2",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.cluster.ScaleDownClusterTask",
+      "name": "scaleDownCluster",
+      "startTime": 1638814110364,
+      "endTime": 1638814110528,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "3",
+      "implementingClass": "com.netflix.spinnaker.orca.temporal.stage.MonitorTemporalWorkflowTask",
+      "name": "monitorScaleDownCluster",
+      "startTime": 1638814110562,
+      "endTime": 1638814115903,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "4",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.cluster.WaitForScaleDownClusterTask",
+      "name": "waitForScaleDownCluster",
+      "startTime": 1638814115958,
+      "endTime": 1638814156597,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": true,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "1",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.pipeline.providers.aws.ApplySourceServerGroupCapacityTask",
+      "name": "restoreMinCapacity",
+      "startTime": 1638814156736,
+      "endTime": 1638814156816,
+      "status": "SUCCEEDED",
+      "stageStart": true,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "2",
+      "implementingClass": "com.netflix.spinnaker.orca.temporal.stage.MonitorTemporalWorkflowTask",
+      "name": "waitForCapacityMatch",
+      "startTime": 1638814156861,
+      "endTime": 1638814156941,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": false,
+      "loopStart": false,
+      "loopEnd": false
+    },
+    {
+      "id": "3",
+      "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.ServerGroupCacheForceRefreshTask",
+      "name": "forceCacheRefresh",
+      "startTime": 1638814156984,
+      "endTime": 1638814157519,
+      "status": "SUCCEEDED",
+      "stageStart": false,
+      "stageEnd": true,
+      "loopStart": false,
+      "loopEnd": false
+    }
+  ],
+  "buildTime": 1638813629228,
+  "startTime": 1638813633379,
+  "endTime": 1638814157788,
+  "execution": {
+    "type": "ORCHESTRATION",
+    "id": "01FP8EEYSCMAQJT1VTBAFYK4XS",
+    "application": "orca",
+    "buildTime": 1638813629228,
+    "canceled": false,
+    "limitConcurrent": false,
+    "keepWaitingPipelines": false,
+    "stages": [
+      {
+        "id": "01FP8EEYSCM3RWCBMGAF71ESMA",
+        "refId": "1",
+        "type": "cloneServerGroup",
+        "name": "cloneServerGroup",
+        "startTime": 1638813633427,
+        "endTime": 1638814157696,
+        "status": "SUCCEEDED",
+        "context": {
+          "healthCheckType": "EC2",
+          "outputs": {
+
+          },
+          "reason": "Redeploy ami-1111",
+          "deploy.account.name": "mgmt",
+          "zeroDesiredCapacityCount": 0,
+          "stack": "prestaging",
+          "metadata": {
+            "resource": "ec2:cluster:mgmt:orca-prestaging"
+          },
+          "lastCapacityCheck": {
+            "outOfService": 0,
+            "up": 1,
+            "failed": 0,
+            "starting": 0,
+            "down": 1,
+            "succeeded": 0,
+            "unknown": 0
+          },
+          "scaleDown": true,
+          "terminationPolicies": [
+            "Default"
+          ],
+          "maxRemainingAsgs": 2,
+          "enabledMetrics": [
+
+          ],
+          "availabilityZones": {
+            "us-west-2": [
+              "us-west-2a",
+              "us-west-2b",
+              "us-west-2c"
+            ]
+          },
+          "blockDevices": [
+            {
+              "volumeType": "gp3",
+              "size": 80,
+              "deleteOnTermination": true,
+              "deviceName": "/dev/sdb"
+            }
+          ],
+          "source": {
+            "asgName": "orca-prestaging-v494",
+            "region": "us-west-2",
+            "account": "mgmt"
+          },
+          "currentInstanceCount": 2,
+          "healthCheckGracePeriod": 0,
+          "cooldown": 300,
+          "requireIMDSv2": true,
+          "useAmiBlockDeviceMappings": false,
+          "copySourceCustomBlockDeviceMappings": true,
+          "ebsOptimized": true,
+          "loadBalancers": [
+
+          ],
+          "workflowResult": {
+            "childWorkflowExecutionInfos": {
+              "426aee9a704bc9db2978239d13e352167c8208063b08884e7c62b8879a77746f": {
+                "namespace": "spinnaker",
+                "workflowType": "StageContextCloudOperationRunner",
+                "runId": "1f04918c-92b6-459b-b072-2d49f2f53b0f",
+                "permalink": "https://temporal/namespaces/spinnaker/workflows/426aee9a704bc9db2978239d13e352167c8208063b08884e7c62b8879a77746f/1f04918c-92b6-459b-b072-2d49f2f53b0f/summary",
+                "workflowId": "426aee9a704bc9db2978239d13e352167c8208063b08884e7c62b8879a77746f",
+                "uiTarget": "https://temporal"
+              },
+              "aa37f076f2dfd4140763b153cbaaa2d5b394c9dc42c16187410f470d11f23f11": {
+                "namespace": "spinnaker",
+                "workflowType": "StageContextCloudOperationRunner",
+                "runId": "bd870b54-6f3b-4daf-af59-2a1230e6c1e1",
+                "permalink": "https://temporal/namespaces/spinnaker/workflows/aa37f076f2dfd4140763b153cbaaa2d5b394c9dc42c16187410f470d11f23f11/bd870b54-6f3b-4daf-af59-2a1230e6c1e1/summary",
+                "workflowId": "aa37f076f2dfd4140763b153cbaaa2d5b394c9dc42c16187410f470d11f23f11",
+                "uiTarget": "https://temporal"
+              }
+            },
+            "childWorkflowExecutionResults": {
+              "426aee9a704bc9db2978239d13e352167c8208063b08884e7c62b8879a77746f": {
+                "output": {
+                  "deployments": [
+                    {
+                      "serverGroupName": "orca-prestaging-v495",
+                      "cloudProvider": "aws",
+                      "location": "us-west-2",
+                      "account": "mgmt",
+                      "capacity": {
+                        "min": 2,
+                        "desired": 2,
+                        "max": 2
+                      }
+                    }
+                  ],
+                  "serverGroupNames": [
+                    "us-west-2:orca-prestaging-v495"
+                  ],
+                  "outputType": "createAwsServerGroupOperation",
+                  "messages": [
+
+                  ],
+                  "ancestorServerGroupNameByRegion": {
+                    "us-west-2": "orca-prestaging-v494"
+                  },
+                  "serverGroupNameByRegion": {
+                    "us-west-2": "orca-prestaging-v495"
+                  }
+                },
+                "childWorkflowExecutionInfos": {
+
+                },
+                "childWorkflowExecutionResults": {
+
+                },
+                "logs": [
+
+                ],
+                "status": "WORKFLOW_EXECUTION_STATUS_UNSPECIFIED",
+                "isCompleted": true
+              },
+              "aa37f076f2dfd4140763b153cbaaa2d5b394c9dc42c16187410f470d11f23f11": {
+                "output": {
+                  "outputType": "voidOperation"
+                },
+                "childWorkflowExecutionInfos": {
+
+                },
+                "childWorkflowExecutionResults": {
+
+                },
+                "logs": [
+
+                ],
+                "status": "WORKFLOW_EXECUTION_STATUS_UNSPECIFIED",
+                "isCompleted": true
+              }
+            },
+            "logs": [
+              "Determining ancestor server group to clone from",
+              "Resolved 'orca-prestaging-v494' as the ancestor server group",
+              "Resolving image 'ami-1111' in target account 'mgmt'",
+              "Resolved image 'ami-1111' in target account 'mgmt'",
+              "Image found in target account: skipping allow launch",
+              "Resolving image 'ami-1111' in target account 'mgmt'",
+              "Done copying tags to orca-1.3221.0-bionic-hvm-sriov-ebs from test/us-west-2",
+              "Resolved image 'ami-1111' in target account 'mgmt'",
+              "Image found in target account: skipping allow launch",
+              "Done copying tags to orca-1.3221.0-bionic-hvm-sriov-ebs from test/us-west-2",
+              "Resolving image 'ami-1111' in target account 'mgmt'",
+              "Resolved image 'ami-1111' in target account 'mgmt'",
+              "Creating server group 'mgmt/us-west-2/orca-prestaging-v495' with the following block devices: [com.netflix.spinnaker.clouddriver.aws.model.AmazonBlockDevice(/dev/sdb, null, 80, gp3, true, null, null, null, false, null)]",
+              "Deploying ASG orca-prestaging-v495 with launch template lt-1",
+              "Adding tags for orca-prestaging-v495",
+              "Deploying to subnetIds: subnet-fa5596a3,subnet-fa2a859f,subnet-6c21ec1b",
+              "Creating lifecycle hooks for: orca-prestaging-v495",
+              "Creating notification hook ({AutoScalingGroupName: orca-prestaging-v495,TopicARN: arn:aws:sns:us-west-2:1234:spinnaker-autoscaling-notifications__LaunchFailure,NotificationTypes: [autoscaling:EC2_INSTANCE_LAUNCH_ERROR]}) on us-west-2/orca-prestaging-v495",
+              "Setting size of orca-prestaging-v495 in mgmt/us-west-2 to [min=2, max=2, desired=2]",
+              "Entity tags with aws:servergroup:orca-prestaging-v495:1234:us-west-2 not found in front50",
+              "Deleting tags with aws:servergroup:orca-prestaging-v495:1234:us-west-2 from ElasticSearch"
+            ],
+            "status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+            "isCompleted": true
+          },
+          "tags": {
+
+          },
+          "capacitySnapshot": {
+            "minSize": 2,
+            "maxSize": 2,
+            "desiredCapacity": 2
+          },
+          "commits": [
+
+          ],
+          "keyPair": "nf-keypair-1234-us-west-2",
+          "kato.tasks": [
+            {
+              "resultObjects": [
+                {
+                  "outputType": "voidOperation"
+                },
+                {
+                  "deployments": [
+                    {
+                      "serverGroupName": "orca-prestaging-v495",
+                      "cloudProvider": "aws",
+                      "location": "us-west-2",
+                      "account": "mgmt",
+                      "capacity": {
+                        "min": 2,
+                        "desired": 2,
+                        "max": 2
+                      }
+                    }
+                  ],
+                  "serverGroupNames": [
+                    "us-west-2:orca-prestaging-v495"
+                  ],
+                  "outputType": "createAwsServerGroupOperation",
+                  "messages": [
+
+                  ],
+                  "ancestorServerGroupNameByRegion": {
+                    "us-west-2": "orca-prestaging-v494"
+                  },
+                  "serverGroupNameByRegion": {
+                    "us-west-2": "orca-prestaging-v495"
+                  }
+                }
+              ],
+              "history": [
+
+              ],
+              "id": "n/a",
+              "status": {
+
+              }
+            }
+          ],
+          "suspendedProcesses": [
+
+          ],
+          "amiName": "ami-1111",
+          "notification.type": "upsertentitytags",
+          "virtualizationType": "hvm",
+          "jarDiffs": {
+            "totalLibraries": 0,
+            "duplicates": [
+
+            ],
+            "upgraded": [
+
+            ],
+            "downgraded": [
+
+            ],
+            "removed": [
+
+            ],
+            "added": [
+
+            ],
+            "unchanged": [
+
+            ],
+            "hasDiff": false,
+            "unknown": [
+
+            ]
+          },
+          "credentials": "mgmt",
+          "delayBeforeDisableSec": 0,
+          "targetHealthyDeployPercentage": 100,
+          "capacity": {
+            "min": 2,
+            "desired": 2,
+            "max": 2
+          },
+          "targetDesiredSize": 2,
+          "cloudProvider": "aws",
+          "kato.result.expected": true,
+          "stageTimeoutMs": 1800000,
+          "deploy.server.groups": {
+            "us-west-2": [
+              "orca-prestaging-v495"
+            ]
+          },
+          "rollback": {
+            "onFailure": false
+          },
+          "workflowExecution": {
+            "namespace": "spinnaker",
+            "workflowType": "WorkflowDispatcher",
+            "runId": "8857bffc-d5d0-4f67-9755-039346fb052b",
+            "permalink": "https://temporal/namespaces/spinnaker/workflows/stage:01FP8EEYSCMAQJT1VTBAFYK4XS:01FP8EEYSCM3RWCBMGAF71ESMA:1638813650495/8857bffc-d5d0-4f67-9755-039346fb052b/summary",
+            "workflowId": "stage:01FP8EEYSCMAQJT1VTBAFYK4XS:01FP8EEYSCM3RWCBMGAF71ESMA:1638813650495",
+            "uiTarget": "https://temporal"
+          },
+          "delayBeforeScaleDownSec": 0,
+          "instanceType": "m5.2xlarge",
+          "moniker": {
+            "app": "orca",
+            "cluster": "orca-prestaging",
+            "sequence": 494,
+            "stack": "prestaging"
+          },
+          "iamRole": "orcaInstanceProfile",
+          "application": "orca",
+          "targetGroups": [
+
+          ],
+          "securityGroups": [
+            "sg-11",
+            "sg-22",
+            "sg-33"
+          ],
+          "strategy": "redblack",
+          "instanceMonitoring": true,
+          "subnetType": "internal (vpc0)",
+          "account": "mgmt"
+        },
+        "outputs": {
+
+        },
+        "tasks": [
+          {
+            "id": "1",
+            "implementingClass": "com.netflix.spinnaker.orca.kato.pipeline.strategy.DetermineSourceServerGroupTask",
+            "name": "determineSourceServerGroup",
+            "startTime": 1638813633560,
+            "endTime": 1638813633761,
+            "status": "SUCCEEDED",
+            "stageStart": true,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "2",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.DetermineHealthProvidersTask",
+            "name": "determineHealthProviders",
+            "startTime": 1638813633845,
+            "endTime": 1638813634065,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "3",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.pipeline.providers.aws.CaptureSourceServerGroupCapacityTask",
+            "name": "snapshotSourceServerGroup",
+            "startTime": 1638813634169,
+            "endTime": 1638813634279,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "4",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.CloneServerGroupTask",
+            "name": "cloneServerGroup",
+            "startTime": 1638813634357,
+            "endTime": 1638813634530,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "5",
+            "implementingClass": "com.netflix.spinnaker.orca.temporal.stage.MonitorTemporalWorkflowTask",
+            "name": "monitorDeploy",
+            "startTime": 1638813634570,
+            "endTime": 1638813650295,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "6",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.AddServerGroupEntityTagsTask",
+            "name": "tagServerGroup",
+            "startTime": 1638813650351,
+            "endTime": 1638813650582,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "7",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.instance.WaitForUpInstancesTask",
+            "name": "waitForUpInstances",
+            "startTime": 1638813650677,
+            "endTime": 1638813960747,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "8",
+            "implementingClass": "com.netflix.spinnaker.orca.kato.tasks.JarDiffsTask",
+            "name": "jarDiffs",
+            "startTime": 1638813960807,
+            "endTime": 1638813969082,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "9",
+            "implementingClass": "com.netflix.spinnaker.orca.igor.tasks.GetCommitsTask",
+            "name": "getCommits",
+            "startTime": 1638813969113,
+            "endTime": 1638813969404,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": true,
+            "loopStart": false,
+            "loopEnd": false
+          }
+        ],
+        "requisiteStageRefIds": [
+
+        ]
+      },
+      {
+        "id": "01FP8ESB15XE890PNFPRTXHQEJ",
+        "refId": "1>1",
+        "type": "shrinkCluster",
+        "name": "shrinkCluster",
+        "startTime": 1638813969492,
+        "endTime": 1638813976553,
+        "status": "SUCCEEDED",
+        "context": {
+          "outputs": {
+
+          },
+          "cluster": "orca-prestaging",
+          "notification.type": "destroyservergroup",
+          "deploy.account.name": "mgmt",
+          "force.cache.refresh.errors": [
+
+          ],
+          "credentials": "mgmt",
+          "workflowExecution": {
+            "namespace": "spinnaker",
+            "workflowType": "WorkflowDispatcher",
+            "runId": "18636c31-f43f-4887-b0d2-7fbd5e735a62",
+            "permalink": "https://temporal/namespaces/spinnaker/workflows/stage:01FP8EEYSCMAQJT1VTBAFYK4XS:01FP8ESB15XE890PNFPRTXHQEJ:1638813969821/18636c31-f43f-4887-b0d2-7fbd5e735a62/summary",
+            "workflowId": "stage:01FP8EEYSCMAQJT1VTBAFYK4XS:01FP8ESB15XE890PNFPRTXHQEJ:1638813969821",
+            "uiTarget": "https://temporal"
+          },
+          "processed.server.groups": [
+
+          ],
+          "retainLargerOverNewer": false,
+          "refreshed.server.groups": [
+
+          ],
+          "moniker": {
+            "app": "orca",
+            "cluster": "orca-prestaging",
+            "sequence": 494,
+            "stack": "prestaging"
+          },
+          "workflowResult": {
+            "childWorkflowExecutionInfos": {
+              "44c238b8bc429f7fdebb778a44b15d18bfebc75b212c6719cb2280340dc45d5d": {
+                "namespace": "spinnaker",
+                "workflowType": "StageContextCloudOperationRunner",
+                "runId": "0dced4c1-d5de-4fbf-b35b-7b2376910199",
+                "permalink": "https://temporal/namespaces/spinnaker/workflows/44c238b8bc429f7fdebb778a44b15d18bfebc75b212c6719cb2280340dc45d5d/0dced4c1-d5de-4fbf-b35b-7b2376910199/summary",
+                "workflowId": "44c238b8bc429f7fdebb778a44b15d18bfebc75b212c6719cb2280340dc45d5d",
+                "uiTarget": "https://temporal"
+              }
+            },
+            "childWorkflowExecutionResults": {
+              "44c238b8bc429f7fdebb778a44b15d18bfebc75b212c6719cb2280340dc45d5d": {
+                "output": {
+                  "outputType": "voidOperation"
+                },
+                "childWorkflowExecutionInfos": {
+
+                },
+                "childWorkflowExecutionResults": {
+
+                },
+                "logs": [
+
+                ],
+                "status": "WORKFLOW_EXECUTION_STATUS_UNSPECIFIED",
+                "isCompleted": true
+              }
+            },
+            "logs": [
+              "Deleting server group 'mgmt:us-west-2:orca-prestaging-v493'",
+              "Deleted server group 'mgmt:us-west-2:orca-prestaging-v493'",
+              "Deleting launch template 'lt-04f23f03082334bcf'",
+              "Deleted launch template 'lt-04f23f03082334bcf'",
+              "Deleting tags with aws:servergroup:orca-prestaging-v493:1234:us-west-2 from ElasticSearch and front50"
+            ],
+            "status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+            "isCompleted": true
+          },
+          "zones": [
+
+          ],
+          "cloudProvider": "aws",
+          "shrinkToSize": 2,
+          "allowDeleteActive": false,
+          "deploy.server.groups": {
+            "us-west-2": [
+              "orca-prestaging-v493"
+            ]
+          },
+          "kato.tasks": [
+            {
+              "resultObjects": [
+                {
+                  "outputType": "voidOperation"
+                }
+              ],
+              "history": [
+
+              ],
+              "id": "n/a",
+              "status": {
+
+              }
+            }
+          ],
+          "region": "us-west-2"
+        },
+        "outputs": {
+
+        },
+        "tasks": [
+          {
+            "id": "1",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.DetermineHealthProvidersTask",
+            "name": "determineHealthProviders",
+            "startTime": 1638813969525,
+            "endTime": 1638813969619,
+            "status": "SUCCEEDED",
+            "stageStart": true,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "2",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.cluster.ShrinkClusterTask",
+            "name": "shrinkCluster",
+            "startTime": 1638813969677,
+            "endTime": 1638813969903,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "3",
+            "implementingClass": "com.netflix.spinnaker.orca.temporal.stage.MonitorTemporalWorkflowTask",
+            "name": "monitorShrinkCluster",
+            "startTime": 1638813969962,
+            "endTime": 1638813975311,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "4",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.ServerGroupCacheForceRefreshTask",
+            "name": "forceCacheRefresh",
+            "startTime": 1638813975403,
+            "endTime": 1638813975816,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "5",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.cluster.WaitForClusterShrinkTask",
+            "name": "waitForClusterShrink",
+            "startTime": 1638813975872,
+            "endTime": 1638813976089,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "6",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.ServerGroupCacheForceRefreshTask",
+            "name": "forceCacheRefresh",
+            "startTime": 1638813976154,
+            "endTime": 1638813976487,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": true,
+            "loopStart": false,
+            "loopEnd": false
+          }
+        ],
+        "syntheticStageOwner": "STAGE_AFTER",
+        "parentStageId": "01FP8EEYSCM3RWCBMGAF71ESMA",
+        "requisiteStageRefIds": [
+
+        ]
+      },
+      {
+        "id": "01FP8ESB15EDV3V4ET33TQ9424",
+        "refId": "1>2",
+        "type": "disableCluster",
+        "name": "disableCluster",
+        "startTime": 1638813976619,
+        "endTime": 1638814110155,
+        "status": "SUCCEEDED",
+        "context": {
+          "outputs": {
+
+          },
+          "cluster": "orca-prestaging",
+          "notification.type": "disableservergroup",
+          "deploy.account.name": "mgmt",
+          "force.cache.refresh.errors": [
+
+          ],
+          "credentials": "mgmt",
+          "workflowExecution": {
+            "namespace": "spinnaker",
+            "workflowType": "WorkflowDispatcher",
+            "runId": "674945ca-7179-436c-ac6f-023c153329ab",
+            "permalink": "https://temporal/namespaces/spinnaker/workflows/stage:01FP8EEYSCMAQJT1VTBAFYK4XS:01FP8ESB15EDV3V4ET33TQ9424:1638813977060/674945ca-7179-436c-ac6f-023c153329ab/summary",
+            "workflowId": "stage:01FP8EEYSCMAQJT1VTBAFYK4XS:01FP8ESB15EDV3V4ET33TQ9424:1638813977060",
+            "uiTarget": "https://temporal"
+          },
+          "processed.server.groups": [
+
+          ],
+          "remainingDeployServerGroups": [
+            {
+              "name": "orca-prestaging-v494",
+              "region": "us-west-2"
+            }
+          ],
+          "refreshed.server.groups": [
+
+          ],
+          "moniker": {
+            "app": "orca",
+            "cluster": "orca-prestaging",
+            "sequence": 494,
+            "stack": "prestaging"
+          },
+          "workflowResult": {
+            "childWorkflowExecutionInfos": {
+              "7c72ee1173952bae25f3830a15b2c4d83046a361ff5e7c286349e2a20cc42972": {
+                "namespace": "spinnaker",
+                "workflowType": "StageContextCloudOperationRunner",
+                "runId": "90993715-2c9a-4853-9771-9b3e02c76b16",
+                "permalink": "https://temporal/namespaces/spinnaker/workflows/7c72ee1173952bae25f3830a15b2c4d83046a361ff5e7c286349e2a20cc42972/90993715-2c9a-4853-9771-9b3e02c76b16/summary",
+                "workflowId": "7c72ee1173952bae25f3830a15b2c4d83046a361ff5e7c286349e2a20cc42972",
+                "uiTarget": "https://temporal"
+              }
+            },
+            "childWorkflowExecutionResults": {
+              "7c72ee1173952bae25f3830a15b2c4d83046a361ff5e7c286349e2a20cc42972": {
+                "output": {
+                  "outputType": "disableAwsServerGroupOperation",
+                  "skippedInstances": [
+
+                  ]
+                },
+                "childWorkflowExecutionInfos": {
+
+                },
+                "childWorkflowExecutionResults": {
+
+                },
+                "logs": [
+
+                ],
+                "status": "WORKFLOW_EXECUTION_STATUS_UNSPECIFIED",
+                "isCompleted": true
+              }
+            },
+            "logs": [
+              "Initializing Disable ASG operation for orca-prestaging-v494...",
+              "Disabling ASG 'orca-prestaging-v494' in us-west-2",
+              "Deregistering instances from Load Balancers...",
+              "Deregistering instances from Target Groups...",
+              "Marking ASG orca-prestaging-v494 as OUT_OF_SERVICE with Discovery",
+              "Finished Disabling ASG orca-prestaging-v494"
+            ],
+            "status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+            "isCompleted": true
+          },
+          "preferLargerOverNewer": false,
+          "zones": [
+
+          ],
+          "remainingEnabledServerGroups": 1,
+          "cloudProvider": "aws",
+          "deploy.server.groups": {
+            "us-west-2": [
+              "orca-prestaging-v494"
+            ]
+          },
+          "kato.tasks": [
+            {
+              "resultObjects": [
+                {
+                  "outputType": "disableAwsServerGroupOperation",
+                  "skippedInstances": [
+
+                  ]
+                }
+              ],
+              "history": [
+
+              ],
+              "id": "n/a",
+              "status": {
+
+              }
+            }
+          ],
+          "region": "us-west-2"
+        },
+        "outputs": {
+
+        },
+        "tasks": [
+          {
+            "id": "1",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.DetermineHealthProvidersTask",
+            "name": "determineHealthProviders",
+            "startTime": 1638813976721,
+            "endTime": 1638813976870,
+            "status": "SUCCEEDED",
+            "stageStart": true,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "2",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.cluster.DisableClusterTask",
+            "name": "disableCluster",
+            "startTime": 1638813976953,
+            "endTime": 1638813977178,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "3",
+            "implementingClass": "com.netflix.spinnaker.orca.temporal.stage.MonitorTemporalWorkflowTask",
+            "name": "monitorDisableCluster",
+            "startTime": 1638813977259,
+            "endTime": 1638813983618,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "4",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.ServerGroupCacheForceRefreshTask",
+            "name": "forceCacheRefresh",
+            "startTime": 1638813984005,
+            "endTime": 1638814016654,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "5",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.cluster.WaitForClusterDisableTask",
+            "name": "waitForClusterDisable",
+            "startTime": 1638814016715,
+            "endTime": 1638814088014,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "6",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.ServerGroupCacheForceRefreshTask",
+            "name": "forceCacheRefresh",
+            "startTime": 1638814088099,
+            "endTime": 1638814110112,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": true,
+            "loopStart": false,
+            "loopEnd": false
+          }
+        ],
+        "syntheticStageOwner": "STAGE_AFTER",
+        "parentStageId": "01FP8EEYSCM3RWCBMGAF71ESMA",
+        "requisiteStageRefIds": [
+          "1>1"
+        ]
+      },
+      {
+        "id": "01FP8ESB150ZTTZESCERCNNBDB",
+        "refId": "1>3",
+        "type": "scaleDownCluster",
+        "name": "scaleDown",
+        "startTime": 1638814110200,
+        "endTime": 1638814156642,
+        "status": "SUCCEEDED",
+        "context": {
+          "outputs": {
+
+          },
+          "cluster": "orca-prestaging",
+          "notification.type": "resizeservergroup",
+          "deploy.account.name": "mgmt",
+          "allowScaleDownActive": false,
+          "credentials": "mgmt",
+          "workflowExecution": {
+            "namespace": "spinnaker",
+            "workflowType": "WorkflowDispatcher",
+            "runId": "ec8aad39-6d57-411b-ab1a-047d12f27fa5",
+            "permalink": "https://temporal/namespaces/spinnaker/workflows/stage:01FP8EEYSCMAQJT1VTBAFYK4XS:01FP8ESB150ZTTZESCERCNNBDB:1638814110454/ec8aad39-6d57-411b-ab1a-047d12f27fa5/summary",
+            "workflowId": "stage:01FP8EEYSCMAQJT1VTBAFYK4XS:01FP8ESB150ZTTZESCERCNNBDB:1638814110454",
+            "uiTarget": "https://temporal"
+          },
+          "remainingDeployServerGroups": [
+            {
+              "name": "orca-prestaging-v494",
+              "region": "us-west-2"
+            }
+          ],
+          "moniker": {
+            "app": "orca",
+            "cluster": "orca-prestaging",
+            "sequence": 494,
+            "stack": "prestaging"
+          },
+          "workflowResult": {
+            "childWorkflowExecutionInfos": {
+              "2826c7143c31e6adcc6f8362e8d8adcca06de51728ab49726e33537d4033db06": {
+                "namespace": "spinnaker",
+                "workflowType": "StageContextCloudOperationRunner",
+                "runId": "268c8f9d-4cf7-44c7-bde3-0cf1164a6104",
+                "permalink": "https://temporal/namespaces/spinnaker/workflows/2826c7143c31e6adcc6f8362e8d8adcca06de51728ab49726e33537d4033db06/268c8f9d-4cf7-44c7-bde3-0cf1164a6104/summary",
+                "workflowId": "2826c7143c31e6adcc6f8362e8d8adcca06de51728ab49726e33537d4033db06",
+                "uiTarget": "https://temporal"
+              },
+              "fc6335de9e0808fcb7928a5a51a2be0063b6cbd4f509e332618a5d6899203275": {
+                "namespace": "spinnaker",
+                "workflowType": "StageContextCloudOperationRunner",
+                "runId": "c67fd089-e557-4eeb-9ee1-764acfb48f09",
+                "permalink": "https://temporal/namespaces/spinnaker/workflows/fc6335de9e0808fcb7928a5a51a2be0063b6cbd4f509e332618a5d6899203275/c67fd089-e557-4eeb-9ee1-764acfb48f09/summary",
+                "workflowId": "fc6335de9e0808fcb7928a5a51a2be0063b6cbd4f509e332618a5d6899203275",
+                "uiTarget": "https://temporal"
+              }
+            },
+            "childWorkflowExecutionResults": {
+              "2826c7143c31e6adcc6f8362e8d8adcca06de51728ab49726e33537d4033db06": {
+                "output": {
+                  "outputType": "voidOperation"
+                },
+                "childWorkflowExecutionInfos": {
+
+                },
+                "childWorkflowExecutionResults": {
+
+                },
+                "logs": [
+
+                ],
+                "status": "WORKFLOW_EXECUTION_STATUS_UNSPECIFIED",
+                "isCompleted": true
+              },
+              "fc6335de9e0808fcb7928a5a51a2be0063b6cbd4f509e332618a5d6899203275": {
+                "output": {
+                  "outputType": "voidOperation"
+                },
+                "childWorkflowExecutionInfos": {
+
+                },
+                "childWorkflowExecutionResults": {
+
+                },
+                "logs": [
+
+                ],
+                "status": "WORKFLOW_EXECUTION_STATUS_UNSPECIFIED",
+                "isCompleted": true
+              }
+            },
+            "logs": [
+              "Resizing server group 'mgmt:us-west-2:orca-prestaging-v494' to Capacity(min=0, max=0, desired=0)",
+              "Resized server group 'mgmt:us-west-2:orca-prestaging-v494' to Capacity(min=0, max=0, desired=0)",
+              "Terminating 2 instances",
+              "Terminated 2 instances"
+            ],
+            "status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+            "isCompleted": true
+          },
+          "preferLargerOverNewer": false,
+          "remainingFullSizeServerGroups": 1,
+          "cloudProvider": "aws",
+          "deploy.server.groups": {
+            "us-west-2": [
+              "orca-prestaging-v494"
+            ]
+          },
+          "kato.tasks": [
+            {
+              "resultObjects": [
+                {
+                  "outputType": "voidOperation"
+                },
+                {
+                  "outputType": "voidOperation"
+                }
+              ],
+              "history": [
+
+              ],
+              "id": "n/a",
+              "status": {
+
+              }
+            }
+          ],
+          "region": "us-west-2"
+        },
+        "outputs": {
+
+        },
+        "tasks": [
+          {
+            "id": "1",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.DetermineHealthProvidersTask",
+            "name": "determineHealthProviders",
+            "startTime": 1638814110243,
+            "endTime": 1638814110328,
+            "status": "SUCCEEDED",
+            "stageStart": true,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "2",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.cluster.ScaleDownClusterTask",
+            "name": "scaleDownCluster",
+            "startTime": 1638814110364,
+            "endTime": 1638814110528,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "3",
+            "implementingClass": "com.netflix.spinnaker.orca.temporal.stage.MonitorTemporalWorkflowTask",
+            "name": "monitorScaleDownCluster",
+            "startTime": 1638814110562,
+            "endTime": 1638814115903,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "4",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.cluster.WaitForScaleDownClusterTask",
+            "name": "waitForScaleDownCluster",
+            "startTime": 1638814115958,
+            "endTime": 1638814156597,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": true,
+            "loopStart": false,
+            "loopEnd": false
+          }
+        ],
+        "syntheticStageOwner": "STAGE_AFTER",
+        "parentStageId": "01FP8EEYSCM3RWCBMGAF71ESMA",
+        "requisiteStageRefIds": [
+          "1>2"
+        ]
+      },
+      {
+        "id": "01FP8ESB15TDC291ASXW2MEXM5",
+        "refId": "1>4",
+        "type": "applySourceServerGroupCapacity",
+        "name": "restoreMinCapacityFromSnapshot",
+        "startTime": 1638814156688,
+        "endTime": 1638814157618,
+        "status": "SUCCEEDED",
+        "context": {
+          "force.cache.refresh.errors": [
+
+          ],
+          "credentials": "mgmt",
+          "processed.server.groups": [
+
+          ],
+          "cloudProvider": "aws",
+          "deploy.server.groups": {
+
+          },
+          "refreshed.server.groups": [
+
+          ],
+          "zones": [
+
+          ]
+        },
+        "outputs": {
+
+        },
+        "tasks": [
+          {
+            "id": "1",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.pipeline.providers.aws.ApplySourceServerGroupCapacityTask",
+            "name": "restoreMinCapacity",
+            "startTime": 1638814156736,
+            "endTime": 1638814156816,
+            "status": "SUCCEEDED",
+            "stageStart": true,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "2",
+            "implementingClass": "com.netflix.spinnaker.orca.temporal.stage.MonitorTemporalWorkflowTask",
+            "name": "waitForCapacityMatch",
+            "startTime": 1638814156861,
+            "endTime": 1638814156941,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": false,
+            "loopStart": false,
+            "loopEnd": false
+          },
+          {
+            "id": "3",
+            "implementingClass": "com.netflix.spinnaker.orca.clouddriver.tasks.servergroup.ServerGroupCacheForceRefreshTask",
+            "name": "forceCacheRefresh",
+            "startTime": 1638814156984,
+            "endTime": 1638814157519,
+            "status": "SUCCEEDED",
+            "stageStart": false,
+            "stageEnd": true,
+            "loopStart": false,
+            "loopEnd": false
+          }
+        ],
+        "syntheticStageOwner": "STAGE_AFTER",
+        "parentStageId": "01FP8EEYSCM3RWCBMGAF71ESMA",
+        "requisiteStageRefIds": [
+          "1>3"
+        ]
+      }
+    ],
+    "startTime": 1638813633379,
+    "endTime": 1638814157788,
+    "status": "SUCCEEDED",
+    "authentication": {
+      "user": "spinnaker-team@netflix.com",
+      "allowedAccounts": [
+
+      ]
+    },
+    "origin": "keel",
+    "trigger": {
+      "type": "keel",
+      "correlationId": "ec2:cluster:mgmt:orca-prestaging:us-west-2",
+      "user": "keel",
+      "parameters": {
+
+      },
+      "artifacts": [
+
+      ],
+      "notifications": [
+
+      ],
+      "rebake": false,
+      "dryRun": false,
+      "strategy": false,
+      "resolvedExpectedArtifacts": [
+
+      ],
+      "expectedArtifacts": [
+
+      ]
+    },
+    "description": "Redeploy orca-1.3221.0-h2811.65a2049 [to server group orca-prestaging in mgmt/us-west-2]",
+    "notifications": [
+
+    ],
+    "initialConfig": {
+
+    },
+    "systemNotifications": [
+
+    ],
+    "partition": "us-west-2"
+  }
+}
