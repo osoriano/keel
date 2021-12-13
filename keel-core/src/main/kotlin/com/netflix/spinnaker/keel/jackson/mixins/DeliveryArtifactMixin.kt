@@ -29,4 +29,10 @@ internal interface DeliveryArtifactMixin {
 
   @get:JsonInclude(NON_EMPTY)
   val statuses: Set<ArtifactStatus>
+
+  @get:JsonProperty(access = WRITE_ONLY)
+  val isPreview: Boolean
+
+  @get:JsonInclude(NON_EMPTY)
+  val metadata: Map<String, Any?>
 }

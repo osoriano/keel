@@ -62,7 +62,8 @@ fun mapToArtifact(
   type: ArtifactType,
   json: String,
   reference: String,
-  deliveryConfigName: String
+  deliveryConfigName: String,
+  isPreview: Boolean
 ): DeliveryArtifact {
   try {
     val artifactAsMap = objectMapper.readValue<Map<String, Any>>(json)
@@ -72,6 +73,7 @@ fun mapToArtifact(
         it["type"] = type
         it["reference"] = reference
         it["deliveryConfigName"] = deliveryConfigName
+        it["isPreview"] = isPreview
       }
     return objectMapper.convertValue(artifactAsMap, artifactSupplier.supportedArtifact.artifactClass)
   } catch (e: JsonMappingException) {

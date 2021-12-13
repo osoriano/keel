@@ -1158,8 +1158,8 @@ class TitusClusterHandler(
       constraints = constraints,
       dependencies = dependencies,
       entryPoint = entryPoint,
-      env = env,
-      containerAttributes = containerAttributes,
+      env = env.filterNot { EXPORT_IGNORED_ENV.contains(it.key) },
+      containerAttributes = containerAttributes.filterNot { EXPORT_IGNORED_CONTAINER_ATTRIBUTES.contains(it.key) },
       migrationPolicy = migrationPolicy,
       resources = resources.toSpec(),
       tags = tags
@@ -1181,5 +1181,7 @@ class TitusClusterHandler(
 
   companion object {
     private val IGNORED_SCALING_DIMENSIONS = listOf("AutoScalingGroupName")
+    private val EXPORT_IGNORED_ENV = listOf("EC2_REGION", "NETFLIX_REGION", "SPINNAKER_ACCOUNT", "NETFLIX_HOME_REGION")
+    private val EXPORT_IGNORED_CONTAINER_ATTRIBUTES = listOf("titusParameter.agent.accountId", "titusParameter.agent.subnets")
   }
 }

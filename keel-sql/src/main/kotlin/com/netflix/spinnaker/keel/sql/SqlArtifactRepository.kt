@@ -138,13 +138,13 @@ class SqlArtifactRepository(
   override fun get(name: String, type: ArtifactType, deliveryConfigName: String): List<DeliveryArtifact> {
     return sqlRetry.withRetry(READ) {
       jooq
-        .select(DELIVERY_ARTIFACT.DETAILS, DELIVERY_ARTIFACT.REFERENCE)
+        .select(DELIVERY_ARTIFACT.DETAILS, DELIVERY_ARTIFACT.REFERENCE, DELIVERY_ARTIFACT.IS_PREVIEW)
         .from(DELIVERY_ARTIFACT)
         .where(DELIVERY_ARTIFACT.NAME.eq(name))
         .and(DELIVERY_ARTIFACT.TYPE.eq(type))
         .and(DELIVERY_ARTIFACT.DELIVERY_CONFIG_NAME.eq(deliveryConfigName))
-        .fetch { (details, reference) ->
-          mapToArtifact(artifactSuppliers.supporting(type), name, type, details, reference, deliveryConfigName)
+        .fetch { (details, reference, isPreview) ->
+          mapToArtifact(artifactSuppliers.supporting(type), name, type, details, reference, deliveryConfigName, isPreview)
         }
     } ?: throw NoSuchArtifactException(name, type)
   }
@@ -152,7 +152,7 @@ class SqlArtifactRepository(
   override fun get(name: String, type: ArtifactType, reference: String, deliveryConfigName: String): DeliveryArtifact {
     return sqlRetry.withRetry(READ) {
       jooq
-        .select(DELIVERY_ARTIFACT.DETAILS, DELIVERY_ARTIFACT.REFERENCE)
+        .select(DELIVERY_ARTIFACT.DETAILS, DELIVERY_ARTIFACT.REFERENCE, DELIVERY_ARTIFACT.IS_PREVIEW)
         .from(DELIVERY_ARTIFACT)
         .where(DELIVERY_ARTIFACT.NAME.eq(name))
         .and(DELIVERY_ARTIFACT.TYPE.eq(type))
@@ -160,15 +160,15 @@ class SqlArtifactRepository(
         .and(DELIVERY_ARTIFACT.REFERENCE.eq(reference))
         .fetchOne()
     }
-      ?.let { (details, reference) ->
-        mapToArtifact(artifactSuppliers.supporting(type), name, type, details, reference, deliveryConfigName)
+      ?.let { (details, reference, isPreview) ->
+        mapToArtifact(artifactSuppliers.supporting(type), name, type, details, reference, deliveryConfigName, isPreview)
       } ?: throw ArtifactNotFoundException(reference, deliveryConfigName)
   }
 
   override fun get(deliveryConfigName: String, reference: String): DeliveryArtifact {
     return sqlRetry.withRetry(READ) {
       jooq
-        .select(DELIVERY_ARTIFACT.NAME, DELIVERY_ARTIFACT.DETAILS, DELIVERY_ARTIFACT.REFERENCE, DELIVERY_ARTIFACT.TYPE)
+        .select(DELIVERY_ARTIFACT.NAME, DELIVERY_ARTIFACT.DETAILS, DELIVERY_ARTIFACT.REFERENCE, DELIVERY_ARTIFACT.TYPE, DELIVERY_ARTIFACT.IS_PREVIEW)
         .from(DELIVERY_ARTIFACT)
         .where(
           DELIVERY_ARTIFACT.DELIVERY_CONFIG_NAME.eq(deliveryConfigName),
@@ -176,8 +176,8 @@ class SqlArtifactRepository(
         )
         .fetchOne()
     }
-      ?.let { (name, details, reference, type) ->
-        mapToArtifact(artifactSuppliers.supporting(type), name, type, details, reference, deliveryConfigName)
+      ?.let { (name, details, reference, type, isPreview) ->
+        mapToArtifact(artifactSuppliers.supporting(type), name, type, details, reference, deliveryConfigName, isPreview)
       } ?: throw ArtifactNotFoundException(reference, deliveryConfigName)
   }
 
@@ -210,19 +210,21 @@ class SqlArtifactRepository(
           DELIVERY_ARTIFACT.TYPE,
           DELIVERY_ARTIFACT.DETAILS,
           DELIVERY_ARTIFACT.REFERENCE,
-          DELIVERY_ARTIFACT.DELIVERY_CONFIG_NAME
+          DELIVERY_ARTIFACT.DELIVERY_CONFIG_NAME,
+          DELIVERY_ARTIFACT.IS_PREVIEW
         )
         .from(DELIVERY_ARTIFACT)
         .apply { if (type != null) where(DELIVERY_ARTIFACT.TYPE.eq(type.toString())) }
         .apply { if (name != null) where(DELIVERY_ARTIFACT.NAME.eq(name)) }
-        .fetch { (name, storedType, details, reference, configName) ->
+        .fetch { (name, storedType, details, reference, configName, isPreview) ->
           mapToArtifact(
             artifactSuppliers.supporting(storedType),
             name,
             storedType.lowercase(),
             details,
             reference,
-            configName
+            configName,
+            isPreview
           )
         }
     }
@@ -1626,7 +1628,8 @@ class SqlArtifactRepository(
         DELIVERY_ARTIFACT.NAME,
         DELIVERY_ARTIFACT.TYPE,
         DELIVERY_ARTIFACT.DETAILS,
-        DELIVERY_ARTIFACT.REFERENCE
+        DELIVERY_ARTIFACT.REFERENCE,
+        DELIVERY_ARTIFACT.IS_PREVIEW
       )
         .from(ENVIRONMENT)
         .innerJoin(ENVIRONMENT_ARTIFACT_PIN)
@@ -1636,7 +1639,7 @@ class SqlArtifactRepository(
         .innerJoin(DELIVERY_CONFIG)
         .on(DELIVERY_CONFIG.UID.eq(ENVIRONMENT.DELIVERY_CONFIG_UID))
         .where(DELIVERY_CONFIG.NAME.eq(deliveryConfig.name))
-        .fetch { (environmentName, version, pinnedAt, pinnedBy, comment, pinType, artifactName, type, details, reference) ->
+        .fetch { (environmentName, version, pinnedAt, pinnedBy, comment, pinType, artifactName, type, details, reference, isPreview) ->
           PinnedEnvironment(
             deliveryConfigName = deliveryConfig.name,
             targetEnvironment = environmentName,
@@ -1646,7 +1649,8 @@ class SqlArtifactRepository(
               type.lowercase(),
               details,
               reference,
-              deliveryConfig.name
+              deliveryConfig.name,
+              isPreview
             ),
             version = version,
             pinnedAt = pinnedAt,
@@ -1945,6 +1949,7 @@ class SqlArtifactRepository(
           DELIVERY_ARTIFACT.DETAILS,
           DELIVERY_ARTIFACT.REFERENCE,
           DELIVERY_ARTIFACT.DELIVERY_CONFIG_NAME,
+          DELIVERY_ARTIFACT.IS_PREVIEW,
           ARTIFACT_LAST_CHECKED.AT
         )
           .from(DELIVERY_ARTIFACT, ARTIFACT_LAST_CHECKED)
@@ -1954,7 +1959,7 @@ class SqlArtifactRepository(
           .limit(limit)
           .forUpdate()
           .fetch()
-          .onEach { (uid, _, _, _, _, deliveryConfigName, lastCheckedAt) ->
+          .onEach { (uid, _, _, _, _, deliveryConfigName, _, lastCheckedAt) ->
             insertInto(ARTIFACT_LAST_CHECKED)
               .set(ARTIFACT_LAST_CHECKED.ARTIFACT_UID, uid)
               .set(ARTIFACT_LAST_CHECKED.AT, now)
@@ -1969,8 +1974,8 @@ class SqlArtifactRepository(
               )
             )
           }
-          .map { (_, name, type, details, reference, deliveryConfigName) ->
-            mapToArtifact(artifactSuppliers.supporting(type), name, type, details, reference, deliveryConfigName)
+          .map { (_, name, type, details, reference, deliveryConfigName, isPreview) ->
+            mapToArtifact(artifactSuppliers.supporting(type), name, type, details, reference, deliveryConfigName, isPreview)
           }
       }
     }

@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.core.api
 
 import com.fasterxml.jackson.annotation.JsonIgnore
+import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.netflix.spinnaker.keel.api.Constraint
 import com.netflix.spinnaker.keel.api.DeliveryConfig
@@ -24,7 +25,9 @@ data class SubmittedDeliveryConfig(
   val serviceAccount: String?,
   val artifacts: Set<DeliveryArtifact> = emptySet(),
   val environments: Set<SubmittedEnvironment> = emptySet(),
+  @get:JsonInclude(JsonInclude.Include.NON_EMPTY)
   val previewEnvironments: Set<PreviewEnvironmentSpec> = emptySet(),
+  @get:JsonInclude(JsonInclude.Include.NON_EMPTY)
   val metadata: Map<String, Any?>? = emptyMap(),
   val rawConfig: String? = null
 ) {
@@ -53,9 +56,13 @@ data class SubmittedDeliveryConfig(
 data class SubmittedEnvironment(
   val name: String,
   val resources: Set<SubmittedResource<*>>,
+  @get:JsonInclude(JsonInclude.Include.NON_EMPTY)
   val constraints: Set<Constraint> = emptySet(),
+  @get:JsonInclude(JsonInclude.Include.NON_EMPTY)
   val verifyWith: List<Verification> = emptyList(),
+  @get:JsonInclude(JsonInclude.Include.NON_EMPTY)
   val notifications: Set<NotificationConfig> = emptySet(),
+  @get:JsonInclude(JsonInclude.Include.NON_EMPTY)
   val postDeploy: List<PostDeployAction> = emptyList(),
   @Description("Optional locations that are propagated to any [resources] where they are not specified.")
   val locations: SubnetAwareLocations? = null

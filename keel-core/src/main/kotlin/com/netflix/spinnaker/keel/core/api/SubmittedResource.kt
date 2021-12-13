@@ -15,6 +15,7 @@
  */
 package com.netflix.spinnaker.keel.core.api
 
+import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.annotation.JsonTypeInfo.As
 import com.fasterxml.jackson.annotation.JsonTypeInfo.Id
@@ -30,6 +31,7 @@ import com.netflix.spinnaker.keel.api.schema.Discriminator
  */
 @Description("A resource as submitted to the Managed Delivery API.")
 data class SubmittedResource<T : ResourceSpec>(
+  @get:JsonInclude(JsonInclude.Include.NON_EMPTY)
   @Description("Optional metadata about the resource.")
   val metadata: Map<String, Any?> = emptyMap(),
 
