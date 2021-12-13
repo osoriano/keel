@@ -1587,7 +1587,7 @@ class SqlDeliveryConfigRepository(
               inAllowList = inAllowList ?: false,
               assistanceNeeded = assistanceNeeded ?: false,
               isScmPowered = scmEnabled ?: false,
-              deliveryConfig = objectMapper.readValue(deliveryConfig),
+              deliveryConfig = deliveryConfig?.let { objectMapper.readValue(deliveryConfig) },
               prLink = prLink
             )
           }
