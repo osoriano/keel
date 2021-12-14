@@ -25,6 +25,7 @@ import com.netflix.spinnaker.keel.core.api.PromotionStatus
 import com.netflix.spinnaker.keel.core.api.PublishedArtifactInEnvironment
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.Front50Service
+import com.netflix.spinnaker.keel.graphql.types.MD_UserPermissions
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventRepository
 import com.netflix.spinnaker.keel.pause.ActuationPauser
@@ -55,6 +56,8 @@ import org.springframework.http.HttpHeaders
 import strikt.api.expectCatching
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo
+import strikt.assertions.isNotNull
+import strikt.assertions.isNull
 import strikt.assertions.isSuccess
 
 @SpringBootTest(
@@ -198,6 +201,14 @@ class BasicQueryTests {
     every {
       applicationService.markAsVetoedIn(any(), any(), any(), any())
     } just Runs
+
+    every {
+      authorizationSupport.hasApplicationPermission("WRITE", "APPLICATION", any())
+    } returns true
+
+    every {
+      authorizationSupport.hasServiceAccountAccess(any())
+    } returns true
   }
 
   fun getQuery(path: String) = javaClass.getResource(path).readText().trimIndent()
@@ -218,6 +229,36 @@ class BasicQueryTests {
         mapOf("appName" to "fnord")
       )
     }.isSuccess().isEqualTo("test")
+  }
+
+  private fun fetchWritePermissions() = expectCatching {
+    dgsQueryExecutor.executeAndExtractJsonPathAsObject(
+      getQuery("/dgs/writePermissions.graphql"),
+      "data.md_application.userPermissions",
+      mapOf("appName" to "fnord"),
+      MD_UserPermissions::class.java,
+      getHeaders()
+    )
+  }
+
+  @Test
+  fun `user has write permissions`() {
+    fetchWritePermissions().isSuccess().and {
+      get { writeAccess }.isEqualTo(true)
+      get { error }.isNull()
+    }
+  }
+
+  @Test
+  fun `user does not have write access to service account`() {
+    every {
+      authorizationSupport.hasServiceAccountAccess(any())
+    } returns false
+
+    fetchWritePermissions().isSuccess().and {
+      get { writeAccess }.isEqualTo(false)
+      get { error }.isNotNull()
+    }
   }
 
   @Test

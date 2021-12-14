@@ -20,6 +20,13 @@ type MD_Application {
   config: MD_Config
   versionOnUnpinning(reference: String!, environment: String!): MD_ArtifactVersionInEnvironment
   versionOnRollback(reference: String!, environment: String!): MD_ArtifactVersionInEnvironment
+  userPermissions: MD_UserPermissions
+}
+
+type MD_UserPermissions {
+  id: ID!
+  writeAccess: Boolean
+  error: String
 }
 
 type MD_Error {

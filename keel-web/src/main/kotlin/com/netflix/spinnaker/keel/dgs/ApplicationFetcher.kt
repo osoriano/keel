@@ -3,6 +3,7 @@ package com.netflix.spinnaker.keel.dgs
 import com.netflix.graphql.dgs.DgsComponent
 import com.netflix.graphql.dgs.DgsData
 import com.netflix.graphql.dgs.DgsDataFetchingEnvironment
+import com.netflix.graphql.dgs.DgsQuery
 import com.netflix.graphql.dgs.InputArgument
 import com.netflix.graphql.dgs.context.DgsContext
 import com.netflix.spinnaker.keel.api.Environment
@@ -31,6 +32,7 @@ import com.netflix.spinnaker.keel.graphql.types.MD_PackageDiff
 import com.netflix.spinnaker.keel.graphql.types.MD_PausedInfo
 import com.netflix.spinnaker.keel.graphql.types.MD_PinnedVersion
 import com.netflix.spinnaker.keel.graphql.types.MD_PullRequest
+import com.netflix.spinnaker.keel.graphql.types.MD_UserPermissions
 import com.netflix.spinnaker.keel.graphql.types.MD_VersionVeto
 import com.netflix.spinnaker.keel.pause.ActuationPauser
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
@@ -41,6 +43,7 @@ import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
 import org.dataloader.DataLoader
 import org.springframework.security.access.prepost.PreAuthorize
+import org.springframework.web.bind.annotation.RequestHeader
 import java.util.concurrent.CompletableFuture
 
 /**
@@ -60,9 +63,9 @@ class ApplicationFetcher(
   private val scmUtils: ScmUtils,
 ) {
 
-  @DgsData(parentType = DgsConstants.QUERY.TYPE_NAME, field = DgsConstants.QUERY.Md_application)
+  @DgsQuery
   @PreAuthorize("""@authorizationSupport.hasApplicationPermission('READ', 'APPLICATION', #appName)""")
-  fun application(dfe: DataFetchingEnvironment, @InputArgument("appName") appName: String): MD_ApplicationResult {
+  fun md_application(dfe: DataFetchingEnvironment, @InputArgument("appName") appName: String): MD_ApplicationResult {
     val config = try {
       keelRepository.getDeliveryConfigForApplication(appName)
     } catch (ex: NoDeliveryConfigForApplication) {
@@ -78,7 +81,23 @@ class ApplicationFetcher(
     )
   }
 
-  @DgsData(parentType = DgsConstants.MD_APPLICATION.TYPE_NAME, field = DgsConstants.MD_APPLICATION.Environments)
+  @DgsData(parentType = DgsConstants.MD_APPLICATION.TYPE_NAME)
+  fun userPermissions(
+    dfe: DgsDataFetchingEnvironment,
+    @RequestHeader("X-SPINNAKER-USER") user: String
+  ): MD_UserPermissions {
+    val application: MD_Application = dfe.getSource()
+    val appPermission = authorizationSupport.hasApplicationPermission("WRITE", "APPLICATION", application.name)
+    val serviceAccountPermissions = authorizationSupport.hasServiceAccountAccess(application.account)
+    val id = "userPermissions-${application.name}"
+    return when {
+      !appPermission -> MD_UserPermissions(id = id, writeAccess = false, error = "User does not have write permission to ${application.name}")
+      !serviceAccountPermissions -> MD_UserPermissions(id = id, writeAccess = false, error = "User is not part of service account ${application.account}")
+      else -> MD_UserPermissions(id = id, writeAccess = true)
+    }
+  }
+
+  @DgsData(parentType = DgsConstants.MD_APPLICATION.TYPE_NAME)
   fun environments(dfe: DgsDataFetchingEnvironment): List<DataFetcherResult<MD_Environment>> {
     val config = applicationFetcherSupport.getDeliveryConfigFromContext(dfe)
     return config.environments.sortedWith { env1, env2 ->

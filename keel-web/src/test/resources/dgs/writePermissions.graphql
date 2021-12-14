@@ -1,0 +1,13 @@
+query fetchApplication($appName: String!) {
+  md_application(appName: $appName) {
+    ... on MD_Application {
+      name
+      account
+      userPermissions {
+        id
+        writeAccess
+        error
+      }
+    }
+  }
+}
