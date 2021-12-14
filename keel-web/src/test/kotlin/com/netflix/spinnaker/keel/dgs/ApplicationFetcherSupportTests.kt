@@ -63,22 +63,22 @@ class ApplicationFetcherSupportTests {
     )
 
     every {
-      cloudDriverService.namedImages(DEFAULT_SERVICE_ACCOUNT, "fnord-1.0.0", null)
+      cloudDriverService.namedImages(DEFAULT_SERVICE_ACCOUNT, "fnord-1.0.0", account = null, region = null)
     } returns listOf(
       NamedImage("fnord-1.0.0-x86_64-bionic-classic-hvm-sriov-ebs")
     )
 
     every {
-      cloudDriverService.namedImages(DEFAULT_SERVICE_ACCOUNT, "fnord-1.0.1", null)
+      cloudDriverService.namedImages(DEFAULT_SERVICE_ACCOUNT, "fnord-1.0.1", account = null, region = null)
     } returns listOf(
       NamedImage("fnord-1.0.1-x86_64-bionic-classic-hvm-sriov-ebs")
     )
 
     every {
       bakeryMetadataService.getPackageDiff(
-        region ="us-east-1",
-        oldImage = "fnord-1.0.0-x86~64-bionic-classic-hvm-sriov-ebs",
-        newImage = "fnord-1.0.1-x86~64-bionic-classic-hvm-sriov-ebs"
+        region = "us-east-1",
+        oldImage = "fnord-1.0.0-x86_64-bionic-classic-hvm-sriov-ebs",
+        newImage = "fnord-1.0.1-x86_64-bionic-classic-hvm-sriov-ebs"
       )
     } returns packageDiff
   }

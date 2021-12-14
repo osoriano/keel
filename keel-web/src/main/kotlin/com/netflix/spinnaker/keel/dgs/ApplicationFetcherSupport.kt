@@ -7,16 +7,19 @@ import com.netflix.spinnaker.keel.api.Locatable
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.bakery.BakeryMetadataService
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
+import com.netflix.spinnaker.keel.clouddriver.model.NamedImage
 import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.core.api.PromotionStatus
 import com.netflix.spinnaker.keel.core.api.PublishedArtifactInEnvironment
 import com.netflix.spinnaker.keel.graphql.types.MD_ArtifactVersionInEnvironment
 import com.netflix.spinnaker.keel.graphql.types.MD_PackageDiff
+import com.netflix.spinnaker.keel.retrofit.isNotFound
 import com.netflix.spinnaker.kork.exceptions.SystemException
 import graphql.schema.DataFetchingEnvironment
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import retrofit2.HttpException
 
 /**
  * Support methods for [ApplicationFetcher].
@@ -54,26 +57,6 @@ class ApplicationFetcherSupport(
     val diffContext = getDiffContext(dfe)
 
     with(diffContext) {
-      val fetchedImage = runBlocking {
-        cloudDriverService.namedImages(
-          user = DEFAULT_SERVICE_ACCOUNT,
-          imageName = fetchedVersion.publishedArtifact.normalizedVersion,
-          account = null
-        ).firstOrNull()
-      } ?: throw ImageNotFound(fetchedVersion.publishedArtifact.version)
-
-      val previousImage = if (previousDeployedVersion != null) {
-        runBlocking {
-          cloudDriverService.namedImages(
-            user = DEFAULT_SERVICE_ACCOUNT,
-            imageName = previousDeployedVersion.publishedArtifact.normalizedVersion,
-            account = null
-          ).firstOrNull()
-        } ?: throw ImageNotFound(previousDeployedVersion.publishedArtifact.version)
-      } else {
-        null
-      }
-
       val region = deliveryConfig.resourcesUsing(deliveryArtifact.reference, fetchedVersion.environmentName!!)
         .mapNotNull {
           if (it.spec is Locatable<*>) {
@@ -87,10 +70,13 @@ class ApplicationFetcherSupport(
         ?: return null
           .also { log.warn("Unable to determine region for $deliveryArtifact in environment ${fetchedVersion.environmentName}") }
 
+      val fetchedImage = getNamedImage(fetchedVersion)
+      val previousImage = previousDeployedVersion?.let { getNamedImage(it) }
+
       val diff = runBlocking {
         bakeryMetadataService.getPackageDiff(
-          oldImage = previousImage?.normalizedImageName,
-          newImage = fetchedImage.normalizedImageName,
+          oldImage = previousImage?.imageName,
+          newImage = fetchedImage.imageName,
           region = region.name
         )
       }
@@ -98,6 +84,26 @@ class ApplicationFetcherSupport(
       return diff.toDgs()
     }
   }
+
+  /**
+   * @return the [NamedImage] from CloudDriver matching the [PublishedArtifactInEnvironment].
+   */
+  private fun getNamedImage(artifact: PublishedArtifactInEnvironment): NamedImage =
+    runBlocking {
+      val imageName = artifact.publishedArtifact.normalizedVersion
+      try {
+        cloudDriverService.namedImages(
+          user = DEFAULT_SERVICE_ACCOUNT,
+          imageName = imageName,
+          account = null
+        ).firstOrNull() ?: throw ImageNotFound(imageName)
+      } catch (e: HttpException) {
+        when (e.isNotFound) {
+          true -> throw ImageNotFound(imageName)
+          else -> throw e
+        }
+      }
+    }
 
   /**
    * @return an [ArtifactDiffContext] object containing the [DeliveryConfig] and [DeliveryArtifact] associated

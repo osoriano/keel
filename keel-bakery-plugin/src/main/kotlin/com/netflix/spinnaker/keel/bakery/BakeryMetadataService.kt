@@ -13,6 +13,8 @@ interface BakeryMetadataService {
 
   /**
    * @return A diff of the installed packages between [oldImage] and [newImage].
+   * Images must be specified in a format like the following example:
+   *  mypackage-0.0.1-h182.905b523-x86_64-20211112233315-bionic-hvm-sriov-ebs
    */
   suspend fun getPackageDiff(region: String, oldImage: String?, newImage: String): PackageDiff
 }
