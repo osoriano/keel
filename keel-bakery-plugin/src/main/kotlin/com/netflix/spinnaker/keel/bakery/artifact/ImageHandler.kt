@@ -44,26 +44,16 @@ class ImageHandler(
 
   override suspend fun handle(artifact: DeliveryArtifact) {
     if (artifact is DebianArtifact && !artifact.isPaused()) {
-      val desiredAppVersion = try {
-        artifact.findLatestArtifactVersion()
+      val appVersions = try {
+        artifact.findRelevantArtifactVersions()
       } catch (e: NoKnownArtifactVersions) {
         log.debug(e.message)
         return
       }
 
-      if (taskLauncher.correlatedTasksRunning(artifact.correlationId(desiredAppVersion))) {
-        publisher.publishEvent(
-          ArtifactCheckSkipped(artifact.type, artifact.name, "ActuationInProgress")
-        )
-      } else {
-        val desiredBaseAmiName = artifact.findLatestBaseAmiName()
+      val desiredBaseAmiName = artifact.findLatestBaseAmiName()
 
-        val byArtifactVersion =
-          artifact.wasPreviouslyBakedWith(desiredAppVersion, desiredBaseAmiName)
-        if (byArtifactVersion) {
-          return
-        }
-
+<<<<<<< 6d85bb7e6884ca89ff98194a542e311218f00811
         val images = artifact.findLatestAmi(desiredAppVersion)
         val imagesWithOlderBaseImages = images.filterValues { it.baseImageName != desiredBaseAmiName }
         val missingRegions = artifact.vmOptions.regions - images.keys
@@ -92,6 +82,53 @@ class ImageHandler(
           }
           else -> {
             log.debug("Image for {} already exists with app version {} and base image {} in regions {}", artifact.name, desiredAppVersion, desiredBaseAmiName, artifact.vmOptions.regions.joinToString())
+=======
+      appVersions.forEach { appVersion ->
+        if (taskLauncher.correlatedTasksRunning(artifact.correlationId(appVersion))) {
+          publisher.publishEvent(
+            ArtifactCheckSkipped(artifact.type, artifact.name, "ActuationInProgress")
+          )
+        } else {
+          if (!artifact.wasPreviouslyBakedWith(appVersion, desiredBaseAmiName)) {
+            val images = artifact.findLatestAmi(appVersion)
+            val imagesWithOlderBaseImages = images.filterValues { it.baseImageName != desiredBaseAmiName }
+            val missingRegions = artifact.vmOptions.regions - images.keys
+            when {
+              images.isEmpty() -> {
+                log.info("No AMI found for {}", appVersion)
+                launchBake(artifact, appVersion)
+              }
+              imagesWithOlderBaseImages.isNotEmpty() -> {
+                log.info("AMIs for {} are outdated, rebaking…", appVersion)
+                launchBake(
+                  artifact,
+                  appVersion,
+                  description = "Bake $appVersion due to a new base image: $desiredBaseAmiName"
+                )
+              }
+              missingRegions.isNotEmpty() -> {
+                log.warn("Detected missing regions for ${appVersion}: ${missingRegions.joinToString()}")
+                publisher.publishEvent(
+                  ImageRegionMismatchDetected(appVersion, desiredBaseAmiName, images.keys, artifact.vmOptions.regions)
+                )
+                launchBake(
+                  artifact,
+                  appVersion,
+                  regions = missingRegions,
+                  description = "Bake $appVersion due to missing regions: ${missingRegions.joinToString()}"
+                )
+              }
+              else -> {
+                log.debug(
+                  "Image for {} already exists with app version {} and base image {} in regions {}",
+                  artifact.name,
+                  appVersion,
+                  desiredBaseAmiName,
+                  artifact.vmOptions.regions.joinToString()
+                )
+              }
+            }
+>>>>>>> 52f634c96403b1408fcc549281c52577a0149697
           }
         }
       }
@@ -133,14 +170,14 @@ class ImageHandler(
   /**
    * First checks our repo, and if a version isn't found checks igor.
    */
-  private suspend fun DebianArtifact.findLatestArtifactVersion(): String {
+  private suspend fun DebianArtifact.findRelevantArtifactVersions(): Iterable<String> {
     try {
-      val knownVersion = repository
-        .artifactVersions(this, 1)
-        .firstOrNull()
-      if (knownVersion != null) {
-        log.debug("Latest known version of $name = ${knownVersion.version}")
-        return knownVersion.version
+      val knownVersions = latestVersions() + repository.versionsInUse(this)
+      if (knownVersions.isNotEmpty()) {
+        return knownVersions
+          .also { them ->
+            log.debug("Known or in-use versions of $name = ${them.joinToString()}")
+          }
       }
     } catch (e: NoSuchArtifactException) {
       log.debug("Latest known version of $name = null")
@@ -160,9 +197,16 @@ class ImageHandler(
       ?.let {
         val version = "$name-$it"
         log.debug("Finding latest version of $name, choosing = $version")
-        version
+        listOf(version)
       } ?: throw NoKnownArtifactVersions(this)
   }
+
+  private fun DebianArtifact.latestVersions() =
+    repository
+      .artifactVersions(this, 1)
+      .firstOrNull()
+      ?.version
+      ?.let(::setOf) ?: emptySet()
 
   private suspend fun launchBake(
     artifact: DebianArtifact,
@@ -223,18 +267,20 @@ class ImageHandler(
         artifacts = listOf(artifactPayload),
       )
       publisher.publishEvent(BakeLaunched(desiredVersion))
-      publisher.publishEvent(LifecycleEvent(
-        scope = PRE_DEPLOYMENT,
-        deliveryConfigName = checkNotNull(artifact.deliveryConfigName),
-        artifactReference = artifact.reference,
-        artifactVersion = desiredVersion,
-        type = BAKE,
-        id = "bake-$desiredVersion",
-        status = NOT_STARTED,
-        text = "Launching bake for $version",
-        link = taskRef.id,
-        startMonitoring = true
-      ))
+      publisher.publishEvent(
+        LifecycleEvent(
+          scope = PRE_DEPLOYMENT,
+          deliveryConfigName = checkNotNull(artifact.deliveryConfigName),
+          artifactReference = artifact.reference,
+          artifactVersion = desiredVersion,
+          type = BAKE,
+          id = "bake-$desiredVersion",
+          status = NOT_STARTED,
+          text = "Launching bake for $version",
+          link = taskRef.id,
+          startMonitoring = true
+        )
+      )
       return listOf(Task(id = taskRef.id, name = description))
     } catch (e: Exception) {
       log.error("Error launching bake for: $description")
@@ -263,6 +309,12 @@ data class BakeCredentials(
   val application: String
 )
 
-data class ImageRegionMismatchDetected(val appVersion: String, val baseAmiName: String, val foundRegions: Set<String>, val desiredRegions: Set<String>)
+data class ImageRegionMismatchDetected(
+  val appVersion: String,
+  val baseAmiName: String,
+  val foundRegions: Set<String>,
+  val desiredRegions: Set<String>
+)
+
 data class RecurrentBakeDetected(val appVersion: String, val baseAmiVersion: String)
 data class BakeLaunched(val appVersion: String)

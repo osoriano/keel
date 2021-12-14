@@ -47,6 +47,7 @@ import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_ARTIFACT_PIN
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_ARTIFACT_VERSIONS
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_ARTIFACT_VETO
+import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_VERSION_ARTIFACT_VERSION
 import com.netflix.spinnaker.keel.services.StatusInfoForArtifactInEnvironment
 import com.netflix.spinnaker.keel.sql.RetryCategory.READ
 import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
@@ -2026,6 +2027,18 @@ class SqlArtifactRepository(
     return latestApprovedArtifact(envUid, artifactId, excludedStatuses, artifact)
   }
 
+  override fun versionsInUse(artifact: DeliveryArtifact): Set<String> =
+    jooq
+      .select(ENVIRONMENT_VERSION_ARTIFACT_VERSION.ARTIFACT_VERSION)
+      .from(ENVIRONMENT_VERSION_ARTIFACT_VERSION)
+      .where(ENVIRONMENT_VERSION_ARTIFACT_VERSION.ARTIFACT_UID.eq(artifact.uid))
+      .andExists(
+        selectOne()
+          .from(ACTIVE_ENVIRONMENT)
+          .where(ENVIRONMENT_VERSION_ARTIFACT_VERSION.ENVIRONMENT_UID.eq(ACTIVE_ENVIRONMENT.UID))
+          .and(ENVIRONMENT_VERSION_ARTIFACT_VERSION.ENVIRONMENT_VERSION.eq(ACTIVE_ENVIRONMENT.VERSION))
+      )
+      .fetchSet(ENVIRONMENT_VERSION_ARTIFACT_VERSION.ARTIFACT_VERSION)
 
   private fun priorVersionDeployedIn(
     environmentId: String,

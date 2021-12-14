@@ -443,6 +443,11 @@ interface ArtifactRepository : PeriodicallyCheckedRepository<DeliveryArtifact> {
     environmentName: String,
     excludeCurrent: Boolean? = false
   ): PublishedArtifact?
+
+  /**
+   * @return the versions of [artifact] that are currently in use in any environment.
+   */
+  fun versionsInUse(artifact: DeliveryArtifact): Set<String>
 }
 
 class NoSuchArtifactException(name: String, type: ArtifactType) :

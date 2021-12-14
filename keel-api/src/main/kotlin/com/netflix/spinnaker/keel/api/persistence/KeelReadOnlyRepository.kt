@@ -105,6 +105,10 @@ interface KeelReadOnlyRepository {
     environmentName: String
   ): PublishedArtifact?
 
+  fun versionsInUse(
+    artifact: DeliveryArtifact
+  ): Set<String>
+
   /**
    * Returns the release status for the specified [version] of the [artifact], if available.
    */

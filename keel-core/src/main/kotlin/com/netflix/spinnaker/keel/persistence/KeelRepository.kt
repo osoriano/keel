@@ -737,4 +737,7 @@ class KeelRepository(
    */
   fun storePrLinkForMigratedApplication(application: String, prLink: String) =
     deliveryConfigRepository.storePrLinkForMigratedApplication(application, prLink)
+
+  override fun versionsInUse(artifact: DeliveryArtifact): Set<String> =
+    artifactRepository.versionsInUse(artifact)
 }

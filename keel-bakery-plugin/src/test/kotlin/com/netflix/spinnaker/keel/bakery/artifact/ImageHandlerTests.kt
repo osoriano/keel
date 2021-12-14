@@ -29,21 +29,22 @@ import dev.minutest.rootContext
 import io.mockk.Called
 import io.mockk.CapturingSlot
 import io.mockk.mockk
-import io.mockk.slot
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.mock.env.MockEnvironment
 import strikt.api.Assertion
 import strikt.api.expect
 import strikt.api.expectCatching
 import strikt.api.expectThat
+import strikt.assertions.containsExactlyInAnyOrder
 import strikt.assertions.first
 import strikt.assertions.get
 import strikt.assertions.hasSize
+import strikt.assertions.isEmpty
 import strikt.assertions.isEqualTo
+import strikt.assertions.isNotEmpty
 import strikt.assertions.isSuccess
+import strikt.assertions.map
 import strikt.assertions.withFirst
-import strikt.mockk.captured
-import strikt.mockk.isCaptured
 import java.time.Instant.now
 import java.util.UUID.randomUUID
 import io.mockk.coEvery as every
@@ -124,26 +125,37 @@ internal class ImageHandlerTests : JUnit5Minutests {
     val artifactVersion =
       artifact.toArtifactVersion(appVersion.removePrefix("${artifact.name}-"))
 
+    val olderAppVersions = listOf(
+      "${artifact.name}-0.160.0-h62.e4e4d7f",
+      "${artifact.name}-0.159.0-h61.201b6f4",
+      "${artifact.name}-0.158.0-h60.2146b37"
+    )
+
+    val olderArtifactVersions =
+      olderAppVersions.map {
+        artifact.toArtifactVersion(it.removePrefix("${artifact.name}-"))
+      }
+
     lateinit var handlerResult: Assertion.Builder<Result<Unit>>
-    val bakeTask = slot<List<Map<String, Any?>>>()
-    val bakeTaskUser = slot<String>()
-    val bakeTaskApplication = slot<String>()
-    val bakeTaskArtifact = slot<List<Map<String, Any?>>>()
-    val bakeTaskParameters = slot<Map<String, Any>>()
+    val bakeTasks = mutableListOf<List<Map<String, Any?>>>()
+    val bakeTaskUsers = mutableListOf<String>()
+    val bakeTaskApplications = mutableListOf<String>()
+    val bakeTaskArtifacts = mutableListOf<List<Map<String, Any?>>>()
+    val bakeTaskParameters = mutableListOf<Map<String, Any>>()
 
     fun runHandler(artifact: DeliveryArtifact) {
       if (artifact is DebianArtifact) {
         every {
           taskLauncher.submitJob(
-            capture(bakeTaskUser),
-            capture(bakeTaskApplication),
+            capture(bakeTaskUsers),
+            capture(bakeTaskApplications),
             any(),
             any(),
             any(),
             any(),
-            artifact.correlationId(artifactVersion.version),
-            capture(bakeTask),
-            capture(bakeTaskArtifact),
+            any(),
+            capture(bakeTasks),
+            capture(bakeTaskArtifacts),
             capture(bakeTaskParameters)
           )
         } answers {
@@ -189,104 +201,91 @@ internal class ImageHandlerTests : JUnit5Minutests {
       }
     }
 
-    context("a bake is already running for the artifact") {
-      before {
-        every { repository.artifactVersions(artifact, any()) } returns listOf(artifactVersion)
-        every {
-          taskLauncher.correlatedTasksRunning(artifact.correlationId(artifactVersion.version))
-        } returns true
-
-        runHandler(artifact)
-      }
-
-      test("an event is published") {
-        verify {
-          publisher.publishEvent(
-            ArtifactCheckSkipped(artifact.type, artifact.name, "ActuationInProgress")
-          )
-        }
-      }
-
-      test("nothing else happens") {
-        verify { imageService wasNot Called }
-        verify { igorService wasNot Called }
-        verify { baseImageCache wasNot Called }
-      }
-    }
-
-    context("no bake is currently running") {
+    context("the base image is up-to-date") {
       before {
         every {
-          taskLauncher.correlatedTasksRunning(artifact.correlationId(artifactVersion.version))
-        } returns false
+          baseImageCache.getBaseAmiName(artifact.vmOptions.baseOs, artifact.vmOptions.baseLabel)
+        } returns baseAmiName
       }
 
-      context("the artifact is not registered") {
+      context("a bake is already running for the artifact") {
         before {
-          every { repository.artifactVersions(artifact, any()) } throws NoSuchArtifactException(
-            artifact
-          )
-          every { repository.isRegistered(artifact.name, artifact.type) } returns false
-          every { igorService.getVersions(any(), any(), DEBIAN) } returns listOf(appVersion)
+          every { repository.artifactVersions(artifact, any()) } returns listOf(artifactVersion)
+          every { repository.versionsInUse(artifact) } returns emptySet()
+          every { taskLauncher.correlatedTasksRunning(artifact.correlationId(artifactVersion.version)) } returns true
 
           runHandler(artifact)
         }
 
-        test("it gets registered automatically") {
-          verify { repository.register(artifact) }
+        test("an event is published") {
+          verify {
+            publisher.publishEvent(ArtifactCheckSkipped(artifact.type, artifact.name, "ActuationInProgress"))
+          }
         }
 
-        test("an event gets published") {
-          verify { publisher.publishEvent(ofType<ArtifactRegisteredEvent>()) }
+        test("nothing else happens") {
+          verify { imageService wasNot Called }
+          verify { igorService wasNot Called }
         }
       }
 
-      context("the artifact is registered") {
+      context("no bake is currently running") {
         before {
-          every { repository.getDeliveryConfig(deliveryConfig.name) } returns deliveryConfig
+          every {
+            taskLauncher.correlatedTasksRunning(any())
+          } returns false
         }
 
-        context("there are no known versions for the artifact in the repository or in Igor") {
+        context("the artifact is not registered") {
           before {
-            every { repository.artifactVersions(artifact, any()) } returns emptyList()
-            every { repository.isRegistered(artifact.name, artifact.type) } returns true
-            every { igorService.getVersions(any(), any(), DEBIAN) } returns emptyList()
+            every { repository.artifactVersions(artifact, any()) } throws NoSuchArtifactException(artifact)
+            every { repository.isRegistered(artifact.name, artifact.type) } returns false
+            every { igorService.getVersions(any(), any(), DEBIAN) } returns listOf(appVersion)
 
             runHandler(artifact)
           }
 
-          test("we do actually go check in Igor") {
-            verify {
-              igorService.getVersions(
-                artifact.name,
-                artifact.statuses.map(ArtifactStatus::toString),
-                DEBIAN
-              )
-            }
+          test("it gets registered automatically") {
+            verify { repository.register(artifact) }
           }
 
-          test("the handler completes successfully") {
-            handlerResult.isSuccess()
-          }
-
-          test("no bake is launched") {
-            expectThat(bakeTask).isNotCaptured()
+          test("an event gets published") {
+            verify { publisher.publishEvent(ofType<ArtifactRegisteredEvent>()) }
           }
         }
 
-        context("the base image is up-to-date") {
+        context("the artifact is registered") {
           before {
-            every {
-              baseImageCache.getBaseAmiName(
-                artifact.vmOptions.baseOs,
-                artifact.vmOptions.baseLabel,
-              )
-            } returns baseAmiName
+            every { repository.getDeliveryConfig(deliveryConfig.name) } returns deliveryConfig
+          }
+
+          context("there are no known versions for the artifact in the repository or in Igor") {
+            before {
+              every { repository.artifactVersions(artifact, any()) } returns emptyList()
+              every { repository.versionsInUse(artifact) } returns emptySet()
+              every { repository.isRegistered(artifact.name, artifact.type) } returns true
+              every { igorService.getVersions(any(), any(), DEBIAN) } returns emptyList()
+
+              runHandler(artifact)
+            }
+
+            test("we do actually go check in Igor") {
+              verify { igorService.getVersions(artifact.name, artifact.statuses.map(ArtifactStatus::toString), DEBIAN) }
+            }
+
+            test("the handler completes successfully") {
+              handlerResult.isSuccess()
+            }
+
+            test("no bake is launched") {
+              expectThat(bakeTasks).isEmpty()
+            }
           }
 
           context("the desired version is known") {
             before {
               every { repository.artifactVersions(artifact, any()) } returns listOf(artifactVersion)
+              every { repository.versionsInUse(artifact) } returns emptySet()
             }
 
             context("we know we've baked this before") {
@@ -313,15 +312,13 @@ internal class ImageHandlerTests : JUnit5Minutests {
               }
 
               test("no bake is launched") {
-                expectThat(bakeTask).isNotCaptured()
+                expectThat(bakeTasks).isEmpty()
               }
             }
 
             context("we don't think we have baked this before") {
               before {
-                every {
-                  bakedImageRepository.getByArtifactVersion(appVersion, artifact)
-                } returns null
+                every { bakedImageRepository.getByArtifactVersion(appVersion, artifact) } returns null
               }
 
               context("an AMI for the desired version and base image already exists") {
@@ -339,7 +336,7 @@ internal class ImageHandlerTests : JUnit5Minutests {
                 }
 
                 test("no bake is launched") {
-                  expectThat(bakeTask).isNotCaptured()
+                  expectThat(bakeTasks).isEmpty()
                 }
               }
 
@@ -366,9 +363,10 @@ internal class ImageHandlerTests : JUnit5Minutests {
                 }
 
                 test("a bake is launched") {
-                  expectThat(bakeTask)
-                    .isCaptured()
-                    .captured
+                  expectThat(bakeTasks)
+                    .isNotEmpty()
+                    .hasSize(1)
+                    .first()
                     .hasSize(1)
                     .first()
                     .and {
@@ -387,15 +385,15 @@ internal class ImageHandlerTests : JUnit5Minutests {
 
                 test("authentication details are derived from the artifact's delivery config") {
                   expect {
-                    that(bakeTaskUser).isCaptured().captured.isEqualTo(deliveryConfig.serviceAccount)
-                    that(bakeTaskApplication).isCaptured().captured.isEqualTo(deliveryConfig.application)
+                    that(bakeTaskUsers).isNotEmpty().first().isEqualTo(deliveryConfig.serviceAccount)
+                    that(bakeTaskApplications).isNotEmpty().first().isEqualTo(deliveryConfig.application)
                   }
                 }
 
                 test("the artifact details are attached and we default to the '_all' arch") {
-                  expectThat(bakeTaskArtifact)
-                    .isCaptured()
-                    .captured
+                  expectThat(bakeTaskArtifacts)
+                    .isNotEmpty()
+                    .first()
                     .hasSize(1)
                     .withFirst {
                       get("name") isEqualTo artifact.name
@@ -428,9 +426,9 @@ internal class ImageHandlerTests : JUnit5Minutests {
                 }
 
                 test("the artifact details are attached with the correct arch") {
-                  expectThat(bakeTask)
-                    .isCaptured()
-                    .captured
+                  expectThat(bakeTasks)
+                    .isNotEmpty()
+                    .first()
                     .hasSize(1)
                     .first()
                     .and {
@@ -471,9 +469,9 @@ internal class ImageHandlerTests : JUnit5Minutests {
                 }
 
                 test("a bake is launched for the missing regions") {
-                  expectThat(bakeTask)
-                    .isCaptured()
-                    .captured
+                  expectThat(bakeTasks)
+                    .isNotEmpty()
+                    .first()
                     .hasSize(1)
                     .withFirst {
                       get("regions") isEqualTo setOf("us-east-1")
@@ -497,10 +495,6 @@ internal class ImageHandlerTests : JUnit5Minutests {
                     )
                   } returns newerBaseAmiVersion
 
-                  every { repository.artifactVersions(artifact, any()) } returns listOf(
-                    artifactVersion
-                  )
-
                   every {
                     imageService.getLatestNamedImage(any(), any(), any(), any())
                   } returns image
@@ -517,9 +511,9 @@ internal class ImageHandlerTests : JUnit5Minutests {
                 }
 
                 test("a bake is launched") {
-                  expectThat(bakeTask)
-                    .isCaptured()
-                    .captured
+                  expectThat(bakeTasks)
+                    .isNotEmpty()
+                    .first()
                     .hasSize(1)
                     .withFirst {
                       get("type") isEqualTo "bake"
@@ -562,6 +556,70 @@ internal class ImageHandlerTests : JUnit5Minutests {
                 test("a bake is not launched") {
                   expectThat(bakeTask).isNotCaptured()
                 }
+              }
+            }
+          }
+
+          context("there are other versions of the artifact besides the latest in use") {
+            before {
+              // there's a new base image
+              val newerBaseAmiVersion = "nflx-base-5.380.0-h1234.8808866"
+              every {
+                baseImageCache.getBaseAmiName(
+                  artifact.vmOptions.baseOs,
+                  artifact.vmOptions.baseLabel,
+                )
+              } returns newerBaseAmiVersion
+
+              every {
+                repository.artifactVersions(
+                  artifact,
+                  any()
+                )
+              } returns listOf(artifactVersion) + olderArtifactVersions
+
+              (listOf(appVersion) + olderAppVersions).forEach { version ->
+                // there is an image, but it has the older base AMI
+                every {
+                  imageService.getLatestNamedImage(AppVersion.parseName(version), any(), any(), any())
+                } returns image.copy(
+                  imageName = "$version-$baseAmiName",
+                  tagsByImageId = artifact.vmOptions.regions.associate {
+                    "ami-${it.hashCode()}" to mapOf(
+                      "appversion" to version,
+                      "base_ami_name" to baseAmiName,
+                      "base_ami_id" to "ami-${randomUUID()}"
+                    )
+                  },
+                  amis = artifact.vmOptions.regions.associateWith { listOf("ami-${it.hashCode()}") }
+                )
+
+                every { repository.getArtifactVersion(artifact, version, null) } returns PublishedArtifact(
+                  name = artifact.name,
+                  reference = artifact.reference,
+                  version = version,
+                  type = DEBIAN,
+                  metadata = emptyMap()
+                )
+              }
+
+              // one of the older versions is still in use
+              every { repository.versionsInUse(artifact) } returns setOf(olderAppVersions.first())
+
+              // we've never baked any of these before
+              every { bakedImageRepository.getByArtifactVersion(any(), artifact) } returns null
+
+              runHandler(artifact)
+            }
+
+            test("a bake is launched for each artifact version") {
+              expectThat(bakeTasks) {
+                hasSize(2)
+                map { it.first()["package"] }
+                  .containsExactlyInAnyOrder(
+                    "${appVersion.replaceFirst('-', '_')}_all.deb",
+                    "${olderAppVersions.first().replaceFirst('-', '_')}_all.deb"
+                  )
               }
             }
           }
