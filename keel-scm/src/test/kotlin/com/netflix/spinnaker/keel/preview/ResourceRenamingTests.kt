@@ -17,6 +17,7 @@ import strikt.assertions.all
 import strikt.assertions.endsWith
 import strikt.assertions.isEqualTo
 import strikt.assertions.isLessThanOrEqualTo
+import strikt.assertions.startsWith
 
 internal class ResourceRenamingTests {
   private val securityGroup = securityGroup().run {
@@ -51,6 +52,7 @@ internal class ResourceRenamingTests {
       .run {
         get { name }.endsWith("-suffix")
         get { id }.endsWith("-suffix")
+        get { id }.startsWith("${securityGroup.kind.group}:${securityGroup.kind.kind}:")
         get { metadata["id"] as String }.endsWith("-suffix")
         get { spec.inboundRules.filterIsInstance<ReferenceRule>() }
           .all { get { name }.endsWith("-suffix") }
@@ -63,6 +65,7 @@ internal class ResourceRenamingTests {
       .run {
         get { name }.endsWith("-suffix")
         get { id }.endsWith("-suffix")
+        get { id }.startsWith("${applicationLoadBalancer.kind.group}:${applicationLoadBalancer.kind.kind}:")
         get { metadata["id"] as String }.endsWith("-suffix")
         get { spec.targetGroups }
           .all { get { name }.endsWith("-suffix") }
@@ -95,6 +98,7 @@ internal class ResourceRenamingTests {
       .run {
         get { name }.endsWith("-suffix")
         get { id }.endsWith("-suffix")
+        get { id }.startsWith("${classicLoadBalancer.kind.group}:${classicLoadBalancer.kind.kind}:")
         get { metadata["id"] as String }.endsWith("-suffix")
       }
   }
@@ -105,6 +109,7 @@ internal class ResourceRenamingTests {
       .run {
         get { name }.endsWith("-suffix")
         get { id }.endsWith("-suffix")
+        get { id }.startsWith("${titusCluster.kind.group}:${titusCluster.kind.kind}:")
         get { metadata["id"] as String }.endsWith("-suffix")
       }
   }
@@ -115,6 +120,7 @@ internal class ResourceRenamingTests {
       .run {
         get { name }.endsWith("-suffix")
         get { id }.endsWith("-suffix")
+        get { id }.startsWith("${ec2Cluster.kind.group}:${ec2Cluster.kind.kind}:")
         get { metadata["id"] as String }.endsWith("-suffix")
       }
   }

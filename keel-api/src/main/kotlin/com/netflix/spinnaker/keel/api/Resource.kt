@@ -57,8 +57,8 @@ data class Resource<out T : ResourceSpec>(
     return copy(
       spec = updatedSpec as T,
       metadata = metadata + mapOf(
-        // this is so the resource ID is updated with the new name (which is in the spec)
-        "id" to updatedSpec.id,
+        // this is so the resource ID is updated with the new name/ID (which is in the spec)
+        "id" to generateId(kind, updatedSpec),
         "application" to application
       )
     )
