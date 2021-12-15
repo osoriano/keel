@@ -48,6 +48,8 @@ import strikt.assertions.isNull
 import strikt.assertions.isTrue
 import java.time.Clock
 import java.time.Instant
+import java.util.UUID
+import java.util.UUID.randomUUID
 import io.mockk.coEvery as every
 
 class CapacityAndScalingPoliciesDiffingTests {
@@ -154,6 +156,14 @@ class CapacityAndScalingPoliciesDiffingTests {
 
   val Assertion.Builder<DefaultResourceDiff<Map<String, ServerGroup>>>.desiredCapacity: Assertion.Builder<DiffNode?>
     get() = get { diff.getChild(desiredCapacityPath) }
+
+  val scalingPoliciesPath = NodePath.startBuilding()
+    .mapKey("us-west-2")
+    .propertyName("scaling")
+    .build()
+
+  val Assertion.Builder<DefaultResourceDiff<Map<String, ServerGroup>>>.scalingPolicies: Assertion.Builder<DiffNode?>
+    get() = get { diff.getChild(scalingPoliciesPath) }
 
   val diffFactory = DefaultResourceDiffFactory()
 
@@ -284,4 +294,33 @@ class CapacityAndScalingPoliciesDiffingTests {
     }
   }
 
+  @Test
+  fun `a delta is generated if there is a duplicate scaling policy`() {
+    val resource = baseResource
+      .withCapacity(CapacitySpec(1, 10, null))
+      .withAScalingPolicy()
+
+    every {
+      cloudDriverService.activeServerGroup(any(), any(), any(), any(), any(), any())
+    } returns activeServerGroup.copy(
+      capacity = Capacity(1, 10, 10),
+      scalingPolicies = (0..1).map {
+        ScalingPolicy(
+          autoScalingGroupName = "fnord-main-v001",
+          policyName = "fnord-main-v001-policy-${randomUUID()}",
+          policyType = "TargetTrackingScaling",
+          estimatedInstanceWarmup = 300,
+          targetTrackingConfiguration = TargetTrackingConfiguration(
+            targetValue = 20.0,
+            predefinedMetricSpecification = PredefinedMetricSpecificationModel(predefinedMetricType = "ASGAverageCPUUtilization")
+          ),
+          alarms = emptyList()
+        )
+      }
+    )
+
+    expectThat(generateDiff(resource)) {
+      scalingPolicies.isNotNull()
+    }
+  }
 }
