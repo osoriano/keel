@@ -58,26 +58,21 @@ class ApplicationFetcherSupport(
 
     with(diffContext) {
       val region = deliveryConfig.resourcesUsing(deliveryArtifact.reference, fetchedVersion.environmentName!!)
-        .mapNotNull {
-          if (it.spec is Locatable<*>) {
-            it.spec as Locatable<*>
-          } else {
-            null
-          }
+        .firstOrNull { it.spec is Locatable<*> }
+        ?.let { (it.spec as Locatable<*>).locations.regions.first().name }
+        ?: run {
+          log.warn("Unable to determine region for $deliveryArtifact in environment ${fetchedVersion.environmentName}")
+          return null
         }
-        .firstOrNull()
-        ?.locations?.regions?.firstOrNull()
-        ?: return null
-          .also { log.warn("Unable to determine region for $deliveryArtifact in environment ${fetchedVersion.environmentName}") }
 
-      val fetchedImage = getNamedImage(fetchedVersion)
-      val previousImage = previousDeployedVersion?.let { getNamedImage(it) }
+      val fetchedImage = getNamedImage(fetchedVersion, region)
+      val previousImage = previousDeployedVersion?.let { getNamedImage(it, region) }
 
       val diff = runBlocking {
         bakeryMetadataService.getPackageDiff(
           oldImage = previousImage?.imageName,
           newImage = fetchedImage.imageName,
-          region = region.name
+          region = region
         )
       }
 
@@ -88,14 +83,15 @@ class ApplicationFetcherSupport(
   /**
    * @return the [NamedImage] from CloudDriver matching the [PublishedArtifactInEnvironment].
    */
-  private fun getNamedImage(artifact: PublishedArtifactInEnvironment): NamedImage =
+  private fun getNamedImage(artifact: PublishedArtifactInEnvironment, region: String): NamedImage =
     runBlocking {
       val imageName = artifact.publishedArtifact.normalizedVersion
       try {
         cloudDriverService.namedImages(
           user = DEFAULT_SERVICE_ACCOUNT,
           imageName = imageName,
-          account = null
+          account = null,
+          region = region
         ).firstOrNull() ?: throw ImageNotFound(imageName)
       } catch (e: HttpException) {
         when (e.isNotFound) {

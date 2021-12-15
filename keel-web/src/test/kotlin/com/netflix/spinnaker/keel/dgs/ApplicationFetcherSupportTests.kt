@@ -63,13 +63,13 @@ class ApplicationFetcherSupportTests {
     )
 
     every {
-      cloudDriverService.namedImages(DEFAULT_SERVICE_ACCOUNT, "fnord-1.0.0", account = null, region = null)
+      cloudDriverService.namedImages(DEFAULT_SERVICE_ACCOUNT, "fnord-1.0.0", account = null, region = "us-east-1")
     } returns listOf(
       NamedImage("fnord-1.0.0-x86_64-bionic-classic-hvm-sriov-ebs")
     )
 
     every {
-      cloudDriverService.namedImages(DEFAULT_SERVICE_ACCOUNT, "fnord-1.0.1", account = null, region = null)
+      cloudDriverService.namedImages(DEFAULT_SERVICE_ACCOUNT, "fnord-1.0.1", account = null, region = "us-east-1")
     } returns listOf(
       NamedImage("fnord-1.0.1-x86_64-bionic-classic-hvm-sriov-ebs")
     )
