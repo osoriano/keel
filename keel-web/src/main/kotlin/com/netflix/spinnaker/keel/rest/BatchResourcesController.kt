@@ -2,6 +2,7 @@ package com.netflix.spinnaker.keel.rest
 
 import com.netflix.spinnaker.keel.pause.ActuationPauser
 import com.netflix.spinnaker.kork.exceptions.UserException
+import com.netflix.spinnaker.security.AuthenticatedRequest
 import org.slf4j.LoggerFactory
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -26,7 +27,6 @@ class BatchResourcesController(
     path = ["/pause"]
   )
   fun pause(
-    @RequestHeader("X-SPINNAKER-USER") user: String,
     @RequestBody body: PauseClustersBody
   ) {
     log.debug("Batch pausing resources: {}", body)
@@ -35,7 +35,7 @@ class BatchResourcesController(
           name = clusterName,
           titusAccount = getTitusAccount(body.environment),
           ec2Account = getEc2Account(body.environment),
-          user = user,
+          user = AuthenticatedRequest.getSpinnakerUser().orElse(body.user ?: "unknown"),
           comment = body.reason
         )
       }
@@ -48,7 +48,6 @@ class BatchResourcesController(
     path = ["/resume"]
   )
   fun resume(
-    @RequestHeader("X-SPINNAKER-USER") user: String,
     @RequestBody body: PauseClustersBody
   ) {
     log.debug("Batch resuming resources: {}", body)
@@ -57,7 +56,7 @@ class BatchResourcesController(
         name = clusterName,
         titusAccount = getTitusAccount(body.environment),
         ec2Account = getEc2Account(body.environment),
-        user = user,
+        user = AuthenticatedRequest.getSpinnakerUser().orElse(body.user ?: "unknown"),
         comment = body.reason
       )
     }
@@ -79,6 +78,7 @@ class BatchResourcesController(
 }
 
 data class PauseClustersBody(
+  val user: String?,
   val reason: String,
   val environment: String, // prod = accounts prod and titusprodvpc
   val clusterNames: List<String>
