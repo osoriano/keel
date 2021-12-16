@@ -581,7 +581,7 @@ class ClusterHandler(
         ),
         "keyPair" to launchConfiguration.keyPair,
         "suspendedProcesses" to scaling.suspendedProcesses,
-        "securityGroups" to securityGroupIds,
+        "securityGroups" to if (clone) securityGroupIdsForClone else securityGroupIds,
         "stack" to moniker.stack,
         "freeFormDetails" to moniker.detail,
         "tags" to tags,
@@ -1238,6 +1238,13 @@ class ClusterHandler(
       .securityGroupNames
       // no need to specify these as Orca will auto-assign them
       .filter { it !in setOf("nf-datacenter") }
+      .map {
+        cloudDriverCache.securityGroupByName(location.account, location.region, it).id
+      }
+
+  private val ServerGroup.securityGroupIdsForClone: Collection<String>
+    get() = dependencies
+      .securityGroupNames
       .map {
         cloudDriverCache.securityGroupByName(location.account, location.region, it).id
       }

@@ -723,7 +723,7 @@ class TitusClusterHandler(
         "reason" to if (clone) "Redeploy ${image["imageId"]}" else "Diff detected at ${clock.instant().iso()}",
         "type" to if (clone) "cloneServerGroup" else "createServerGroup",
         "cloudProvider" to TITUS_CLOUD_PROVIDER,
-        "securityGroups" to securityGroupIds(),
+        "securityGroups" to if (clone) securityGroupIdsForClone() else securityGroupIds(),
         "loadBalancers" to dependencies.loadBalancerNames,
         "targetGroups" to dependencies.targetGroups,
         "account" to location.account,
@@ -1125,6 +1125,14 @@ class TitusClusterHandler(
         // no need to specify these as Orca will auto-assign them, also the application security group
         // gets auto-created so may not exist yet
         .filter { it !in setOf("nf-infrastructure", "nf-datacenter", moniker.app) }
+        .map { cloudDriverCache.securityGroupByName(awsAccount, location.region, it).id }
+    }
+
+  private fun TitusServerGroup.securityGroupIdsForClone(): Collection<String> =
+    runBlocking {
+      val awsAccount = getAwsAccountNameForTitusAccount(location.account)
+      dependencies
+        .securityGroupNames
         .map { cloudDriverCache.securityGroupByName(awsAccount, location.region, it).id }
     }
 
