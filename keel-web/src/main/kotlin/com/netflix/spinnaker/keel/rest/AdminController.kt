@@ -1,9 +1,18 @@
 package com.netflix.spinnaker.keel.rest
 
 import com.netflix.spinnaker.keel.admin.AdminService
+import com.netflix.spinnaker.keel.auth.AuthorizationResourceType
+import com.netflix.spinnaker.keel.auth.AuthorizationResourceType.SERVICE_ACCOUNT
+import com.netflix.spinnaker.keel.auth.AuthorizationSupport
+import com.netflix.spinnaker.keel.auth.PermissionLevel
+import com.netflix.spinnaker.keel.auth.PermissionLevel.WRITE
+import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.export.ExportService
 import com.netflix.spinnaker.keel.front50.Front50Cache
+import com.netflix.spinnaker.keel.front50.Front50Service
+import com.netflix.spinnaker.keel.front50.model.ServiceAccount
 import com.netflix.spinnaker.keel.yaml.APPLICATION_YAML_VALUE
+import com.netflix.spinnaker.security.AuthenticatedRequest
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -28,6 +37,8 @@ class AdminController(
   private val adminService: AdminService,
   private val exportService: ExportService,
   private val front50Cache: Front50Cache,
+  private val front50Service: Front50Service,
+  private val authorizationSupport: AuthorizationSupport
 ) {
   private val log by lazy { getLogger(javaClass) }
 
@@ -208,5 +219,38 @@ class AdminController(
   ) =
     adminService.getTaskSummary(id)
 
+  @GetMapping(
+    path = ["/checkPermissions"],
+    produces = [APPLICATION_JSON_VALUE]
+  )
+  fun getPermissionsErrorMessage(
+    @RequestBody body: CheckPermissionBody
+  ): CheckPermissionResponse {
+    val authorized = authorizationSupport.hasPermission(body.user, body.serviceAccount, SERVICE_ACCOUNT, WRITE)
+    if (authorized) {
+      return CheckPermissionResponse(authorized = authorized)
+    }
 
+    val serviceAccounts = runBlocking {
+      front50Service.getManuallyCreatedServiceAccounts(AuthenticatedRequest.getSpinnakerUser().orElse(DEFAULT_SERVICE_ACCOUNT))
+    }
+    val serviceAccount = serviceAccounts.find { it.name == body.serviceAccount }
+
+    return if (serviceAccount == null) {
+      // could be an auto-created sa, how should we deal with that?
+      CheckPermissionResponse(authorized = authorized, errorMessage = "Service account with name ${body.serviceAccount} doesn't exist, was it automatically created?")
+    } else {
+      CheckPermissionResponse(authorized = authorized, errorMessage = "User ${body.user} must have access to all these groups: ${serviceAccount.memberOf}. Request access in go/accessui.")
+    }
+  }
 }
+
+data class CheckPermissionBody(
+  val user: String,
+  val serviceAccount: String
+)
+
+data class CheckPermissionResponse(
+  val authorized: Boolean,
+  val errorMessage: String? = null
+)
