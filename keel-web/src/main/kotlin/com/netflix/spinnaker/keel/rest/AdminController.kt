@@ -219,7 +219,7 @@ class AdminController(
   ) =
     adminService.getTaskSummary(id)
 
-  @GetMapping(
+  @PostMapping(
     path = ["/checkPermissions"],
     produces = [APPLICATION_JSON_VALUE]
   )
