@@ -44,7 +44,19 @@ class ArtifactDeployedListener(
         targetEnvironment = env.name
       )
 
-      if (approvedForEnv) {
+      fun hasNoApprovedVersions() = repository.getLatestApprovedInEnvArtifactVersion(
+        config = deliveryConfig,
+        artifact = artifact,
+        environmentName = env.name,
+        excludeCurrent = false
+      ) == null
+
+      // We add a special case for migrated apps that already have a version deployed but nothing is approved in the DB.
+      // In this case, we still want to mark the version as deployed
+      if (approvedForEnv || hasNoApprovedVersions()) {
+        if (!approvedForEnv) {
+          log.info("This is the first and already deployed of artifact {} - {} in env {} of app {}", artifact.reference, event.artifactVersion, env.name, deliveryConfig.name)
+        }
         val markedCurrentlyDeployed = repository.getArtifactPromotionStatus(
           deliveryConfig = deliveryConfig,
           artifact = artifact,

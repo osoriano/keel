@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.artifacts
 
 import com.netflix.spinnaker.keel.api.Resource
+import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.events.ArtifactVersionDeployed
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.CURRENT
@@ -33,6 +34,13 @@ class ArtifactDeployedListenerTests : JUnit5Minutests {
       artifactVersion = "1.1.1"
     )
 
+    val publishedArtifact = PublishedArtifact(
+      name = artifact.name,
+      type = artifact.type,
+      version = event.artifactVersion,
+      reference = artifact.reference,
+    )
+
     val subject = ArtifactDeployedListener(repository, publisher)
   }
 
@@ -60,6 +68,7 @@ class ArtifactDeployedListenerTests : JUnit5Minutests {
 
     context("an artifact is associated with a resource") {
       before {
+        every { repository.getLatestApprovedInEnvArtifactVersion(any(), any(), any(), any()) } returns publishedArtifact
         every { resourceSpy.findAssociatedArtifact(config) } returns artifact
       }
       context("artifact is approved for env") {
@@ -95,13 +104,26 @@ class ArtifactDeployedListenerTests : JUnit5Minutests {
         before {
           every { repository.isApprovedFor(any(), any(), event.artifactVersion, any()) } returns false
         }
-        test("nothing is marked as deployed") {
-          subject.onArtifactVersionDeployed(event)
-          verify(exactly = 0) { repository.markAsSuccessfullyDeployedTo(config, any(), event.artifactVersion, any()) }
+        context("existing app") {
+          test("nothing is marked as deployed") {
+            subject.onArtifactVersionDeployed(event)
+            verify(exactly = 0) { repository.markAsSuccessfullyDeployedTo(config, any(), event.artifactVersion, any()) }
+          }
+          test("an event is not sent out") {
+            subject.onArtifactVersionDeployed(event)
+            verify { publisher wasNot Called }
+          }
         }
-        test("an event is not sent out") {
-          subject.onArtifactVersionDeployed(event)
-          verify { publisher wasNot Called }
+
+        context("new MD app with a version currently deployed version") {
+          before {
+            every { repository.getLatestApprovedInEnvArtifactVersion(any(), any(), any(), any()) } returns null
+          }
+
+          test("marking the version as deployed") {
+            subject.onArtifactVersionDeployed(event)
+            verify(exactly = 1) { repository.markAsSuccessfullyDeployedTo(any(), any(), event.artifactVersion, any()) }
+          }
         }
       }
     }

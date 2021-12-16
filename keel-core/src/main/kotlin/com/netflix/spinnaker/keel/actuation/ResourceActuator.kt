@@ -339,38 +339,39 @@ class ResourceActuator(
 
   private suspend fun <T : Any> ResourceHandler<*, T>.resolve(resource: Resource<ResourceSpec>): Pair<T, T?> {
     return supervisorScope {
-      val desired = if (isKotlin) {
-        async {
-          try {
+      if (isKotlin) {
+        val desiredAsync = async {
+          runCatching {
             desired(resource)
-          } catch (e: ResourceCurrentlyUnresolvable) {
-            throw e
-          } catch (e: Throwable) {
-            throw CannotResolveDesiredState(resource.id, e)
           }
         }
-      } else {
-        // for Java compatibility
-        desiredAsync(resource, asyncExecutor).asDeferred()
-      }
-
-      val current = if (isKotlin) {
-        async {
-          try {
+        val currentAsync = async {
+          runCatching {
             current(resource)
-          } catch (e: Throwable) {
-            throw CannotResolveCurrentState(resource.id, e)
           }
         }
+        val desiredResult = desiredAsync.await()
+        val currentResult = currentAsync.await()
+
+        val desired = desiredResult.getOrElse {
+          when (it) {
+            is ResourceCurrentlyUnresolvable -> throw it
+            else -> throw CannotResolveDesiredState(resource.id, it)
+          }
+        }
+        val current = currentResult.getOrElse { throw CannotResolveCurrentState(resource.id, it) }
+
+        desired to current
       } else {
         // for Java compatibility
-        currentAsync(resource, asyncExecutor).asDeferred()
-      }
+        // TODO: handle catching errors from desired and current
+        val desiredAsync = desiredAsync(resource, asyncExecutor).asDeferred()
+        val currentAsync = currentAsync(resource, asyncExecutor).asDeferred()
 
-      // make await() calls on separate lines so that a stack trace will indicate which one timed out
-      val d = desired.await()
-      val c = current.await()
-      d to c
+        val desired = desiredAsync.await()
+        val current = currentAsync.await()
+        desired to current
+      }
     }
   }
 

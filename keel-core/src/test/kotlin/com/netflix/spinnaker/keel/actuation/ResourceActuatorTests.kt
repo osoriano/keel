@@ -72,6 +72,7 @@ import strikt.api.expectThat
 import strikt.api.expectThrows
 import strikt.assertions.isA
 import strikt.assertions.isEqualTo
+import strikt.assertions.isTrue
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -544,9 +545,14 @@ internal class ResourceActuatorTests : JUnit5Minutests {
             }
 
             context("plugin throws an unhandled exception in desired state resolution") {
+              var completedCurrentCall = false
               before {
                 every { plugin1.desired(resource) } throws RuntimeException("o noes")
-                every { plugin1.current(resource) } returns null
+                every { plugin1.current(resource) } answers {
+                  Thread.sleep(100)
+                  completedCurrentCall = true
+                  null
+                }
               }
 
               test("the resource is not updated") {
@@ -555,6 +561,10 @@ internal class ResourceActuatorTests : JUnit5Minutests {
                 }
 
                 verify(exactly = 0) { plugin1.update(any(), any()) }
+              }
+
+              test("current was completed successfully without throwing") {
+                expectThat(completedCurrentCall).isTrue()
               }
 
               test("a resource history event is published with the wrapped exception") {
