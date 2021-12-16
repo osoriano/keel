@@ -523,7 +523,11 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Simple
           refId++
         }
 
-        val stage = diff.upsertOrCloneServerGroupJob(resource, refId).toMutableMap()
+        val stage = diff.upsertOrCloneServerGroupJob(
+          resource = resource,
+          startingRefId = refId,
+          version = version
+        ).toMutableMap()
 
         refId++
 
