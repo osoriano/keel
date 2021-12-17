@@ -702,6 +702,20 @@ class ClusterHandler(
     diffs.forEach { diff ->
       val region = getDesiredRegion(diff)
       val existingOverride: MutableMap<String, Any?> = mapper.convertValue(overrides[region] ?: mutableMapOf<String, Any?>())
+      existingOverride["dependencies"]?.let { dependencyOverrides ->
+        // need to remove nesting of these keys, plus change the name of some of them
+        val dependencies: ClusterDependencies = mapper.convertValue(dependencyOverrides)
+        if (dependencies.loadBalancerNames.isNotEmpty()) {
+          existingOverride["loadBalancers"] = dependencies.loadBalancerNames
+        }
+        if (dependencies.securityGroupNames.isNotEmpty()) {
+          existingOverride["securityGroups"] = dependencies.securityGroupNames
+        }
+        if(dependencies.targetGroups.isNotEmpty()) {
+          existingOverride["targetGroups"] = dependencies.targetGroups
+        }
+      }
+
       val availabilityZones = mutableMapOf("availabilityZones" to mutableMapOf(region to diff.desired.location.availabilityZones))
       val regionalLaunchConfig: MutableMap<String, Any?> = mapper.convertValue(launchConfigOverrides[region] ?: mutableMapOf<String, Any?>())
       val capacity: MutableMap<String, Any?> = mapper.convertValue(capacityForScalingOverrides[region] ?: mutableMapOf<String, Any?>())

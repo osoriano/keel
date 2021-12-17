@@ -7,12 +7,12 @@ import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.RedBlack
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceDiff
-import com.netflix.spinnaker.keel.api.SelectionStrategy
 import com.netflix.spinnaker.keel.api.SimpleLocations
 import com.netflix.spinnaker.keel.api.SimpleRegionSpec
 import com.netflix.spinnaker.keel.api.StaggeredRegion
 import com.netflix.spinnaker.keel.api.actuation.TaskLauncher
 import com.netflix.spinnaker.keel.api.ec2.Capacity
+import com.netflix.spinnaker.keel.api.ec2.ClusterDependencies
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec
 import com.netflix.spinnaker.keel.api.ec2.ServerGroup
 import com.netflix.spinnaker.keel.api.plugins.BaseClusterHandlerTests
@@ -162,6 +162,29 @@ class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, T
   override fun getMultiRegionTimeDelayManagedRolloutCluster(): Resource<TitusClusterSpec> {
     val baseCluster = getMultiRegionManagedRolloutCluster()
     return baseCluster.copy(spec = baseCluster.spec.copy(rolloutWith = staggeredRollout))
+  }
+
+  override fun getManagedRolloutClusterWithTargetGroup(): Resource<TitusClusterSpec> {
+    val spec = baseSpec.copy(
+      locations = SimpleLocations(
+        account = "account",
+        regions = setOf(SimpleRegionSpec("east"))
+      ),
+      rolloutWith = RolloutConfig(strategy = Alphabetical()),
+      overrides = mapOf(
+        "east" to TitusServerGroupSpec(
+          dependencies = ClusterDependencies(
+            targetGroups = setOf("different-target"),
+            loadBalancerNames = setOf("my-lb")
+          )
+        )
+      )
+    )
+    return Resource(
+      kind = TITUS_CLUSTER_V1.kind,
+      metadata = metadata,
+      spec = spec
+    )
   }
 
   private val diffFactory = DefaultResourceDiffFactory()

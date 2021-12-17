@@ -12,6 +12,7 @@ import com.netflix.spinnaker.keel.api.SubnetAwareLocations
 import com.netflix.spinnaker.keel.api.SubnetAwareRegionSpec
 import com.netflix.spinnaker.keel.api.actuation.TaskLauncher
 import com.netflix.spinnaker.keel.api.ec2.Capacity
+import com.netflix.spinnaker.keel.api.ec2.ClusterDependencies
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec
 import com.netflix.spinnaker.keel.api.ec2.EC2_CLUSTER_V1_1
 import com.netflix.spinnaker.keel.api.ec2.LaunchConfigurationSpec
@@ -159,6 +160,30 @@ class Ec2BaseClusterHandlerTests : BaseClusterHandlerTests<ClusterSpec, ServerGr
   override fun getMultiRegionTimeDelayManagedRolloutCluster(): Resource<ClusterSpec> {
     val baseCluster = getMultiRegionManagedRolloutCluster()
     return baseCluster.copy(spec = baseCluster.spec.copy(rolloutWith = staggeredRollout))
+  }
+
+  override fun getManagedRolloutClusterWithTargetGroup(): Resource<ClusterSpec> {
+    val spec = baseSpec.copy(
+      locations = SubnetAwareLocations(
+        account = "account",
+        regions = setOf(SubnetAwareRegionSpec("east")),
+        subnet = "subnet-1"
+      ),
+      rolloutWith = RolloutConfig(strategy = Alphabetical()),
+      overrides = mapOf(
+        "east" to ClusterSpec.ServerGroupSpec(
+          dependencies = ClusterDependencies(
+            targetGroups = setOf("different-target"),
+            loadBalancerNames = setOf("my-lb")
+          )
+        )
+      )
+    )
+    return Resource(
+      kind = EC2_CLUSTER_V1_1.kind,
+      metadata = metadata,
+      spec = spec
+    )
   }
 
   override fun getDiffInMoreThanEnabled(resource: Resource<ClusterSpec>): ResourceDiff<Map<String, ServerGroup>> {

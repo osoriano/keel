@@ -817,6 +817,19 @@ class TitusClusterHandler(
     diffs.forEach { diff ->
       val region = getDesiredRegion(diff)
       val existingOverride: MutableMap<String, Any?> = mapper.convertValue(overrides[region] ?: mutableMapOf<String, Any?>())
+      existingOverride["dependencies"]?.let { dependencyOverrides ->
+        // need to remove nesting of these keys, plus change the name of some of them
+        val dependencies: ClusterDependencies = mapper.convertValue(dependencyOverrides)
+        if (dependencies.loadBalancerNames.isNotEmpty()) {
+          existingOverride["loadBalancers"] = dependencies.loadBalancerNames
+        }
+        if (dependencies.securityGroupNames.isNotEmpty()) {
+          existingOverride["securityGroups"] = dependencies.securityGroupNames
+        }
+        if(dependencies.targetGroups.isNotEmpty()) {
+          existingOverride["targetGroups"] = dependencies.targetGroups
+        }
+      }
       // todo eb: are there more things that get touched by the resolvers that we need to add?
       // How can we go from resolvers to the cluster spec with changes?
       val containerAttributes: Map<String, String> = mapper.convertValue(diff.desired.containerAttributes)

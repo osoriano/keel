@@ -17,7 +17,6 @@ import com.netflix.spinnaker.keel.api.events.ArtifactVersionDeploying
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.core.serverGroup
 import com.netflix.spinnaker.keel.events.ResourceActuationLaunched
-import com.netflix.spinnaker.keel.telemetry.VerificationStarted
 import com.netflix.spinnaker.keel.test.deliveryConfig
 import com.netflix.spinnaker.keel.test.configuredTestObjectMapper
 import com.netflix.spinnaker.time.MutableClock
@@ -29,6 +28,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import strikt.api.expect
 import strikt.api.expectThat
+import strikt.assertions.first
 import strikt.assertions.hasSize
 import strikt.assertions.isA
 import strikt.assertions.isEqualTo
@@ -58,6 +58,7 @@ abstract class BaseClusterHandlerTests<
   abstract fun getMultiRegionStaggeredDeployCluster(): Resource<SPEC>
   abstract fun getMultiRegionManagedRolloutCluster(): Resource<SPEC>
   abstract fun getMultiRegionTimeDelayManagedRolloutCluster(): Resource<SPEC>
+  abstract fun getManagedRolloutClusterWithTargetGroup(): Resource<SPEC>
 
   abstract fun getRegions(resource: Resource<SPEC>): List<String>
   abstract fun getDiffInMoreThanEnabled(resource: Resource<SPEC>): ResourceDiff<Map<String, RESOLVED>>
@@ -342,6 +343,37 @@ abstract class BaseClusterHandlerTests<
       val targets = (managedRolloutStage["input"] as Map<String, Any?>)["targets"] as List<Map<String,Any?>>
       that(targets).hasSize(1)
     }
+  }
+
+  @Test
+  fun `managed rollout specify target group and lb as an override`() {
+    coEvery { handler.getDisabledServerGroupsByRegion(any()) } returns emptyMap()
+
+    val slots = mutableListOf<List<Job>>()
+    coEvery { taskLauncher.submitJob(any(), any(), any(), capture(slots)) } returns Task("id", "name")
+
+    val resource = getManagedRolloutClusterWithTargetGroup()
+    runBlocking { handler.upsert(resource, getDiffInImage(resource)) }
+    val stages = slots[0]
+    expect {
+      that(slots.size).isEqualTo(1)
+      that(stages.size).isEqualTo(1)
+      val managedRolloutStage = stages.first()
+      that(managedRolloutStage["type"]).isEqualTo("managedRollout")
+      that(managedRolloutStage["refId"]).isEqualTo("1")
+      that(managedRolloutStage["input"]).isA<Map<String, Any?>>().and {
+        get { get("clusterDefinitions") }.isA<List<Map<String, Any?>>>().and {
+          first().get { get("overrides") }.isA<Map<String, Any>>().and {
+            get { get("east") }.isA<Map<String, Any?>>().and {
+              get { get("targetGroups") }.isEqualTo(setOf("different-target"))
+              get { get("loadBalancers") }.isEqualTo(setOf("my-lb")) // key changed here
+            }
+          }
+        }
+      }
+    }
+
+    verify (exactly = 1){ eventPublisher.publishEvent(ofType<ArtifactVersionDeploying>()) }
   }
 
   @Test
