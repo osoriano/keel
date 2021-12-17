@@ -2,6 +2,8 @@ package com.netflix.spinnaker.keel.artifacts
 
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
+import com.netflix.spinnaker.keel.api.constraints.ConstraintState
+import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
 import com.netflix.spinnaker.keel.api.events.ArtifactVersionDeployed
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.CURRENT
@@ -16,7 +18,9 @@ import dev.minutest.rootContext
 import io.mockk.Called
 import io.mockk.clearAllMocks
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
+import io.mockk.runs
 import io.mockk.spyk
 import io.mockk.verify
 
@@ -118,11 +122,31 @@ class ArtifactDeployedListenerTests : JUnit5Minutests {
         context("new MD app with a version currently deployed version") {
           before {
             every { repository.getLatestApprovedInEnvArtifactVersion(any(), any(), any(), any()) } returns null
+            every { repository.constraintStateFor(any(), any(), any(), any()) } returns listOf(
+              ConstraintState(
+                deliveryConfigName = config.name,
+                environmentName = "test",
+                artifactVersion = event.artifactVersion,
+                artifactReference = artifact.reference,
+                type = "manual-judgement",
+                status = ConstraintStatus.PENDING,
+              ),
+              ConstraintState(
+                deliveryConfigName = config.name,
+                environmentName = "test",
+                artifactVersion = event.artifactVersion,
+                artifactReference = artifact.reference,
+                type = "depends-on",
+                status = ConstraintStatus.PASS,
+              )
+            )
+            every { repository.storeConstraintState(any()) } just runs
           }
 
           test("marking the version as deployed") {
             subject.onArtifactVersionDeployed(event)
             verify(exactly = 1) { repository.markAsSuccessfullyDeployedTo(any(), any(), event.artifactVersion, any()) }
+            verify(exactly = 1) { repository.storeConstraintState(any()) }
           }
         }
       }

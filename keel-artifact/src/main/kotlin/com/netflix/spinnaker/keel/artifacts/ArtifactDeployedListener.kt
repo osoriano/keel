@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.artifacts
 
+import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
 import com.netflix.spinnaker.keel.api.events.ArtifactVersionDeployed
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.CURRENT
@@ -9,6 +10,7 @@ import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
+import java.time.Instant
 
 /**
  * Listens to [ArtifactVersionDeployed] events to update the status of the artifact in the database and
@@ -20,6 +22,31 @@ class ArtifactDeployedListener(
   val publisher: EventPublisher
 ) {
   private val log = LoggerFactory.getLogger(javaClass)
+
+  private fun approveAllConstraintsForVersion(
+    deliveryConfigName: String,
+    environmentName: String,
+    artifactVersion: String,
+    artifactReference: String
+  ) {
+    repository.constraintStateFor(
+      deliveryConfigName = deliveryConfigName,
+      environmentName = environmentName,
+      artifactReference = artifactReference,
+      artifactVersion = artifactVersion
+    ).forEach {
+      if (!it.status.complete) {
+        log.debug("Updating app $deliveryConfigName constraint ${it.type} to OVERRIDE_PASS")
+        repository.storeConstraintState(
+          it.copy(
+            status = ConstraintStatus.OVERRIDE_PASS,
+            judgedBy = "keel@spinnaker.io",
+            judgedAt = Instant.now()
+          )
+        )
+      }
+    }
+  }
 
   @EventListener(ArtifactVersionDeployed::class)
   fun onArtifactVersionDeployed(event: ArtifactVersionDeployed) =
@@ -55,7 +82,19 @@ class ArtifactDeployedListener(
       // In this case, we still want to mark the version as deployed
       if (approvedForEnv || hasNoApprovedVersions()) {
         if (!approvedForEnv) {
-          log.info("This is the first and already deployed of artifact {} - {} in env {} of app {}", artifact.reference, event.artifactVersion, env.name, deliveryConfig.name)
+          log.info(
+            "This is the first and already deployed of artifact {} - {} in env {} of app {}",
+            artifact.reference,
+            event.artifactVersion,
+            env.name,
+            deliveryConfig.name
+          )
+          approveAllConstraintsForVersion(
+            deliveryConfigName = deliveryConfig.name,
+            environmentName = env.name,
+            artifactReference = artifact.reference,
+            artifactVersion = event.artifactVersion
+          )
         }
         val markedCurrentlyDeployed = repository.getArtifactPromotionStatus(
           deliveryConfig = deliveryConfig,
