@@ -25,6 +25,7 @@ import com.netflix.spinnaker.keel.core.api.PromotionStatus
 import com.netflix.spinnaker.keel.core.api.PublishedArtifactInEnvironment
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.Front50Service
+import com.netflix.spinnaker.keel.front50.model.ServiceAccount
 import com.netflix.spinnaker.keel.graphql.types.MD_UserPermissions
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventRepository
@@ -56,6 +57,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.HttpHeaders
 import strikt.api.expectCatching
 import strikt.api.expectThat
+import strikt.assertions.contains
 import strikt.assertions.isEqualTo
 import strikt.assertions.isNotNull
 import strikt.assertions.isNull
@@ -262,7 +264,33 @@ class BasicQueryTests {
 
     fetchWritePermissions().isSuccess().and {
       get { writeAccess }.isEqualTo(false)
+      get { error }.isNotNull().contains("Service account was automatically created")
+    }
+  }
+
+  @Test
+  fun `user does not have write access to all groups`() {
+    every {
+      authorizationSupport.hasServiceAccountAccess(any())
+    } returns false
+
+    val memberOf = "managed-delivery@spinnaker.io"
+
+    coEvery {
+      front50Service.getManuallyCreatedServiceAccounts(any())
+    } returns listOf(
+      ServiceAccount(
+        name = deliveryConfig.serviceAccount,
+        memberOf = listOf(memberOf),
+        lastModified = null,
+        lastModifiedBy = null,
+      )
+    )
+
+    fetchWritePermissions().isSuccess().and {
+      get { writeAccess }.isEqualTo(false)
       get { error }.isNotNull()
+        .contains("User must have access to all the groups of service account ${deliveryConfig.serviceAccount}: [$memberOf]")
     }
   }
 

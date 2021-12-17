@@ -40,7 +40,7 @@ class Permissions(
           MD_UserPermissions(
             id = id,
             writeAccess = false,
-            error = "User must have access to all the groups of service account $serviceAccount: ${serviceAccount.memberOf}. Request access in go/accessui, or by reaching out to #security-help."
+            error = "User must have access to all the groups of service account ${serviceAccount.name}: ${serviceAccount.memberOf}. Request access in go/accessui, or by reaching out to #security-help."
           )
         } else {
           MD_UserPermissions(
