@@ -3,11 +3,14 @@ package com.netflix.spinnaker.keel.export
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import com.netflix.spinnaker.config.BaseUrlConfig
+import com.netflix.spinnaker.keel.api.AccountAwareLocations
 import com.netflix.spinnaker.keel.api.Constraint
 import com.netflix.spinnaker.keel.api.Dependency
 import com.netflix.spinnaker.keel.api.DependencyType
 import com.netflix.spinnaker.keel.api.Dependent
 import com.netflix.spinnaker.keel.api.Exportable
+import com.netflix.spinnaker.keel.api.Locatable
+import com.netflix.spinnaker.keel.api.Monikered
 import com.netflix.spinnaker.keel.api.NotificationConfig
 import com.netflix.spinnaker.keel.api.NotificationFrequency
 import com.netflix.spinnaker.keel.api.NotificationType
@@ -28,6 +31,7 @@ import com.netflix.spinnaker.keel.api.plugins.ResourceHandler
 import com.netflix.spinnaker.keel.api.plugins.supporting
 import com.netflix.spinnaker.keel.api.titus.TITUS_CLUSTER_V1
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
+import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.core.api.DependsOnConstraint
 import com.netflix.spinnaker.keel.core.api.ManualJudgementConstraint
@@ -36,6 +40,7 @@ import com.netflix.spinnaker.keel.core.api.SubmittedEnvironment
 import com.netflix.spinnaker.keel.core.api.SubmittedResource
 import com.netflix.spinnaker.keel.core.api.TimeWindow
 import com.netflix.spinnaker.keel.core.api.TimeWindowConstraint
+import com.netflix.spinnaker.keel.core.api.id
 import com.netflix.spinnaker.keel.core.parseMoniker
 import com.netflix.spinnaker.keel.filterNotNullValues
 import com.netflix.spinnaker.keel.front50.Front50Cache
@@ -75,7 +80,7 @@ class ExportService(
   private val jobService: JobService,
   private val springEnv: Environment,
   private val scmConfig: ScmConfig,
-
+  private val cloudDriverCache: CloudDriverCache
 ) {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
   private val prettyPrinter by lazy { yamlMapper.writerWithDefaultPrettyPrinter() }
@@ -120,6 +125,110 @@ class ExportService(
   private val exportBatchSize : Int
     get() = springEnv.getProperty("keel.pipelines-export.scheduled.batch-size", Int::class.java, 5)
 
+  /**
+   * Converts a [cloudProvider] and resource [type] passed to an export function to a [ResourceKind].
+   */
+  private fun typeToKind(cloudProvider: String, type: String): ResourceKind =
+    when(type) {
+      "classicloadbalancer" -> EC2_CLASSIC_LOAD_BALANCER_V1.kind
+      "classicloadbalancers" -> EC2_CLASSIC_LOAD_BALANCER_V1.kind
+      "applicationloadbalancer" -> EC2_APPLICATION_LOAD_BALANCER_V1_2.kind
+      "applicationloadbalancers" -> EC2_APPLICATION_LOAD_BALANCER_V1_2.kind
+      "securitygroup" -> EC2_SECURITY_GROUP_V1.kind
+      "securitygroups" -> EC2_SECURITY_GROUP_V1.kind
+      "cluster" -> PROVIDERS_TO_CLUSTER_KINDS[cloudProvider] ?: error("Cloud provider $cloudProvider is not supported")
+      "clusters" -> PROVIDERS_TO_CLUSTER_KINDS[cloudProvider] ?: error("Cloud provider $cloudProvider is not supported")
+      else -> error("Unsupported resource type $cloudProvider:$type")
+    }
+
+  /**
+   * @return An [Exportable] object representing the resource of the specified [kind] and [name] in the specified [account].
+   */
+  @Suppress("UNCHECKED_CAST")
+  private fun generateExportable(kind: ResourceKind, account: String, name: String, user: String): Exportable {
+    return Exportable(
+      cloudProvider = kind.group,
+      kind = kind,
+      account = account,
+      user = user,
+      moniker = parseMoniker(name),
+      regions = (
+        cloudDriverCache
+          .credentialBy(account)
+          .attributes["regions"] as List<Map<String, Any>>
+        )
+        .map { it["name"] as String }
+        .toSet(),
+    )
+  }
+
+  /**
+   * @return A [SubmittedResource] based on the current state of an existing resource in the cloud, as identified
+   * by the specified [cloudProvider], resource [type], [account] and resource [name].
+   */
+  suspend fun exportResource(
+    cloudProvider: String,
+    type: String,
+    account: String,
+    name: String,
+    user: String
+  ): SubmittedResource<ResourceSpec> {
+    val kind = typeToKind(cloudProvider, type)
+    val handler = handlers.supporting(kind)
+    val exportable = generateExportable(kind, account, name, user)
+
+    log.info("Exporting resource ${exportable.toResourceId()}")
+    return SubmittedResource(
+      kind = kind,
+      spec = handler.export(exportable)
+    )
+  }
+
+  /**
+   * @return A [SubmittedResource] based on the current state of the existing [resource] in the cloud.
+   * If this method is called consecutively without any changes having occurred to the state of the resource,
+   * it is expected to return an object equal to the one passed in. If the state has changed, the differences
+   * will be reflected in the returned object, which can be useful for comparing a previous version of an
+   * exported resource with a fresh export, hence the name "re-export".
+   */
+  suspend fun reExportResource(resource: SubmittedResource<*>, user: String): SubmittedResource<*> {
+    val moniker = (resource.spec as? Monikered)?.let {
+      it.moniker
+    } ?: throw IllegalArgumentException("We can only export resources with a moniker currently.")
+
+    val locations = (resource.spec as? Locatable<*>)?.let {
+      (it.locations as? AccountAwareLocations<*>)
+    } ?: throw IllegalArgumentException("We can only export resources with locations currently.")
+
+    val handler = handlers.supporting(resource.kind)
+    val exportable = Exportable(
+        cloudProvider = resource.kind.group,
+        account = locations.account,
+        moniker = moniker,
+        regions = locations.regions.map { it.name }.toSet(),
+        kind = resource.kind,
+        user = user
+      )
+
+    log.info("Re-exporting resource ${resource.id}")
+    return SubmittedResource(
+      kind = resource.kind,
+      spec = handler.export(exportable)
+    )
+  }
+
+  /**
+   * @return A [DeliveryArtifact] representing the software artifact currently deployed to the cluster identified
+   * by [cloudProvider], [account] and [clusterName], if any, or null otherwise.
+   */
+  suspend fun exportArtifact(cloudProvider: String, account: String, clusterName: String, user: String): DeliveryArtifact? {
+    val kind = typeToKind(cloudProvider, "cluster")
+    val handler = handlers.supporting(kind)
+    val exportable = generateExportable(kind, account, clusterName, user)
+
+    log.info("Exporting artifact from cluster ${exportable.toResourceId()}")
+    return handler.exportArtifact(exportable)
+  }
 
   /**
    * Run [exportFromPipelines] on all available apps and store their results

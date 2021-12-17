@@ -15,12 +15,14 @@
  */
 package com.netflix.spinnaker.keel.rest
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.readValue
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceDiff
 import com.netflix.spinnaker.keel.api.ResourceDiffFactory
 import com.netflix.spinnaker.keel.core.api.SubmittedResource
 import com.netflix.spinnaker.keel.core.api.id
-import com.netflix.spinnaker.keel.core.api.normalize
+import com.netflix.spinnaker.keel.export.ExportService
 import com.netflix.spinnaker.keel.pause.ActuationPauser
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.ResourceStatus
@@ -45,7 +47,9 @@ class ResourceController(
   private val repository: KeelRepository,
   private val actuationPauser: ActuationPauser,
   private val resourceStatusService: ResourceStatusService,
-  private val diffFactory: ResourceDiffFactory
+  private val diffFactory: ResourceDiffFactory,
+  private val exportService: ExportService,
+  private val objectMapper: ObjectMapper
 ) {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
@@ -108,9 +112,18 @@ class ResourceController(
   )
   @PreAuthorize("@authorizationSupport.hasApplicationPermission('READ', 'APPLICATION', #resource.spec.application)")
   fun diff(
-    @RequestBody resource: SubmittedResource<*>
-  ): ResourceDiff<Resource<*>> {
-    log.debug("Diffing: $resource")
-    return runBlocking { diffFactory.compare(resource.normalize(), repository.getResource(resource.id)) }
+    @RequestBody resource: SubmittedResource<*>,
+    @RequestHeader("X-SPINNAKER-USER") user: String
+  ): Map<String, Any?> {
+    log.debug("Diffing ${resource.id} against its current state")
+    return runBlocking {
+      val current = exportService.reExportResource(resource, user)
+      diffFactory.compare(
+        desired = resource,
+        // We serialize the exported object, then deserialize it back to the right type, so that the jackson
+        // serialization annotations (to ignore fields, etc.) kick in and that we're comparing apples to apples.
+        current = current.let { objectMapper.readValue<SubmittedResource<*>>(objectMapper.writeValueAsString(it)) }
+      ).toDeltaJson()
+    }
   }
 }
