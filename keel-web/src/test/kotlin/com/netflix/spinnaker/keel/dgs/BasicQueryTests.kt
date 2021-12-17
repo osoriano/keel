@@ -43,6 +43,7 @@ import com.netflix.spinnaker.keel.upsert.DeliveryConfigUpserter
 import com.netflix.spinnaker.keel.veto.unhappy.UnhappyVeto
 import com.ninjasquad.springmockk.MockkBean
 import io.mockk.Runs
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.just
 import io.mockk.slot
@@ -254,6 +255,10 @@ class BasicQueryTests {
     every {
       authorizationSupport.hasServiceAccountAccess(any())
     } returns false
+
+    coEvery {
+      front50Service.getManuallyCreatedServiceAccounts(any())
+    } returns emptyList()
 
     fetchWritePermissions().isSuccess().and {
       get { writeAccess }.isEqualTo(false)

@@ -82,22 +82,6 @@ class ApplicationFetcher(
   }
 
   @DgsData(parentType = DgsConstants.MD_APPLICATION.TYPE_NAME)
-  fun userPermissions(
-    dfe: DgsDataFetchingEnvironment,
-    @RequestHeader("X-SPINNAKER-USER") user: String
-  ): MD_UserPermissions {
-    val application: MD_Application = dfe.getSource()
-    val appPermission = authorizationSupport.hasApplicationPermission("WRITE", "APPLICATION", application.name)
-    val serviceAccountPermissions = authorizationSupport.hasServiceAccountAccess(application.account)
-    val id = "userPermissions-${application.name}"
-    return when {
-      !appPermission -> MD_UserPermissions(id = id, writeAccess = false, error = "User does not have write permission to ${application.name}")
-      !serviceAccountPermissions -> MD_UserPermissions(id = id, writeAccess = false, error = "User is not part of service account ${application.account}")
-      else -> MD_UserPermissions(id = id, writeAccess = true)
-    }
-  }
-
-  @DgsData(parentType = DgsConstants.MD_APPLICATION.TYPE_NAME)
   fun environments(dfe: DgsDataFetchingEnvironment): List<DataFetcherResult<MD_Environment>> {
     val config = applicationFetcherSupport.getDeliveryConfigFromContext(dfe)
     return config.environments.sortedWith { env1, env2 ->
