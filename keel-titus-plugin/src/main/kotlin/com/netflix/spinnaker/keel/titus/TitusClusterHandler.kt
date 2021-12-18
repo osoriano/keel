@@ -50,8 +50,6 @@ import com.netflix.spinnaker.keel.api.ec2.StepAdjustment
 import com.netflix.spinnaker.keel.api.ec2.StepScalingPolicy
 import com.netflix.spinnaker.keel.api.ec2.TargetTrackingPolicy
 import com.netflix.spinnaker.keel.api.ec2.hasScalingPolicies
-import com.netflix.spinnaker.keel.api.ec2.intersectingConfigurations
-import com.netflix.spinnaker.keel.api.ec2.notPresentOrDuplicatedIn
 import com.netflix.spinnaker.keel.api.plugins.BaseClusterHandler
 import com.netflix.spinnaker.keel.api.plugins.CurrentImages
 import com.netflix.spinnaker.keel.api.plugins.ImageInRegion
@@ -491,13 +489,13 @@ class TitusClusterHandler(
     var (refId, stages) = toDeletePolicyJob(startingRefId)
 
     val newTargetPolicies = current?.run {
-      desired.scaling.targetTrackingPolicies - desired.scaling.targetTrackingPolicies.intersectingConfigurations(scaling.targetTrackingPolicies)
+      desired.scaling.targetTrackingPolicies - scaling.targetTrackingPolicies
     } ?: desired.scaling.targetTrackingPolicies
 
     log.debug("Target tracking policies for resource ${desired.id}:\nNew: $newTargetPolicies.\nExisting: ${current?.scaling?.targetTrackingPolicies ?: "None"}")
 
     val newStepPolicies = current?.run {
-      desired.scaling.stepScalingPolicies - desired.scaling.stepScalingPolicies.intersectingConfigurations(scaling.stepScalingPolicies)
+      desired.scaling.stepScalingPolicies - scaling.stepScalingPolicies
     } ?: desired.scaling.stepScalingPolicies
 
     log.debug("Step scaling policies for resource ${desired.id}:\nNew: $newStepPolicies.\nExisting: ${current?.scaling?.stepScalingPolicies ?: "None"}")
@@ -522,8 +520,12 @@ class TitusClusterHandler(
       return Pair(refId, stages)
     }
     val current = current!!
-    val targetPoliciesToRemove = current.scaling.targetTrackingPolicies.notPresentOrDuplicatedIn(desired.scaling.targetTrackingPolicies)
-    val stepPoliciesToRemove = current.scaling.stepScalingPolicies.notPresentOrDuplicatedIn(desired.scaling.stepScalingPolicies)
+    val targetPoliciesToRemove = current.scaling.targetTrackingPolicies.filterNot {
+      desired.scaling.targetTrackingPolicies.contains(it)
+    }
+    val stepPoliciesToRemove = current.scaling.stepScalingPolicies.filterNot {
+      desired.scaling.stepScalingPolicies.contains(it)
+    }
     val policyNamesToRemove = targetPoliciesToRemove.mapNotNull { it.name } +
       stepPoliciesToRemove.mapNotNull { it.name }
         .toSet()

@@ -7,7 +7,6 @@ import com.netflix.spinnaker.keel.api.SubnetAwareRegionSpec
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec.CapacitySpec
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec.ServerGroupSpec
-import com.netflix.spinnaker.keel.api.ec2.CustomizedMetricSpecification
 import com.netflix.spinnaker.keel.api.ec2.EC2_CLUSTER_V1_1
 import com.netflix.spinnaker.keel.api.ec2.LaunchConfigurationSpec
 import com.netflix.spinnaker.keel.api.ec2.PredefinedMetricSpecification
@@ -44,13 +43,11 @@ import org.junit.jupiter.api.Test
 import strikt.api.Assertion
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo
-import strikt.assertions.isFalse
 import strikt.assertions.isNotNull
 import strikt.assertions.isNull
 import strikt.assertions.isTrue
 import java.time.Clock
 import java.time.Instant
-import java.util.UUID.randomUUID
 import io.mockk.coEvery as every
 
 class CapacityAndScalingPoliciesDiffingTests {
@@ -157,14 +154,6 @@ class CapacityAndScalingPoliciesDiffingTests {
 
   val Assertion.Builder<DefaultResourceDiff<Map<String, ServerGroup>>>.desiredCapacity: Assertion.Builder<DiffNode?>
     get() = get { diff.getChild(desiredCapacityPath) }
-
-  val scalingPoliciesPath = NodePath.startBuilding()
-    .mapKey("us-west-2")
-    .propertyName("scaling")
-    .build()
-
-  val Assertion.Builder<DefaultResourceDiff<Map<String, ServerGroup>>>.scalingPolicies: Assertion.Builder<DiffNode?>
-    get() = get { diff.getChild(scalingPoliciesPath) }
 
   val diffFactory = DefaultResourceDiffFactory()
 
@@ -295,94 +284,4 @@ class CapacityAndScalingPoliciesDiffingTests {
     }
   }
 
-  @Test
-  fun `a delta is generated if there is a duplicate scaling policy`() {
-    val resource = baseResource
-      .withCapacity(CapacitySpec(1, 10, null))
-      .withAScalingPolicy()
-
-    every {
-      cloudDriverService.activeServerGroup(any(), any(), any(), any(), any(), any())
-    } returns activeServerGroup.copy(
-      capacity = Capacity(1, 10, 10),
-      scalingPolicies = (0..1).map {
-        ScalingPolicy(
-          autoScalingGroupName = "fnord-main-v001",
-          policyName = "fnord-main-v001-policy-${randomUUID()}",
-          policyType = "TargetTrackingScaling",
-          estimatedInstanceWarmup = 300,
-          targetTrackingConfiguration = TargetTrackingConfiguration(
-            targetValue = 20.0,
-            predefinedMetricSpecification = PredefinedMetricSpecificationModel(predefinedMetricType = "ASGAverageCPUUtilization")
-          ),
-          alarms = emptyList()
-        )
-      }
-    )
-
-    expectThat(generateDiff(resource)) {
-      scalingPolicies.isNotNull()
-    }
-  }
-
-  @Test
-  fun `no delta is generated if the desired scaling policies match the actual scaling policies`() {
-    val resource = baseResource
-      .withCapacity(CapacitySpec(1, 10, null))
-      .withAScalingPolicy()
-
-    every {
-      cloudDriverService.activeServerGroup(any(), any(), any(), any(), any(), any())
-    } returns activeServerGroup.copy(
-      capacity = Capacity(1, 10, 10),
-      scalingPolicies = listOf(
-        ScalingPolicy(
-          autoScalingGroupName = "fnord-main-v001",
-          policyName = "fnord-main-v001-policy-${randomUUID()}",
-          policyType = "TargetTrackingScaling",
-          estimatedInstanceWarmup = 300,
-          targetTrackingConfiguration = TargetTrackingConfiguration(
-            targetValue = 20.0,
-            predefinedMetricSpecification = PredefinedMetricSpecificationModel(predefinedMetricType = "ASGAverageCPUUtilization")
-          ),
-          alarms = emptyList()
-        )
-      )
-    )
-
-    val diff = generateDiff(resource)
-    diff.toDeltaJson()
-    expectThat(diff) {
-      scalingPolicies.isNull()
-    }
-  }
-
-  @Test
-  fun `no delta is detected when actual scaling policies have ids and desired do not`() {
-    val desired = Scaling(
-      targetTrackingPolicies = setOf(
-        TargetTrackingPolicy(
-          targetValue = 20.0,
-          customMetricSpec = CustomizedMetricSpecification(
-            namespace = "NFLX/EPIC",
-            name = "ASGAverageCPUUtilization",
-            statistic = "Average"
-          )
-        )
-      )
-    )
-
-    val current = desired.copy(
-      targetTrackingPolicies = setOf(
-        desired.targetTrackingPolicies.first().copy(
-          name = randomUUID().toString()
-        )
-      )
-    )
-
-    val diff = DefaultResourceDiffFactory()
-      .compare(desired, current)
-
-    expectThat(diff.hasChanges()).isFalse()
-  }
 }

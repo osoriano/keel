@@ -120,7 +120,7 @@ class TitusClusterScalingPolicyTests {
             targetValue = 35.0,
             scaleOutCooldownSec = 300,
             scaleInCooldownSec = 300,
-            disableScaleIn = false,
+            disableScaleIn = true,
             customizedMetricSpecification = CustomizedMetricSpecificationModel(
               namespace = "NFLX/EPIC",
               metricName = "AverageCPUUtilization",
@@ -415,30 +415,6 @@ class TitusClusterScalingPolicyTests {
           .get { dimensions }
           .isNotNull()
           .contains(MetricDimensionModel("AutoScalingGroupName", asg))
-      }
-  }
-
-  @Test
-  fun `duplicate scaling policies get removed`() {
-    cloudDriverService.stubActiveServerGroup(
-      actualServerGroup.copy(
-        // an additional scaling policy, identical to one of the others but with a different id
-        scalingPolicies = actualServerGroup.scalingPolicies + actualServerGroup.scalingPolicies.last().copy(
-          id = randomUUID().toString()
-        )
-      )
-    )
-
-    val desired = runBlocking { handler.desired(resource) }
-    val current = runBlocking { handler.current(resource) }
-
-    runBlocking {
-      handler.upsert(resource, diffFactory.compare(desired, current))
-    }
-
-    expectThat(stages)
-      .withCaptured {
-        map(Job::type) isEqualTo listOf("deleteScalingPolicy")
       }
   }
 }

@@ -34,13 +34,7 @@ data class Scaling(
 fun Scaling?.hasScalingPolicies(): Boolean =
   this != null && (targetTrackingPolicies.isNotEmpty() || stepScalingPolicies.isNotEmpty())
 
-sealed class ScalingPolicy {
-  /**
-   * @return `true` if the configuration of `other` is the same as this policy (ignoring identifiers, just "is this
-   * policy going to do the same thing", rather than "is this the same exact policy").
-   */
-  abstract fun hasSameConfigurationAs(other: ScalingPolicy): Boolean
-}
+sealed class ScalingPolicy
 
 data class TargetTrackingPolicy(
   @get:ExcludedFromDiff
@@ -67,7 +61,7 @@ data class TargetTrackingPolicy(
   }
 
   // Excluding name, so we can remove policies from current asg when modifying
-  override fun hasSameConfigurationAs(other: ScalingPolicy): Boolean {
+  override fun equals(other: Any?): Boolean {
     if (this === other) return true
     if (other !is TargetTrackingPolicy) return false
 
@@ -80,6 +74,17 @@ data class TargetTrackingPolicy(
     if (scaleInCooldown != other.scaleInCooldown) return false
 
     return true
+  }
+
+  override fun hashCode(): Int {
+    var result = warmup.hashCode()
+    result = 31 * result + targetValue.hashCode()
+    result = 31 * result + disableScaleIn.hashCode()
+    result = 31 * result + predefinedMetricSpec.hashCode()
+    result = 31 * result + customMetricSpec.hashCode()
+    result = 31 * result + scaleOutCooldown.hashCode()
+    result = 31 * result + scaleInCooldown.hashCode()
+    return result
   }
 }
 
@@ -112,7 +117,7 @@ data class StepScalingPolicy(
   }
 
   // Excluding name, so we can remove policies from current asg when modifying
-  override fun hasSameConfigurationAs(other: ScalingPolicy): Boolean {
+  override fun equals(other: Any?): Boolean {
     if (this === other) return true
     if (other !is StepScalingPolicy) return false
 
@@ -132,33 +137,23 @@ data class StepScalingPolicy(
 
     return true
   }
-}
 
-/**
- * @return `true` if this set contains any elements with the same configuration as [other].
- */
-fun <POLICY : ScalingPolicy> Set<POLICY>.containsAnyWithSameConfigurationAs(other: POLICY) =
-  any { it.hasSameConfigurationAs(other) }
-
-/**
- * @return all elements of this set that use the same configuration as any element in [others].
- */
-fun <POLICY : ScalingPolicy> Set<POLICY>.intersectingConfigurations(others: Set<POLICY>): Set<POLICY> =
-  filterTo(mutableSetOf()) { others.containsAnyWithSameConfigurationAs(it) }
-
-/**
- * @return all elements of this set that are either not present in [others] or _are_ present but with a greater
- * cardinality than in [others].
- */
-fun <POLICY : ScalingPolicy> Set<POLICY>.notPresentOrDuplicatedIn(others: Set<POLICY>): Set<POLICY> {
-  val result = toMutableSet()
-  others.forEach { policy ->
-    // only remove the first matching one, so result will retain any duplicates
-    result
-      .firstOrNull { it.hasSameConfigurationAs(policy) }
-      ?.also { result.remove(it) }
+  override fun hashCode(): Int {
+    var result = adjustmentType.hashCode()
+    result = 31 * result + actionsEnabled.hashCode()
+    result = 31 * result + comparisonOperator.hashCode()
+    result = 31 * result + dimensions.hashCode()
+    result = 31 * result + evaluationPeriods.hashCode()
+    result = 31 * result + period.hashCode()
+    result = 31 * result + threshold.hashCode()
+    result = 31 * result + metricName.hashCode()
+    result = 31 * result + namespace.hashCode()
+    result = 31 * result + statistic.hashCode()
+    result = 31 * result + warmup.hashCode()
+    result = 31 * result + metricAggregationType.hashCode()
+    result = 31 * result + stepAdjustments.hashCode()
+    return result
   }
-  return result
 }
 
 data class MetricDimension(
