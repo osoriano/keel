@@ -52,6 +52,8 @@ import com.netflix.spinnaker.keel.api.ec2.TargetTrackingPolicy
 import com.netflix.spinnaker.keel.api.ec2.TerminationPolicy
 import com.netflix.spinnaker.keel.api.ec2.byRegion
 import com.netflix.spinnaker.keel.api.ec2.hasScalingPolicies
+import com.netflix.spinnaker.keel.api.ec2.intersectingConfigurations
+import com.netflix.spinnaker.keel.api.ec2.notPresentOrDuplicatedIn
 import com.netflix.spinnaker.keel.api.ec2.resolve
 import com.netflix.spinnaker.keel.api.ec2.resolveCapacity
 import com.netflix.spinnaker.keel.api.ec2.resolveDependencies
@@ -842,13 +844,13 @@ class ClusterHandler(
       null -> desired.scaling.targetTrackingPolicies
       else ->
         desired.scaling.targetTrackingPolicies
-          .subtract(current!!.scaling.targetTrackingPolicies)
+          .subtract(desired.scaling.targetTrackingPolicies.intersectingConfigurations(current!!.scaling.targetTrackingPolicies))
     }
     val newStepPolicies = when (current) {
       null -> desired.scaling.stepScalingPolicies
       else ->
         desired.scaling.stepScalingPolicies
-          .subtract(current!!.scaling.stepScalingPolicies)
+          .subtract(desired.scaling.stepScalingPolicies.intersectingConfigurations(current!!.scaling.stepScalingPolicies))
     }
 
     if (newTargetPolicies.isNotEmpty()) {
@@ -871,12 +873,8 @@ class ClusterHandler(
       return refId to stages
     }
     val current = current!!
-    val targetPoliciesToRemove = current.scaling.targetTrackingPolicies.filterNot {
-      desired.scaling.targetTrackingPolicies.contains(it)
-    }
-    val stepPoliciesToRemove = current.scaling.stepScalingPolicies.filterNot {
-      desired.scaling.stepScalingPolicies.contains(it)
-    }
+    val targetPoliciesToRemove = current.scaling.targetTrackingPolicies.notPresentOrDuplicatedIn(desired.scaling.targetTrackingPolicies)
+    val stepPoliciesToRemove = current.scaling.stepScalingPolicies.notPresentOrDuplicatedIn(desired.scaling.stepScalingPolicies)
     val policyNamesToRemove = targetPoliciesToRemove.mapNotNull { it.name } +
       stepPoliciesToRemove.mapNotNull { it.name }
         .toSet()

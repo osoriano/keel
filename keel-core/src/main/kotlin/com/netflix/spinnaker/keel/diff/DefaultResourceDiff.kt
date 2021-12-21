@@ -1,13 +1,20 @@
 package com.netflix.spinnaker.keel.diff
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.convertValue
 import com.netflix.spinnaker.keel.api.ExcludedFromDiff
 import com.netflix.spinnaker.keel.api.ResourceDiff
 import com.netflix.spinnaker.keel.api.ResourceDiffFactory
+import com.netflix.spinnaker.keel.api.ec2.Scaling
+import com.netflix.spinnaker.keel.api.ec2.ScalingPolicy
+import com.netflix.spinnaker.keel.api.ec2.StepScalingPolicy
+import com.netflix.spinnaker.keel.api.ec2.TargetTrackingPolicy
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
 import de.danielbechler.diff.ObjectDiffer
 import de.danielbechler.diff.ObjectDifferBuilder
+import de.danielbechler.diff.comparison.ComparisonStrategy
+import de.danielbechler.diff.comparison.EqualsOnlyComparisonStrategy
 import de.danielbechler.diff.inclusion.Inclusion
 import de.danielbechler.diff.inclusion.InclusionResolver
 import de.danielbechler.diff.node.DiffNode
@@ -83,6 +90,47 @@ fun <T : Any> ResourceDiffFactory.toIndividualDiffs(diff: ResourceDiff<Map<Strin
 class DefaultResourceDiffFactory(
   identityServiceCustomizers: Iterable<IdentityServiceCustomizer> = emptyList()
 ) : ResourceDiffFactory {
+  /**
+   * Because [Scaling] contains sets of [ScalingPolicy] types that have properties that should be ignored for the
+   * purposes of diffing we need to customize the way the differ treats this type. By default, it has to rely on
+   * `equals` / `hashCode` to compare objects in sets, but because of the ignored `name` property on these types that
+   * won't work. If we customize the `equals` and `hashCode` to also ignore the field it means we're incapable of
+   * detecting the presence of duplicate policies with different names. This strategy converts the [Scaling] object to
+   * JSON and compares that.
+   */
+  private object ScalingComparisonStrategy : ComparisonStrategy {
+    interface ScalingPolicyMixin {
+      @get:JsonIgnore
+      val name: String?
+    }
+
+    private val mapper = configuredObjectMapper()
+      .addMixIn(ScalingPolicy::class.java, ScalingPolicyMixin::class.java)
+
+    override fun compare(node: DiffNode, type: Class<*>, working: Any?, base: Any?) {
+      val w = (working as? Scaling?).withConsistentOrdering()
+      val b = (base as? Scaling?).withConsistentOrdering()
+      EqualsOnlyComparisonStrategy()
+        .compare(node, type, mapper.writeValueAsString(w), mapper.writeValueAsString(b))
+    }
+
+    private val TargetTrackingPolicy.metricName: String
+      get() = checkNotNull(predefinedMetricSpec?.type ?: customMetricSpec?.let { "${it.namespace}/${it.name}" })
+
+    private val targetTrackingPolicyComparator = Comparator<TargetTrackingPolicy> { o1, o2 ->
+      o1.metricName.compareTo(o2.metricName)
+    }
+    private val stepScalingPolicyComparator = Comparator<StepScalingPolicy> { o1, o2 ->
+      "${o1.namespace}/${o1.metricName}:${o1.threshold}".compareTo("${o2.namespace}/${o2.metricName}:${o2.threshold}")
+    }
+
+    private fun Scaling?.withConsistentOrdering() =
+      this?.copy(
+        targetTrackingPolicies = targetTrackingPolicies.sortedWith(targetTrackingPolicyComparator).toSet(),
+        stepScalingPolicies = stepScalingPolicies.sortedWith(stepScalingPolicyComparator).toSet()
+      )
+  }
+
   private val objectDiffer = ObjectDifferBuilder
     .startBuilding()
     .apply {
@@ -90,6 +138,7 @@ class DefaultResourceDiffFactory(
         .apply {
           ofType<Instant>().toUseEqualsMethod()
           ofType<Duration>().toUseEqualsMethod()
+          ofType<Scaling>().toUse(ScalingComparisonStrategy)
         }
       inclusion()
         .resolveUsing(object : InclusionResolver {

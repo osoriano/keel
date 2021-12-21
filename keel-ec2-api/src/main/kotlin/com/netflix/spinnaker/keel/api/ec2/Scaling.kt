@@ -19,6 +19,7 @@ package com.netflix.spinnaker.keel.api.ec2
 
 import com.netflix.spinnaker.keel.api.ExcludedFromDiff
 import com.netflix.spinnaker.keel.api.schema.Description
+import org.apache.commons.lang3.builder.EqualsBuilder
 import java.time.Duration
 
 val DEFAULT_AUTOSCALE_INSTANCE_WARMUP: Duration = Duration.ofMinutes(5)
@@ -34,7 +35,13 @@ data class Scaling(
 fun Scaling?.hasScalingPolicies(): Boolean =
   this != null && (targetTrackingPolicies.isNotEmpty() || stepScalingPolicies.isNotEmpty())
 
-sealed class ScalingPolicy
+sealed class ScalingPolicy<T : ScalingPolicy<T>> {
+  /**
+   * @return `true` if the configuration of `other` is the same as this policy (ignoring identifiers, just "is this
+   * policy going to do the same thing", rather than "is this the same exact policy").
+   */
+  abstract fun hasSameConfigurationAs(other: T): Boolean
+}
 
 data class TargetTrackingPolicy(
   @get:ExcludedFromDiff
@@ -49,7 +56,7 @@ data class TargetTrackingPolicy(
   val scaleOutCooldown: Duration? = null,
   @Description("Applies only to Titus clusters")
   val scaleInCooldown: Duration? = null
-) : ScalingPolicy() {
+) : ScalingPolicy<TargetTrackingPolicy>() {
   init {
     require(customMetricSpec != null || predefinedMetricSpec != null) {
       "a custom or predefined metric must be defined"
@@ -61,31 +68,8 @@ data class TargetTrackingPolicy(
   }
 
   // Excluding name, so we can remove policies from current asg when modifying
-  override fun equals(other: Any?): Boolean {
-    if (this === other) return true
-    if (other !is TargetTrackingPolicy) return false
-
-    if (warmup != other.warmup) return false
-    if (targetValue != other.targetValue) return false
-    if (disableScaleIn != other.disableScaleIn) return false
-    if (predefinedMetricSpec != other.predefinedMetricSpec) return false
-    if (customMetricSpec != other.customMetricSpec) return false
-    if (scaleOutCooldown != other.scaleOutCooldown) return false
-    if (scaleInCooldown != other.scaleInCooldown) return false
-
-    return true
-  }
-
-  override fun hashCode(): Int {
-    var result = warmup.hashCode()
-    result = 31 * result + targetValue.hashCode()
-    result = 31 * result + disableScaleIn.hashCode()
-    result = 31 * result + predefinedMetricSpec.hashCode()
-    result = 31 * result + customMetricSpec.hashCode()
-    result = 31 * result + scaleOutCooldown.hashCode()
-    result = 31 * result + scaleInCooldown.hashCode()
-    return result
-  }
+  override fun hasSameConfigurationAs(other: TargetTrackingPolicy): Boolean =
+    EqualsBuilder.reflectionEquals(this, other, TargetTrackingPolicy::name.name)
 }
 
 data class StepScalingPolicy(
@@ -105,7 +89,7 @@ data class StepScalingPolicy(
   val warmup: Duration? = DEFAULT_AUTOSCALE_INSTANCE_WARMUP,
   val metricAggregationType: String = "Average",
   val stepAdjustments: Set<StepAdjustment>
-) : ScalingPolicy() {
+) : ScalingPolicy<StepScalingPolicy>() {
   init {
     require(stepAdjustments.isNotEmpty()) { "at least one stepAdjustment is required" }
     require(dimensions.isNullOrEmpty() || dimensions.none { it.name == "AutoScalingGroupName" }) {
@@ -117,43 +101,35 @@ data class StepScalingPolicy(
   }
 
   // Excluding name, so we can remove policies from current asg when modifying
-  override fun equals(other: Any?): Boolean {
-    if (this === other) return true
-    if (other !is StepScalingPolicy) return false
+  override fun hasSameConfigurationAs(other: StepScalingPolicy): Boolean =
+    EqualsBuilder.reflectionEquals(this, other, StepScalingPolicy::name.name)
+}
 
-    if (adjustmentType != other.adjustmentType) return false
-    if (actionsEnabled != other.actionsEnabled) return false
-    if (comparisonOperator != other.comparisonOperator) return false
-    if (dimensions != other.dimensions) return false
-    if (evaluationPeriods != other.evaluationPeriods) return false
-    if (period != other.period) return false
-    if (threshold != other.threshold) return false
-    if (metricName != other.metricName) return false
-    if (namespace != other.namespace) return false
-    if (statistic != other.statistic) return false
-    if (warmup != other.warmup) return false
-    if (metricAggregationType != other.metricAggregationType) return false
-    if (stepAdjustments != other.stepAdjustments) return false
+/**
+ * @return `true` if this set contains any elements with the same configuration as [other].
+ */
+fun <POLICY : ScalingPolicy<POLICY>> Set<POLICY>.containsAnyWithSameConfigurationAs(other: POLICY) =
+  any { it.hasSameConfigurationAs(other) }
 
-    return true
+/**
+ * @return all elements of this set that use the same configuration as any element in [others].
+ */
+fun <POLICY : ScalingPolicy<POLICY>> Set<POLICY>.intersectingConfigurations(others: Set<POLICY>): Set<POLICY> =
+  filterTo(mutableSetOf()) { others.containsAnyWithSameConfigurationAs(it) }
+
+/**
+ * @return all elements of this set that are either not present in [others] or _are_ present but with a greater
+ * cardinality than in [others].
+ */
+fun <POLICY : ScalingPolicy<POLICY>> Set<POLICY>.notPresentOrDuplicatedIn(others: Set<POLICY>): Set<POLICY> {
+  val result = toMutableSet()
+  others.forEach { policy ->
+    // only remove the first matching one, so result will retain any duplicates
+    result
+      .firstOrNull { it.hasSameConfigurationAs(policy) }
+      ?.also { result.remove(it) }
   }
-
-  override fun hashCode(): Int {
-    var result = adjustmentType.hashCode()
-    result = 31 * result + actionsEnabled.hashCode()
-    result = 31 * result + comparisonOperator.hashCode()
-    result = 31 * result + dimensions.hashCode()
-    result = 31 * result + evaluationPeriods.hashCode()
-    result = 31 * result + period.hashCode()
-    result = 31 * result + threshold.hashCode()
-    result = 31 * result + metricName.hashCode()
-    result = 31 * result + namespace.hashCode()
-    result = 31 * result + statistic.hashCode()
-    result = 31 * result + warmup.hashCode()
-    result = 31 * result + metricAggregationType.hashCode()
-    result = 31 * result + stepAdjustments.hashCode()
-    return result
-  }
+  return result
 }
 
 data class MetricDimension(

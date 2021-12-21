@@ -9,9 +9,9 @@ import com.netflix.spinnaker.keel.api.DependencyType.TARGET_GROUP
 import com.netflix.spinnaker.keel.api.Dependent
 import com.netflix.spinnaker.keel.api.ExcludedFromDiff
 import com.netflix.spinnaker.keel.api.Locations
-import com.netflix.spinnaker.keel.api.RolloutConfig
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.RedBlack
+import com.netflix.spinnaker.keel.api.RolloutConfig
 import com.netflix.spinnaker.keel.api.SubnetAwareLocations
 import com.netflix.spinnaker.keel.api.SubnetAwareRegionSpec
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
