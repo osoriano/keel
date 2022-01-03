@@ -968,7 +968,6 @@ class ClusterHandler(
         "credentials" to serverGroup.location.account,
         "moniker" to serverGroup.moniker.orcaClusterMoniker,
         "region" to serverGroup.location.region,
-        "serverGroupName" to serverGroup.moniker.serverGroup,
         "adjustmentType" to it.adjustmentType,
         "alarm" to mapOf(
           "region" to serverGroup.location.region,
