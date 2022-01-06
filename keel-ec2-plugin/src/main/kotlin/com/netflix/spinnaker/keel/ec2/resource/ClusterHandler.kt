@@ -968,6 +968,7 @@ class ClusterHandler(
         "credentials" to serverGroup.location.account,
         "moniker" to serverGroup.moniker.orcaClusterMoniker,
         "region" to serverGroup.location.region,
+        "serverGroupName" to serverGroup.moniker.serverGroup,
         "adjustmentType" to it.adjustmentType,
         "alarm" to mapOf(
           "region" to serverGroup.location.region,
@@ -986,8 +987,8 @@ class ClusterHandler(
           "metricAggregationType" to it.metricAggregationType,
           "stepAdjustments" to it.stepAdjustments.map { adjustment ->
             StepAdjustmentModel(
-              MetricIntervalLowerBound = adjustment.lowerBound,
-              MetricIntervalUpperBound = adjustment.upperBound,
+              metricIntervalLowerBound = adjustment.lowerBound,
+              metricIntervalUpperBound = adjustment.upperBound,
               scalingAdjustment = adjustment.scalingAdjustment
             )
           }
@@ -1198,8 +1199,8 @@ class ClusterHandler(
         map {
           StepAdjustment(
             scalingAdjustment = it.scalingAdjustment,
-            lowerBound = it.MetricIntervalLowerBound,
-            upperBound = it.MetricIntervalUpperBound
+            lowerBound = it.metricIntervalLowerBound,
+            upperBound = it.metricIntervalUpperBound
           )
         }
           .toSet()

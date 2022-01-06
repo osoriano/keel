@@ -154,7 +154,7 @@ class TitusClusterScalingPolicyTests {
               metricAggregationType = "Average",
               stepAdjustments = listOf(
                 StepAdjustmentModel(
-                  MetricIntervalUpperBound = 0.0,
+                  metricIntervalUpperBound = 0.0,
                   scalingAdjustment = -3
                 )
               )

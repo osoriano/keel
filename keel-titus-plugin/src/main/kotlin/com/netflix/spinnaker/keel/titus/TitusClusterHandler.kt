@@ -646,8 +646,8 @@ class TitusClusterHandler(
           "metricAggregationType" to it.metricAggregationType,
           "stepAdjustments" to it.stepAdjustments.map { adjustment ->
             StepAdjustmentModel(
-              MetricIntervalLowerBound = adjustment.lowerBound,
-              MetricIntervalUpperBound = adjustment.upperBound,
+              metricIntervalLowerBound = adjustment.lowerBound,
+              metricIntervalUpperBound = adjustment.upperBound,
               scalingAdjustment = adjustment.scalingAdjustment
             )
           }
@@ -1101,8 +1101,8 @@ class TitusClusterHandler(
               metricAggregationType = scalingPolicy.metricAggregationType,
               stepAdjustments = scalingPolicy.stepAdjustments.mapUnique {
                 StepAdjustment(
-                  lowerBound = it.MetricIntervalLowerBound,
-                  upperBound = it.MetricIntervalUpperBound,
+                  lowerBound = it.metricIntervalLowerBound,
+                  upperBound = it.metricIntervalUpperBound,
                   scalingAdjustment = it.scalingAdjustment
                 )
               }
