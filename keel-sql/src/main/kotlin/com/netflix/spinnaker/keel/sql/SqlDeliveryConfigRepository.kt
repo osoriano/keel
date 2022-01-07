@@ -1549,6 +1549,15 @@ class SqlDeliveryConfigRepository(
     }
   }
 
+  override fun storeJiraLinkForMigratedApplication(application: String, jiraLink: String) {
+    sqlRetry.withRetry(WRITE) {
+      jooq.update(MIGRATION_STATUS)
+        .set(MIGRATION_STATUS.JIRA_LINK, jiraLink)
+        .where(MIGRATION_STATUS.APPLICATION.eq(application))
+        .execute()
+    }
+  }
+
   override fun isMigrationPr(application: String, prId: String): Boolean {
     return sqlRetry.withRetry(READ) {
       jooq.fetchExists(

@@ -8,6 +8,7 @@ import com.netflix.spinnaker.keel.actuation.EnvironmentTaskCanceler
 import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
+import com.netflix.spinnaker.keel.api.JiraBridge
 import com.netflix.spinnaker.keel.api.Locatable
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ScmBridge
@@ -24,6 +25,9 @@ import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PASS
 import com.netflix.spinnaker.keel.api.constraints.StatefulConstraintEvaluator
 import com.netflix.spinnaker.keel.api.constraints.StatelessConstraintEvaluator
 import com.netflix.spinnaker.keel.api.constraints.UpdatedConstraintStatus
+import com.netflix.spinnaker.keel.api.jira.JiraComponent
+import com.netflix.spinnaker.keel.api.jira.JiraFields
+import com.netflix.spinnaker.keel.api.jira.JiraIssue
 import com.netflix.spinnaker.keel.api.migration.MigrationCommitData
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.api.plugins.ConstraintEvaluator
@@ -54,16 +58,14 @@ import com.netflix.spinnaker.keel.events.UnpinnedNotification
 import com.netflix.spinnaker.keel.exceptions.InvalidConstraintException
 import com.netflix.spinnaker.keel.exceptions.InvalidSystemStateException
 import com.netflix.spinnaker.keel.exceptions.InvalidVetoException
+import com.netflix.spinnaker.keel.getPrDescription
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventRepository
 import com.netflix.spinnaker.keel.logging.TracingSupport.Companion.blankMDC
+import com.netflix.spinnaker.keel.migrations.ApplicationPrData
 import com.netflix.spinnaker.keel.persistence.ArtifactNotFoundException
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.persistence.NoSuchDeliveryConfigException
-import com.netflix.spinnaker.keel.serialization.configuredYamlMapper
-import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator.Feature.WRITE_DOC_START_MARKER
-import com.netflix.spinnaker.keel.getPrDescription
-import com.netflix.spinnaker.keel.migrations.ApplicationPrData
 import com.netflix.spinnaker.keel.telemetry.InvalidVerificationIdSeen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -99,8 +101,9 @@ class ApplicationService(
   private val artifactVersionLinks: ArtifactVersionLinks,
   private val environmentTaskCanceler: EnvironmentTaskCanceler,
   private var yamlMapper: YAMLMapper,
-  private val scmBridge: ScmBridge
-  ) : CoroutineScope {
+  private val scmBridge: ScmBridge,
+  private val jiraBridge: JiraBridge
+) : CoroutineScope {
   override val coroutineContext: CoroutineContext = Dispatchers.Default
 
   companion object {
@@ -133,7 +136,7 @@ class ApplicationService(
     constraintEvaluators.filter { !it.isImplicit() && it !is StatefulConstraintEvaluator<*, *> }
 
   private val snapshottedStatelessConstraintAttrs: List<String> = constraintEvaluators
-    .filterIsInstance<StatelessConstraintEvaluator<*,*>>()
+    .filterIsInstance<StatelessConstraintEvaluator<*, *>>()
     .map { it.attributeType.name }
 
   fun hasManagedResources(application: String) = repository.hasManagedResources(application)
@@ -145,7 +148,7 @@ class ApplicationService(
       try {
         log.debug("Deleting delivery config for application $application")
         repository.deleteDeliveryConfigByApplication(application)
-      } catch(ex: NoDeliveryConfigForApplication) {
+      } catch (ex: NoDeliveryConfigForApplication) {
         log.info("attempted to delete delivery config for app that doesn't have a config: $application")
       }
     }
@@ -186,7 +189,7 @@ class ApplicationService(
     repository.storeConstraintState(newState)
     repository.triggerDeliveryConfigRecheck(application) // recheck environments to fast track a deployment
 
-    if (currentState.status != newState.status){
+    if (currentState.status != newState.status) {
       return true
     }
     return false
@@ -378,7 +381,7 @@ class ApplicationService(
       // Load the summary info for each version in each environment
       val artifactSummariesInEnv: Map<String, List<ArtifactSummaryInEnvironment>> = deliveryConfig
         .environments
-        .associate { env->
+        .associate { env ->
           env.name to repository.getArtifactSummariesInEnvironment(
             deliveryConfig,
             env.name,
@@ -393,7 +396,7 @@ class ApplicationService(
       // This map associates a context with this collection of verifications and their states
       val verificationStateMap = try {
         getVerificationStates(deliveryConfig, artifactVersions)
-      } catch(e: Exception) {
+      } catch (e: Exception) {
         log.error("error getting verification states for application ${deliveryConfig.application}", e)
         emptyMap()
       }
@@ -482,8 +485,8 @@ class ApplicationService(
     environment: Environment,
     artifactVersion: PublishedArtifact,
     verificationStateMap: Map<ArtifactInEnvironmentContext, Map<Verification, ActionState>>
-  ) : List<VerificationSummary> =
-    if(verificationsEnabled) {
+  ): List<VerificationSummary> =
+    if (verificationsEnabled) {
       val verificationContext = ArtifactInEnvironmentContext(deliveryConfig, environment, artifactVersion)
       verificationStateMap[verificationContext]
         ?.map { (verification, state) -> VerificationSummary(verification, state) }
@@ -499,13 +502,13 @@ class ApplicationService(
   ): ArtifactSummaryInEnvironment? {
     // some environments contain relevant info for skipped artifacts, so
     // try and find that summary before defaulting to less information
-    val potentialSummary = context.artifactSummariesInEnv.firstOrNull{ it.version == currentArtifact.version }
+    val potentialSummary = context.artifactSummariesInEnv.firstOrNull { it.version == currentArtifact.version }
       ?.copy(verifications = context.verifications)
     val pinnedArtifact = getPinnedArtifact(context, currentArtifact.version)
 
     return when (status) {
       PENDING -> {
-        val olderArtifactVersion = pinnedArtifact?: getArtifactVersionByPromotionStatus(context, CURRENT, null)
+        val olderArtifactVersion = pinnedArtifact ?: getArtifactVersionByPromotionStatus(context, CURRENT, null)
         ArtifactSummaryInEnvironment(
           environment = context.environmentName,
           version = currentArtifact.version,
@@ -527,14 +530,14 @@ class ApplicationService(
       }
 
       DEPLOYING, APPROVED -> {
-        val olderArtifactVersion = pinnedArtifact?: getArtifactVersionByPromotionStatus(context, CURRENT, null)
+        val olderArtifactVersion = pinnedArtifact ?: getArtifactVersionByPromotionStatus(context, CURRENT, null)
         potentialSummary?.copy(
           // comparing DEPLOYING/APPROVED (version in question, new code) vs. CURRENT (old code)
           compareLink = artifactVersionLinks.generateCompareLink(currentArtifact, olderArtifactVersion, context.artifact)
         )
       }
       PREVIOUS -> {
-        val newerArtifactVersion = potentialSummary?.replacedBy?.let { replacedByVersion -> context.allVersions.find { it.version == replacedByVersion }}
+        val newerArtifactVersion = potentialSummary?.replacedBy?.let { replacedByVersion -> context.allVersions.find { it.version == replacedByVersion } }
         potentialSummary?.copy(
           //comparing PREVIOUS (version in question, old code) vs. the version which replaced it (new code)
           //pinned artifact should not be consider here, as we know exactly which version replace the current one
@@ -542,7 +545,7 @@ class ApplicationService(
         )
       }
       CURRENT -> {
-        val olderArtifactVersion = pinnedArtifact?: getArtifactVersionByPromotionStatus(context, PREVIOUS, null)
+        val olderArtifactVersion = pinnedArtifact ?: getArtifactVersionByPromotionStatus(context, PREVIOUS, null)
         potentialSummary?.copy(
           // comparing CURRENT (version in question, new code) vs. PREVIOUS (old code)
           compareLink = artifactVersionLinks.generateCompareLink(currentArtifact, olderArtifactVersion, context.artifact)
@@ -564,7 +567,7 @@ class ApplicationService(
     val chosenVersion = if (version == null) {
       context.artifactInfoInEnvironment.sortedByDescending { it.deployedAt }.firstOrNull { it.status == promotionStatus }
     } else {
-      context.artifactInfoInEnvironment.sortedByDescending { it.deployedAt }.firstOrNull { it.status == promotionStatus && it.replacedByVersion == version}
+      context.artifactInfoInEnvironment.sortedByDescending { it.deployedAt }.firstOrNull { it.status == promotionStatus && it.replacedByVersion == version }
     } ?: return null
     return context.allVersions.find { it.version == chosenVersion.version }
   }
@@ -697,12 +700,16 @@ class ApplicationService(
    *
    * Most of the logic in this method is to deal with the case where the verification id is invalid
    */
-  fun Map<String, ActionState>.toVerificationMap(deliveryConfig: DeliveryConfig, ctx: ArtifactInEnvironmentContext) : Map<Verification, ActionState> =
+  fun Map<String, ActionState>.toVerificationMap(deliveryConfig: DeliveryConfig, ctx: ArtifactInEnvironmentContext): Map<Verification, ActionState> =
     entries
       .mapNotNull { (vId: String, state: ActionState) ->
         ctx.verification(vId)
           ?.let { verification -> verification to state }
-          .also { if (it == null) { onInvalidVerificationId(vId, deliveryConfig, ctx) } }
+          .also {
+            if (it == null) {
+              onInvalidVerificationId(vId, deliveryConfig, ctx)
+            }
+          }
       }
       .toMap()
 
@@ -753,21 +760,42 @@ class ApplicationService(
       fileContents = configAsString,
       commitMessage = COMMIT_MESSAGE,
       branchName = BRANCH_NAME,
-      prTitle =  PR_TITLE,
-      prDescription =  getPrDescription(user),
+      prTitle = PR_TITLE,
+      prDescription = getPrDescription(user),
       filePath = CONFIG_PATH,
-      reviewers =  emptySet()
+      reviewers = emptySet()
     )
 
     //get the newly created PR link
+    //todo: should we wrap it in try/catch?
     val prLink = scmBridge.createPr(
       STASH_SCM_TYPE,
       applicationPrData.projectKey,
       applicationPrData.repoSlug,
       commitMigrationData).link
 
+    log.debug("Migration PR created for application $application: $prLink")
+
     //storing the pr link
     repository.storePrLinkForMigratedApplication(application, prLink)
+
+    //create a jira issue
+    try {
+      val jiraIssue = jiraBridge.createIssue(
+        JiraIssue(
+          JiraFields(
+            summary = "Managed Delivery migration started for application $application",
+            description = "This is an automated ticket. A PR was created to migrate application $application to Managed Delivery.\n Check out the PR: $prLink",
+            components = listOf(JiraComponent(id= "migration"))
+          )
+        )
+      )
+      log.debug("jira issue ${jiraIssue.key} was created for application $application migration PR")
+      repository.storeJiraLinkForMigratedApplication(application, jiraIssue.self)
+    } catch (ex: Exception) {
+      log.debug("tried to create a new jira issue for a migration PR for application $application, but caught an exception", ex)
+    }
+
     return Pair(applicationPrData, prLink)
   }
 

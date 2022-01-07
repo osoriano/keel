@@ -6,6 +6,7 @@ import com.netflix.spinnaker.config.ArtifactConfig
 import com.netflix.spinnaker.keel.actuation.EnvironmentTaskCanceler
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
+import com.netflix.spinnaker.keel.api.JiraBridge
 import com.netflix.spinnaker.keel.api.ScmBridge
 import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
 import com.netflix.spinnaker.keel.api.artifacts.Commit
@@ -147,6 +148,7 @@ class ComparableLinksTests : JUnit5Minutests {
     val environmentTaskCanceler: EnvironmentTaskCanceler = mockk(relaxUnitFun = true)
     val yamlMapper: YAMLMapper = mockk(relaxUnitFun = true)
     val scmBridge: ScmBridge  = mockk(relaxed = true)
+    val jiraBridge: JiraBridge = mockk(relaxed = true)
 
     // subject
     val applicationService = ApplicationService(
@@ -163,7 +165,8 @@ class ComparableLinksTests : JUnit5Minutests {
       artifactVersionLinks,
       environmentTaskCanceler,
       yamlMapper,
-      scmBridge
+      scmBridge,
+      jiraBridge
     )
 
     val buildMetadata = BuildMetadata(

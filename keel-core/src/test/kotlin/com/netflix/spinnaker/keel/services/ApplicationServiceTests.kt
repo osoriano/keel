@@ -7,6 +7,7 @@ import com.netflix.spinnaker.keel.actuation.EnvironmentTaskCanceler
 import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
+import com.netflix.spinnaker.keel.api.JiraBridge
 import com.netflix.spinnaker.keel.api.ScmBridge
 import com.netflix.spinnaker.keel.api.Verification
 import com.netflix.spinnaker.keel.api.action.ActionState
@@ -25,8 +26,8 @@ import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.NOT_EVALUATED
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PASS
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PENDING
 import com.netflix.spinnaker.keel.api.constraints.SupportedConstraintType
+import com.netflix.spinnaker.keel.api.jira.JiraIssueResponse
 import com.netflix.spinnaker.keel.api.migration.PrLink
-import com.netflix.spinnaker.keel.migrations.ApplicationPrData
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.api.plugins.ConstraintEvaluator
 import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
@@ -51,6 +52,7 @@ import com.netflix.spinnaker.keel.core.api.SubmittedEnvironment
 import com.netflix.spinnaker.keel.events.PinnedNotification
 import com.netflix.spinnaker.keel.events.UnpinnedNotification
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventRepository
+import com.netflix.spinnaker.keel.migrations.ApplicationPrData
 import com.netflix.spinnaker.keel.persistence.ApplicationPullRequestDataIsMissing
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.ResourceStatus.CREATED
@@ -65,6 +67,7 @@ import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import io.mockk.Runs
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -112,7 +115,7 @@ class ApplicationServiceTests : JUnit5Minutests {
     val releaseArtifact = DummyArtifact(reference = "release")
     val snapshotArtifact = DummyArtifact(reference = "snapshot")
 
-    val limit=15
+    val limit = 15
 
     data class DummyVerification(override val id: String) : Verification {
       override val type = "dummy"
@@ -252,6 +255,7 @@ class ApplicationServiceTests : JUnit5Minutests {
     val environmentTaskCanceler: EnvironmentTaskCanceler = mockk(relaxUnitFun = true)
     val yamlMapper: YAMLMapper = configuredYamlMapper()
     val scmBridge: ScmBridge = mockk(relaxed = true)
+    val jiraBridge: JiraBridge = mockk(relaxed = true)
 
     // subject
     val applicationService = ApplicationService(
@@ -268,7 +272,8 @@ class ApplicationServiceTests : JUnit5Minutests {
       artifactVersionLinks,
       environmentTaskCanceler,
       yamlMapper,
-      scmBridge
+      scmBridge,
+      jiraBridge
     )
 
     val buildMetadata = BuildMetadata(
@@ -290,15 +295,17 @@ class ApplicationServiceTests : JUnit5Minutests {
     )
 
     fun Collection<String>.toArtifactVersions(artifact: DeliveryArtifact) =
-      map { PublishedArtifact(
-        name = artifact.name,
-        type = artifact.type,
-        reference = artifact.reference,
-        version = it,
-        createdAt = clock.instant().also { clock.tickMinutes(1) },
-        gitMetadata = gitMetadata,
-        buildMetadata = buildMetadata
-      ) }
+      map {
+        PublishedArtifact(
+          name = artifact.name,
+          type = artifact.type,
+          reference = artifact.reference,
+          version = it,
+          createdAt = clock.instant().also { clock.tickMinutes(1) },
+          gitMetadata = gitMetadata,
+          buildMetadata = buildMetadata
+        )
+      }
 
     val testSummariesInEnv = listOf(
       ArtifactSummaryInEnvironment("test", version0, "previous", replacedBy = version1),
@@ -1087,7 +1094,7 @@ class ApplicationServiceTests : JUnit5Minutests {
               )
               "production" -> ArtifactVersionStatus(
                 current = version4
-                )
+              )
               else -> error("Unexpected environment ${env.name}")
             }
           }
@@ -1097,23 +1104,23 @@ class ApplicationServiceTests : JUnit5Minutests {
           repository.getArtifactSummariesInEnvironment(singleArtifactDeliveryConfig, any(), any(), any())
         } answers {
           when (val environment = arg<String>(1)) {
-            "test" ->listOf(
+            "test" -> listOf(
               ArtifactSummaryInEnvironment(environment, version0, "previous", replacedBy = version1),
               ArtifactSummaryInEnvironment(environment, version1, "previous", replacedBy = version2),
               ArtifactSummaryInEnvironment(environment, version2, "previous", replacedBy = version3),
-              ArtifactSummaryInEnvironment(environment, version3, "previous",  replacedBy = version4),
-              ArtifactSummaryInEnvironment(environment, version4, "previous",  replacedBy = version5),
+              ArtifactSummaryInEnvironment(environment, version3, "previous", replacedBy = version4),
+              ArtifactSummaryInEnvironment(environment, version4, "previous", replacedBy = version5),
               ArtifactSummaryInEnvironment(environment, version5, "current"),
             )
             "staging" -> listOf(
               ArtifactSummaryInEnvironment(environment, version2, "previous", replacedBy = version3),
-              ArtifactSummaryInEnvironment(environment, version3, "previous",  replacedBy = version4),
+              ArtifactSummaryInEnvironment(environment, version3, "previous", replacedBy = version4),
               ArtifactSummaryInEnvironment(environment, version4, "current"),
               ArtifactSummaryInEnvironment(environment, version0, "pending"),
               ArtifactSummaryInEnvironment(environment, version1, "pending"),
               ArtifactSummaryInEnvironment(environment, version5, "pending"),
             )
-            "production" ->listOf(
+            "production" -> listOf(
               ArtifactSummaryInEnvironment(environment, version4, "current"),
               ArtifactSummaryInEnvironment(environment, version0, "pending"),
               ArtifactSummaryInEnvironment(environment, version1, "pending"),
@@ -1206,8 +1213,8 @@ class ApplicationServiceTests : JUnit5Minutests {
     context("delivery config with serial environments") {
       before {
         every { repository.getDeliveryConfigForApplication(application1) } returns serialEnvironmentsDeliveryConfig
-        every {repository.getEnvironmentSummaries(serialEnvironmentsDeliveryConfig) } returns serialEnvironments.values.map {
-          toEnvironmentSummary(it) {  ArtifactVersionStatus() }
+        every { repository.getEnvironmentSummaries(serialEnvironmentsDeliveryConfig) } returns serialEnvironments.values.map {
+          toEnvironmentSummary(it) { ArtifactVersionStatus() }
         }
       }
 
@@ -1220,27 +1227,50 @@ class ApplicationServiceTests : JUnit5Minutests {
     context("open PR with a config successfully") {
       val expectedPrResponse = PrLink(link = "https://stash/users/bla/repos/bla-app/pull-requests/93")
       before {
-        every { repository.getMigratableApplicationData(application1) } returns ApplicationPrData (
+        every { repository.getMigratableApplicationData(application1) } returns ApplicationPrData(
           submittedDeliveryConfig,
           "repo",
           "project"
-          )
+        )
 
         every {
           repository.storePrLinkForMigratedApplication(application1, any())
         } just Runs
 
         coEvery {
-            scmBridge.createPr("stash", any(), any(), any())
+          scmBridge.createPr("stash", any(), any(), any())
         } returns expectedPrResponse
       }
 
-      test("successfully created a PR in stash with the config") {
+      test("successfully created a PR in stash with the config; not failed when jira integration is returning error") {
         expectCatching {
           applicationService.openMigrationPr(application1, "keel")
         }.isSuccess()
           .second.isEqualTo(expectedPrResponse.link)
+
       }
+
+      context("with jira") {
+        before {
+          coEvery {
+            jiraBridge.createIssue(any())
+          } returns JiraIssueResponse("123", "MD-1", "jira/MD-1")
+
+          every {
+            repository.storeJiraLinkForMigratedApplication(application1, "jira/MD-1")
+          } just Runs
+        }
+
+        test("successfully created a PR in stash with the config; create a jira issue") {
+          runBlocking {
+            applicationService.openMigrationPr(application1, "keel")
+          }
+          coVerify(exactly = 1) {
+            repository.storeJiraLinkForMigratedApplication(application1, "jira/MD-1")
+          }
+        }
+      }
+
     }
 
     context("errors when creating PR from Igor") {
@@ -1255,7 +1285,7 @@ class ApplicationServiceTests : JUnit5Minutests {
           scmBridge.createPr(any(), any(), any(), any())
         } throws retrofitError
 
-        every { repository.getMigratableApplicationData(application1) } returns ApplicationPrData (
+        every { repository.getMigratableApplicationData(application1) } returns ApplicationPrData(
           submittedDeliveryConfig,
           "repo",
           "project"
@@ -1276,13 +1306,12 @@ class ApplicationServiceTests : JUnit5Minutests {
       before {
         every { repository.getMigratableApplicationData(application1) } throws exception
       }
-      test ("throw an exception") {
+      test("throw an exception") {
         expectCatching {
           applicationService.openMigrationPr(application1, "keel")
         }
           .isFailure()
           .isA<ApplicationPullRequestDataIsMissing>()
-
       }
     }
   }

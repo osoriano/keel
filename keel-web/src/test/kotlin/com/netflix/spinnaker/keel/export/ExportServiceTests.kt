@@ -12,7 +12,12 @@ import com.netflix.spinnaker.keel.clouddriver.model.Credential
 import com.netflix.spinnaker.keel.core.api.SubmittedResource
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.model.Application
+import com.netflix.spinnaker.keel.front50.model.Cluster
+import com.netflix.spinnaker.keel.front50.model.DeployStage
 import com.netflix.spinnaker.keel.front50.model.Pipeline
+import com.netflix.spinnaker.keel.front50.model.RestrictedExecutionWindow
+import com.netflix.spinnaker.keel.front50.model.TimeWindowConfig
+import com.netflix.spinnaker.keel.front50.model.Trigger
 import com.netflix.spinnaker.keel.igor.JobService
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
@@ -68,6 +73,39 @@ internal class ExportServiceTests {
     id = "1",
     application = "fnord",
   )
+
+  private val allowedTimesPipeline = Pipeline(
+    name = "deploy-to-test",
+    id = "e771cf60-6139-4c27-824c-a832f8291839",
+    application = "best-app",
+    disabled = false,
+    fromTemplate = false,
+    triggers = listOf(Trigger(
+      type = "jenkins",
+      enabled = true,
+      application = null,
+      pipeline = null)),
+    _stages = listOf(
+      DeployStage(
+        name = "Deploy",
+        type = "deploy",
+        refId = "2",
+        requisiteStageRefIds = listOf("1"),
+        clusters = setOf(Cluster(
+          account = "test",
+          application = "gyardeniapp",
+          provider = "aws",
+          strategy = "highlander",
+          availabilityZones =  mapOf("us-east-1" to listOf("us-east-1c", "us-east-1d", "us-east-1e")),
+          _region = null)),
+        restrictedExecutionWindow =
+        RestrictedExecutionWindow(
+          whitelist = listOf(
+            TimeWindowConfig(startHour = 2, startMin = 0, endHour = 5, endMin = 0),
+            TimeWindowConfig(startHour = 10, startMin = 0, endHour = 19, endMin = 0)),
+          days = listOf(2, 3, 4, 5, 6)))),
+    _updateTs = 1639088367751,
+    lastModifiedBy = "md@netflix.com")
 
   private val exportResult = PipelineExportResult(
     deliveryConfig = deliveryCofig,

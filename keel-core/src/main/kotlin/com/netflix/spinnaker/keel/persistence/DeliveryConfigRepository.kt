@@ -287,6 +287,11 @@ interface DeliveryConfigRepository : PeriodicallyCheckedRepository<DeliveryConfi
   fun storePrLinkForMigratedApplication(app: String, prLink: String)
 
   /**
+   * Storing the created jira link for an application
+   */
+  fun storeJiraLinkForMigratedApplication(app: String, jiraLink: String)
+
+  /**
    * Check if a PR id is for migrating an app
    */
   fun isMigrationPr(application: String, prId: String): Boolean

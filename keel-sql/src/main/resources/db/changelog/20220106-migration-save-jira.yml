@@ -1,0 +1,13 @@
+databaseChangeLog:
+  - changeSet:
+      id: migration-save-jira
+      author: gyardeni
+      changes:
+        - addColumn:
+            tableName: migration_status
+            columns:
+              - column:
+                  name: jira_link
+                  type: text
+                  constraints:
+                    - nullable: true

@@ -413,3 +413,6 @@ databaseChangeLog:
 - include:
     file: changelog/20211202-migration-save-pr.yml
     relativeToChangelogFile: true
+- include:
+    file: changelog/20220106-migration-save-jira.yml
+    relativeToChangelogFile: true

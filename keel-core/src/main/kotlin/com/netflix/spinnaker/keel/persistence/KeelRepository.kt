@@ -738,6 +738,12 @@ class KeelRepository(
   fun storePrLinkForMigratedApplication(application: String, prLink: String) =
     deliveryConfigRepository.storePrLinkForMigratedApplication(application, prLink)
 
+  /**
+   * Storing the jira issue link for an application
+   */
+  fun storeJiraLinkForMigratedApplication(application: String, jiraLink: String) =
+    deliveryConfigRepository.storeJiraLinkForMigratedApplication(application, jiraLink)
+
   override fun versionsInUse(artifact: DeliveryArtifact): Set<String> =
     artifactRepository.versionsInUse(artifact)
 }
