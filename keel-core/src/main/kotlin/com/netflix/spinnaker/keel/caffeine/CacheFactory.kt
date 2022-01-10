@@ -106,9 +106,9 @@ fun <K : Any, V> (suspend () -> Map<K, V>).toAsyncBulkCacheLoader(): AsyncCacheL
     }
 
     override fun asyncLoadAll(
-      keys: Iterable<K>,
+      keys: Set<out K>?,
       executor: Executor
-    ): CompletableFuture<Map<K, V>> =
+    ) : CompletableFuture<out Map<K, V>> =
       CoroutineScope(executor.asCoroutineDispatcher())
         .future { this@toAsyncBulkCacheLoader.invoke() }
   }
@@ -127,7 +127,7 @@ private class AsyncBulkLoadingCache<K : Any, V>(private val delegate: AsyncLoadi
 
   override fun get(
     key: K,
-    mappingFunction: BiFunction<in K, Executor, CompletableFuture<V>>
+    mappingFunction: BiFunction<in K, in Executor, out CompletableFuture<out V>>?
   ): CompletableFuture<V> {
     throw UnsupportedOperationException()
   }

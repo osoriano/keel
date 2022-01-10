@@ -13,6 +13,7 @@ import com.netflix.spinnaker.keel.graphql.types.MD_MigrationStatus
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
 import com.netflix.spinnaker.keel.services.ApplicationService
 import graphql.schema.DataFetchingEnvironment
+import kotlinx.coroutines.runBlocking
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.RequestHeader
 
@@ -48,14 +49,16 @@ class Migration(
     """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
     and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
   )
-  suspend fun md_initiateApplicationMigration(
+  fun md_initiateApplicationMigration(
     @InputArgument payload: MD_InitiateApplicationMigrationPayload,
     @RequestHeader("X-SPINNAKER-USER") user: String
   ): MD_Migration? {
-    val (prData, prLink) = applicationService.openMigrationPr(
-      application = payload.application,
-      user = user
-    )
+    val (prData, prLink) = runBlocking {
+      applicationService.openMigrationPr(
+        application = payload.application,
+        user = user
+      )
+    }
     return MD_Migration(
       id = "migration-${payload.application}",
       status = MD_MigrationStatus.PR_CREATED,
