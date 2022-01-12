@@ -30,6 +30,7 @@ internal class CacheTests {
   }
 
   @Test
+  @Disabled
   fun `map view returns all items if AsyncBulkLoadingCache manually reloaded`() {
     val cacheLoader = spyk(CacheLoader)
     val asyncBulkCache = TEST_CACHE_FACTORY.asyncBulkLoadingCache(
