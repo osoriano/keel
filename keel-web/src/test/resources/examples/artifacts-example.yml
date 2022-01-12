@@ -1,0 +1,44 @@
+---
+application: fnord
+serviceAccount: managed-delivery@netflix.com
+artifacts:
+  - name: fnord
+    type: docker
+    reference: fnord-docker
+    from:
+      branch:
+        name: master
+  - name: fnord
+    type: deb
+    reference: fnord-deb
+    vmOptions:
+      baseOs: ubuntu
+      regions:
+        - us-west-2
+    from:
+      branch:
+        name: master
+  - name: fnord
+    type: npm
+    reference: fnord-npm
+    from:
+      branch:
+        name: master
+  - name: fnord
+    type: docker
+    reference: fnord-branch-starts-with
+    from:
+      branch:
+        startsWith: feature/
+  - name: fnord
+    type: docker
+    reference: fnord-branch-name
+    from:
+      branch:
+        name: mybranch
+  - name: fnord
+    type: docker
+    reference: fnord-branch-regex
+    from:
+      branch:
+        regex: ".*"

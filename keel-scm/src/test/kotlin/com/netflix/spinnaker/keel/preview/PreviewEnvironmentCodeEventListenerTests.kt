@@ -9,6 +9,7 @@ import com.netflix.spinnaker.keel.api.DependencyType.LOAD_BALANCER
 import com.netflix.spinnaker.keel.api.DependencyType.SECURITY_GROUP
 import com.netflix.spinnaker.keel.api.Dependent
 import com.netflix.spinnaker.keel.api.Environment
+import com.netflix.spinnaker.keel.api.NamedResource
 import com.netflix.spinnaker.keel.api.InvalidMonikerException
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.PreviewEnvironmentSpec
@@ -63,6 +64,7 @@ import com.netflix.spinnaker.keel.test.applicationLoadBalancer
 import com.netflix.spinnaker.keel.test.configuredTestObjectMapper
 import com.netflix.spinnaker.keel.test.debianArtifact
 import com.netflix.spinnaker.keel.test.dockerArtifact
+import com.netflix.spinnaker.keel.test.locatableResource
 import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.keel.test.submittedResource
 import com.netflix.spinnaker.keel.test.titusCluster
@@ -91,6 +93,7 @@ import strikt.assertions.isEqualTo
 import strikt.assertions.isLessThanOrEqualTo
 import strikt.assertions.isTrue
 import strikt.assertions.length
+import strikt.assertions.none
 import strikt.assertions.one
 import java.time.Clock
 import java.time.Duration
@@ -224,6 +227,9 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
       )
     )
 
+    val resourceIgnoredByName = resource()
+    val resourceIgnoredByKind = locatableResource()
+
     var deliveryConfig = DeliveryConfig(
       application = "fnord",
       name = "myconfig",
@@ -240,7 +246,9 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
             defaultElbSecurityGroup,
             clusterWithDependencies,
             clusterWithOldSpecVersion,
-            graphqlSchema
+            graphqlSchema,
+            resourceIgnoredByName,
+            resourceIgnoredByKind
           ),
           constraints = setOf(ManualJudgementConstraint()),
           postDeploy = listOf(TagAmiPostDeployAction())
@@ -249,7 +257,11 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
       previewEnvironments = setOf(
         PreviewEnvironmentSpec(
           branch = branchStartsWith("feature/"),
-          baseEnvironment = "test"
+          baseEnvironment = "test",
+          excludeResources = setOf(
+            NamedResource(resourceIgnoredByName.kind, resourceIgnoredByName.name),
+            NamedResource(resourceIgnoredByKind.kind, "*")
+          )
         )
       )
     )
@@ -524,9 +536,17 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
               .containsExactlyInAnyOrder(defaultAppSecurityGroup.name, defaultElbSecurityGroup.name)
           }
 
-          test("the non-previewable graphql schema resource does not appear in the preview environment") {
-            val graphqlSchemaPreviewResources = previewEnv.resources.filter { it.kind == graphqlSchema.kind }
-            expectThat(graphqlSchemaPreviewResources).isEmpty()
+          test("non-previewable resources do not appear in the preview environment") {
+            val nonPreviewableResources = previewEnv.resources.filterNot { it.spec.isPreviewable() }
+            expectThat(nonPreviewableResources).isEmpty()
+          }
+
+          test("specific resources can be ignored by name") {
+            expectThat(previewEnv.resources).none { get { kind }.isEqualTo(resourceIgnoredByName.kind) }
+          }
+
+          test("resources can be ignored by kind") {
+            expectThat(previewEnv.resources).none { get { kind }.isEqualTo(resourceIgnoredByKind.kind) }
           }
         }
       }

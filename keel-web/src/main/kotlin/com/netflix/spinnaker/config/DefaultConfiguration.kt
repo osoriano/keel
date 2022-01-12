@@ -11,6 +11,7 @@ import com.netflix.spinnaker.keel.api.support.ExtensionRegistry
 import com.netflix.spinnaker.keel.resources.SpecMigrator
 import com.netflix.spinnaker.keel.rest.DeliveryConfigYamlParsingFilter
 import com.netflix.spinnaker.keel.schema.Generator
+import com.netflix.spinnaker.keel.schema.NamedResourceSchemaCustomizer
 import com.netflix.spinnaker.keel.schema.ResourceKindSchemaCustomizer
 import com.netflix.spinnaker.keel.schema.TagVersionStrategySchemaCustomizer
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
@@ -118,16 +119,20 @@ class DefaultConfiguration(
     extensionRegistry: ExtensionRegistry,
     resourceHandlers: List<ResourceHandler<*, *>>,
     migrators: List<SpecMigrator<*, *>>
-  ): Generator = Generator(
-    extensionRegistry = extensionRegistry,
-    schemaCustomizers = listOf(
-      ResourceKindSchemaCustomizer(
-        resourceHandlers.map { it.supportedKind.kind } + migrators.map { it.input.kind }
-      ),
-      TagVersionStrategySchemaCustomizer
-    ),
-    options = Generator.Options(
-      lowerCaseEnums = true
+  ): Generator {
+    val resourceKindSchemaCustomizer = ResourceKindSchemaCustomizer(
+      kinds = resourceHandlers.map { it.supportedKind.kind } + migrators.map { it.input.kind }
     )
-  )
+    return Generator(
+      extensionRegistry = extensionRegistry,
+      schemaCustomizers = listOf(
+        resourceKindSchemaCustomizer,
+        TagVersionStrategySchemaCustomizer,
+        NamedResourceSchemaCustomizer(resourceKindSchemaCustomizer)
+      ),
+      options = Generator.Options(
+        lowerCaseEnums = true
+      )
+    )
+  }
 }

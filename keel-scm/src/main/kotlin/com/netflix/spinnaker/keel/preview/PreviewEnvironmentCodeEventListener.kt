@@ -262,9 +262,10 @@ class PreviewEnvironmentCodeEventListener(
         notifications = previewEnvSpec.notifications,
         resources = baseEnv.resources
           .filter { res -> res.spec.isPreviewable() }
+          .filterNot { res -> previewEnvSpec.excludeResources.any { it.matches(res) } }
           .mapNotNull { res ->
-          res.toPreviewResource(configFromBranch, previewEnvSpec, previewArtifacts, suffix)
-        }.toSet()
+            res.toPreviewResource(configFromBranch, previewEnvSpec, previewArtifacts, suffix)
+          }.toSet()
       ).apply {
         addMetadata(
           "basedOn" to baseEnv.name,

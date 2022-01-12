@@ -46,7 +46,13 @@ data class PreviewEnvironmentSpec(
   /**
    * Allows the user to specify verifications for preview environments based on this spec.
    */
-  val verifyWith: List<Verification> = emptyList()
+  val verifyWith: List<Verification> = emptyList(),
+
+  /**
+   * Allows the user to specify resources from the base environment that should be ignored (i.e. not copied)
+   * when creating a preview environment.
+   */
+  val excludeResources: Set<NamedResource> = emptySet()
 ) {
   /**
    * Synthetic name used to allow more than one [PreviewEnvironmentSpec] for the same base environment
@@ -55,3 +61,4 @@ data class PreviewEnvironmentSpec(
   val name: String
     get() = "preview/$baseEnvironment/branch=${branch.name ?: branch.startsWith ?: branch.regex}"
 }
+

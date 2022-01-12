@@ -19,23 +19,33 @@ package com.netflix.spinnaker.keel.rest
 
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.ec2.ApplicationLoadBalancerSpec
 import com.netflix.spinnaker.keel.api.ec2.ClassicLoadBalancerSpec
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec
+import com.netflix.spinnaker.keel.api.ec2.EC2_SECURITY_GROUP_V1
 import com.netflix.spinnaker.keel.api.ec2.SecurityGroupSpec
 import com.netflix.spinnaker.keel.api.ec2.old.ClusterV1Spec
 import com.netflix.spinnaker.keel.api.titus.TestContainerVerification
 import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroup.Location
+import com.netflix.spinnaker.keel.artifacts.DebianArtifact
+import com.netflix.spinnaker.keel.artifacts.DockerArtifact
+import com.netflix.spinnaker.keel.artifacts.NpmArtifact
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment.NONE
+import strikt.api.Assertion.Builder
 import strikt.api.expectCatching
+import strikt.assertions.elementAt
+import strikt.assertions.filter
+import strikt.assertions.first
 import strikt.assertions.isA
 import strikt.assertions.isEqualTo
+import strikt.assertions.isNotNull
 import strikt.assertions.isSuccess
 
 @SpringBootTest(webEnvironment = NONE)
@@ -103,6 +113,28 @@ class DeliveryConfigYamlParsingTests @Autowired constructor(
             location = Location(account = "test", region = "us-east-1")
           )
         )
+    }
+
+    test("artifacts") {
+      parseSuccessfully("artifacts-example.yml")
+        .get { artifacts }
+        .and {
+          first { it.reference == "fnord-docker" }.isA<DockerArtifact>()
+          first { it.reference == "fnord-deb" }.isA<DebianArtifact>()
+          first { it.reference == "fnord-npm" }.isA<NpmArtifact>()
+          first { it.reference == "fnord-branch-name" }.get { from?.branch?.name }.isNotNull()
+          first { it.reference == "fnord-branch-starts-with" }.get { from?.branch?.startsWith }.isNotNull()
+          first { it.reference == "fnord-branch-regex" }.get { from?.branch?.regex }.isNotNull()
+        }
+    }
+
+    test("preview environment") {
+      parseSuccessfully("preview-environment-example.yml")
+        .get { previewEnvironments.first() }
+        .and {
+          get { baseEnvironment }.isEqualTo("test")
+          get { excludeResources.first().kind }.isEqualTo(EC2_SECURITY_GROUP_V1.kind)
+        }
     }
   }
 

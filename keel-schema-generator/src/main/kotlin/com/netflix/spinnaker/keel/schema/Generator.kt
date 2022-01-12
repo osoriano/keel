@@ -257,8 +257,8 @@ class Generator(
    * - In the case of a string, integer, boolean, or enum this is a [TypedProperty].
    * - In the case of an array-like type this is an [ArraySchema].
    * - In the case of a [Map] this is a [MapSchema].
-   * - Otherwise this is is a [Reference] to the schema for the type, which will be added to this
-   * [Context] if not already defined.r
+   * - Otherwise this is a [Reference] to the schema for the type, which will be added to this
+   *   [Context] if not already defined.
    */
   private fun Context.buildProperty(
     owner: KType,

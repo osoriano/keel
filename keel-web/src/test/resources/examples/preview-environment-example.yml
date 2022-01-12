@@ -1,0 +1,42 @@
+---
+application: fnord
+serviceAccount: managed-delivery@netflix.com
+artifacts:
+  - name: fnord
+    type: docker
+    reference: fnord
+    from:
+      branch:
+        name: master
+environments:
+  - name: test
+    locations:
+      account: test
+      regions:
+      - name: us-west-2
+    resources:
+    - kind: titus/cluster@v1
+      spec:
+        moniker:
+          app: fnord
+          stack: example
+        container:
+          reference: fnord
+        dependencies:
+          securityGroupNames:
+            - fnord
+            - nf-datacenter
+            - nf-infrastructure
+    - kind: ec2/security-group@v1
+      spec:
+        moniker:
+          app: fnord
+          stack: example
+        inboundRules: []
+previewEnvironments:
+  - baseEnvironment: test
+    branch:
+      startsWith: feature/
+    excludeResources:
+      - kind: ec2/security-group@v1
+        name: "*"
