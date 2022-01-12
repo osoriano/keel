@@ -23,10 +23,14 @@ import com.netflix.spinnaker.keel.artifacts.DockerArtifact
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.clouddriver.model.Credential
+import com.netflix.spinnaker.keel.clouddriver.model.CustomizedMetricSpecificationModel
 import com.netflix.spinnaker.keel.clouddriver.model.DockerImage
+import com.netflix.spinnaker.keel.clouddriver.model.MetricDimensionModel
 import com.netflix.spinnaker.keel.clouddriver.model.Resources
 import com.netflix.spinnaker.keel.clouddriver.model.SecurityGroupSummary
+import com.netflix.spinnaker.keel.clouddriver.model.TargetPolicyDescriptor
 import com.netflix.spinnaker.keel.clouddriver.model.TitusActiveServerGroup
+import com.netflix.spinnaker.keel.clouddriver.model.TitusScaling
 import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.docker.DigestProvider
 import com.netflix.spinnaker.keel.docker.ReferenceProvider
@@ -57,6 +61,7 @@ import strikt.assertions.containsKey
 import strikt.assertions.hasSize
 import strikt.assertions.isA
 import strikt.assertions.isEqualTo
+import strikt.assertions.isNotEmpty
 import strikt.assertions.isNotNull
 import strikt.assertions.isNull
 import java.time.Clock
@@ -211,6 +216,68 @@ internal class TitusClusterExportTests : JUnit5Minutests {
     after {
       confirmVerified(orcaService)
       clearAllMocks()
+    }
+
+    context("scaling policies are exported") {
+      before {
+        coEvery { cloudDriverService.titusActiveServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast.copy(
+          scalingPolicies = listOf(
+            TitusScaling(
+            id = "123-445",
+            policy = TitusScaling.Policy.TargetPolicy(
+              targetPolicyDescriptor = TargetPolicyDescriptor(
+                targetValue = 50.0,
+                scaleOutCooldownSec = 300,
+                scaleInCooldownSec = 300,
+                disableScaleIn = true,
+                customizedMetricSpecification = CustomizedMetricSpecificationModel(
+                  metricName = "AverageCPUUtilization",
+                  namespace = "bunbun",
+                  statistic = "Average",
+                  dimensions = listOf(MetricDimensionModel(
+                    name = "AutoScalingGroupName",
+                    value = "emburnstest-bunbun-v008"
+                  ))
+                )
+              )
+            )
+          )
+          )
+        )
+        coEvery { cloudDriverService.titusActiveServerGroup(any(), "us-west-2") } returns activeServerGroupResponseWest.copy(
+          scalingPolicies = listOf(
+            TitusScaling(
+              id = "123-445",
+              policy = TitusScaling.Policy.TargetPolicy(
+                targetPolicyDescriptor = TargetPolicyDescriptor(
+                  targetValue = 50.0,
+                  scaleOutCooldownSec = 300,
+                  scaleInCooldownSec = 300,
+                  disableScaleIn = true,
+                  customizedMetricSpecification = CustomizedMetricSpecificationModel(
+                    metricName = "AverageCPUUtilization",
+                    namespace = "bunbun",
+                    statistic = "Average",
+                    dimensions = listOf(MetricDimensionModel(
+                      name = "AutoScalingGroupName",
+                      value = "emburnstest-bunbun-v008"
+                    ))
+                  )
+                )
+              )
+            )
+          )
+        )
+        coEvery { cloudDriverService.findDockerImages("testregistry", (spec.container as DigestProvider).repository()) } returns images
+        every { cloudDriverCache.credentialBy(titusAccount) } returns titusAccountCredential
+      }
+
+      test("has scaling policies defined") {
+        val cluster = runBlocking {
+          export(exportable)
+        }
+        expectThat(cluster.defaults.scaling).isNotNull().get { targetTrackingPolicies }.isNotEmpty()
+      }
     }
 
     context("export without overrides") {

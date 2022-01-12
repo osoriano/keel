@@ -64,6 +64,7 @@ import com.netflix.spinnaker.keel.api.titus.ResourcesSpec
 import com.netflix.spinnaker.keel.api.titus.TITUS_CLOUD_PROVIDER
 import com.netflix.spinnaker.keel.api.titus.TITUS_CLUSTER_V1
 import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
+import com.netflix.spinnaker.keel.api.titus.TitusScalingSpec
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroup
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroup.Constraints
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroup.Location
@@ -1168,7 +1169,8 @@ class TitusClusterHandler(
       capacityGroup = application,
       env = emptyMap(),
       containerAttributes = emptyMap(),
-      tags = emptyMap()
+      tags = emptyMap(),
+      scaling = TitusScalingSpec()
     )
 
     val thisSpec = TitusServerGroupSpec(
@@ -1181,11 +1183,18 @@ class TitusClusterHandler(
       containerAttributes = containerAttributes.filterNot { EXPORT_IGNORED_CONTAINER_ATTRIBUTES.contains(it.key) },
       migrationPolicy = migrationPolicy,
       resources = resources.toSpec(),
-      tags = tags
+      tags = tags,
+      scaling = if (scaling.hasScalingPolicies()) scaling.toTitusScalingSpec() else null
     )
 
     return checkNotNull(buildSpecFromDiff(defaults, thisSpec))
   }
+
+  private fun Scaling.toTitusScalingSpec() =
+    TitusScalingSpec(
+      targetTrackingPolicies = targetTrackingPolicies,
+      stepScalingPolicies = stepScalingPolicies
+    )
 
   private fun Resources.toSpec(): ResourcesSpec =
     ResourcesSpec(
