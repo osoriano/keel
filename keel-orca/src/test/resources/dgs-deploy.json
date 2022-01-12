@@ -1,0 +1,150 @@
+{
+  "id": "01FS2ZVXTVY944WGEGVKNB619G",
+  "name": "Publish GraphQL schema version main-h56.4abf1fa [to edge enterprise, environment test]",
+  "application": "mddgsdemo",
+  "status": "SUCCEEDED",
+  "variables": [
+    {
+      "key": "edge",
+      "value": "enterprise"
+    },
+    {
+      "key": "registryEnv",
+      "value": "test"
+    },
+    {
+      "key": "validateOnPublish",
+      "value": false
+    },
+    {
+      "key": "source",
+      "value": {
+        "contents": "\"\"\"\nHeader\n\"\"\"\ntype Query @extends {\n  mySillyTestExample: String!\n  myOtherSillyTestExample: String!\n}\n",
+        "type": "stage"
+      }
+    },
+    {
+      "key": "user",
+      "value": "Spinnaker"
+    }
+  ],
+  "steps": [
+    {
+      "id": "1",
+      "implementingClass": "com.netflix.spinnaker.plugin.dgs.stages.DgsPublishSchemaTask",
+      "name": "publishSchema",
+      "startTime": 1641851779069,
+      "endTime": 1641851784514,
+      "status": "SUCCEEDED",
+      "stageStart": true,
+      "stageEnd": true,
+      "loopStart": false,
+      "loopEnd": false
+    }
+  ],
+  "buildTime": 1641851778907,
+  "startTime": 1641851778983,
+  "endTime": 1641851784573,
+  "execution": {
+    "type": "ORCHESTRATION",
+    "id": "01FS2ZVXTVY944WGEGVKNB619G",
+    "application": "mddgsdemo",
+    "buildTime": 1641851778907,
+    "canceled": false,
+    "limitConcurrent": false,
+    "keepWaitingPipelines": false,
+    "stages": [
+      {
+        "id": "01FS2ZVXTVXJK1C2FJX3FCPCRS",
+        "refId": "0",
+        "type": "dgsSchemaDeploy",
+        "name": "dgsSchemaDeploy",
+        "startTime": 1641851779022,
+        "endTime": 1641851784545,
+        "status": "SUCCEEDED",
+        "context": {
+          "edge": "enterprise",
+          "registryEnv": "test",
+          "validateOnPublish": false,
+          "source": {
+            "contents": "\"\"\"\nHeader\n\"\"\"\ntype Query @extends {\n  mySillyTestExample: String!\n  myOtherSillyTestExample: String!\n}\n",
+            "type": "stage"
+          },
+          "user": "Spinnaker"
+        },
+        "outputs": {
+          "validationWarnings": [
+
+          ],
+          "validationErrors": [
+
+          ],
+          "linterResults": [
+
+          ]
+        },
+        "tasks": [
+          {
+            "id": "1",
+            "implementingClass": "com.netflix.spinnaker.plugin.dgs.stages.DgsPublishSchemaTask",
+            "name": "publishSchema",
+            "startTime": 1641851779069,
+            "endTime": 1641851784514,
+            "status": "SUCCEEDED",
+            "stageStart": true,
+            "stageEnd": true,
+            "loopStart": false,
+            "loopEnd": false
+          }
+        ],
+        "requisiteStageRefIds": [
+
+        ]
+      }
+    ],
+    "startTime": 1641851778983,
+    "endTime": 1641851784573,
+    "status": "SUCCEEDED",
+    "authentication": {
+      "user": "managed-delivery-team@netflix.com",
+      "allowedAccounts": [
+
+      ]
+    },
+    "origin": "keel",
+    "trigger": {
+      "type": "keel",
+      "correlationId": "graphql:schema:enterprise:test:mddgsdemo@default",
+      "user": "keel",
+      "parameters": {
+
+      },
+      "artifacts": [
+
+      ],
+      "notifications": [
+
+      ],
+      "rebake": false,
+      "dryRun": false,
+      "strategy": false,
+      "resolvedExpectedArtifacts": [
+
+      ],
+      "expectedArtifacts": [
+
+      ]
+    },
+    "description": "Publish GraphQL schema version main-h56.4abf1fa [to edge enterprise, environment test]",
+    "notifications": [
+
+    ],
+    "initialConfig": {
+
+    },
+    "systemNotifications": [
+
+    ],
+    "partition": "us-west-2"
+  }
+}

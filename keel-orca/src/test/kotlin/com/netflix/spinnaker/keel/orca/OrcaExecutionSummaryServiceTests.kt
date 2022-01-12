@@ -18,6 +18,7 @@ import strikt.api.expectThat
 import strikt.assertions.containsExactly
 import strikt.assertions.containsExactlyInAnyOrder
 import strikt.assertions.hasSize
+import strikt.assertions.isEmpty
 import strikt.assertions.isEqualTo
 import strikt.assertions.isNotEmpty
 import strikt.assertions.isNotNull
@@ -175,6 +176,13 @@ class OrcaExecutionSummaryServiceTests {
       that(target.location.account).isEqualTo("mgmt")
       that(target.location.region).isEqualTo("us-west-2")
     }
+  }
+
+  @Test
+  fun `dgs task has no targets`(){
+    val summary = testSetup("/dgs-deploy.json")
+    expectThat(summary.deployTargets).isEmpty()
+    expectThat(summary.status).isEqualTo(TaskStatus.SUCCEEDED)
   }
 
   @Suppress("RECEIVER_NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")

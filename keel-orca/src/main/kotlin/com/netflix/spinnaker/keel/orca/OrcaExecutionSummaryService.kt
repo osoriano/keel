@@ -45,6 +45,7 @@ class OrcaExecutionSummaryService(
     val CREATE_SERVER_GROUP_STAGE = "createServerGroup"
     val MODIFY_SCALING_POLICY_STAGE = "upsertScalingPolicy"
     val CLONE_SERVER_GROUP_STAGE = "cloneServerGroup"
+    val PUBLISH_DGS_STAGE = "dgsSchemaDeploy"
   }
 
   override fun getSummary(executionId: String): ExecutionSummary {
@@ -87,6 +88,7 @@ class OrcaExecutionSummaryService(
     val targetsWithStatus: MutableList<RolloutTargetWithStatus> = mutableListOf()
     val statusTargetMap = when {
       execution.isManagedRollout() -> getTargetStatusManagedRollout(typedStages)
+      execution.isDGS() -> emptyMap() // dgs tasks don't have regional targets
       else -> getTargetStatus(execution, typedStages)
     }
 
@@ -130,6 +132,9 @@ class OrcaExecutionSummaryService(
 
   fun ExecutionDetailResponse.isRedploy(): Boolean =
     containsStageType(CLONE_SERVER_GROUP_STAGE)
+
+  fun ExecutionDetailResponse.isDGS(): Boolean =
+    containsStageType(PUBLISH_DGS_STAGE)
 
   fun ExecutionDetailResponse.containsStageType(type: String): Boolean =
     execution?.stages?.find { it["type"] == type } != null
