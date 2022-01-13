@@ -39,7 +39,7 @@ class ClusterExportHelper(
             "account $account in search of pipeline/task correlation."
         )
         cloudDriverService.getEntityTags(
-          cloudProvider = "aws",
+          cloudProvider = cloudProvider,
           account = account,
           application = application,
           entityType = "servergroup",
