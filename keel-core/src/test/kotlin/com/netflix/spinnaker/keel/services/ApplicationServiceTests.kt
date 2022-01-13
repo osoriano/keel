@@ -55,6 +55,7 @@ import com.netflix.spinnaker.keel.lifecycle.LifecycleEventRepository
 import com.netflix.spinnaker.keel.migrations.ApplicationPrData
 import com.netflix.spinnaker.keel.persistence.ApplicationPullRequestDataIsMissing
 import com.netflix.spinnaker.keel.persistence.KeelRepository
+import com.netflix.spinnaker.keel.persistence.PausedRepository
 import com.netflix.spinnaker.keel.persistence.ResourceStatus.CREATED
 import com.netflix.spinnaker.keel.serialization.configuredYamlMapper
 import com.netflix.spinnaker.keel.test.DummyArtifact
@@ -71,6 +72,7 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
+import io.mockk.runs
 import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.runBlocking
@@ -102,11 +104,12 @@ class ApplicationServiceTests : JUnit5Minutests {
       Instant.parse("2020-03-25T00:00:00.00Z"),
       ZoneId.of("UTC")
     )
-    val repository: KeelRepository = mockk() {
+    val repository: KeelRepository = mockk {
       every {
         getVersionInfoInEnvironment(any(), any(), any())
       } returns emptyList()
     }
+    val pausedRepository: PausedRepository = mockk()
     val resourceStatusService: ResourceStatusService = mockk()
 
     val application1 = "fnord1"
@@ -273,7 +276,8 @@ class ApplicationServiceTests : JUnit5Minutests {
       environmentTaskCanceler,
       yamlMapper,
       scmBridge,
-      jiraBridge
+      jiraBridge,
+      pausedRepository
     )
 
     val buildMetadata = BuildMetadata(
@@ -1314,9 +1318,34 @@ class ApplicationServiceTests : JUnit5Minutests {
           .isA<ApplicationPullRequestDataIsMissing>()
       }
     }
+
+    context("store a paused migration config") {
+      before {
+        every {
+          repository.getMigratableApplicationData(application1)
+        } returns ApplicationPrData(submittedDeliveryConfig,"repo","project")
+
+        every {
+          repository.upsertDeliveryConfig(any<SubmittedDeliveryConfig>())
+        } returns submittedDeliveryConfig.toDeliveryConfig()
+
+        every { pausedRepository.pauseApplication(any(), any(), any()) } just runs
+      }
+
+      test("application is paused and delivery config is stored") {
+        expectCatching {
+          applicationService.storePausedMigrationConfig(application1, "keel")
+        }.isSuccess()
+
+        verify {
+          pausedRepository.pauseApplication(application1, "keel", any())
+          repository.upsertDeliveryConfig(submittedDeliveryConfig)
+        }
+      }
+    }
   }
 
-  fun Assertion.Builder<ArtifactSummary>.withVersionInEnvironment(
+  private fun Assertion.Builder<ArtifactSummary>.withVersionInEnvironment(
     version: String,
     environment: String,
     block: Assertion.Builder<ArtifactSummaryInEnvironment>.() -> Unit

@@ -370,7 +370,10 @@ class ExportService(
       application = applicationName,
       serviceAccount = serviceAccount,
       artifacts = finalArtifacts,
-      environments = finalEnvironments.sensibleOrder()
+      environments = finalEnvironments.sensibleOrder(),
+      metadata = mapOf(
+        "migrating" to true
+      )
     )
 
     try {

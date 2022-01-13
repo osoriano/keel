@@ -59,6 +59,11 @@ class Migration(
         user = user
       )
     }
+
+    // store the delivery config (but paused) so that we can do things with it like diffing resources
+    // even before the app is officially onboarded
+    applicationService.storePausedMigrationConfig(payload.application, user)
+
     return MD_Migration(
       id = "migration-${payload.application}",
       status = MD_MigrationStatus.PR_CREATED,

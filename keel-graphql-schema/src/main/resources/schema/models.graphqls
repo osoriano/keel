@@ -64,6 +64,7 @@ type MD_Config {
   rawConfig: String
   processedConfig: String
   previewEnvironmentsConfigured: Boolean
+  isMigrating: Boolean
 }
 
 type MD_Environment {

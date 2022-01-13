@@ -34,6 +34,7 @@ import com.netflix.spinnaker.keel.core.api.PromotionStatus.PREVIOUS
 import com.netflix.spinnaker.keel.exceptions.UnsupportedScmType
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
+import com.netflix.spinnaker.keel.persistence.PausedRepository
 import com.netflix.spinnaker.keel.test.DummyArtifact
 import com.netflix.spinnaker.keel.test.DummySortingStrategy
 import com.netflix.spinnaker.keel.test.artifactReferenceResource
@@ -149,6 +150,7 @@ class ComparableLinksTests : JUnit5Minutests {
     val yamlMapper: YAMLMapper = mockk(relaxUnitFun = true)
     val scmBridge: ScmBridge  = mockk(relaxed = true)
     val jiraBridge: JiraBridge = mockk(relaxed = true)
+    val pausedRepository: PausedRepository = mockk(relaxed = true)
 
     // subject
     val applicationService = ApplicationService(
@@ -166,7 +168,8 @@ class ComparableLinksTests : JUnit5Minutests {
       environmentTaskCanceler,
       yamlMapper,
       scmBridge,
-      jiraBridge
+      jiraBridge,
+      pausedRepository
     )
 
     val buildMetadata = BuildMetadata(

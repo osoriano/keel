@@ -66,6 +66,7 @@ import com.netflix.spinnaker.keel.persistence.ArtifactNotFoundException
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.persistence.NoSuchDeliveryConfigException
+import com.netflix.spinnaker.keel.persistence.PausedRepository
 import com.netflix.spinnaker.keel.telemetry.InvalidVerificationIdSeen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -75,6 +76,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Propagation.REQUIRED
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.ResponseStatus
 import java.time.Clock
 import java.time.Duration
@@ -102,7 +105,8 @@ class ApplicationService(
   private val environmentTaskCanceler: EnvironmentTaskCanceler,
   private var yamlMapper: YAMLMapper,
   private val scmBridge: ScmBridge,
-  private val jiraBridge: JiraBridge
+  private val jiraBridge: JiraBridge,
+  private val pausedRepository: PausedRepository
 ) : CoroutineScope {
   override val coroutineContext: CoroutineContext = Dispatchers.Default
 
@@ -797,6 +801,18 @@ class ApplicationService(
     }
 
     return Pair(applicationPrData, prLink)
+  }
+
+  /**
+   * Stores the [SubmittedDeliveryConfig] for the specified [application] after pausing it, such that we don't
+   * take action on the config. This is so that we can interact with the config in the database like a normal
+   * application (including diffing resources against current state) in support of the migration wizard.
+   */
+  @Transactional(propagation = REQUIRED)
+  fun storePausedMigrationConfig(application: String, user: String) {
+    val applicationPrData = repository.getMigratableApplicationData(application)
+    pausedRepository.pauseApplication(application, user, "Automatically paused while upgrading to Managed Delivery.")
+    repository.upsertDeliveryConfig(applicationPrData.deliveryConfig)
   }
 
   @ResponseStatus(HttpStatus.CONFLICT)
