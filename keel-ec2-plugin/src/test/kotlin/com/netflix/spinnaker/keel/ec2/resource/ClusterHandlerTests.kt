@@ -715,23 +715,17 @@ internal class ClusterHandlerTests : JUnit5Minutests {
             get("type").isEqualTo("upsertScalingPolicy")
             get("targetTrackingConfiguration")
               .isA<Map<String, Any?>>()
-              .get {
-                expectThat(get("targetValue"))
-                  .isA<Double>()
-                  .isEqualTo(560.0)
-                expectThat(get("disableScaleIn"))
-                  .isA<Boolean>()
-                  .isTrue()
-                expectThat(get("customizedMetricSpecification"))
-                  .isA<CustomizedMetricSpecificationModel>()
-                  .isEqualTo(
-                    CustomizedMetricSpecificationModel(
-                      metricName = metricSpec.name,
-                      namespace = metricSpec.namespace,
-                      statistic = metricSpec.statistic
-                    )
+              .and {
+                get("targetValue").isA<Double>().isEqualTo(560.0)
+                get("disableScaleIn").isA<Boolean>().isTrue()
+                get("customizedMetricSpecification").isA<CustomizedMetricSpecificationModel>().isEqualTo(
+                  CustomizedMetricSpecificationModel(
+                    metricName = metricSpec.name,
+                    namespace = metricSpec.namespace,
+                    statistic = metricSpec.statistic
                   )
-              }.isNotEqualTo(null)
+                )
+              }
           }
         }
       }

@@ -279,20 +279,19 @@ internal class ClassicLoadBalancerHandlerTests : JUnit5Minutests {
           diffFactory.compare(desired = desired, current = current)
         }
 
-        expectThat(diff.diff)
-          .and {
-            childCount().isEqualTo(1)
-            getChild(
-              MapKeyElementSelector("us-east-1"),
-              BeanPropertyElementSelector("dependencies"),
-              BeanPropertyElementSelector("securityGroupNames")
-            )
-              .isNotNull()
-              .and {
-                state.isEqualTo(CHANGED)
-                getChild(CollectionItemElementSelector("testapp-elb")).isNotNull().state.isEqualTo(REMOVED)
-              }
-          }
+        expectThat(diff.diff) {
+          childCount().isEqualTo(1)
+          getChild(
+            MapKeyElementSelector("us-east-1"),
+            BeanPropertyElementSelector("dependencies"),
+            BeanPropertyElementSelector("securityGroupNames")
+          )
+            .isNotNull()
+            .and {
+              state.isEqualTo(CHANGED)
+              getChild(CollectionItemElementSelector("testapp-elb")).isNotNull().state.isEqualTo(REMOVED)
+            }
+        }
 
         runBlocking {
           upsert(newResource, diff)
@@ -384,12 +383,8 @@ fun Assertion.Builder<DiffNode>.getChild(propertyName: String): Assertion.Builde
   }
 
 fun Assertion.Builder<DiffNode>.getChild(vararg selectors: ElementSelector): Assertion.Builder<DiffNode?> =
-  runBlocking {
-    val pathBuilder = path
-    pathBuilder.isNotEqualTo(null)
-    get("child node with path $pathBuilder") {
-      getChild(selectors.toList())
-   }
+  get("child node with path $selectors") {
+    getChild(selectors.toList())
   }
 
 val Assertion.Builder<DiffNode>.path: Assertion.Builder<NodePath>
