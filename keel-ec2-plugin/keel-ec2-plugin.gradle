@@ -32,6 +32,6 @@ dependencies {
     // avoid circular dependency
     exclude(module: "keel-ec2-plugin")
   }
-  testImplementation("org.testcontainers:mysql:${testContainersVersion}")
+  testImplementation(project(":keel-testcontainers"))
   testImplementation(project(":keel-sql"))
 }

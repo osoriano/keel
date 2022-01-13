@@ -39,7 +39,7 @@ dependencies {
     // avoid circular dependency which breaks Liquibase
     exclude(module: "keel-sql")
   }
-  testImplementation("org.testcontainers:mysql:${testContainersVersion}")
+  testImplementation(project(":keel-testcontainers"))
 
   jooqGenerator(platform("com.netflix.spinnaker.netflixplatform:netflixplatform-bom:${netflixplatformVersion}"))
   jooqGenerator("mysql:mysql-connector-java")
