@@ -48,13 +48,9 @@ data class EntityRef(
   val application: String,
   val region: String,
   val account: String, // account name
-  val accountId: String, // account number
+  val accountId: String? = null, // account number
   val cloudProvider: String
-) {
-  fun generateId(): String {
-    return "$cloudProvider:$entityType:$entityId:$accountId:$region"
-  }
-}
+)
 
 /**
  * A response containing all entity tags for an object
