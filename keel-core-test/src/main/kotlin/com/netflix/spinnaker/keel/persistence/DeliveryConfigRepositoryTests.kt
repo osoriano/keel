@@ -49,6 +49,7 @@ import strikt.api.expectThrows
 import strikt.assertions.all
 import strikt.assertions.contains
 import strikt.assertions.containsExactlyInAnyOrder
+import strikt.assertions.doesNotContain
 import strikt.assertions.filterNot
 import strikt.assertions.first
 import strikt.assertions.flatMap
@@ -1043,12 +1044,34 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
 
         test("Ignore apps that are already managed") {
           store()
-          val apps = expectCatching {
+          expectCatching {
             repository.getAppsToExport(Duration.ofDays(1), 10)
           }
             .isSuccess()
             .hasSize(1)
             .first().isEqualTo("fnord2")
+        }
+
+        context("apps that are already migrating") {
+          deriveFixture {
+            copy(
+              deliveryConfig = deliveryConfig.copy(
+                metadata = mapOf("migrating" to true)
+              )
+            )
+          }
+
+          before {
+            store()
+          }
+
+          test("are ignored") {
+            expectCatching {
+              repository.getAppsToExport(Duration.ofDays(1), 10)
+            }
+              .isSuccess()
+              .doesNotContain(deliveryConfig.application)
+          }
         }
 
         test("Ignore apps that were exported recently") {
@@ -1059,6 +1082,7 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
             .isSuccess()
             .isEmpty()
         }
+
         test("App can be migrated") {
           repository.storeAppForPotentialMigration(deliveryConfig.application, true)
           repository.storePipelinesExportResult(submittedConfig, emptyList(), true)
@@ -1125,6 +1149,29 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
               get { alreadyManaged }.isTrue()
               get { isMigratable }.isFalse()
             }
+        }
+
+
+        context("app is already migrating") {
+          deriveFixture {
+            copy(
+              deliveryConfig = deliveryConfig.copy(
+                metadata = mapOf("migrating" to true)
+              )
+            )
+          }
+
+          before {
+            store()
+          }
+
+          test("app is not marked as managed") {
+            expectCatching {
+              repository.getApplicationMigrationStatus(deliveryConfig.application)
+            }.isSuccess().and {
+              get { alreadyManaged }.isFalse()
+            }
+          }
         }
 
         context("check migration PR") {

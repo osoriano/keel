@@ -77,6 +77,7 @@ import org.jooq.impl.DSL.inline
 import org.jooq.impl.DSL.max
 import org.jooq.impl.DSL.select
 import org.jooq.impl.DSL.selectOne
+import org.jooq.impl.DSL.sql
 import org.jooq.impl.DSL.value
 import org.jooq.util.mysql.MySQLDSL.values
 import org.slf4j.LoggerFactory
@@ -1570,37 +1571,42 @@ class SqlDeliveryConfigRepository(
 
   override fun getApplicationMigrationStatus(application: String): ApplicationMigrationStatus {
     return sqlRetry.withRetry(READ) {
-      if (jooq.fetchExists(
-          DELIVERY_CONFIG,
-          DELIVERY_CONFIG.APPLICATION.eq(application)
-        )
-      ) {
-        // Can't migrate if app is already managed
-        ApplicationMigrationStatus(alreadyManaged = true)
-      } else {
-        jooq
-          .select(
-            MIGRATION_STATUS.EXPORT_SUCCEEDED,
-            MIGRATION_STATUS.SCM_ENABLED,
-            MIGRATION_STATUS.IN_ALLOW_LIST,
-            MIGRATION_STATUS.ASSISTANCE_NEEDED,
-            MIGRATION_STATUS.DELIVERY_CONFIG,
-            MIGRATION_STATUS.PR_LINK
-          )
-          .from(MIGRATION_STATUS)
-          .where(MIGRATION_STATUS.APPLICATION.eq(application))
-          .fetchOne { (exportSucceeded, scmEnabled, inAllowList, assistanceNeeded, deliveryConfig, prLink) ->
-            // TODO: add scmEnabled to the condition below once we support it
-            ApplicationMigrationStatus(
-              exportSucceeded = exportSucceeded ?: false,
-              inAllowList = inAllowList ?: false,
-              assistanceNeeded = assistanceNeeded ?: false,
-              isScmPowered = scmEnabled ?: false,
-              deliveryConfig = deliveryConfig?.let { objectMapper.readValue(deliveryConfig) },
-              prLink = prLink
+      val (exists, migrating) = jooq
+        .select(DELIVERY_CONFIG.METADATA)
+        .from(DELIVERY_CONFIG)
+        .where(DELIVERY_CONFIG.APPLICATION.eq(application))
+        .fetchOne { (metadata) ->
+          Pair(true, metadata["migrating"] as? Boolean ?: false)
+        }
+        ?: Pair(false, false)
+
+      when {
+        exists && !migrating -> ApplicationMigrationStatus(alreadyManaged = true)
+        else -> {
+          jooq
+            .select(
+              MIGRATION_STATUS.EXPORT_SUCCEEDED,
+              MIGRATION_STATUS.SCM_ENABLED,
+              MIGRATION_STATUS.IN_ALLOW_LIST,
+              MIGRATION_STATUS.ASSISTANCE_NEEDED,
+              MIGRATION_STATUS.DELIVERY_CONFIG,
+              MIGRATION_STATUS.PR_LINK
             )
-          }
-          ?: ApplicationMigrationStatus()
+            .from(MIGRATION_STATUS)
+            .where(MIGRATION_STATUS.APPLICATION.eq(application))
+            .fetchOne { (exportSucceeded, scmEnabled, inAllowList, assistanceNeeded, deliveryConfig, prLink) ->
+              // TODO: add scmEnabled to the condition below once we support it
+              ApplicationMigrationStatus(
+                exportSucceeded = exportSucceeded ?: false,
+                inAllowList = inAllowList ?: false,
+                assistanceNeeded = assistanceNeeded ?: false,
+                isScmPowered = scmEnabled ?: false,
+                deliveryConfig = deliveryConfig?.let { objectMapper.readValue(deliveryConfig) },
+                prLink = prLink
+              )
+            }
+            ?: ApplicationMigrationStatus()
+        }
       }
     }
   }
@@ -1615,7 +1621,11 @@ class SqlDeliveryConfigRepository(
         .leftJoin(DELIVERY_CONFIG)
         .on(MIGRATION_STATUS.APPLICATION.eq(DELIVERY_CONFIG.APPLICATION))
         // We're looking for apps that are not yet managed and therefore the DELIVERY_CONFIG coming from the left join should be null
-        .where(DELIVERY_CONFIG.APPLICATION.isNull)
+        // or marked as migrating.
+        .where(
+          DELIVERY_CONFIG.APPLICATION.isNull
+            .or(sql("delivery_config.metadata -> '$.migrating' = 'true'"))
+        )
         .and(
           MIGRATION_STATUS.LAST_CHECKED.isNull
             .or(MIGRATION_STATUS.LAST_CHECKED.lessOrEqual(cutoff))
@@ -1706,8 +1716,4 @@ class SqlDeliveryConfigRepository(
       .from(DELIVERY_ARTIFACT)
       .where(DELIVERY_ARTIFACT.DELIVERY_CONFIG_NAME.eq(deliveryConfigName))
       .and(DELIVERY_ARTIFACT.REFERENCE.eq(reference))
-
-  companion object {
-    private const val DELETE_CHUNK_SIZE = 20
-  }
 }
