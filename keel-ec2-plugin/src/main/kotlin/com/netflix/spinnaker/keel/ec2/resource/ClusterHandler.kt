@@ -600,6 +600,8 @@ class ClusterHandler(
         "targetGroups" to dependencies.targetGroups,
         "account" to location.account,
         "requireIMDSv2" to launchConfiguration.requireIMDSv2
+        // scaling is not set here because the deploy stage does not accept scaling policies.
+        // They're copied on a clone if they exist, or created in a modify job by us if they don't.
       )
     }
       .also { job ->
@@ -668,6 +670,8 @@ class ClusterHandler(
         "account" to locations.account,
         "subnetType" to diffs.map { it.desired.location.subnet }.first(), //todo eb: why? yes?
         "capacity" to resolveCapacity(),
+        // scaling is not set here because the deploy stage does not accept scaling policies.
+        // They're copied on a clone if they exist, or created in a modify job by us if they don't.
       ) + resolveHealth().toMapForOrca() +
         mapOf("overrides" to buildOverrides(diffs)) +
         spec.deployWith.toOrcaJobProperties("Amazon")

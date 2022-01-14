@@ -727,6 +727,8 @@ class TitusClusterHandler(
         "targetGroups" to dependencies.targetGroups,
         "account" to location.account,
         "efs" to efs
+        // scaling is not set here because the deploy stage does not accept scaling policies.
+        // They're copied on a clone if they exist, or created in a modify job by us if they don't.
       ) + image
     }
       .let { job ->
@@ -780,7 +782,6 @@ class TitusClusterHandler(
     )
   }
 
-  // todo eb: scaling policies?
   private fun Resource<TitusClusterSpec>.toManagedRolloutClusterDefinition(image: Map<String, Any>, diffs: List<ResourceDiff<TitusServerGroup>>) =
     with(spec) {
       val dependencies = resolveDependencies()
@@ -805,7 +806,8 @@ class TitusClusterHandler(
         "resources" to resolveResources(),
         "constraints" to resolveConstraints(),
         "migrationPolicy" to resolveMigrationPolicy(),
-        "scaling" to resolveScaling(), //todo eb: is this even right?
+        // scaling is not set here because the deploy stage does not accept scaling policies.
+        // They're copied on a clone if they exist, or created in a modify job by us if they don't.
       ) + image +
         mapOf("overrides" to buildOverrides(diffs)) +
         spec.deployWith.toOrcaJobProperties("Titus")
