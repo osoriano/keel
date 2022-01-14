@@ -39,6 +39,30 @@ type MD_Migration {
   status: MD_MigrationStatus
   deliveryConfig: JSON
   prLink: String
+  actuationPlan: MD_ActuationPlan
+}
+
+type MD_ActuationPlan {
+  id: ID!
+  environmentPlans: [MD_EnvironmentPlan!]
+}
+
+type MD_EnvironmentPlan {
+  id: ID!
+  environment: String!
+  resourcePlans: [MD_ResourcePlan!]
+}
+
+type MD_ResourcePlan {
+  id: ID!
+  action: MD_ResourceAction!
+  diff: JSON
+}
+
+enum MD_ResourceAction {
+  NONE,
+  CREATE,
+  UPDATE
 }
 
 enum MD_MigrationStatus {

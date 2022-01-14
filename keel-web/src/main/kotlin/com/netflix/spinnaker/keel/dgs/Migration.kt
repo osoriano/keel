@@ -14,6 +14,7 @@ import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
 import com.netflix.spinnaker.keel.services.ApplicationService
 import graphql.schema.DataFetchingEnvironment
 import kotlinx.coroutines.runBlocking
+import org.slf4j.LoggerFactory
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.RequestHeader
 
@@ -23,6 +24,8 @@ class Migration(
   private val applicationService: ApplicationService,
   private val mapper: ObjectMapper
 ) {
+
+  private val log by lazy { LoggerFactory.getLogger(Migration::class.java) }
 
   @DgsQuery
   @PreAuthorize("""@authorizationSupport.hasApplicationPermission('READ', 'APPLICATION', #appName)""")
@@ -64,25 +67,23 @@ class Migration(
     // even before the app is officially onboarded
     applicationService.storePausedMigrationConfig(payload.application, user)
 
+    // get a snapshot of what Keel would do about the config at this moment in time, so we can reassure users
+    // we wouldn't mess anything up
+    val actuationPlan = runBlocking {
+      try {
+        applicationService.getActuationPlan(payload.application)
+      } catch (e: Exception) {
+        log.debug("Error calculating actuation plan", e)
+        null
+      }
+    }
+
     return MD_Migration(
       id = "migration-${payload.application}",
       status = MD_MigrationStatus.PR_CREATED,
       deliveryConfig = mapper.convertValue(prData.deliveryConfig, Map::class.java),
-      prLink = prLink
+      prLink = prLink,
+      actuationPlan = actuationPlan?.toDgs()
     )
   }
 }
-
-fun ApplicationMigrationStatus.toDgs(appName: String) = MD_Migration(
-  id = "migration-$appName",
-  status = when {
-    alreadyManaged -> MD_MigrationStatus.COMPLETED
-    prLink != null -> MD_MigrationStatus.PR_CREATED
-    isBlocked -> MD_MigrationStatus.BLOCKED
-    !isMigratable -> MD_MigrationStatus.NOT_READY
-    isMigratable -> MD_MigrationStatus.READY_TO_START
-    else -> MD_MigrationStatus.NOT_READY
-  },
-  deliveryConfig = deliveryConfig,
-  prLink = prLink
-)

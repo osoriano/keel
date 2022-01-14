@@ -15,17 +15,30 @@ import com.netflix.spinnaker.keel.actuation.Stage
 import com.netflix.spinnaker.keel.api.DeployableResourceSpec
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
+import com.netflix.spinnaker.keel.api.migration.ApplicationMigrationStatus
 import com.netflix.spinnaker.keel.bakery.diff.PackageDiff
+import com.netflix.spinnaker.keel.core.api.ActuationPlan
 import com.netflix.spinnaker.keel.core.api.PinType
+import com.netflix.spinnaker.keel.core.api.ResourceAction.CREATE
+import com.netflix.spinnaker.keel.core.api.ResourceAction.NONE
+import com.netflix.spinnaker.keel.core.api.ResourceAction.UPDATE
+import com.netflix.spinnaker.keel.graphql.types.MD_ActuationPlan
 import com.netflix.spinnaker.keel.graphql.types.MD_Artifact
 import com.netflix.spinnaker.keel.graphql.types.MD_ArtifactVersionInEnvironment
 import com.netflix.spinnaker.keel.graphql.types.MD_CommitInfo
 import com.netflix.spinnaker.keel.graphql.types.MD_DeployLocation
 import com.netflix.spinnaker.keel.graphql.types.MD_DeployTarget
+import com.netflix.spinnaker.keel.graphql.types.MD_EnvironmentPlan
 import com.netflix.spinnaker.keel.graphql.types.MD_EventLevel
 import com.netflix.spinnaker.keel.graphql.types.MD_ExecutionSummary
 import com.netflix.spinnaker.keel.graphql.types.MD_GitMetadata
 import com.netflix.spinnaker.keel.graphql.types.MD_Location
+import com.netflix.spinnaker.keel.graphql.types.MD_Migration
+import com.netflix.spinnaker.keel.graphql.types.MD_MigrationStatus.BLOCKED
+import com.netflix.spinnaker.keel.graphql.types.MD_MigrationStatus.COMPLETED
+import com.netflix.spinnaker.keel.graphql.types.MD_MigrationStatus.NOT_READY
+import com.netflix.spinnaker.keel.graphql.types.MD_MigrationStatus.PR_CREATED
+import com.netflix.spinnaker.keel.graphql.types.MD_MigrationStatus.READY_TO_START
 import com.netflix.spinnaker.keel.graphql.types.MD_Moniker
 import com.netflix.spinnaker.keel.graphql.types.MD_Notification
 import com.netflix.spinnaker.keel.graphql.types.MD_PackageAndVersion
@@ -35,8 +48,10 @@ import com.netflix.spinnaker.keel.graphql.types.MD_PausedInfo
 import com.netflix.spinnaker.keel.graphql.types.MD_PinType
 import com.netflix.spinnaker.keel.graphql.types.MD_PullRequest
 import com.netflix.spinnaker.keel.graphql.types.MD_Resource
+import com.netflix.spinnaker.keel.graphql.types.MD_ResourceAction
 import com.netflix.spinnaker.keel.graphql.types.MD_ResourceActuationState
 import com.netflix.spinnaker.keel.graphql.types.MD_ResourceActuationStatus
+import com.netflix.spinnaker.keel.graphql.types.MD_ResourcePlan
 import com.netflix.spinnaker.keel.graphql.types.MD_ResourceTask
 import com.netflix.spinnaker.keel.graphql.types.MD_RolloutTargetStatus
 import com.netflix.spinnaker.keel.graphql.types.MD_StageDetail
@@ -237,4 +252,39 @@ fun ResourceActuationState.toDgs(): MD_ResourceActuationState =
     reason = reason,
     event = eventMessage,
     errors = errors
+  )
+
+fun ApplicationMigrationStatus.toDgs(appName: String) = MD_Migration(
+  id = "migration-$appName",
+  status = when {
+    alreadyManaged -> COMPLETED
+    prLink != null -> PR_CREATED
+    isBlocked -> BLOCKED
+    !isMigratable -> NOT_READY
+    isMigratable -> READY_TO_START
+    else -> NOT_READY
+  },
+  deliveryConfig = deliveryConfig,
+  prLink = prLink
+)
+
+fun ActuationPlan.toDgs() =
+  MD_ActuationPlan(
+    id = "$application-actuationPlan",
+    environmentPlans = environmentPlans.map { envPlan ->
+      MD_EnvironmentPlan(
+        id = "$application-${envPlan.environment}-plan",
+        environment = envPlan.environment,
+        resourcePlans = envPlan.resourcePlans.map { resourcePlan ->
+          MD_ResourcePlan(
+            id = resourcePlan.resourceId,
+            action = when(resourcePlan.action) {
+              NONE -> MD_ResourceAction.NONE
+              CREATE -> MD_ResourceAction.CREATE
+              UPDATE -> MD_ResourceAction.UPDATE
+            }
+          )
+        }
+      )
+    }
   )

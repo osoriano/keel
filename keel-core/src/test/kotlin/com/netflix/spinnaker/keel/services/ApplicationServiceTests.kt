@@ -47,8 +47,12 @@ import com.netflix.spinnaker.keel.core.api.PromotionStatus.DEPLOYING
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.PREVIOUS
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.SKIPPED
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.VETOED
+import com.netflix.spinnaker.keel.core.api.ResourceAction.CREATE
+import com.netflix.spinnaker.keel.core.api.ResourceAction.NONE
+import com.netflix.spinnaker.keel.core.api.ResourceAction.UPDATE
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.core.api.SubmittedEnvironment
+import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.events.PinnedNotification
 import com.netflix.spinnaker.keel.events.UnpinnedNotification
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventRepository
@@ -59,6 +63,8 @@ import com.netflix.spinnaker.keel.persistence.PausedRepository
 import com.netflix.spinnaker.keel.persistence.ResourceStatus.CREATED
 import com.netflix.spinnaker.keel.serialization.configuredYamlMapper
 import com.netflix.spinnaker.keel.test.DummyArtifact
+import com.netflix.spinnaker.keel.test.DummyResourceHandlerV1
+import com.netflix.spinnaker.keel.test.DummyResourceSpec
 import com.netflix.spinnaker.keel.test.DummySortingStrategy
 import com.netflix.spinnaker.keel.test.artifactReferenceResource
 import com.netflix.spinnaker.keel.test.submittedResource
@@ -67,14 +73,13 @@ import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import io.mockk.Runs
-import io.mockk.coEvery
-import io.mockk.coVerify
-import io.mockk.every
+import io.mockk.coEvery as every
+import io.mockk.coVerify as verify
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
 import io.mockk.slot
-import io.mockk.verify
+import io.mockk.spyk
 import kotlinx.coroutines.runBlocking
 import org.springframework.context.ApplicationEventPublisher
 import retrofit.RetrofitError
@@ -91,6 +96,7 @@ import strikt.assertions.isA
 import strikt.assertions.isEmpty
 import strikt.assertions.isEqualTo
 import strikt.assertions.isFailure
+import strikt.assertions.isNotEmpty
 import strikt.assertions.isSuccess
 import strikt.assertions.isTrue
 import strikt.assertions.second
@@ -259,6 +265,8 @@ class ApplicationServiceTests : JUnit5Minutests {
     val yamlMapper: YAMLMapper = configuredYamlMapper()
     val scmBridge: ScmBridge = mockk(relaxed = true)
     val jiraBridge: JiraBridge = mockk(relaxed = true)
+    val resourceHandler = spyk(DummyResourceHandlerV1)
+    val diffFactory = DefaultResourceDiffFactory()
 
     // subject
     val applicationService = ApplicationService(
@@ -277,7 +285,9 @@ class ApplicationServiceTests : JUnit5Minutests {
       yamlMapper,
       scmBridge,
       jiraBridge,
-      pausedRepository
+      pausedRepository,
+      listOf(resourceHandler),
+      diffFactory
     )
 
     val buildMetadata = BuildMetadata(
@@ -1241,7 +1251,7 @@ class ApplicationServiceTests : JUnit5Minutests {
           repository.storePrLinkForMigratedApplication(application1, any())
         } just Runs
 
-        coEvery {
+        every {
           scmBridge.createPr("stash", any(), any(), any())
         } returns expectedPrResponse
       }
@@ -1256,7 +1266,7 @@ class ApplicationServiceTests : JUnit5Minutests {
 
       context("with jira") {
         before {
-          coEvery {
+          every {
             jiraBridge.createIssue(any())
           } returns JiraIssueResponse("123", "MD-1", "jira/MD-1")
 
@@ -1269,7 +1279,7 @@ class ApplicationServiceTests : JUnit5Minutests {
           runBlocking {
             applicationService.openMigrationPr(application1, "keel")
           }
-          coVerify(exactly = 1) {
+          verify(exactly = 1) {
             repository.storeJiraLinkForMigratedApplication(application1, "jira/MD-1")
           }
         }
@@ -1285,7 +1295,7 @@ class ApplicationServiceTests : JUnit5Minutests {
       )
 
       before {
-        coEvery {
+        every {
           scmBridge.createPr(any(), any(), any(), any())
         } throws retrofitError
 
@@ -1305,7 +1315,7 @@ class ApplicationServiceTests : JUnit5Minutests {
       }
     }
 
-    context("application pr data does not exists") {
+    context("application PR data does not exists") {
       val exception = ApplicationPullRequestDataIsMissing(application = "fnord1")
       before {
         every { repository.getMigratableApplicationData(application1) } throws exception
@@ -1340,6 +1350,75 @@ class ApplicationServiceTests : JUnit5Minutests {
         verify {
           pausedRepository.pauseApplication(application1, "keel", any())
           repository.upsertDeliveryConfig(submittedDeliveryConfig)
+        }
+      }
+    }
+    
+    context("getting an actuation plan for an application") {
+      before {
+        every {
+          repository.getDeliveryConfigForApplication(application1)
+        } returns submittedDeliveryConfig.toDeliveryConfig()
+
+        every {
+          resourceHandler.desired(any())
+        } returns DummyResourceSpec(id = "id", data = "desired")
+      }
+
+      context("when resource does not exist") {
+        before {
+          every {
+            resourceHandler.current(any())
+          } returns null
+        }
+
+        test("indicates CREATE action in the plan") {
+          expectCatching {
+            applicationService.getActuationPlan(application1)
+          }.isSuccess()
+            .get { environmentPlans.first().resourcePlans.first() }
+            .and {
+              get { diff }.isNotEmpty()
+              get { action }.isEqualTo(CREATE)
+            }
+        }
+      }
+
+      context("when desired state is equal to current") {
+        before {
+          every {
+            resourceHandler.current(any())
+          } returns DummyResourceSpec(id = "id", data = "desired")
+        }
+
+        test("indicates no action in the plan") {
+          expectCatching {
+            applicationService.getActuationPlan(application1)
+          }.isSuccess()
+            .get { environmentPlans.first().resourcePlans.first() }
+            .and {
+              get { diff }.isEmpty()
+              get { action }.isEqualTo(NONE)
+            }
+        }
+      }
+
+      context("when desired state is different from current") {
+        before {
+          every {
+            resourceHandler.current(any())
+          } returns DummyResourceSpec(id = "id", data = "current")
+        }
+
+        test("indicates UPDATE action in the plan") {
+          expectCatching {
+            applicationService.getActuationPlan(application1)
+          }.isSuccess()
+            .get { environmentPlans.first().resourcePlans.first() }
+            .and {
+              get { diff }.isNotEmpty()
+              get { action }.isEqualTo(UPDATE)
+            }
         }
       }
     }

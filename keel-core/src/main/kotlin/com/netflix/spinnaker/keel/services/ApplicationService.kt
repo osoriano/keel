@@ -11,6 +11,9 @@ import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.JiraBridge
 import com.netflix.spinnaker.keel.api.Locatable
 import com.netflix.spinnaker.keel.api.Resource
+import com.netflix.spinnaker.keel.api.ResourceDiff
+import com.netflix.spinnaker.keel.api.ResourceDiffFactory
+import com.netflix.spinnaker.keel.api.ResourceSpec
 import com.netflix.spinnaker.keel.api.ScmBridge
 import com.netflix.spinnaker.keel.api.StatefulConstraint
 import com.netflix.spinnaker.keel.api.Verification
@@ -31,9 +34,11 @@ import com.netflix.spinnaker.keel.api.jira.JiraIssue
 import com.netflix.spinnaker.keel.api.migration.MigrationCommitData
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.api.plugins.ConstraintEvaluator
+import com.netflix.spinnaker.keel.api.plugins.ResourceHandler
 import com.netflix.spinnaker.keel.api.plugins.supporting
 import com.netflix.spinnaker.keel.artifacts.ArtifactVersionLinks
 import com.netflix.spinnaker.keel.constraints.DependsOnConstraintAttributes
+import com.netflix.spinnaker.keel.core.api.ActuationPlan
 import com.netflix.spinnaker.keel.core.api.ArtifactSummary
 import com.netflix.spinnaker.keel.core.api.ArtifactSummaryInEnvironment
 import com.netflix.spinnaker.keel.core.api.ArtifactVersionSummary
@@ -41,6 +46,7 @@ import com.netflix.spinnaker.keel.core.api.ConstraintSummary
 import com.netflix.spinnaker.keel.core.api.DependsOnConstraint
 import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactPin
 import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactVeto
+import com.netflix.spinnaker.keel.core.api.EnvironmentPlan
 import com.netflix.spinnaker.keel.core.api.EnvironmentSummary
 import com.netflix.spinnaker.keel.core.api.PromotionStatus
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.APPROVED
@@ -49,7 +55,12 @@ import com.netflix.spinnaker.keel.core.api.PromotionStatus.DEPLOYING
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.PENDING
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.PREVIOUS
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.SKIPPED
+import com.netflix.spinnaker.keel.core.api.ResourceAction
+import com.netflix.spinnaker.keel.core.api.ResourceAction.CREATE
+import com.netflix.spinnaker.keel.core.api.ResourceAction.NONE
+import com.netflix.spinnaker.keel.core.api.ResourceAction.UPDATE
 import com.netflix.spinnaker.keel.core.api.ResourceArtifactSummary
+import com.netflix.spinnaker.keel.core.api.ResourcePlan
 import com.netflix.spinnaker.keel.core.api.ResourceSummary
 import com.netflix.spinnaker.keel.core.api.VerificationSummary
 import com.netflix.spinnaker.keel.events.MarkAsBadNotification
@@ -70,6 +81,9 @@ import com.netflix.spinnaker.keel.persistence.PausedRepository
 import com.netflix.spinnaker.keel.telemetry.InvalidVerificationIdSeen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -106,7 +120,9 @@ class ApplicationService(
   private var yamlMapper: YAMLMapper,
   private val scmBridge: ScmBridge,
   private val jiraBridge: JiraBridge,
-  private val pausedRepository: PausedRepository
+  private val pausedRepository: PausedRepository,
+  private val handlers: List<ResourceHandler<*, *>>,
+  private val diffFactory: ResourceDiffFactory
 ) : CoroutineScope {
   override val coroutineContext: CoroutineContext = Dispatchers.Default
 
@@ -809,10 +825,62 @@ class ApplicationService(
    * application (including diffing resources against current state) in support of the migration wizard.
    */
   @Transactional(propagation = REQUIRED)
-  fun storePausedMigrationConfig(application: String, user: String) {
+  fun storePausedMigrationConfig(application: String, user: String): DeliveryConfig {
     val applicationPrData = repository.getMigratableApplicationData(application)
     pausedRepository.pauseApplication(application, user, "Automatically paused while upgrading to Managed Delivery.")
-    repository.upsertDeliveryConfig(applicationPrData.deliveryConfig)
+    return repository.upsertDeliveryConfig(applicationPrData.deliveryConfig)
+  }
+
+  /**
+   * Returns the current point-in-time [ActuationPlan] for the specified [application].
+   */
+  suspend fun getActuationPlan(application: String): ActuationPlan {
+    val deliveryConfig = repository.getDeliveryConfigForApplication(application)
+    val plan = ActuationPlan(
+      application = application,
+      timestamp = clock.instant(),
+      environmentPlans = deliveryConfig.environments.map { env ->
+        EnvironmentPlan(
+          environment = env.name,
+          resourcePlans = env.resources.map { resource ->
+            val diff = getResourceDiff(resource)
+            ResourcePlan(
+              resourceId = resource.id,
+              diff = diff.toDeltaJson(),
+              action = getActuationAction(resource, diff)
+            )
+          }
+        )
+      }
+    )
+    return plan
+  }
+
+  /**
+   * @return The [ResourceDiff] for the specified [resource], by comparing its desired and current states.
+   */
+  private suspend fun <SPEC: ResourceSpec> getResourceDiff(resource: Resource<SPEC>): ResourceDiff<Any> {
+    val handler = handlers.supporting(resource.kind) as ResourceHandler<SPEC, *>
+    val diff = coroutineScope {
+      val tasks = listOf(
+        async { handler.desired(resource) },
+        async { handler.current(resource) }
+      )
+      val (desired, current) = tasks.awaitAll()
+      diffFactory.compare(desired!!, current)
+    }
+    return diff
+  }
+
+  /**
+   * @return What [ResourceAction] Keel would take based on the resource [diff].
+   */
+  private fun <SPEC: ResourceSpec> getActuationAction(resource: Resource<SPEC>, diff: ResourceDiff<Any>): ResourceAction {
+    return when {
+      !diff.hasChanges() -> NONE
+      diff.current == null -> CREATE
+      else -> UPDATE
+    }
   }
 
   @ResponseStatus(HttpStatus.CONFLICT)

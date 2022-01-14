@@ -32,10 +32,12 @@ import com.netflix.spinnaker.keel.core.api.PromotionStatus.CURRENT
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.DEPLOYING
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.PREVIOUS
 import com.netflix.spinnaker.keel.exceptions.UnsupportedScmType
+import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.PausedRepository
 import com.netflix.spinnaker.keel.test.DummyArtifact
+import com.netflix.spinnaker.keel.test.DummyResourceHandlerV1
 import com.netflix.spinnaker.keel.test.DummySortingStrategy
 import com.netflix.spinnaker.keel.test.artifactReferenceResource
 import com.netflix.spinnaker.keel.test.versionedArtifactResource
@@ -115,17 +117,6 @@ class ComparableLinksTests : JUnit5Minutests {
       every { parseDefaultGitMetadata(any(), any()) } returns null
     }
 
-<<<<<<< d07558a084dad969ed6803cea66edf71fb70d9de
-=======
-    private val scmInfo = mockk<ScmBridge>() {
-      coEvery {
-        getScmInfo()
-      } answers {
-        mapOf("stash" to "https://stash")
-      }
-    }
-
->>>>>>> 97822267f3e94067dc5c21eb03773bdd8c0fbaa9
     val dependsOnEvaluator = mockk<ConstraintEvaluator<DependsOnConstraint>>() {
       every { isImplicit() } returns false
       every { supportedType } returns SupportedConstraintType<DependsOnConstraint>("depends-on")
@@ -151,6 +142,8 @@ class ComparableLinksTests : JUnit5Minutests {
     val scmBridge: ScmBridge  = mockk(relaxed = true)
     val jiraBridge: JiraBridge = mockk(relaxed = true)
     val pausedRepository: PausedRepository = mockk(relaxed = true)
+    val resourceHandler = DummyResourceHandlerV1
+    val diffFactory = DefaultResourceDiffFactory()
 
     // subject
     val applicationService = ApplicationService(
@@ -169,7 +162,9 @@ class ComparableLinksTests : JUnit5Minutests {
       yamlMapper,
       scmBridge,
       jiraBridge,
-      pausedRepository
+      pausedRepository,
+      listOf(resourceHandler),
+      diffFactory
     )
 
     val buildMetadata = BuildMetadata(
@@ -695,13 +690,9 @@ class ComparableLinksTests : JUnit5Minutests {
           val summaries = applicationService.getArtifactSummariesFor(application1, limit)
           expectThat(summaries.first())
             .withVersionInEnvironment(version0, "staging") {
-<<<<<<< cbdf4c0af44d9b70471b200ba4fa82ec5e345dc0
-              state.isEqualTo(PREVIOUS.name.toLowerCase())
-              compareLink.isEqualTo("https://github.com/spkr/keel/compare/${version0}...${version1}")
-=======
               state.isEqualTo(PREVIOUS.name.lowercase())
+              // compareLink.isEqualTo("https://github.com/spkr/keel/compare/${version0}...${version1}")
               compareLink.isEqualTo("https://github.com/repo/123")
->>>>>>> 3c2b11617b319cff451ef5e59b1ea518c69aad88
             }
         }
 
@@ -710,13 +701,9 @@ class ComparableLinksTests : JUnit5Minutests {
           val summaries = applicationService.getArtifactSummariesFor(application1, limit)
           expectThat(summaries.first())
             .withVersionInEnvironment(version2, "staging") {
-<<<<<<< cbdf4c0af44d9b70471b200ba4fa82ec5e345dc0
-              state.isEqualTo(PENDING.name.toLowerCase())
-              compareLink.isEqualTo("https://github.com/spkr/keel/compare/${version1}...${version2}")
-=======
               state.isEqualTo(PENDING.name.lowercase())
+              // compareLink.isEqualTo("https://github.com/spkr/keel/compare/${version1}...${version2}")
               compareLink.isEqualTo("https://github.com/repo/123")
->>>>>>> 3c2b11617b319cff451ef5e59b1ea518c69aad88
             }
         }
 

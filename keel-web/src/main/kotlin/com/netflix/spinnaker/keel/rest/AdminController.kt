@@ -11,6 +11,7 @@ import com.netflix.spinnaker.keel.export.ExportService
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.Front50Service
 import com.netflix.spinnaker.keel.front50.model.ServiceAccount
+import com.netflix.spinnaker.keel.services.ApplicationService
 import com.netflix.spinnaker.keel.yaml.APPLICATION_YAML_VALUE
 import com.netflix.spinnaker.security.AuthenticatedRequest
 import kotlinx.coroutines.GlobalScope
@@ -38,7 +39,8 @@ class AdminController(
   private val exportService: ExportService,
   private val front50Cache: Front50Cache,
   private val front50Service: Front50Service,
-  private val authorizationSupport: AuthorizationSupport
+  private val authorizationSupport: AuthorizationSupport,
+  private val applicationService: ApplicationService
 ) {
   private val log by lazy { getLogger(javaClass) }
 
@@ -243,6 +245,13 @@ class AdminController(
       CheckPermissionResponse(authorized = authorized, errorMessage = "User ${body.user} must have access to all these groups: ${serviceAccount.memberOf}. Request access in go/accessui.")
     }
   }
+
+  @GetMapping(
+    path = ["/applications/{application}/plan"],
+    produces = [MediaType.APPLICATION_JSON_VALUE, APPLICATION_YAML_VALUE]
+  )
+  fun getActuationPlan(@PathVariable application: String) =
+    runBlocking { applicationService.getActuationPlan(application) }
 }
 
 data class CheckPermissionBody(

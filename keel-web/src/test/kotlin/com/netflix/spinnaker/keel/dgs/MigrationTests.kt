@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.dgs
 
+import com.netflix.spinnaker.keel.core.api.ActuationPlan
 import com.netflix.spinnaker.keel.graphql.types.MD_InitiateApplicationMigrationPayload
 import com.netflix.spinnaker.keel.migrations.ApplicationPrData
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
@@ -13,6 +14,9 @@ import org.junit.jupiter.api.BeforeEach
 import io.mockk.coEvery as every
 import io.mockk.coVerify as verify
 import org.junit.jupiter.api.Test
+import strikt.api.expectThat
+import strikt.assertions.isNotNull
+import java.time.Instant
 
 internal class MigrationTests {
   private val deliveryConfigRepository: DeliveryConfigRepository = mockk()
@@ -36,14 +40,23 @@ internal class MigrationTests {
 
     every {
       applicationService.storePausedMigrationConfig(any(), any())
-    } just runs
+    } returns migrationData.deliveryConfig.toDeliveryConfig()
+
+    every {
+      applicationService.getActuationPlan(any())
+    } returns ActuationPlan(
+      application = app,
+      timestamp = Instant.now(),
+      environmentPlans = emptyList()
+    )
   }
 
   @Test
-  fun `initiating a migration generates a PR and stores the paused config`() {
-    migration.md_initiateApplicationMigration(MD_InitiateApplicationMigrationPayload(app), user)
+  fun `initiating a migration generates a PR, stores the paused config, and returns the actuation plan`() {
+    val migration = migration.md_initiateApplicationMigration(MD_InitiateApplicationMigrationPayload(app), user)
 
     verify { applicationService.openMigrationPr(app, user) }
     verify { applicationService.storePausedMigrationConfig(app, user) }
+    expectThat(migration?.actuationPlan).isNotNull()
   }
 }
