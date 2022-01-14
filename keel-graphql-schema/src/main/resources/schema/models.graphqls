@@ -232,12 +232,12 @@ type MD_PackageDiff {
 }
 
 type MD_PackageAndVersion {
-  package: String!
+  packageName: String!
   version: String!
 }
 
 type MD_PackageAndVersionChange {
-  package: String!
+  packageName: String!
   oldVersion: String!
   newVersion: String!
 }
