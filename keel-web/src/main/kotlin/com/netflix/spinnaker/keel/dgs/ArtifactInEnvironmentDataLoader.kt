@@ -75,6 +75,7 @@ fun PublishedArtifactInEnvironment.toDgs() =
     version = publishedArtifact.version,
     buildNumber = publishedArtifact.buildNumber,
     createdAt = publishedArtifact.createdAt,
+    replacedAt = replacedAt,
     deployedAt = deployedAt,
     gitMetadata = if (publishedArtifact.gitMetadata == null) {
       null

@@ -149,6 +149,7 @@ type MD_ArtifactVersionInEnvironment {
   buildNumber: String
   createdAt: InstantTime
   deployedAt: InstantTime
+  replacedAt: InstantTime
   gitMetadata: MD_GitMetadata
   packageDiff: MD_PackageDiff
   environment: String

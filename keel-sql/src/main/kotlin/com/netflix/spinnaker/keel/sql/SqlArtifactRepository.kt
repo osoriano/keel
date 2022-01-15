@@ -1264,7 +1264,8 @@ class SqlArtifactRepository(
           ARTIFACT_VERSIONS.BUILD_METADATA,
           ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS,
           ENVIRONMENT_ARTIFACT_VERSIONS.DEPLOYED_AT,
-          ENVIRONMENT_ARTIFACT_VERSIONS.REPLACED_BY
+          ENVIRONMENT_ARTIFACT_VERSIONS.REPLACED_BY,
+          ENVIRONMENT_ARTIFACT_VERSIONS.REPLACED_AT,
         )
         .from(ENVIRONMENT_ARTIFACT_VERSIONS)
         .innerJoin(DELIVERY_ARTIFACT)
@@ -1277,7 +1278,7 @@ class SqlArtifactRepository(
         .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION.eq(ARTIFACT_VERSIONS.VERSION))
         .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(artifact.uid))
         .where(ACTIVE_ENVIRONMENT.NAME.eq(environmentName))
-        .fetch { (name, type, version, reference, status, createdAt, gitMetadata, buildMetadata, promotionStatus, deployedAt, replacedBy) ->
+        .fetch { (name, type, version, reference, status, createdAt, gitMetadata, buildMetadata, promotionStatus, deployedAt, replacedBy, replacedAt) ->
           val publishedArtifact = PublishedArtifact(
             name = name,
             type = type,
@@ -1293,7 +1294,8 @@ class SqlArtifactRepository(
             promotionStatus,
             environmentName,
             deployedAt,
-            replacedBy
+            replacedBy,
+            replacedAt
           )
         }
     }
