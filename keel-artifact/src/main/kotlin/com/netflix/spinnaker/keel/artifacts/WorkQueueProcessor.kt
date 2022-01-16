@@ -81,7 +81,12 @@ final class WorkQueueProcessor(
     PolledMeter
       .using(spectator)
       .withName(NUMBER_QUEUED_GAUGE)
-      .monitorValue(this) { it.queueSize() }
+      .monitorValue(this) {
+        when(enabled.get()) {
+          true -> it.queueSize()
+          false -> 0.0
+        }
+      }
   }
 
   private val lastArtifactCheck: AtomicReference<Instant> =
