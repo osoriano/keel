@@ -416,3 +416,6 @@ databaseChangeLog:
 - include:
     file: changelog/20220106-migration-save-jira.yml
     relativeToChangelogFile: true
+- include:
+    file: changelog/20220118-fix-constraint-comment-type.yml
+    relativeToChangelogFile: true

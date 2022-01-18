@@ -1,0 +1,9 @@
+databaseChangeLog:
+  - changeSet:
+      id: fix-constraint-comment-type
+      author: lpollo
+      changes:
+        - modifyDataType:
+            tableName: environment_artifact_constraint
+            columnName: comment
+            newDataType: text
