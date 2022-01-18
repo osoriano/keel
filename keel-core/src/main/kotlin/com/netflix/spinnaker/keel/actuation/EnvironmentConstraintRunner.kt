@@ -11,6 +11,7 @@ import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
 import com.netflix.spinnaker.keel.api.constraints.StatefulConstraintEvaluator
 import com.netflix.spinnaker.keel.api.constraints.StatelessConstraintEvaluator
 import com.netflix.spinnaker.keel.api.plugins.ConstraintEvaluator
+import com.netflix.spinnaker.keel.logging.withThreadTracingContext
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -82,7 +83,7 @@ class EnvironmentConstraintRunner(
     envContext: EnvironmentContext,
     versionsWithPendingStatefulConstraintStatus: MutableList<PublishedArtifact>
   ) {
-    var version: String?
+    var selectedVersion: String?
     var versionIsPending = false
     val vetoedVersions: Set<String> = envContext.vetoedVersions
 
@@ -91,43 +92,47 @@ class EnvironmentConstraintRunner(
         "versions=${envContext.versions.joinToString()}, vetoed=${envContext.vetoedVersions.joinToString()}"
     )
 
-    version = envContext.versions // all versions
+    selectedVersion = envContext.versions // all versions
       .filterNot { vetoedVersions.contains(it) }
-      .firstOrNull { v ->
-        versionsWithPendingStatefulConstraintStatus.removeIf { it.version == v } // remove to indicate we are rechecking this version
-        /**
-         * Only check stateful evaluators if all stateless evaluators pass. We don't
-         * want to request judgement or deploy a canary for artifacts that aren't
-         * deployed to a required environment.
-         */
-        val passesConstraints =
-          checkStatelessConstraints(envContext.artifact, envContext.deliveryConfig, v, envContext.environment) &&
-            checkStatefulConstraints(envContext.artifact, envContext.deliveryConfig, v, envContext.environment)
+      .firstOrNull { version ->
+        withThreadTracingContext(envContext.artifact, version) {
+          versionsWithPendingStatefulConstraintStatus.removeIf { it.version == version } // remove to indicate we are rechecking this version
+          /**
+           * Only check stateful evaluators if all stateless evaluators pass. We don't
+           * want to request judgement or deploy a canary for artifacts that aren't
+           * deployed to a required environment.
+           */
+          val passesConstraints =
+            checkStatelessConstraints(envContext.artifact, envContext.deliveryConfig, version, envContext.environment) &&
+              checkStatefulConstraints(envContext.artifact, envContext.deliveryConfig, version, envContext.environment)
 
-        if (envContext.environment.constraints.anyStateful) {
-          versionIsPending = repository
-            .constraintStateFor(envContext.deliveryConfig.name, envContext.environment.name, v, envContext.artifact.reference)
-            .any { it.status == ConstraintStatus.PENDING }
+          if (envContext.environment.constraints.anyStateful) {
+            versionIsPending = repository
+              .constraintStateFor(envContext.deliveryConfig.name, envContext.environment.name, version, envContext.artifact.reference)
+              .any { it.status == ConstraintStatus.PENDING }
+          }
+
+          log.debug(
+            "Version $version of ${envContext.artifact} ${if (passesConstraints) "passes" else "does not pass"} " +
+              "constraints in ${envContext.environment.name}"
+          )
+          log.debug(
+            "Version $version of ${envContext.artifact} ${if (versionIsPending) "is" else "is not"} " +
+              "pending constraint approval in ${envContext.environment.name}"
+          )
+
+          // select either the first version that passes all constraints,
+          // or the first version where stateful constraints are pending.
+          // so that we don't roll back while constraints are evaluating for a version
+          passesConstraints || versionIsPending
         }
-
-        log.debug(
-          "Version $v of ${envContext.artifact} ${if (passesConstraints) "passes" else "does not pass"} " +
-            "constraints in ${envContext.environment.name}"
-        )
-        log.debug(
-          "Version $v of ${envContext.artifact} ${if (versionIsPending) "is" else "is not"} " +
-            "pending constraint approval in ${envContext.environment.name}"
-        )
-
-        // select either the first version that passes all constraints,
-        // or the first version where stateful constraints are pending.
-        // so that we don't roll back while constraints are evaluating for a version
-        passesConstraints || versionIsPending
       }
 
-    if (version != null && !versionIsPending) {
+    if (selectedVersion != null && !versionIsPending) {
       // we've selected a version that passes all constraints, queue it for approval
-      queueForApproval(envContext.deliveryConfig, envContext.artifact, version, envContext.environment.name)
+      withThreadTracingContext(envContext.artifact, selectedVersion) {
+        queueForApproval(envContext.deliveryConfig, envContext.artifact, selectedVersion, envContext.environment.name)
+      }
     }
   }
 
@@ -143,12 +148,14 @@ class EnvironmentConstraintRunner(
     versionsWithPendingStatefulConstraintStatus
       .reversed() // oldest first
       .forEach { artifactVersion ->
-        val passesConstraints =
-          checkStatelessConstraints(envContext.artifact, envContext.deliveryConfig, artifactVersion.version, envContext.environment) &&
-            checkStatefulConstraints(envContext.artifact, envContext.deliveryConfig, artifactVersion.version, envContext.environment)
+        withThreadTracingContext(artifactVersion) {
+          val passesConstraints =
+            checkStatelessConstraints(envContext.artifact, envContext.deliveryConfig, artifactVersion.version, envContext.environment) &&
+              checkStatefulConstraints(envContext.artifact, envContext.deliveryConfig, artifactVersion.version, envContext.environment)
 
-        if (passesConstraints) {
-          queueForApproval(envContext.deliveryConfig, envContext.artifact, artifactVersion.version, envContext.environment.name)
+          if (passesConstraints) {
+            queueForApproval(envContext.deliveryConfig, envContext.artifact, artifactVersion.version, envContext.environment.name)
+          }
         }
       }
   }
@@ -174,8 +181,7 @@ class EnvironmentConstraintRunner(
     version: String,
     targetEnvironment: String
   ) {
-    val latestVersion = repository
-      .latestVersionApprovedIn(deliveryConfig, artifact, targetEnvironment)
+    val latestVersion = repository.latestVersionApprovedIn(deliveryConfig, artifact, targetEnvironment)
     if (latestVersion != version) {
       log.debug("Queueing version $version of ${artifact.type} artifact ${artifact.name} in environment $targetEnvironment for approval")
       repository.queueArtifactVersionForApproval(deliveryConfig.name, targetEnvironment, artifact, version)

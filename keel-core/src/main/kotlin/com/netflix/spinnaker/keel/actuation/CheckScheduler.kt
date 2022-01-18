@@ -8,11 +8,9 @@ import com.netflix.spinnaker.config.EnvironmentDeletionConfig
 import com.netflix.spinnaker.config.EnvironmentVerificationConfig
 import com.netflix.spinnaker.config.PostDeployActionsConfig
 import com.netflix.spinnaker.config.ResourceCheckConfig
-import com.netflix.spinnaker.keel.activation.ApplicationDown
-import com.netflix.spinnaker.keel.activation.ApplicationUp
 import com.netflix.spinnaker.keel.activation.DiscoveryActivated
 import com.netflix.spinnaker.keel.exceptions.EnvironmentCurrentlyBeingActedOn
-import com.netflix.spinnaker.keel.logging.TracingSupport.Companion.blankMDC
+import com.netflix.spinnaker.keel.logging.blankMDC
 import com.netflix.spinnaker.keel.persistence.AgentLockRepository
 import com.netflix.spinnaker.keel.persistence.EnvironmentDeletionRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
@@ -37,17 +35,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withTimeout
-import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ApplicationEventPublisher
-import org.springframework.context.event.EventListener
 import org.springframework.core.env.Environment
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.CoroutineContext
 import kotlin.math.max
 

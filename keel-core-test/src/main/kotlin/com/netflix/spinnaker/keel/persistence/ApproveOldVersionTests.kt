@@ -96,16 +96,11 @@ abstract class ApproveOldVersionTests<T : KeelRepository> : JUnit5Minutests {
       listOf(statelessEvaluator, statefulEvaluator, implicitStatelessEvaluator)
     )
 
-    val springEnv: org.springframework.core.env.Environment = mockk(relaxed = true) {
-      every { getProperty("keel.environment-promotion.fetch-pending", Boolean::class.java, false) } returns false
-    }
-
     val subject = EnvironmentPromotionChecker(
       repository,
       environmentConstraintRunner,
       publisher,
       ArtifactConfig(),
-      springEnv,
       MutableClock()
     )
 

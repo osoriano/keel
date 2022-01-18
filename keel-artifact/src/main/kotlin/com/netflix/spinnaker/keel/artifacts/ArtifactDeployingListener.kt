@@ -4,6 +4,7 @@ import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.events.ArtifactVersionDeploying
+import com.netflix.spinnaker.keel.logging.withCoroutineTracingContext
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.telemetry.ARTIFACT_DELAY
 import com.netflix.spinnaker.keel.telemetry.recordDuration
@@ -32,34 +33,38 @@ class ArtifactDeployingListener(
       val env = repository.environmentFor(resourceId)
 
       val artifact = resource.findAssociatedArtifact(deliveryConfig) ?: run {
-        log.warn("Resource $resource has no associated artifact, so we can't mark ${event.artifactVersion} as deploying.")
+        log.warn(
+          "Resource $resource has no associated artifact, so we can't mark ${event.artifactVersion} as deploying."
+        )
         return@runBlocking
       }
 
-      val approvedForEnv = repository.isApprovedFor(
-        deliveryConfig = deliveryConfig,
-        artifact = artifact,
-        version = event.artifactVersion,
-        targetEnvironment = env.name
-      )
-
-      if (approvedForEnv) {
-        log.info("Marking {} as deploying in {} for config {}", event.artifactVersion, env.name, deliveryConfig.name)
-        repository.markAsDeployingTo(
+      withCoroutineTracingContext(artifact, event.artifactVersion) {
+        val approvedForEnv = repository.isApprovedFor(
           deliveryConfig = deliveryConfig,
           artifact = artifact,
           version = event.artifactVersion,
           targetEnvironment = env.name
         )
-        // record how long it took us to deploy this version since it was approved
-        recordDeploymentDelay(deliveryConfig, artifact, event.artifactVersion, env.name)
-      } else {
-        log.warn(
-          "Somehow {} is deploying in {} for config {} without being approved for that environment",
-          event.artifactVersion,
-          env.name,
-          deliveryConfig.name
-        )
+
+        if (approvedForEnv) {
+          log.info("Marking {} as deploying in {} for config {}", event.artifactVersion, env.name, deliveryConfig.name)
+          repository.markAsDeployingTo(
+            deliveryConfig = deliveryConfig,
+            artifact = artifact,
+            version = event.artifactVersion,
+            targetEnvironment = env.name
+          )
+          // record how long it took us to deploy this version since it was approved
+          recordDeploymentDelay(deliveryConfig, artifact, event.artifactVersion, env.name)
+        } else {
+          log.warn(
+            "Somehow {} is deploying in {} for config {} without being approved for that environment",
+            event.artifactVersion,
+            env.name,
+            deliveryConfig.name
+          )
+        }
       }
     }
 

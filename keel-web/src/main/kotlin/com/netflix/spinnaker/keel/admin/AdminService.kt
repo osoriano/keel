@@ -13,7 +13,7 @@ import com.netflix.spinnaker.keel.exceptions.NoSuchEnvironmentException
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.Front50Service
 import com.netflix.spinnaker.keel.front50.model.ManagedDeliveryConfig
-import com.netflix.spinnaker.keel.logging.TracingSupport
+import com.netflix.spinnaker.keel.logging.blankMDC
 import com.netflix.spinnaker.keel.pause.ActuationPauser
 import com.netflix.spinnaker.keel.persistence.DiffFingerprintRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
@@ -89,7 +89,7 @@ class AdminService(
   @Scheduled(fixedDelayString = "\${keel.artifact-metadata-backfill.frequency:PT1H}")
   fun scheduledBackfillArtifactMetadata() {
     val startTime = clock.instant()
-    val job = launch(TracingSupport.blankMDC) {
+    val job = launch(blankMDC) {
       supervisorScope {
         backfillArtifactMetadata()
       }
@@ -102,7 +102,7 @@ class AdminService(
    * Updates last 10 artifact's versions with the corresponding metadata, if available, by type [deb/docker/npm]
    */
   fun backfillArtifactMetadataAsync(age: Duration) {
-    launch(TracingSupport.blankMDC) {
+    launch(blankMDC) {
       backfillArtifactMetadata(age)
     }
   }

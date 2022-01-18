@@ -10,6 +10,8 @@ import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactVetoes
 import com.netflix.spinnaker.keel.core.api.PinnedEnvironment
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.CURRENT
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.DEPLOYING
+import com.netflix.spinnaker.keel.logging.withCoroutineTracingContext
+import com.netflix.spinnaker.keel.logging.withThreadTracingContext
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.telemetry.ArtifactVersionApproved
 import com.netflix.spinnaker.keel.telemetry.EnvironmentCheckComplete
@@ -20,7 +22,6 @@ import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import java.time.Clock
 import java.time.Duration
-import org.springframework.core.env.Environment as SpringEnvironment
 
 /**
  * This class is responsible for approving artifacts in environments
@@ -32,7 +33,6 @@ class EnvironmentPromotionChecker(
   private val constraintRunner: EnvironmentConstraintRunner,
   private val publisher: ApplicationEventPublisher,
   private val artifactConfig: ArtifactConfig,
-  private val springEnv: SpringEnvironment,
   private val clock: Clock
 ) {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
@@ -85,9 +85,11 @@ class EnvironmentPromotionChecker(
 
                 if (pinnedEnvs.hasPinFor(environment.name, artifact)) {
                   val pinnedVersion = pinnedEnvs.versionFor(environment.name, artifact)
-                  // approve version first to fast track deployment
-                  approveVersion(deliveryConfig, artifact, pinnedVersion!!, environment)
-                  triggerResourceRecheckForPinnedVersion(deliveryConfig, artifact, pinnedVersion!!, environment)
+                  withCoroutineTracingContext(artifact, pinnedVersion!!) {
+                    // approve version first to fast track deployment
+                    approveVersion(deliveryConfig, artifact, pinnedVersion!!, environment)
+                    triggerResourceRecheckForPinnedVersion(deliveryConfig, artifact, pinnedVersion!!, environment)
+                  }
                   // then evaluate constraints
                   constraintRunner.checkEnvironment(envContext)
                 } else {
@@ -105,21 +107,28 @@ class EnvironmentPromotionChecker(
                   queuedForApproval
                     .reversed()
                     .forEach { artifactVersion ->
-                      /**
-                       * We don't need to re-invoke stateful constraint evaluators for these, but we still
-                       * check stateless constraints to avoid approval outside of allowed-times.
-                       */
-                      log.debug(
-                        "Version ${artifactVersion.version} of artifact ${artifact.name} is queued for approval, " +
-                          "and being evaluated for stateless constraints in environment ${environment.name}"
-                      )
-                      if (constraintRunner.checkStatelessConstraints(artifact, deliveryConfig, artifactVersion.version, environment)) {
-                        approveVersion(deliveryConfig, artifact, artifactVersion.version, environment)
-                        repository.deleteArtifactVersionQueuedForApproval(
-                          deliveryConfig.name, environment.name, artifact, artifactVersion.version)
-                      } else {
-                        log.debug("Version ${artifactVersion.version} of $artifact does not currently pass stateless constraints")
-                        queuedForApproval.remove(artifactVersion)
+                      withCoroutineTracingContext(artifactVersion) {
+                        /**
+                         * We don't need to re-invoke stateful constraint evaluators for these, but we still
+                         * check stateless constraints to avoid approval outside of allowed-times.
+                         */
+                        log.debug(
+                          "Version ${artifactVersion.version} of artifact ${artifact.name} is queued for approval, " +
+                            "and being evaluated for stateless constraints in environment ${environment.name}"
+                        )
+
+                        val passesStatelessConstraints = constraintRunner.checkStatelessConstraints(
+                          artifact, deliveryConfig, artifactVersion.version, environment)
+
+                        if (passesStatelessConstraints) {
+                          approveVersion(deliveryConfig, artifact, artifactVersion.version, environment)
+                          repository.deleteArtifactVersionQueuedForApproval(
+                            deliveryConfig.name, environment.name, artifact, artifactVersion.version
+                          )
+                        } else {
+                          log.debug("Version ${artifactVersion.version} of $artifact does not currently pass stateless constraints")
+                          queuedForApproval.remove(artifactVersion)
+                        }
                       }
                     }
 

@@ -35,10 +35,16 @@ import java.time.ZoneId
 class ManualJudgmentCallbackHandlerTests : JUnit5Minutests {
 
   class Fixture {
-    val repository: KeelRepository = mockk() {
-      every {getDeliveryConfig(any())} returns deliveryConfig()
+    private val deliveryConfig = deliveryConfig()
+    private val environment = deliveryConfig.environments.first()
+    private val artifact = deliveryConfig.artifacts.first()
+
+    val repository: KeelRepository = mockk {
+      every { getDeliveryConfig(any()) } returns deliveryConfig
     }
+
     val slackService: SlackService = mockk()
+
     val authorizationSupport: AuthorizationSupport = mockk() {
       every { hasPermission(any(), any(), any(), any()) } returns true
     }
@@ -72,14 +78,13 @@ class ManualJudgmentCallbackHandlerTests : JUnit5Minutests {
         .build()
     }
 
-
     val pendingManualJudgement = ConstraintState(
-      "myconfig",
-      "testing",
-      "1.0.0",
-      "my-debian",
-      "manual-judgement",
-      ConstraintStatus.PENDING
+      deliveryConfigName = deliveryConfig.name,
+      environmentName = environment.name,
+      artifactVersion = "1.0.0",
+      artifactReference = artifact.reference,
+      type = "manual-judgement",
+      status = ConstraintStatus.PENDING
     )
 
     val subject = ManualJudgmentCallbackHandler(clock, repository, slackService, authorizationSupport, springEnv)
@@ -136,10 +141,10 @@ class ManualJudgmentCallbackHandlerTests : JUnit5Minutests {
         }
 
         test("authz passes") {
-          val req: BlockActionRequest = mockk() {
+          val req: BlockActionRequest = mockk {
             every { payload } returns buildPayload("OVERRIDE_PASS")
           }
-          val ctx: ActionContext = mockk() {
+          val ctx: ActionContext = mockk {
             every { requestUserId } returns "01234"
           }
           val response = subject.validateAuth(req, ctx, pendingManualJudgement)
@@ -156,10 +161,10 @@ class ManualJudgmentCallbackHandlerTests : JUnit5Minutests {
         }
 
         test("unauthorized if no email found") {
-          val req: BlockActionRequest = mockk() {
+          val req: BlockActionRequest = mockk {
             every { payload } returns buildPayload("OVERRIDE_PASS")
           }
-          val ctx: ActionContext = mockk() {
+          val ctx: ActionContext = mockk {
             every { requestUserId } returns "01234"
           }
           val response = subject.validateAuth(req, ctx, pendingManualJudgement)
@@ -184,10 +189,10 @@ class ManualJudgmentCallbackHandlerTests : JUnit5Minutests {
             )
           } returns false
 
-          val req: BlockActionRequest = mockk() {
+          val req: BlockActionRequest = mockk {
             every { payload } returns buildPayload("OVERRIDE_PASS")
           }
-          val ctx: ActionContext = mockk() {
+          val ctx: ActionContext = mockk {
             every { requestUserId } returns "01234"
           }
           val response = subject.validateAuth(req, ctx, pendingManualJudgement)
@@ -206,10 +211,10 @@ class ManualJudgmentCallbackHandlerTests : JUnit5Minutests {
               WRITE
             )
           } returns true
-          val req: BlockActionRequest = mockk() {
+          val req: BlockActionRequest = mockk {
             every { payload } returns buildPayload("OVERRIDE_PASS")
           }
-          val ctx: ActionContext = mockk() {
+          val ctx: ActionContext = mockk {
             every { requestUserId } returns "01234"
           }
           val response = subject.validateAuth(req, ctx, pendingManualJudgement)
@@ -228,10 +233,10 @@ class ManualJudgmentCallbackHandlerTests : JUnit5Minutests {
               WRITE
             )
           } returns false
-          val req: BlockActionRequest = mockk() {
+          val req: BlockActionRequest = mockk {
             every { payload } returns buildPayload("OVERRIDE_PASS")
           }
-          val ctx: ActionContext = mockk() {
+          val ctx: ActionContext = mockk {
             every { requestUserId } returns "01234"
           }
           val response = subject.validateAuth(req, ctx, pendingManualJudgement)
@@ -256,10 +261,10 @@ class ManualJudgmentCallbackHandlerTests : JUnit5Minutests {
             )
           } returns true
 
-          val req: BlockActionRequest = mockk() {
+          val req: BlockActionRequest = mockk {
             every { payload } returns buildPayload("OVERRIDE_PASS")
           }
-          val ctx: ActionContext = mockk() {
+          val ctx: ActionContext = mockk {
             every { requestUserId } returns "01234"
           }
           val response = subject.validateAuth(req, ctx, pendingManualJudgement)

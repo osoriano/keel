@@ -15,7 +15,8 @@ import com.netflix.spinnaker.keel.lifecycle.LifecycleEvent
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventScope
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventStatus
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventType
-import com.netflix.spinnaker.keel.logging.TracingSupport
+import com.netflix.spinnaker.keel.logging.blankMDC
+import com.netflix.spinnaker.keel.logging.withThreadTracingContext
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.WorkQueueRepository
 import com.netflix.spinnaker.keel.scm.CodeEvent
@@ -110,7 +111,7 @@ final class WorkQueueProcessor(
   fun processArtifacts() {
     if (enabled.get()) {
       val startTime = clock.instant()
-      val job = launch(TracingSupport.blankMDC) {
+      val job = launch(blankMDC) {
         supervisorScope {
            workQueueRepository
               .removeArtifactsFromQueue(artifactBatchSize)
@@ -147,23 +148,25 @@ final class WorkQueueProcessor(
    */
   @EventListener(PublishedArtifact::class)
   fun handlePublishedArtifact(artifact: PublishedArtifact) {
-    if (repository.isRegistered(artifact.name, artifact.artifactType)) {
-      val artifactSupplier = artifactSuppliers.supporting(artifact.artifactType)
-      if (artifactSupplier.shouldProcessArtifact(artifact)) {
-        log.info("Registering version {} (status={}) of {} artifact {}",
-          artifact.version, artifact.status, artifact.type, artifact.name)
+    withThreadTracingContext(artifact) {
+      if (repository.isRegistered(artifact.name, artifact.artifactType)) {
+        val artifactSupplier = artifactSuppliers.supporting(artifact.artifactType)
+        if (artifactSupplier.shouldProcessArtifact(artifact)) {
+          log.info("Registering version {} (status={}) of {} artifact {}",
+            artifact.version, artifact.status, artifact.type, artifact.name)
 
-        enrichAndStore(artifact, artifactSupplier)
-          .also { wasAdded ->
-            if (wasAdded) {
-              incrementUpdatedCount(artifact)
+          enrichAndStore(artifact, artifactSupplier)
+            .also { wasAdded ->
+              if (wasAdded) {
+                incrementUpdatedCount(artifact)
+              }
             }
-          }
+        } else {
+          log.debug("Artifact $artifact shouldn't be processed due to supplier limitations. Ignoring this artifact version.")
+        }
       } else {
-        log.debug("Artifact $artifact shouldn't be processed due to supplier limitations. Ignoring this artifact version.")
+        log.debug("Artifact ${artifact.type}:${artifact.name} is not registered. Ignoring new artifact version: $artifact")
       }
-    } else {
-      log.debug("Artifact ${artifact.type}:${artifact.name} is not registered. Ignoring new artifact version: $artifact")
     }
   }
 
@@ -171,7 +174,7 @@ final class WorkQueueProcessor(
   fun processCodeEvents() {
     if (enabled.get()) {
       val startTime = clock.instant()
-      val job = launch(TracingSupport.blankMDC) {
+      val job = launch(blankMDC) {
         supervisorScope {
           workQueueRepository
             .removeCodeEventsFromQueue(codeEventBatchSize)
@@ -208,6 +211,7 @@ final class WorkQueueProcessor(
     val enrichedArtifact = supplier.addMetadata(artifact.normalized())
     notifyArtifactVersionDetected(enrichedArtifact)
 
+    log.debug("Storing artifact ${artifact.type}:${artifact.name} version ${artifact.version}")
     val stored = repository.storeArtifactVersion(enrichedArtifact)
 
     if (stored && enrichedArtifact.createdAt != null) {

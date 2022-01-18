@@ -5,6 +5,7 @@ import com.netflix.spinnaker.keel.api.events.ArtifactVersionDeployed
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.CURRENT
 import com.netflix.spinnaker.keel.events.ArtifactDeployedNotification
+import com.netflix.spinnaker.keel.logging.withCoroutineTracingContext
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
@@ -64,67 +65,76 @@ class ArtifactDeployedListener(
         return@runBlocking
       }
 
-      val approvedForEnv = repository.isApprovedFor(
-        deliveryConfig = deliveryConfig,
-        artifact = artifact,
-        version = event.artifactVersion,
-        targetEnvironment = env.name
-      )
-
-      fun hasNoApprovedVersions() = repository.getLatestApprovedInEnvArtifactVersion(
-        config = deliveryConfig,
-        artifact = artifact,
-        environmentName = env.name,
-        excludeCurrent = false
-      ) == null
-
-      // We add a special case for migrated apps that already have a version deployed but nothing is approved in the DB.
-      // In this case, we still want to mark the version as deployed
-      if (approvedForEnv || hasNoApprovedVersions()) {
-        if (!approvedForEnv) {
-          log.info(
-            "This is the first and already deployed of artifact {} - {} in env {} of app {}",
-            artifact.reference,
-            event.artifactVersion,
-            env.name,
-            deliveryConfig.name
-          )
-          approveAllConstraintsForVersion(
-            deliveryConfigName = deliveryConfig.name,
-            environmentName = env.name,
-            artifactReference = artifact.reference,
-            artifactVersion = event.artifactVersion
-          )
-        }
-        val markedCurrentlyDeployed = repository.getArtifactPromotionStatus(
+      withCoroutineTracingContext(artifact, event.artifactVersion) {
+        val approvedForEnv = repository.isApprovedFor(
           deliveryConfig = deliveryConfig,
           artifact = artifact,
           version = event.artifactVersion,
           targetEnvironment = env.name
-        ) == CURRENT
-        if (!markedCurrentlyDeployed) {
-          log.info("Marking {} as deployed in {} for config {} because it's not currently marked as deployed", event.artifactVersion, env.name, deliveryConfig.name)
-          repository.markAsSuccessfullyDeployedTo(
+        )
+
+        fun hasNoApprovedVersions() = repository.getLatestApprovedInEnvArtifactVersion(
+          config = deliveryConfig,
+          artifact = artifact,
+          environmentName = env.name,
+          excludeCurrent = false
+        ) == null
+
+        // We add a special case for migrated apps that already have a version deployed but nothing is approved in the DB.
+        // In this case, we still want to mark the version as deployed
+        if (approvedForEnv || hasNoApprovedVersions()) {
+          if (!approvedForEnv) {
+            log.info(
+              "This is the first and already deployed of artifact {} - {} in env {} of app {}",
+              artifact.reference,
+              event.artifactVersion,
+              env.name,
+              deliveryConfig.name
+            )
+            approveAllConstraintsForVersion(
+              deliveryConfigName = deliveryConfig.name,
+              environmentName = env.name,
+              artifactReference = artifact.reference,
+              artifactVersion = event.artifactVersion
+            )
+          }
+          val markedCurrentlyDeployed = repository.getArtifactPromotionStatus(
             deliveryConfig = deliveryConfig,
             artifact = artifact,
             version = event.artifactVersion,
             targetEnvironment = env.name
-          )
-          publisher.publishEvent(
-            ArtifactDeployedNotification(
-              config = deliveryConfig,
-              deliveryArtifact = artifact,
-              artifactVersion = event.artifactVersion,
-              targetEnvironment = env
+          ) == CURRENT
+          if (!markedCurrentlyDeployed) {
+            log.info(
+              "Marking {} as deployed in {} for config {} because it's not currently marked as deployed",
+              event.artifactVersion, env.name, deliveryConfig.name
             )
-          )
+            repository.markAsSuccessfullyDeployedTo(
+              deliveryConfig = deliveryConfig,
+              artifact = artifact,
+              version = event.artifactVersion,
+              targetEnvironment = env.name
+            )
+            publisher.publishEvent(
+              ArtifactDeployedNotification(
+                config = deliveryConfig,
+                deliveryArtifact = artifact,
+                artifactVersion = event.artifactVersion,
+                targetEnvironment = env
+              )
+            )
+          } else {
+            log.debug(
+              "$artifact version ${event.artifactVersion} is already marked as deployed to $env in" +
+                " application ${deliveryConfig.application}"
+            )
+          }
         } else {
-          log.debug("$artifact version ${event.artifactVersion} is already marked as deployed to $env in" +
-            " application ${deliveryConfig.application}")
+          log.debug(
+            "$artifact version ${event.artifactVersion} is not approved for $env in application" +
+              " ${deliveryConfig.application}, so not marking as deployed."
+          )
         }
-      } else {
-        log.debug("$artifact version ${event.artifactVersion} is not approved for $env in application" +
-          " ${deliveryConfig.application}, so not marking as deployed.")
       }
     }
 }

@@ -37,7 +37,6 @@ import strikt.api.expectCatching
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo
 import strikt.assertions.isSuccess
-import org.springframework.core.env.Environment as SpringEnv
 
 internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
   class Fixture {
@@ -46,7 +45,6 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
     val publisher = mockk<ApplicationEventPublisher>(relaxUnitFun = true)
 
     val constraint = TimeWindowConstraint(windows = listOf(TimeWindow(days = "Monday-Sunday", hours = "0-23")))
-    val springEnv: SpringEnv = mockk(relaxUnitFun = true)
 
     val environmentConstraintRunner: EnvironmentConstraintRunner = mockk(relaxed = true) {
       every { getStatelessConstraintSnapshots(any(), any(), any(), any(), PASS) } returns
@@ -68,7 +66,6 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
       environmentConstraintRunner,
       publisher,
       ArtifactConfig(),
-      springEnv,
       MutableClock()
     )
 

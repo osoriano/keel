@@ -12,6 +12,7 @@ import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.api.plugins.supporting
 import com.netflix.spinnaker.keel.config.ArtifactRefreshConfig
 import com.netflix.spinnaker.keel.exceptions.InvalidSystemStateException
+import com.netflix.spinnaker.keel.logging.withCoroutineTracingContext
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -82,9 +83,14 @@ class ArtifactListener(
             val newVersions = latestAvailableVersions
               .filterNot { currentVersions.contains(it.normalized().version) }
               .filter { artifactSupplier.shouldProcessArtifact(it) }
+
             if (newVersions.isNotEmpty()) {
-              log.debug("$artifact has a missing version(s) ${newVersions.map { it.version }}, persisting.")
-              newVersions.forEach { workQueueProcessor.enrichAndStore(it, artifactSupplier) }
+              newVersions.forEach { publishedArtifact ->
+                withCoroutineTracingContext(publishedArtifact) {
+                  log.debug("Detected missing version ${publishedArtifact.version} of $artifact. Persisting.")
+                  workQueueProcessor.enrichAndStore(publishedArtifact, artifactSupplier)
+                }
+              }
             } else {
               log.debug("No new versions to persist for $artifact")
             }
@@ -93,7 +99,6 @@ class ArtifactListener(
       }
     }
   }
-
 
   private val DeliveryArtifact.deliveryConfig: DeliveryConfig
     get() = this.deliveryConfigName

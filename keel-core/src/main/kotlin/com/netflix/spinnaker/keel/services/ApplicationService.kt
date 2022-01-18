@@ -71,7 +71,8 @@ import com.netflix.spinnaker.keel.exceptions.InvalidSystemStateException
 import com.netflix.spinnaker.keel.exceptions.InvalidVetoException
 import com.netflix.spinnaker.keel.getPrDescription
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventRepository
-import com.netflix.spinnaker.keel.logging.TracingSupport.Companion.blankMDC
+import com.netflix.spinnaker.keel.logging.blankMDC
+import com.netflix.spinnaker.keel.logging.withThreadTracingContext
 import com.netflix.spinnaker.keel.migrations.ApplicationPrData
 import com.netflix.spinnaker.keel.persistence.ArtifactNotFoundException
 import com.netflix.spinnaker.keel.persistence.KeelRepository
@@ -190,29 +191,28 @@ class ApplicationService(
 
   fun updateConstraintStatus(user: String, application: String, environment: String, status: UpdatedConstraintStatus): Boolean {
     val config = repository.getDeliveryConfigForApplication(application)
-    val currentState = repository.getConstraintState(
-      config.name,
-      environment,
-      status.artifactVersion,
-      status.type,
-      status.artifactReference
-    ) ?: throw InvalidConstraintException(
-      "${config.name}/$environment/${status.type}/${status.artifactVersion}", "constraint not found"
-    )
+    val constraintName = "${config.name}/$environment/${status.type}/${status.artifactVersion}"
+    val artifactReference = status.artifactReference
 
-    val newState = currentState.copy(
-      status = status.status,
-      comment = status.comment ?: currentState.comment,
-      judgedAt = Instant.now(),
-      judgedBy = user
-    )
-    repository.storeConstraintState(newState)
-    repository.triggerDeliveryConfigRecheck(application) // recheck environments to fast track a deployment
+    val artifact = config.matchingArtifactByReference(artifactReference)
+      ?: throw InvalidConstraintException(constraintName, "artifact not found in delivery config for reference $artifactReference")
 
-    if (currentState.status != newState.status) {
-      return true
+    return withThreadTracingContext(artifact, status.artifactVersion) {
+      val currentState = repository.getConstraintState(config.name, environment, status.artifactVersion, status.type, artifactReference)
+        ?: throw InvalidConstraintException(constraintName, "constraint not found")
+
+      val newState = currentState.copy(
+        status = status.status,
+        comment = status.comment ?: currentState.comment,
+        judgedAt = Instant.now(),
+        judgedBy = user
+      )
+
+      repository.storeConstraintState(newState)
+      repository.triggerDeliveryConfigRecheck(application) // recheck environments to fast track a deployment
+
+      currentState.status != newState.status
     }
-    return false
   }
 
   fun pin(user: String, application: String, pin: EnvironmentArtifactPin) {

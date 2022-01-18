@@ -4,10 +4,11 @@ import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
 import com.netflix.spinnaker.keel.api.events.ArtifactPublishedEvent
 import com.netflix.spinnaker.keel.api.events.ArtifactSyncEvent
 import com.netflix.spinnaker.keel.api.plugins.UnsupportedArtifactException
-import com.netflix.spinnaker.keel.scm.isCodeEvent
-import com.netflix.spinnaker.keel.scm.toCodeEvent
 import com.netflix.spinnaker.keel.artifacts.WorkQueueProcessor
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
+import com.netflix.spinnaker.keel.logging.withThreadTracingContext
+import com.netflix.spinnaker.keel.scm.isCodeEvent
+import com.netflix.spinnaker.keel.scm.toCodeEvent
 import com.netflix.spinnaker.keel.yaml.APPLICATION_YAML_VALUE
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
@@ -55,11 +56,13 @@ class ArtifactController(
           workQueueProcessor.queueCodeEventForProcessing(codeEvent)
         }
       } else {
-        try {
-          log.debug("Queueing artifact ${artifact.name} version ${artifact.version} from artifact $artifact")
-          workQueueProcessor.queueArtifactForProcessing(artifact)
-        } catch (e: UnsupportedArtifactException) {
-          log.debug("Ignoring artifact event with unsupported type {}: {}", artifact.type, artifact)
+        withThreadTracingContext(artifact) {
+          try {
+            log.debug("Queueing artifact ${artifact.name} version ${artifact.version} from artifact $artifact")
+            workQueueProcessor.queueArtifactForProcessing(artifact)
+          } catch (e: UnsupportedArtifactException) {
+            log.debug("Ignoring artifact event with unsupported type {}: {}", artifact.type, artifact)
+          }
         }
       }
     }

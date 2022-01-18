@@ -32,7 +32,7 @@ import com.netflix.spinnaker.keel.events.ResourceTaskSucceeded
 import com.netflix.spinnaker.keel.events.ResourceValid
 import com.netflix.spinnaker.keel.events.VerificationBlockedActuation
 import com.netflix.spinnaker.keel.exceptions.EnvironmentCurrentlyBeingActedOn
-import com.netflix.spinnaker.keel.logging.TracingSupport.Companion.withTracingContext
+import com.netflix.spinnaker.keel.logging.withTracingContext
 import com.netflix.spinnaker.keel.pause.ActuationPauser
 import com.netflix.spinnaker.keel.persistence.ArtifactRepository
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository

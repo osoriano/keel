@@ -18,6 +18,7 @@ import com.netflix.spinnaker.keel.lifecycle.LifecycleEvent
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventScope.PRE_DEPLOYMENT
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventStatus.NOT_STARTED
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventType.BAKE
+import com.netflix.spinnaker.keel.logging.withCoroutineTracingContext
 import com.netflix.spinnaker.keel.model.OrcaJob
 import com.netflix.spinnaker.keel.parseAppVersion
 import com.netflix.spinnaker.keel.persistence.BakedImageRepository
@@ -29,6 +30,9 @@ import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.core.env.Environment
 
+/**
+ * Responsible for launching bake tasks for Debian artifact versions that have not yet been baked into AMIs.
+ */
 class ImageHandler(
   private val repository: KeelRepository,
   private val baseImageCache: BaseImageCache,
@@ -90,42 +94,44 @@ class ImageHandler(
           )
         } else {
           if (!artifact.wasPreviouslyBakedWith(appVersion, desiredBaseAmiName)) {
-            val images = artifact.findLatestAmi(appVersion)
-            val imagesWithOlderBaseImages = images.filterValues { it.baseImageName != desiredBaseAmiName }
-            val missingRegions = artifact.vmOptions.regions - images.keys
-            when {
-              images.isEmpty() -> {
-                log.info("No AMI found for {}", appVersion)
-                launchBake(artifact, appVersion)
-              }
-              imagesWithOlderBaseImages.isNotEmpty() -> {
-                log.info("AMIs for {} are outdated, rebaking…", appVersion)
-                launchBake(
-                  artifact,
-                  appVersion,
-                  description = "Bake $appVersion due to a new base image: $desiredBaseAmiName"
-                )
-              }
-              missingRegions.isNotEmpty() -> {
-                log.warn("Detected missing regions for ${appVersion}: ${missingRegions.joinToString()}")
-                publisher.publishEvent(
-                  ImageRegionMismatchDetected(appVersion, desiredBaseAmiName, images.keys, artifact.vmOptions.regions)
-                )
-                launchBake(
-                  artifact,
-                  appVersion,
-                  regions = missingRegions,
-                  description = "Bake $appVersion due to missing regions: ${missingRegions.joinToString()}"
-                )
-              }
-              else -> {
-                log.debug(
-                  "Image for {} already exists with app version {} and base image {} in regions {}",
-                  artifact.name,
-                  appVersion,
-                  desiredBaseAmiName,
-                  artifact.vmOptions.regions.joinToString()
-                )
+            withCoroutineTracingContext(artifact, appVersion) {
+              val images = artifact.findLatestAmi(appVersion)
+              val imagesWithOlderBaseImages = images.filterValues { it.baseImageName != desiredBaseAmiName }
+              val missingRegions = artifact.vmOptions.regions - images.keys
+              when {
+                images.isEmpty() -> {
+                  log.info("No AMI found for {}", appVersion)
+                  launchBake(artifact, appVersion)
+                }
+                imagesWithOlderBaseImages.isNotEmpty() -> {
+                  log.info("AMIs for {} are outdated, rebaking…", appVersion)
+                  launchBake(
+                    artifact,
+                    appVersion,
+                    description = "Bake $appVersion due to a new base image: $desiredBaseAmiName"
+                  )
+                }
+                missingRegions.isNotEmpty() -> {
+                  log.warn("Detected missing regions for ${appVersion}: ${missingRegions.joinToString()}")
+                  publisher.publishEvent(
+                    ImageRegionMismatchDetected(appVersion, desiredBaseAmiName, images.keys, artifact.vmOptions.regions)
+                  )
+                  launchBake(
+                    artifact,
+                    appVersion,
+                    regions = missingRegions,
+                    description = "Bake $appVersion due to missing regions: ${missingRegions.joinToString()}"
+                  )
+                }
+                else -> {
+                  log.debug(
+                    "Image for {} already exists with app version {} and base image {} in regions {}",
+                    artifact.name,
+                    appVersion,
+                    desiredBaseAmiName,
+                    artifact.vmOptions.regions.joinToString()
+                  )
+                }
               }
             }
 >>>>>>> 52f634c96403b1408fcc549281c52577a0149697

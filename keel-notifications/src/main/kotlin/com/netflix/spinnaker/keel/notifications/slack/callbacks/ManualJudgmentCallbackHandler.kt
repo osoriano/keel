@@ -7,6 +7,7 @@ import com.netflix.spinnaker.keel.auth.AuthorizationSupport
 import com.netflix.spinnaker.keel.auth.AuthorizationResourceType.APPLICATION
 import com.netflix.spinnaker.keel.auth.AuthorizationResourceType.SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.core.api.parseUID
+import com.netflix.spinnaker.keel.logging.withThreadTracingContext
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.notifications.slack.SlackService
 import com.netflix.spinnaker.kork.exceptions.SystemException
@@ -116,20 +117,23 @@ class ManualJudgmentCallbackHandler(
   fun updateConstraintState(slackCallbackResponse: BlockActionPayload, currentState: ConstraintState) {
     val user = slackService.getEmailByUserId(slackCallbackResponse.user.id)
     val actionStatus = slackCallbackResponse.actions.first().value
+    val config = repository.getDeliveryConfig(currentState.deliveryConfigName)
+    val artifact = config.matchingArtifactByReference(currentState.artifactReference)
+      ?: throw SystemException(
+        "Artifact with reference ${currentState.artifactReference} not found in delivery config for app ${config.application}")
 
-    log.debug(
-      "Updating constraint status based on notification interaction: " +
-        "user = $user, status = $actionStatus}"
-    )
+    withThreadTracingContext(artifact, currentState.artifactVersion) {
+      log.debug("Updating constraint status based on notification interaction: user = $user, status = $actionStatus")
 
-    repository
-      .storeConstraintState(
-        currentState.copy(
-          status = ConstraintStatus.valueOf(actionStatus),
-          judgedAt = Instant.now(),
-          judgedBy = user
+      repository
+        .storeConstraintState(
+          currentState.copy(
+            status = ConstraintStatus.valueOf(actionStatus),
+            judgedAt = Instant.now(),
+            judgedBy = user
+          )
         )
-      )
+    }
   }
 
   /**
