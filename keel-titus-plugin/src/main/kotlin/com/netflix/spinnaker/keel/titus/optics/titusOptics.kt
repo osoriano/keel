@@ -3,6 +3,7 @@ package com.netflix.spinnaker.keel.titus.optics
 import arrow.optics.Lens
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.SimpleLocations
+import com.netflix.spinnaker.keel.api.ec2.ClusterSpec.CapacitySpec
 import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroupSpec
 import com.netflix.spinnaker.keel.optics.monikerStackLens
@@ -37,11 +38,42 @@ val titusClusterSpecDefaultsLens: Lens<TitusClusterSpec, TitusServerGroupSpec> =
   set = { spec, defaults -> spec.copy(_defaults = defaults) }
 )
 
+fun titusClusterSpecRegionOverrideLens(region: String): Lens<TitusClusterSpec, TitusServerGroupSpec?> = Lens(
+  get = { it.overrides[region] },
+  set = { titusClusterSpec, override ->
+    titusClusterSpec.run {
+      if (override == null) {
+        titusClusterSpec.copy(overrides = overrides - region)
+      } else {
+        titusClusterSpec.copy(overrides = overrides + (region to override))
+      }
+    }
+  }
+)
+
 /**
  * Composed lens for getting/setting the [SimpleLocations.account] of a [TitusClusterSpec].
  */
 val titusClusterSpecAccountLens =
   titusClusterSpecLocationsLens + simpleLocationsAccountLens
+
+/**
+ * Lens for getting/setting [TitusServerGroupSpec.capacity].
+ */
+val titusServerGroupSpecCapacityLens: Lens<TitusServerGroupSpec, CapacitySpec?> = Lens(
+  get = { it.capacity },
+  set = { titusServerGroupSpec, capacity -> titusServerGroupSpec.copy(capacity = capacity) }
+)
+
+/**
+ * Lens for getting/setting [TitusServerGroupSpec.capacity] where the `TitusServerGroupSpec` may be `null`.
+ */
+val titusServerGroupSpecCapacityLensNullable: Lens<TitusServerGroupSpec?, CapacitySpec?> = Lens(
+  get = { it?.capacity },
+  set = { titusServerGroupSpec, capacity ->
+    titusServerGroupSpec?.copy(capacity = capacity) ?: TitusServerGroupSpec(capacity = capacity)
+  }
+)
 
 /**
  * Lens for getting/setting [TitusServerGroupSpec.containerAttributes].
