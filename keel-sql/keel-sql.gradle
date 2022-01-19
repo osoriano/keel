@@ -1,5 +1,8 @@
 plugins {
-  id("nu.studer.jooq") version "6.0.1"
+  // WARNING: do not unpin the jooq plugin version without checking that the nebula dependency auto-update job still
+  // works, i.e. that you can build with JDK 8
+  // See https://netflix.slack.com/archives/C0N913649/p1633465222036800
+  id("nu.studer.jooq") version "5.2.2"
   id("org.liquibase.gradle") version "2.1.1"
 }
 
