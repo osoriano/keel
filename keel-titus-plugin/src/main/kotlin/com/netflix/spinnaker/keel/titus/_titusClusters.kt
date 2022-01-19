@@ -122,6 +122,9 @@ fun TitusClusterSpec.resolveScaling(region: String? = null) =
 fun TitusClusterSpec.resolveEfs(region: String? = null) =
   (region?.let { overrides[it] })?.efs ?: defaults.efs
 
+fun TitusClusterSpec.resolvePlatformSidecars(region: String? = null) =
+    this.overrides[region]?.platformSidecars ?: defaults.platformSidecars
+
 fun TitusClusterSpec.resolveTags(region: String? = null) =
   defaults.tags + (region?.let { overrides[it] }?.tags ?: emptyMap())
 
@@ -148,7 +151,8 @@ internal fun TitusClusterSpec.resolve(): Set<TitusServerGroup> =
       artifactName = artifactName,
       artifactVersion = artifactVersion,
       scaling = resolveScaling(it.name),
-      efs = resolveEfs(it.name)
+      efs = resolveEfs(it.name),
+      platformSidecars = resolvePlatformSidecars(it.name),
     )
   }
     .toSet()
@@ -163,7 +167,7 @@ private operator fun <E> Set<E>?.plus(elements: Set<E>?): Set<E> =
     }
   }
 
-private operator fun <K, V> Map<K, V>?.plus(map: Map<K, V>?): Map<K, V> =
+operator fun <K, V> Map<K, V>?.plus(map: Map<K, V>?): Map<K, V> =
   when {
     this == null || isEmpty() -> map ?: emptyMap()
     map == null || map.isEmpty() -> this

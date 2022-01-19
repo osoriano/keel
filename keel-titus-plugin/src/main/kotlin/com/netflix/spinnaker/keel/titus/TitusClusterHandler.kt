@@ -18,6 +18,7 @@
 package com.netflix.spinnaker.keel.titus
 
 import com.fasterxml.jackson.module.kotlin.convertValue
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.netflix.buoy.sdk.model.RolloutTarget
 import com.netflix.spinnaker.keel.api.ClusterDeployStrategy
 import com.netflix.spinnaker.keel.api.Exportable
@@ -726,7 +727,15 @@ class TitusClusterHandler(
         "loadBalancers" to dependencies.loadBalancerNames,
         "targetGroups" to dependencies.targetGroups,
         "account" to location.account,
-        "efs" to efs
+        "efs" to efs,
+        "platformSidecars" to platformSidecars?.map {
+          mapOf(
+            "name" to it.name,
+            "channel" to it.channel,
+            // Titus expects a json object encoded as a string for "arguments"
+            "arguments" to jsonStringify(it.arguments)
+          )
+        },
         // scaling is not set here because the deploy stage does not accept scaling policies.
         // They're copied on a clone if they exist, or created in a modify job by us if they don't.
       ) + image
@@ -750,6 +759,16 @@ class TitusClusterHandler(
         // add metadata
         job + mapOf("metadata" to mapOf("resource" to resource.id))
       }
+
+/**
+ * Convert a map to string-encoded JSON
+ *
+ * Note: null is treated as a special case.
+ * If the input is null, the output is null, not "null"
+ *
+ */
+private fun jsonStringify(arguments: Map<String, Any>?) =
+   arguments?.let { args -> jacksonObjectMapper().writeValueAsString(args) }
 
   /**
    * For server groups with scaling policies, the [TitusClusterSpec] will not include a desired value. so we use the
@@ -806,6 +825,7 @@ class TitusClusterHandler(
         "resources" to resolveResources(),
         "constraints" to resolveConstraints(),
         "migrationPolicy" to resolveMigrationPolicy(),
+        "platformSidecars" to resolvePlatformSidecars()
         // scaling is not set here because the deploy stage does not accept scaling policies.
         // They're copied on a clone if they exist, or created in a modify job by us if they don't.
       ) + image +
@@ -1120,6 +1140,9 @@ class TitusClusterHandler(
           efsId = it.efsId,
           efsRelativeMountPoint = it.efsRelativeMountPoint,
         )
+      },
+      platformSidecars = platformSidecars?.map {
+        TitusServerGroup.PlatformSidecar(it.name, it.channel, it.arguments)
       }
     )
 

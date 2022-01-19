@@ -148,8 +148,15 @@ class TitusClusterHandlerTests : JUnit5Minutests {
       dependencies = ClusterDependencies(
         loadBalancerNames = setOf("keel-test-frontend"),
         securityGroupNames = setOf(sg1West.name)
-      )
-    ),
+      ),
+      platformSidecars = listOf(
+        TitusServerGroup.PlatformSidecar(
+          name = "foo",
+          channel = "bar",
+          arguments = mapOf("foo" to "bar")
+        )
+      ),
+      ),
     container = digestProvider
   )
 
@@ -288,6 +295,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
 
         expectThat(slot.captured.job.first()) {
           get("type").isEqualTo("createServerGroup")
+          get("platformSidecars").isNotNull()
         }
       }
     }

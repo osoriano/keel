@@ -1,18 +1,13 @@
 package com.netflix.spinnaker.keel.titus.jackson
 
 import com.fasterxml.jackson.module.kotlin.readValue
-import com.netflix.spinnaker.keel.clouddriver.model.CustomizedMetricSpecificationModel
-import com.netflix.spinnaker.keel.clouddriver.model.TargetPolicyDescriptor
-import com.netflix.spinnaker.keel.clouddriver.model.TitusActiveServerGroup
-import com.netflix.spinnaker.keel.clouddriver.model.TitusScaling
+import com.netflix.spinnaker.keel.api.titus.TitusServerGroup
+import com.netflix.spinnaker.keel.clouddriver.model.*
 import com.netflix.spinnaker.keel.jackson.KeelApiModule
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
 import org.junit.jupiter.api.Test
 import strikt.api.expectCatching
-import strikt.assertions.first
-import strikt.assertions.hasSize
-import strikt.assertions.isEqualTo
-import strikt.assertions.isSuccess
+import strikt.assertions.*
 
 class TitusActiveServerGroupDeserializationTests {
 
@@ -53,6 +48,21 @@ class TitusActiveServerGroupDeserializationTests {
       .isSuccess()
       .get { scalingPolicies }
       .hasSize(3)
+  }
+
+  @Test
+  fun `can deserialize platform sidecars`() {
+    expectCatching {
+      readResource<TitusActiveServerGroup>("/titus-active-server-group-with-platform-sidecars.json")
+    }
+      .isSuccess()
+      .get { platformSidecars }
+      .isNotNull()
+      .hasSize(2)
+      .and {
+        this[0].isEqualTo(PlatformSidecar("foo", "beta"))
+        this[1].isEqualTo(PlatformSidecar("bar", "stable", mapOf("speed" to "turbo")))
+      }
   }
 
   private inline fun <reified T> readResource(path: String) =

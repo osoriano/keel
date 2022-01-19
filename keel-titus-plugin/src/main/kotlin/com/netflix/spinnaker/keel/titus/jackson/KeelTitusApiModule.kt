@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.deser.Deserializers
 import com.fasterxml.jackson.databind.module.SimpleModule
 import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
+import com.netflix.spinnaker.keel.clouddriver.model.PlatformSidecar
 import com.netflix.spinnaker.keel.clouddriver.model.TitusScaling
 import com.netflix.spinnaker.keel.titus.jackson.mixins.TitusClusterSpecMixin
 
@@ -32,6 +33,7 @@ internal object KeelTitusApiDeserializers : Deserializers.Base() {
   ): JsonDeserializer<*>? =
     when (type.rawClass) {
       TitusScaling.Policy::class.java -> TitusScalingPolicyDescriptorDeserializer
+      PlatformSidecar::class.java -> PlatformSidecarDeserializer
       else -> null
     }
 }
