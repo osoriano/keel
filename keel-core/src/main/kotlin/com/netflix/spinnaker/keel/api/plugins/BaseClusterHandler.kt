@@ -19,9 +19,9 @@ import com.netflix.spinnaker.keel.core.orcaClusterMoniker
 import com.netflix.spinnaker.keel.core.serverGroup
 import com.netflix.spinnaker.keel.diff.toIndividualDiffs
 import com.netflix.spinnaker.keel.events.ResourceActuationLaunched
-import com.netflix.spinnaker.keel.orca.dependsOn
-import com.netflix.spinnaker.keel.orca.restrictedExecutionWindow
-import com.netflix.spinnaker.keel.orca.waitStage
+import com.netflix.spinnaker.keel.api.support.dependsOn
+import com.netflix.spinnaker.keel.api.support.restrictedExecutionWindow
+import com.netflix.spinnaker.keel.api.support.waitStage
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -226,7 +226,7 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Simple
     "${getDesiredAccount(diff)}/${getDesiredRegion(diff)}"
 
   private fun accountRegionString(resource: Resource<SPEC>, diffs: List<ResourceDiff<RESOLVED>>): String =
-    "${resource.account()}/${diffs.map { getDesiredRegion(it) }.joinToString(",")}"
+    "${resource.account()}/${diffs.joinToString(",") { getDesiredRegion(it) }}"
 
   private fun ResourceDiff<RESOLVED>.capacityOnlyMessage(): String =
     "Resize server group [${moniker()} in ${accountRegionString(this)}]"
@@ -601,6 +601,7 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Simple
       diffs.forEach { diff ->
         val version = diff.version(resource)
         val job = diff.upsertOrCloneServerGroupJob(resource, 0, version, clone = true)
+        @Suppress("DeferredResultUnused")
         async {
           with(diff.desired) {
             val task = taskLauncher.submitJob(

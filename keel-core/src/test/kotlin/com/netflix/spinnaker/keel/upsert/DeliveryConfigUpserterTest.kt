@@ -3,7 +3,6 @@ package com.netflix.spinnaker.keel.upsert
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.config.PersistenceRetryConfig
 import com.netflix.spinnaker.keel.api.Environment
-import com.netflix.spinnaker.keel.api.artifacts.ArtifactOriginFilter
 import com.netflix.spinnaker.keel.api.artifacts.branchStartsWith
 import com.netflix.spinnaker.keel.api.artifacts.from
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
@@ -25,8 +24,8 @@ import io.mockk.verify
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.context.ApplicationEventPublisher
-import org.springframework.core.env.Environment as SpringEnv
 import strikt.api.expectThrows
+import org.springframework.core.env.Environment as SpringEnv
 
 internal class DeliveryConfigUpserterTest {
   private val repository: KeelRepository = mockk()

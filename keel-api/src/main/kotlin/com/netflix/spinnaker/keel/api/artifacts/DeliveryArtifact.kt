@@ -77,11 +77,12 @@ data class ArtifactOriginFilter(
 )
 
 /**
- * An artifact as defined in a [DeliveryConfig].
+ * An artifact as defined in a [com.netflix.spinnaker.keel.api.DeliveryConfig].
  *
  * Unlike other places within Spinnaker, this class does not describe a specific instance of a software artifact
  * (i.e. the output of a build that is published to an artifact repository), but rather the high-level properties
- * that allow keel and [ArtifactSupplier] plugins to find/process the actual artifacts.
+ * that allow keel and [com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier] plugins to find/process the actual
+ * artifacts.
  */
 // TODO: rename to `ArtifactSpec` or `ArtifactConfig`
 abstract class DeliveryArtifact {

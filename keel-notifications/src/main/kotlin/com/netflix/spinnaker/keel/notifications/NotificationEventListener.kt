@@ -11,11 +11,8 @@ import com.netflix.spinnaker.keel.api.NotificationFrequency.notice
 import com.netflix.spinnaker.keel.api.NotificationFrequency.quiet
 import com.netflix.spinnaker.keel.api.NotificationFrequency.verbose
 import com.netflix.spinnaker.keel.api.NotificationType
-import com.netflix.spinnaker.keel.api.artifacts.Commit
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
-import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
-import com.netflix.spinnaker.keel.api.artifacts.Repo
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PENDING
 import com.netflix.spinnaker.keel.api.events.ConstraintStateChanged
@@ -56,7 +53,6 @@ import com.netflix.spinnaker.keel.notifications.NotificationType.TEST_FAILED
 import com.netflix.spinnaker.keel.notifications.NotificationType.TEST_PASSED
 import com.netflix.spinnaker.keel.notifications.scm.ScmNotifier
 import com.netflix.spinnaker.keel.notifications.slack.DeploymentStatus
-import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.notifications.slack.DeploymentStatus.FAILED
 import com.netflix.spinnaker.keel.notifications.slack.DeploymentStatus.SUCCEEDED
 import com.netflix.spinnaker.keel.notifications.slack.SlackArtifactDeploymentNotification
@@ -75,6 +71,7 @@ import com.netflix.spinnaker.keel.notifications.slack.SlackUnpinnedNotification
 import com.netflix.spinnaker.keel.notifications.slack.SlackVerificationCompletedNotification
 import com.netflix.spinnaker.keel.notifications.slack.handlers.SlackNotificationHandler
 import com.netflix.spinnaker.keel.notifications.slack.handlers.supporting
+import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.telemetry.ArtifactVersionVetoed
 import com.netflix.spinnaker.keel.telemetry.VerificationCompleted
 import kotlinx.coroutines.runBlocking
@@ -557,7 +554,7 @@ class NotificationEventListener(
       .filter { shouldSend(it, type) }
       .groupBy { it.address }
       .forEach { (channel, notificationConfigs) ->
-        val display = notificationConfigs.mapNotNull { it.display }.toSet().firstOrNull() ?: NORMAL
+        val display = notificationConfigs.map { it.display }.toSet().firstOrNull() ?: NORMAL
         handler.sendMessage(message, channel, display)
       }
   }

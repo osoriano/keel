@@ -27,6 +27,7 @@ import com.netflix.spinnaker.keel.core.api.timestampAsInstant
 import com.netflix.spinnaker.keel.events.ResourceState
 import com.netflix.spinnaker.keel.pause.PauseScope
 import com.netflix.spinnaker.keel.pause.PauseScope.APPLICATION
+import com.netflix.spinnaker.keel.pause.PauseScope.RESOURCE
 import com.netflix.spinnaker.keel.persistence.ApplicationPullRequestDataIsMissing
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
 import com.netflix.spinnaker.keel.persistence.DependentAttachFilter
@@ -221,7 +222,7 @@ class SqlDeliveryConfigRepository(
           .and(PAUSED.NAME.`in`(resourceIds))
           .execute()
         txn.deleteFrom(PAUSED)
-          .where(PAUSED.SCOPE.eq(PauseScope.APPLICATION))
+          .where(PAUSED.SCOPE.eq(APPLICATION))
           .and(PAUSED.NAME.eq(application))
           .execute()
         // delete resources
@@ -1263,21 +1264,19 @@ class SqlDeliveryConfigRepository(
           .limit(limit)
           .forUpdate()
           .fetch()
-          .also {
-            it.forEach { (uid, name, lastCheckedAt) ->
-              update(DELIVERY_CONFIG_LAST_CHECKED)
-                .set(DELIVERY_CONFIG_LAST_CHECKED.LEASED_BY, InetAddress.getLocalHost().hostName)
-                .set(DELIVERY_CONFIG_LAST_CHECKED.LEASED_AT, now)
-                .where(DELIVERY_CONFIG_LAST_CHECKED.DELIVERY_CONFIG_UID.eq(uid))
-                .execute()
-              publisher.publishEvent(
-                AboutToBeChecked(
-                  lastCheckedAt,
-                  "deliveryConfig",
-                  "deliveryConfig:$name"
-                )
+          .onEach { (uid, name, lastCheckedAt) ->
+            update(DELIVERY_CONFIG_LAST_CHECKED)
+              .set(DELIVERY_CONFIG_LAST_CHECKED.LEASED_BY, InetAddress.getLocalHost().hostName)
+              .set(DELIVERY_CONFIG_LAST_CHECKED.LEASED_AT, now)
+              .where(DELIVERY_CONFIG_LAST_CHECKED.DELIVERY_CONFIG_UID.eq(uid))
+              .execute()
+            publisher.publishEvent(
+              AboutToBeChecked(
+                lastCheckedAt,
+                "deliveryConfig",
+                "deliveryConfig:$name"
               )
-            }
+            )
           }
       }
     }
@@ -1533,7 +1532,7 @@ class SqlDeliveryConfigRepository(
         .where(MIGRATION_STATUS.APPLICATION.eq(app))
         .fetchOne  { (config, repoSlug, projectKey) ->
           ApplicationPrData(
-            deliveryConfig = objectMapper.readValue<SubmittedDeliveryConfig>(config),
+            deliveryConfig = objectMapper.readValue(config),
             repoSlug = repoSlug,
             projectKey = projectKey
           )

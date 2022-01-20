@@ -229,9 +229,9 @@ class ApplicationServiceTests : JUnit5Minutests {
 
     val pin = EnvironmentArtifactPin("production", releaseArtifact.reference, version0, "keel@keel.io", "comment")
 
-    val dependsOnEvaluator = mockk<ConstraintEvaluator<DependsOnConstraint>>() {
+    val dependsOnEvaluator = mockk<ConstraintEvaluator<DependsOnConstraint>> {
       every { isImplicit() } returns false
-      every { supportedType } returns SupportedConstraintType<DependsOnConstraint>("depends-on")
+      every { supportedType } returns SupportedConstraintType("depends-on")
     }
 
     private val artifactInstance = slot<PublishedArtifact>()
@@ -246,13 +246,13 @@ class ApplicationServiceTests : JUnit5Minutests {
       every { parseDefaultGitMetadata(any(), any()) } returns null
     }
 
-    private val lifecycleEventRepository: LifecycleEventRepository = mockk() {
+    private val lifecycleEventRepository: LifecycleEventRepository = mockk {
       every { getSteps(any(), any()) } returns emptyList()
     }
 
     val publisher: ApplicationEventPublisher = mockk(relaxed = true)
 
-    val springEnv: org.springframework.core.env.Environment = mockk() {
+    val springEnv: org.springframework.core.env.Environment = mockk {
       every {
         getProperty("keel.verifications.summary.enabled", Boolean::class.java, any())
       } returns true
@@ -358,7 +358,7 @@ class ApplicationServiceTests : JUnit5Minutests {
       every {
         repository.getArtifactVersion(any(), any(), any())
       } answers {
-        PublishedArtifact(arg<DeliveryArtifact>(0).name, arg<DeliveryArtifact>(0).type, arg<String>(1))
+        PublishedArtifact(arg<DeliveryArtifact>(0).name, arg<DeliveryArtifact>(0).type, arg(1))
       }
 
       every {
@@ -395,7 +395,7 @@ class ApplicationServiceTests : JUnit5Minutests {
       context("a delivery config with a single artifact for all environments") {
         before {
           every {
-            repository.constraintStateFor(singleArtifactDeliveryConfig.name, any(), any<String>(), any())
+            repository.constraintStateFor(singleArtifactDeliveryConfig.name, any(), any(), any())
           } returns emptyList()
 
           every {
@@ -404,7 +404,7 @@ class ApplicationServiceTests : JUnit5Minutests {
             PublishedArtifact(
               arg<DeliveryArtifact>(0).name,
               arg<DeliveryArtifact>(0).type,
-              arg<String>(1),
+              arg(1),
               gitMetadata = gitMetadata,
               buildMetadata = buildMetadata
             )
@@ -499,7 +499,7 @@ class ApplicationServiceTests : JUnit5Minutests {
             } returns productionSummariesInEnv
 
             every {
-              repository.constraintStateFor(singleArtifactDeliveryConfig.name, any(), any<String>(), any())
+              repository.constraintStateFor(singleArtifactDeliveryConfig.name, any(), any(), any())
             } answers {
               when (val environment = arg<String>(1)) {
                 "production" -> {
@@ -696,7 +696,7 @@ class ApplicationServiceTests : JUnit5Minutests {
                 PublishedArtifact(
                   name = arg<DeliveryArtifact>(0).name,
                   type = arg<DeliveryArtifact>(0).type,
-                  version = arg<String>(1),
+                  version = arg(1),
                   gitMetadata = GitMetadata(
                     commit = "version5",
                     commitInfo = Commit(sha = "version5")
@@ -730,7 +730,7 @@ class ApplicationServiceTests : JUnit5Minutests {
             }
 
             every {
-              repository.constraintStateFor(singleArtifactDeliveryConfig.name, any(), any<String>(), any())
+              repository.constraintStateFor(singleArtifactDeliveryConfig.name, any(), any(), any())
             } returns emptyList()
 
             every {
@@ -940,7 +940,7 @@ class ApplicationServiceTests : JUnit5Minutests {
             }
 
             every {
-              repository.constraintStateFor(dualArtifactDeliveryConfig.name, any(), any<String>(), any())
+              repository.constraintStateFor(dualArtifactDeliveryConfig.name, any(), any(), any())
             } returns emptyList()
           }
 
@@ -1176,7 +1176,7 @@ class ApplicationServiceTests : JUnit5Minutests {
         }
 
         every {
-          repository.constraintStateFor(singleArtifactDeliveryConfig.name, any(), any<String>(), any())
+          repository.constraintStateFor(singleArtifactDeliveryConfig.name, any(), any(), any())
         } returns emptyList()
 
 
@@ -1353,7 +1353,7 @@ class ApplicationServiceTests : JUnit5Minutests {
         }
       }
     }
-    
+
     context("getting an actuation plan for an application") {
       before {
         every {

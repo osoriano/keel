@@ -3,7 +3,6 @@ package com.netflix.spinnaker.keel.retrofit
 import com.fasterxml.jackson.databind.JsonMappingException
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
-import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -19,9 +18,7 @@ import strikt.assertions.first
 import strikt.assertions.isA
 import strikt.assertions.isEqualTo
 import strikt.assertions.isFailure
-import strikt.assertions.isNotNull
 import strikt.assertions.isSuccess
-import strikt.assertions.message
 
 class InstrumentedJacksonConverterTests {
 

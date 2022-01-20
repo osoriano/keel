@@ -1,7 +1,6 @@
 package com.netflix.spinnaker.keel.postdeploy
 
 import com.netflix.spectator.api.Registry
-import com.netflix.spectator.api.Spectator
 import com.netflix.spinnaker.keel.BaseActionRunner
 import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
 import com.netflix.spinnaker.keel.api.action.ActionRepository

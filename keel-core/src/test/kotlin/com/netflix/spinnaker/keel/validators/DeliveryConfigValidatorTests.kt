@@ -21,7 +21,6 @@ import dev.minutest.rootContext
 import strikt.api.expectCatching
 import strikt.assertions.isA
 import strikt.assertions.isFailure
-import strikt.assertions.message
 
 internal class DeliveryConfigValidatorTests : JUnit5Minutests {
 

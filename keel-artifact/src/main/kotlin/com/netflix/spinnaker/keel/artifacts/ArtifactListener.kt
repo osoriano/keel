@@ -1,8 +1,6 @@
 package com.netflix.spinnaker.keel.artifacts
 
 import com.netflix.spinnaker.config.ArtifactConfig
-import com.netflix.spinnaker.keel.activation.ApplicationDown
-import com.netflix.spinnaker.keel.activation.ApplicationUp
 import com.netflix.spinnaker.keel.activation.DiscoveryActivated
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
@@ -16,12 +14,10 @@ import com.netflix.spinnaker.keel.logging.withCoroutineTracingContext
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
-import java.util.concurrent.atomic.AtomicBoolean
 
 @EnableConfigurationProperties(ArtifactConfig::class, ArtifactRefreshConfig::class)
 @Component
@@ -63,7 +59,7 @@ class ArtifactListener(
   }
 
   /**
-   * For each registered artifact, get the last [artifactRefreshConfig.limit] versions, and persist if it's newer than what we have.
+   * For each registered artifact, get the last [ArtifactRefreshConfig.limit] versions, and persist if it's newer than what we have.
    */
   @Scheduled(fixedDelayString = "\${keel.artifact-refresh.frequency:PT6H}")
   fun syncLastLimitArtifactVersions() {

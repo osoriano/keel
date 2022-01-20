@@ -63,40 +63,31 @@ fun resource(
   id: String = randomString(),
   application: String = "fnord"
 ): Resource<DummyResourceSpec> =
-  DummyResourceSpec(id = id, application = application)
-    .let { spec ->
-      resource(
-        kind = kind,
-        spec = spec,
-        application = application
-      )
-    }
+  resource(
+    kind = kind,
+    spec = DummyResourceSpec(id = id, application = application),
+    application = application
+  )
 
 fun artifactVersionedResource(
   kind: ResourceKind = TEST_API_V1.qualify("whatever"),
   id: String = randomString(),
   application: String = "fnord"
 ): Resource<DummyArtifactVersionedResourceSpec> =
-  DummyArtifactVersionedResourceSpec(id = id, application = application)
-    .let { spec ->
-      resource(
-        kind = kind,
-        spec = spec,
-        application = application
-      )
-    }
+  resource(
+    kind = kind,
+    spec = DummyArtifactVersionedResourceSpec(id = id, application = application),
+    application = application
+  )
 
 fun submittedResource(
   kind: ResourceKind = TEST_API_V1.qualify("whatever"),
   application: String = "fnord"
 ): SubmittedResource<DummyResourceSpec> =
-  DummyResourceSpec(application = application)
-    .let { spec ->
-      submittedResource(
-        kind = kind,
-        spec = spec
-      )
-    }
+  submittedResource(
+    kind = kind,
+    spec = DummyResourceSpec(application = application)
+  )
 
 fun locatableResource(
   kind: ResourceKind = TEST_API_V1.qualify("locatable"),
@@ -175,14 +166,11 @@ fun versionedArtifactResource(
   id: String = randomString(),
   application: String = "fnord"
 ): Resource<DummyArtifactVersionedResourceSpec> =
-  DummyArtifactVersionedResourceSpec(id = id, application = application)
-    .let { spec ->
-      resource(
-        kind = kind,
-        spec = spec,
-        application = application
-      )
-    }
+  resource(
+    kind = kind,
+    spec = DummyArtifactVersionedResourceSpec(id = id, application = application),
+    application = application
+  )
 
 fun artifactReferenceResource(
   kind: ResourceKind = TEST_API_V1.qualify("artifactReference"),
@@ -190,14 +178,11 @@ fun artifactReferenceResource(
   application: String = "fnord",
   artifactReference: String = "fnord"
 ): Resource<DummyArtifactReferenceResourceSpec> =
-  DummyArtifactReferenceResourceSpec(id = id, application = application, artifactReference = artifactReference)
-    .let { spec ->
-      resource(
-        kind = kind,
-        spec = spec,
-        application = application
-      )
-    }
+  resource(
+    kind = kind,
+    spec = DummyArtifactReferenceResourceSpec(id = id, application = application, artifactReference = artifactReference),
+    application = application
+  )
 
 enum class DummyEnum { VALUE }
 

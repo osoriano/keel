@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component
 
 @Component
 class ScmUtils(
-  private val cacheFactory: CacheFactory,
+  cacheFactory: CacheFactory,
   private val scmService: ScmService,
 ) {
   private val cache = cacheFactory.asyncBulkLoadingCache("scmInfo") {

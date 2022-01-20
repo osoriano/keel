@@ -130,5 +130,5 @@ class DataGenCommand(
     (1..7)
       .map { i -> Random.nextInt(0, HEX_CHAR_POOL.size) }
       .map(HEX_CHAR_POOL::get)
-      .joinToString("");
+      .joinToString("")
 }

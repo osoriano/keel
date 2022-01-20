@@ -45,11 +45,11 @@ class ManualJudgmentCallbackHandlerTests : JUnit5Minutests {
 
     val slackService: SlackService = mockk()
 
-    val authorizationSupport: AuthorizationSupport = mockk() {
+    val authorizationSupport: AuthorizationSupport = mockk {
       every { hasPermission(any(), any(), any(), any()) } returns true
     }
 
-    val springEnv: Environment = mockk() {
+    val springEnv: Environment = mockk {
       every {
         getProperty("slack.authorize-manual-judgement", Boolean::class.java, any())
       } returns true

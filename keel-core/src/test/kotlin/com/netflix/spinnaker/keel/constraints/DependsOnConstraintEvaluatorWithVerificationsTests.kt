@@ -55,7 +55,7 @@ class DependsOnConstraintEvaluatorWithVerificationsTests : JUnit5Minutests {
   }
 
   val artifactRepository: ArtifactRepository = mockk(relaxUnitFun = true)
-  val actionRepository: ActionRepository = mockk() {
+  val actionRepository: ActionRepository = mockk {
     every { allStarted(any(), POST_DEPLOY) } returns true
   }
   val clock = MutableClock()

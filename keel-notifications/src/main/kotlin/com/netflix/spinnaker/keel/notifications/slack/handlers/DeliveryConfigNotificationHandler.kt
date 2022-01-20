@@ -1,6 +1,5 @@
 package com.netflix.spinnaker.keel.notifications.slack.handlers
 
-import com.netflix.spinnaker.config.BaseUrlConfig
 import com.netflix.spinnaker.keel.api.NotificationDisplay
 import com.netflix.spinnaker.keel.notifications.NotificationType.DELIVERY_CONFIG_CHANGED
 import com.netflix.spinnaker.keel.notifications.slack.SlackConfigNotification

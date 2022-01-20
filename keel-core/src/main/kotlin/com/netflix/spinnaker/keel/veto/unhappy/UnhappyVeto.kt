@@ -47,7 +47,7 @@ final class UnhappyVeto(
   private val resourceRepository: ResourceRepository,
   private val springEnv: Environment,
   private val config: UnhappyVetoConfig,
-  private val spectator: Registry,
+  spectator: Registry,
   private val clock: Clock
 ) : Veto {
 

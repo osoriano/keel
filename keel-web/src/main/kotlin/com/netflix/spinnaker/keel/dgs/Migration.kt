@@ -5,7 +5,6 @@ import com.netflix.graphql.dgs.DgsComponent
 import com.netflix.graphql.dgs.DgsMutation
 import com.netflix.graphql.dgs.DgsQuery
 import com.netflix.graphql.dgs.InputArgument
-import com.netflix.spinnaker.keel.api.migration.ApplicationMigrationStatus
 import com.netflix.spinnaker.keel.graphql.types.MD_InitiateApplicationMigrationPayload
 import com.netflix.spinnaker.keel.graphql.types.MD_Migration
 import com.netflix.spinnaker.keel.graphql.types.MD_MigrationReportIssuePayload

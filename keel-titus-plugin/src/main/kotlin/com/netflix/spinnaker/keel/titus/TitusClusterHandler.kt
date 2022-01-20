@@ -565,7 +565,7 @@ class TitusClusterHandler(
       mapOf(
         "refId" to refId.toString(),
         "requisiteStageRefIds" to when (refId) {
-          0, 1 -> listOf<String>()
+          0, 1 -> emptyList<String>()
           else -> listOf((refId - 1).toString())
         },
         "type" to "upsertScalingPolicy",
@@ -622,7 +622,7 @@ class TitusClusterHandler(
       mapOf(
         "refId" to refId.toString(),
         "requisiteStageRefIds" to when (refId) {
-          0, 1 -> listOf<String>()
+          0, 1 -> emptyList<String>()
           else -> listOf((refId - 1).toString())
         },
         "type" to "upsertScalingPolicy",
@@ -987,7 +987,7 @@ private fun jsonStringify(arguments: Map<String, Any>?) =
         )
         .serverGroups
         .forEach { sg ->
-          val existing = existingServerGroups.getOrPut(sg.region, { mutableListOf() })
+          val existing = existingServerGroups.getOrPut(sg.region) { mutableListOf() }
           existing.add(sg)
           existingServerGroups[sg.region] = existing
         }

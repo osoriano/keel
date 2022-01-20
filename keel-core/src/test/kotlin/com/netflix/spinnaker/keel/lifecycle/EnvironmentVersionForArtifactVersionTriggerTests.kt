@@ -1,20 +1,14 @@
 package com.netflix.spinnaker.keel.lifecycle
 
 import com.netflix.spinnaker.keel.api.Environment
-import com.netflix.spinnaker.keel.api.Resource
-import com.netflix.spinnaker.keel.api.ResourceKind
-import com.netflix.spinnaker.keel.api.ResourceKind.Companion.parseKind
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactOriginFilter
 import com.netflix.spinnaker.keel.api.artifacts.BranchFilter
-import com.netflix.spinnaker.keel.api.artifacts.DOCKER
-import com.netflix.spinnaker.keel.api.plugins.kind
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventScope.PRE_DEPLOYMENT
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventStatus.SUCCEEDED
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventType.BAKE
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventType.BUILD
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
-import com.netflix.spinnaker.keel.persistence.NoSuchDeliveryConfigException
 import com.netflix.spinnaker.keel.persistence.NoSuchDeliveryConfigName
 import com.netflix.spinnaker.keel.test.DummyArtifactReferenceResourceSpec
 import com.netflix.spinnaker.keel.test.DummyResourceSpec

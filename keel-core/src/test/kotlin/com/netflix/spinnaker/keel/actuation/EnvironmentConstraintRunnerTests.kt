@@ -35,20 +35,20 @@ internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
   ) {
     val repository: KeelRepository = mockk(relaxUnitFun = true)
 
-    val statelessEvaluator = mockk<ConstraintEvaluator<*>>() {
+    val statelessEvaluator = mockk<ConstraintEvaluator<*>> {
       every { supportedType } returns SupportedConstraintType<DependsOnConstraint>("depends-on")
       every { isImplicit() } returns false
     }
-    val mjEvaluator = mockk<StatefulConstraintEvaluator<*, *>>() {
+    val mjEvaluator = mockk<StatefulConstraintEvaluator<*, *>> {
       every { supportedType } returns SupportedConstraintType<ManualJudgementConstraint>("manual-judegment")
       every { isImplicit() } returns false
     }
 
-    val allowedTimesEvaluator = mockk<StatefulConstraintEvaluator<*, *>>() {
+    val allowedTimesEvaluator = mockk<StatefulConstraintEvaluator<*, *>> {
       every { supportedType } returns SupportedConstraintType<TimeWindowConstraint>("allowed-times")
       every { isImplicit() } returns false
     }
-    val implicitStatelessEvaluator = mockk<ConstraintEvaluator<*>>() {
+    val implicitStatelessEvaluator = mockk<ConstraintEvaluator<*>> {
       every { supportedType } returns SupportedConstraintType<DummyImplicitConstraint>("implicit")
       every { isImplicit() } returns true
       every { canPromote(any(), any(), any(), any()) } returns true

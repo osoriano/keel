@@ -110,12 +110,12 @@ class CheckScheduler(
             .onFailure {
               publisher.publishEvent(ResourceLoadFailed(it))
             }
-            .onSuccess {
-              it.forEach {
+            .onSuccess { them ->
+              them.forEach {
                 try {
                   /**
                    * Allow individual resource checks to timeout but catch the `CancellationException`
-                   * to prevent the cancellation of all coroutines under [job]
+                   * to prevent the cancellation of all coroutines under `job`.
                    */
                   withTimeout(resourceCheckConfig.timeoutDuration.toMillis()) {
                     launch {

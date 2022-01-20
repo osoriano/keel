@@ -7,7 +7,7 @@ import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
  * resources.
  *
  * The fields on this interface are nullable because typically the spec will _not_ have that information available
- * before the corresponding [ResourceHandler] has resolved the resource.
+ * before the corresponding `ResourceHandler` has resolved the resource.
  */
 interface ArtifactProvider {
   val artifactName: String?

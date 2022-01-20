@@ -7,16 +7,14 @@ import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
 import com.netflix.spinnaker.keel.services.ApplicationService
 import com.netflix.spinnaker.keel.test.configuredTestObjectMapper
 import com.netflix.spinnaker.keel.test.submittedDeliveryConfig
-import io.mockk.just
 import io.mockk.mockk
-import io.mockk.runs
 import org.junit.jupiter.api.BeforeEach
-import io.mockk.coEvery as every
-import io.mockk.coVerify as verify
 import org.junit.jupiter.api.Test
 import strikt.api.expectThat
 import strikt.assertions.isNotNull
 import java.time.Instant
+import io.mockk.coEvery as every
+import io.mockk.coVerify as verify
 
 internal class MigrationTests {
   private val deliveryConfigRepository: DeliveryConfigRepository = mockk()

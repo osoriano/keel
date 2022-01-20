@@ -3,7 +3,6 @@ package com.netflix.spinnaker.keel.clouddriver.model
 import com.fasterxml.jackson.annotation.JsonAlias
 import com.fasterxml.jackson.annotation.JsonAnyGetter
 import com.netflix.spinnaker.keel.api.Moniker
-import java.time.Duration
 
 data class ApplicationLoadBalancerModel(
   override val moniker: Moniker?,

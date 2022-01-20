@@ -58,7 +58,7 @@ class IntermittentFailureTests : JUnit5Minutests {
     }
     val deliveryConfigRepository = mockk<DeliveryConfigRepository>()
     val diffFingerprintRepository = mockk<DiffFingerprintRepository>(relaxUnitFun = true)
-    val actuationPauser: ActuationPauser = mockk() {
+    val actuationPauser: ActuationPauser = mockk {
       every { isPaused(any<String>()) } returns false
       every { isPaused(any<Resource<*>>()) } returns false
     }

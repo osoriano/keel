@@ -7,7 +7,6 @@ import com.fasterxml.jackson.annotation.JsonUnwrapped
 import com.netflix.spinnaker.keel.api.Dependency
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroupSpec
-import com.netflix.spinnaker.keel.docker.ContainerProvider
 import java.time.Duration
 
 interface TitusClusterSpecMixin {

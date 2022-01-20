@@ -1,18 +1,16 @@
 package com.netflix.spinnaker.keel.dgs
 
-import com.netflix.spinnaker.keel.api.AccountAwareLocations
-import com.netflix.spinnaker.keel.api.DeliveryConfig
-import com.netflix.spinnaker.keel.api.Locatable
-import com.netflix.spinnaker.keel.api.Monikered
-import com.netflix.spinnaker.keel.api.Resource
-import com.netflix.spinnaker.keel.api.SimpleLocations
-import com.netflix.spinnaker.keel.api.SubnetAwareLocations
-import com.netflix.spinnaker.keel.api.TaskStatus
 import com.netflix.spinnaker.keel.actuation.ExecutionSummary
 import com.netflix.spinnaker.keel.actuation.RolloutStatus
 import com.netflix.spinnaker.keel.actuation.RolloutTargetWithStatus
 import com.netflix.spinnaker.keel.actuation.Stage
+import com.netflix.spinnaker.keel.api.AccountAwareLocations
+import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.DeployableResourceSpec
+import com.netflix.spinnaker.keel.api.Locatable
+import com.netflix.spinnaker.keel.api.Monikered
+import com.netflix.spinnaker.keel.api.Resource
+import com.netflix.spinnaker.keel.api.TaskStatus
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.migration.ApplicationMigrationStatus
@@ -60,7 +58,6 @@ import com.netflix.spinnaker.keel.pause.Pause
 import com.netflix.spinnaker.keel.persistence.TaskForResource
 import com.netflix.spinnaker.keel.services.ResourceActuationState
 
-
 fun GitMetadata.toDgs(): MD_GitMetadata =
   MD_GitMetadata(
     commit = commit,
@@ -102,8 +99,6 @@ fun Resource<*>.toDgs(config: DeliveryConfig, environmentName: String): MD_Resou
     location = (spec as? Locatable<*>)?.let {
       val account = when (val locations = it.locations) {
         is AccountAwareLocations -> locations.account
-        is SubnetAwareLocations -> locations.account
-        is SimpleLocations -> locations.account
         else -> null
       }
       MD_Location(account = account, regions = it.locations.regions.map { r -> r.name })

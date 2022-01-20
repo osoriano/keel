@@ -14,15 +14,14 @@ val scmData = mapOf(
   "gitHub" to "https://github.com",
   "gitHubEnterprise" to "https://git.foo.com")
 
-fun mockScmInfo(): ScmBridge {
-  return mockk() {
-    coEvery<Map<String, String?>> {
+fun mockScmInfo(): ScmBridge =
+  mockk {
+    coEvery {
       getScmInfo()
     } answers {
       scmData
     }
   }
-}
 
 fun mockCacheFactory(): CacheFactory {
   val asyncLoadingCache: AsyncLoadingCache<Any, Map<String, String?>> = mockk {
@@ -35,10 +34,9 @@ fun mockCacheFactory(): CacheFactory {
     } returns CompletableFuture.supplyAsync { scmData }
   }
 
-  return mockk() {
-    every<AsyncLoadingCache<Any, Map<String, String?>>> {
+  return mockk {
+    every {
       asyncLoadingCache<Any, Map<String, String?>>(any(), any(), any(), any(), any())
     } returns asyncLoadingCache
   }
 }
-

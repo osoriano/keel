@@ -1,7 +1,6 @@
 package com.netflix.spinnaker.keel.schema
 
 import com.netflix.spinnaker.keel.api.ResourceKind
-import com.netflix.spinnaker.keel.api.plugins.SupportedKind
 import kotlin.reflect.KClass
 
 class ResourceKindSchemaCustomizer(

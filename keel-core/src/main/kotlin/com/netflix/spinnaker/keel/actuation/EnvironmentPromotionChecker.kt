@@ -84,11 +84,11 @@ class EnvironmentPromotionChecker(
                 )
 
                 if (pinnedEnvs.hasPinFor(environment.name, artifact)) {
-                  val pinnedVersion = pinnedEnvs.versionFor(environment.name, artifact)
-                  withCoroutineTracingContext(artifact, pinnedVersion!!) {
+                  val pinnedVersion = checkNotNull(pinnedEnvs.versionFor(environment.name, artifact))
+                  withCoroutineTracingContext(artifact, pinnedVersion) {
                     // approve version first to fast track deployment
-                    approveVersion(deliveryConfig, artifact, pinnedVersion!!, environment)
-                    triggerResourceRecheckForPinnedVersion(deliveryConfig, artifact, pinnedVersion!!, environment)
+                    approveVersion(deliveryConfig, artifact, pinnedVersion, environment)
+                    triggerResourceRecheckForPinnedVersion(deliveryConfig, artifact, pinnedVersion, environment)
                   }
                   // then evaluate constraints
                   constraintRunner.checkEnvironment(envContext)

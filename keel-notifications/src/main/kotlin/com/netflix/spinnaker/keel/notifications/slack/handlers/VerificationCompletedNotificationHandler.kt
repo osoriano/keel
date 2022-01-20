@@ -4,7 +4,6 @@ import com.netflix.spinnaker.keel.api.NotificationDisplay
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.FAIL
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PASS
 import com.netflix.spinnaker.keel.notifications.NotificationType
-import com.netflix.spinnaker.keel.notifications.slack.DeploymentStatus
 import com.netflix.spinnaker.keel.notifications.slack.SlackService
 import com.netflix.spinnaker.keel.notifications.slack.SlackVerificationCompletedNotification
 import com.slack.api.model.kotlin_extension.block.withBlocks

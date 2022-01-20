@@ -4,7 +4,6 @@ import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.keel.artifacts.DockerArtifactSupplier
 import com.netflix.spinnaker.keel.jackson.registerKeelApiModule
 import com.netflix.spinnaker.keel.persistence.EnvironmentLeaseRepositoryTests
-import com.netflix.spinnaker.keel.resources.ResourceSpecIdentifier
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
 import com.netflix.spinnaker.keel.test.resourceFactory
 import com.netflix.spinnaker.kork.sql.config.RetryProperties
@@ -13,7 +12,6 @@ import com.netflix.spinnaker.kork.sql.test.SqlTestUtil
 import io.mockk.mockk
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
-import java.time.Duration
 
 internal class SqlEnvironmentLeaseRepositoryTests :
   EnvironmentLeaseRepositoryTests<SqlEnvironmentLeaseRepository>() {

@@ -42,10 +42,10 @@ class UnpinnedNotificationHandler(
       if (latestApprovedArtifactVersion != null) {
         val link = gitDataGenerator.generateArtifactUrl(application, originalPin.artifact.reference, latestApprovedArtifactVersion.version)
         //if latest version == pinned version, show a different message
-        if (isPinnedVersionAlreadyDeployed) {
-          text += " The latest version is already deployed, and new versions can be deployed now."
+        text += if (isPinnedVersionAlreadyDeployed) {
+          " The latest version is already deployed, and new versions can be deployed now."
         } else {
-          text += ", <$link|#${latestApprovedArtifactVersion.buildNumber ?: latestApprovedArtifactVersion.version}> will start deploying shortly"
+          ", <$link|#${latestApprovedArtifactVersion.buildNumber ?: latestApprovedArtifactVersion.version}> will start deploying shortly"
         }
       }
 
@@ -63,9 +63,9 @@ class UnpinnedNotificationHandler(
         }
       }
 
-      val pinner: String = if (originalPin.pinnedBy != null ) {
+      val pinner: String = originalPin.pinnedBy?.let {
         slackService.getUsernameByEmail(originalPin.pinnedBy!!)
-      } else originalPin.pinnedBy!!
+      } ?: "Somebody"
 
       context {
         elements {

@@ -16,25 +16,25 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
  */
 fun AuthorizationSupport.allowAll() {
   every {
-    hasApplicationPermission(any<String>(), any(), any())
+    hasApplicationPermission(any(), any(), any())
   } returns true
   every {
-    checkApplicationPermission(any<PermissionLevel>(), any(), any())
+    checkApplicationPermission(any(), any(), any())
   } just Runs
   every {
-    hasServiceAccountAccess(any<String>(), any())
+    hasServiceAccountAccess(any(), any())
   } returns true
   every {
     hasServiceAccountAccess(any())
   } returns true
   every {
-    checkServiceAccountAccess(any<TargetEntity>(), any())
+    checkServiceAccountAccess(any(), any())
   } just Runs
   every {
-    hasCloudAccountPermission(any<String>(), any(), any())
+    hasCloudAccountPermission(any(), any(), any())
   } returns true
   every {
-    checkCloudAccountPermission(any<PermissionLevel>(), any(), any())
+    checkCloudAccountPermission(any(), any(), any())
   } just Runs
 }
 

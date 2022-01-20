@@ -87,7 +87,7 @@ abstract class ApproveOldVersionTests<T : KeelRepository> : JUnit5Minutests {
     )
 
     val implicitStatelessEvaluator = mockk<ConstraintEvaluator<DummyImplicitConstraint>> {
-      every { supportedType } returns SupportedConstraintType<DummyImplicitConstraint>("implicit")
+      every { supportedType } returns SupportedConstraintType("implicit")
       every { isImplicit() } returns true
       every { canPromote(any(), any(), any(), any()) } returns true
     }

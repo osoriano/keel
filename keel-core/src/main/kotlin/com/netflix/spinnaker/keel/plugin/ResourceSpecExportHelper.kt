@@ -33,7 +33,7 @@ inline fun <reified T : Any, reified S : Any> buildSpecFromDiff(
 
   // build a map of constructor parameters including only those present in the diff that are allowed,
   // unless they're forcefully included
-  var filteredParams = addedOrChangedProps
+  val filteredParams = addedOrChangedProps
     .also {
       if (allowedProperties != null) {
         it intersect allowedProperties
@@ -48,11 +48,10 @@ inline fun <reified T : Any, reified S : Any> buildSpecFromDiff(
   val ctor = S::class.primaryConstructor!!
   val params = ctor.parameters
     .filter { param -> param.name in filteredParams }
-    .map { param ->
+    .associateWith { param ->
       val prop = T::class.memberProperties.find { prop -> prop.name == param.name }
-      param to prop?.get(working)
+      prop?.get(working)
     }
-    .toMap()
 
   return if (params.values.all { it == null }) {
     null

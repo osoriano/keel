@@ -5,7 +5,6 @@ import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.ResourceKind.Companion.parseKind
 import com.netflix.spinnaker.keel.api.plugins.kind
-import com.netflix.spinnaker.keel.resources.ResourceFactory
 import com.netflix.spinnaker.keel.resources.ResourceSpecIdentifier
 import com.netflix.spinnaker.keel.resources.SpecMigrator
 import com.netflix.spinnaker.keel.test.DummyResourceSpec
@@ -27,7 +26,6 @@ import strikt.assertions.isA
 import strikt.assertions.isEmpty
 import strikt.assertions.isFailure
 import strikt.assertions.isSuccess
-import java.time.Clock.systemUTC
 import java.time.Duration.ofMinutes
 
 /**

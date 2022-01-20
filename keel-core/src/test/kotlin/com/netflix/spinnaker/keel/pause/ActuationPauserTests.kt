@@ -32,13 +32,10 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
-import java.time.Clock
 import org.springframework.context.ApplicationEventPublisher
-import strikt.api.expect
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo
-import strikt.assertions.isFalse
-import strikt.assertions.isTrue
+import java.time.Clock
 
 class ActuationPauserTests : JUnit5Minutests {
   val awsTest = "test"

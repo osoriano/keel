@@ -105,10 +105,10 @@ class TitusClusterHandlerTests : JUnit5Minutests {
     attributes = mutableMapOf("awsAccount" to awsAccount, "registry" to awsAccount + "registry")
   )
 
-  val cloudDriverService = mockk<CloudDriverService>() {
+  val cloudDriverService = mockk<CloudDriverService> {
     every { listTitusServerGroups(any(), any(), any(), any(), any()) } returns ServerGroupCollection(titusAccount, emptySet())
   }
-  val cloudDriverCache = mockk<CloudDriverCache>() {
+  val cloudDriverCache = mockk<CloudDriverCache> {
     every { credentialBy(titusAccount) } returns titusAccountCredential
   }
   val orcaService = mockk<OrcaService>()
@@ -123,7 +123,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
     publisher,
     springEnv
   )
-  val clock = Clock.systemUTC()
+  val clock: Clock = Clock.systemUTC()
   val clusterExportHelper = mockk<ClusterExportHelper>(relaxed = true)
 
   val sg1West = SecurityGroupSummary("keel", "sg-325234532", "vpc-1")
@@ -525,7 +525,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
 
           expectThat(slot.captured.job.first()) {
             get("type").isEqualTo("disableServerGroup")
-            get("asgName").isEqualTo(east.sortedBy { it.createdTime }.first().name)
+            get("asgName").isEqualTo(east.minByOrNull { it.createdTime }!!.name)
           }
         }
       }

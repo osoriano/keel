@@ -23,7 +23,7 @@ import javax.annotation.PostConstruct
 @Component
 class Front50Cache(
   private val front50Service: Front50Service,
-  private val cacheFactory: CacheFactory
+  cacheFactory: CacheFactory
 ) {
   companion object {
     private val log by lazy { LoggerFactory.getLogger(Front50Cache::class.java) }

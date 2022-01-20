@@ -4,7 +4,6 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import com.netflix.spinnaker.keel.serialization.configuredYamlMapper
 import com.netflix.spinnaker.keel.test.DummyResourceSpec
 import com.netflix.spinnaker.keel.test.TEST_API_V1
-import com.netflix.spinnaker.keel.test.resource
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import org.assertj.core.api.Assertions.assertThat
@@ -12,7 +11,6 @@ import strikt.api.expectThat
 import strikt.assertions.get
 import strikt.assertions.hasEntry
 import strikt.assertions.isEqualTo
-
 
 internal class ResourceMetadataTests : JUnit5Minutests {
 

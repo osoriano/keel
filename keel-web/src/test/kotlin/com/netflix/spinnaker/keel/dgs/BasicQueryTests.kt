@@ -51,7 +51,6 @@ import io.mockk.slot
 import io.mockk.verify
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.mockito.internal.stubbing.answers.Returns
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.HttpHeaders
@@ -318,8 +317,8 @@ class BasicQueryTests {
 
   @Test
   fun rollbackToVersion() {
-    var pinSlot = slot<EnvironmentArtifactPin>()
-    var markAsBadSlot = slot<EnvironmentArtifactVeto>()
+    val pinSlot = slot<EnvironmentArtifactPin>()
+    val markAsBadSlot = slot<EnvironmentArtifactVeto>()
 
     expectCatching {
       dgsQueryExecutor.executeAndGetDocumentContext(

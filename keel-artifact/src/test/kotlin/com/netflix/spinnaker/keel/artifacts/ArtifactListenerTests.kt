@@ -77,7 +77,7 @@ internal class ArtifactListenerTests : JUnit5Minutests {
     }
     val artifactConfig = ArtifactConfig()
     val refreshConfig = ArtifactRefreshConfig()
-    val workQueueProcessor: WorkQueueProcessor = mockk() {
+    val workQueueProcessor: WorkQueueProcessor = mockk {
       every { enrichAndStore(any(), any()) } returns false
     }
     val listener: ArtifactListener = ArtifactListener(

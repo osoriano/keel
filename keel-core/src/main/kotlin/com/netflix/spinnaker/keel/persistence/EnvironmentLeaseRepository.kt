@@ -2,8 +2,6 @@ package com.netflix.spinnaker.keel.persistence
 
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
-import com.netflix.spinnaker.keel.exceptions.EnvironmentCurrentlyBeingActedOn
-import java.time.Instant
 
 /**
  * A repository that allows you to take a lease (expiring lock) on an environment.

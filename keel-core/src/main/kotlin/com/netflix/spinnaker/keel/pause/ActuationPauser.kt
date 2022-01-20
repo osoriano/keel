@@ -123,8 +123,5 @@ class ActuationPauser(
     pausedRepository.getPausedApplications()
 
   fun logReason(comment: String?) =
-    when (comment) {
-      null -> "with comment '$comment'"
-      else -> null
-    }
+    comment?.let { "with comment '$it'" }
 }

@@ -70,9 +70,6 @@ internal fun TitusClusterSpec.resolveResources(region: String? = null): TitusSer
   )
 }
 
-internal fun TitusClusterSpec.resolveIamProfile(region: String) =
-  overrides[region]?.iamProfile ?: defaults.iamProfile ?: moniker.app + "InstanceProfile"
-
 internal fun TitusClusterSpec.resolveEntryPoint(region: String? = null) =
   when (region) {
     null -> defaults.entryPoint ?: ""

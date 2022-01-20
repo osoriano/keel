@@ -5,7 +5,9 @@ import com.netflix.spinnaker.keel.api.Highlander
 import com.netflix.spinnaker.keel.api.RedBlack
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.retrofit.isNotFound
-import kotlinx.coroutines.async
+import kotlinx.coroutines.Dispatchers.IO
+import kotlinx.coroutines.withContext
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import retrofit2.HttpException
@@ -19,7 +21,7 @@ class ClusterExportHelper(
   private val cloudDriverService: CloudDriverService,
   private val orcaService: OrcaService
 ) {
-  val log by lazy { LoggerFactory.getLogger(javaClass) }
+  val log: Logger by lazy { LoggerFactory.getLogger(javaClass) }
 
   /**
    * Retrieve server group entity tags from clouddriver to identity the "source" of the server group (pipeline or
@@ -33,7 +35,7 @@ class ClusterExportHelper(
     serverGroupName: String
   ): ClusterDeployStrategy? {
     return kotlinx.coroutines.coroutineScope {
-      val entityTags = async {
+      val entityTags = withContext(IO) {
         log.debug(
           "Looking for entity tags on server group $serverGroupName in application $application, " +
             "account $account in search of pipeline/task correlation."
@@ -45,7 +47,7 @@ class ClusterExportHelper(
           entityType = "servergroup",
           entityId = serverGroupName
         )
-      }.await()
+      }
 
       if (entityTags.isEmpty()) {
         log.warn(
@@ -72,7 +74,7 @@ class ClusterExportHelper(
 
       val executionType = spinnakerMetadata["executionType"].toString()
       val executionId = spinnakerMetadata["executionId"].toString()
-      val execution = async {
+      val execution = withContext(IO) {
         try {
           when (executionType) {
             "orchestration" -> orcaService.getOrchestrationExecution(executionId)
@@ -81,14 +83,16 @@ class ClusterExportHelper(
           }
         } catch (e: HttpException) {
           if (e.isNotFound) {
-            log.warn("$executionType execution $executionId not found for server group $serverGroupName. " +
-              "Defaulting to red/black deployment strategy.")
+            log.warn(
+              "$executionType execution $executionId not found for server group $serverGroupName. " +
+                "Defaulting to red/black deployment strategy."
+            )
             null
           } else {
             throw e
           }
         }
-      }.await()
+      }
 
       if (execution == null) {
         log.error(

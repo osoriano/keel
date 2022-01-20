@@ -10,7 +10,6 @@ import okhttp3.ResponseBody
 import retrofit2.Converter
 import retrofit2.Retrofit
 import retrofit2.converter.jackson.JacksonConverterFactory
-import java.io.IOException
 import java.lang.reflect.Type
 
 class InstrumentedJacksonConverter(private val remoteName: String, private val adapter: ObjectReader) : Converter<ResponseBody, Any> {

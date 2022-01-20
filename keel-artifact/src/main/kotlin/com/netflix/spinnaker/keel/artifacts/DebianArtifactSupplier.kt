@@ -83,10 +83,10 @@ class DebianArtifactSupplier(
     // TODO: Frigga and Rocket version parsing are not aligned. We should consolidate.
     val appversion = artifact.version.parseAppVersionOrNull()
     if (appversion != null) {
-      if (appversion.version != null) {
-        return appversion.version
+      return if (appversion.version != null) {
+        appversion.version
       } else {
-        return artifact.version.removePrefix("${artifact.name}-")
+        artifact.version.removePrefix("${artifact.name}-")
       }
     }
     return artifact.version

@@ -14,6 +14,7 @@ import com.netflix.spinnaker.keel.core.api.PromotionStatus.PENDING
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.PREVIOUS
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.SKIPPED
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.VETOED
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 /**
@@ -34,7 +35,7 @@ data class EnvironmentSummary(
     get() = environment.verifyWith.map { it.toSummary() }
 
   companion object {
-    val log = LoggerFactory.getLogger(EnvironmentSummary::class.java)
+    val log: Logger = LoggerFactory.getLogger(EnvironmentSummary::class.java)
   }
 
   fun getArtifactPromotionStatus(artifact: DeliveryArtifact, version: String) =

@@ -36,7 +36,7 @@ internal class EnvironmentTaskCancelerTests {
     comment = "this is a very bad version"
   )
 
-  private val taskTrackingRepository: TaskTrackingRepository = mockk() {
+  private val taskTrackingRepository: TaskTrackingRepository = mockk {
     every { getInFlightTasks(application, environment) } returns setOf(
       TaskForResource(
         id = "task1",

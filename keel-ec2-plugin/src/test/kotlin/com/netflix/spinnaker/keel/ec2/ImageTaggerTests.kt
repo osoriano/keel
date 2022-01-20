@@ -38,7 +38,7 @@ import org.springframework.core.env.Environment as SpringEnv
 class ImageTaggerTests : JUnit5Minutests {
   object Fixture {
     private val mapper = configuredTestObjectMapper()
-    val taskLauncher: TaskLauncher = mockk() {
+    val taskLauncher: TaskLauncher = mockk {
       coEvery {
         submitJob(
           user = any(),
@@ -71,10 +71,10 @@ class ImageTaggerTests : JUnit5Minutests {
     val config: DeliveryConfig = deliveryConfig(application = "waffles", configName = "waffles", env = env, artifact = artifact)
 
     val spectator: Registry = NoopRegistry()
-    val keelRepository: KeelRepository = mockk() {
+    val keelRepository: KeelRepository = mockk {
       every { getDeliveryConfigForApplication("waffles") } returns config
     }
-    val actionRepository: ActionRepository = mockk() {
+    val actionRepository: ActionRepository = mockk {
       every { allPassed(any(), ActionType.VERIFICATION) } returns false
     }
 

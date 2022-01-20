@@ -31,7 +31,7 @@ internal class EnvironmentExclusionEnforcerTest {
     every { getProperty("keel.enforcement.environment-exclusion.enabled", Boolean::class.java, any())} returns true
   }
 
-  private val verificationRepository = mockk<ActionRepository>() {
+  private val verificationRepository = mockk<ActionRepository> {
     every { getVerificationContextsWithStatus(any(), any(), any()) }  returns emptyList()
   }
   private val artifactRepository = mockk<ArtifactRepository>()
@@ -143,7 +143,7 @@ internal class EnvironmentExclusionEnforcerTest {
 
   @Test
   fun `withVerificationLease  throw an exception when there is an active lease`() {
-    val environment = mockk<Environment>() {
+    val environment = mockk<Environment> {
       every { name } returns "testing"
     }
     every { environmentLeaseRepository.tryAcquireLease(any(), any(), any()) } throws ActiveLeaseExists(environment, "mystery", mockk())

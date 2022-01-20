@@ -108,7 +108,7 @@ class PipelineConstraintEvaluator(
 
         attributes = PipelineConstraintStateAttributes(
           executionId = null,
-          attempt = attributes?.attempt ?: 0 + 1,
+          attempt = (attributes?.attempt ?: 0) + 1,
           latestAttempt = clock.instant()
         )
       }

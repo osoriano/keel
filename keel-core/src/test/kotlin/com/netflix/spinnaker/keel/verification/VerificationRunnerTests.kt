@@ -47,7 +47,7 @@ internal class VerificationRunnerTests {
   }
   private val publisher = mockk<ApplicationEventPublisher>(relaxUnitFun = true)
 
-  val springEnv: SpringEnvironment = mockk() {
+  val springEnv: SpringEnvironment = mockk {
     every { getProperty("keel.enforcement.environment-exclusion.enabled", Boolean::class.java, any()) } returns true
   }
 
@@ -63,11 +63,11 @@ internal class VerificationRunnerTests {
     every { getImages(any(), any()) } returns images
   }
 
-  private val verificationRepository = mockk<ActionRepository>() {
+  private val verificationRepository = mockk<ActionRepository> {
     every { getVerificationContextsWithStatus(any(), any(), any()) }  returns emptyList()
   }
 
-  private val artifactRepository = mockk<ArtifactRepository>() {
+  private val artifactRepository = mockk<ArtifactRepository> {
     every { isDeployingTo(any(), any()) } returns false
   }
 

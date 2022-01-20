@@ -6,7 +6,6 @@ import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.Repo
 import com.netflix.spinnaker.keel.events.EventLevel
 import com.netflix.spinnaker.keel.events.EventLevel.ERROR
-import com.netflix.spinnaker.keel.scm.CodeEvent
 import java.time.Instant
 
 /**
@@ -57,4 +56,3 @@ fun DeliveryConfigImportFailed.gitMetadata(): GitMetadata {
       author = authorEmail
     )
 }
-

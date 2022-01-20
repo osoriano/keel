@@ -18,7 +18,7 @@ import strikt.jackson.textValue
 
 internal class ResourceEventSerializationTests : JUnit5Minutests {
   companion object {
-    val clock = Clock.systemUTC()
+    val clock: Clock = Clock.systemUTC()
     val resource = resource()
 
     // Map of events to additional properties required to deserialize

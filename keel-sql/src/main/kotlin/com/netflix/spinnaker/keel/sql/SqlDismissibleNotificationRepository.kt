@@ -12,7 +12,6 @@ import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
 import de.huxhorn.sulky.ulid.ULID
 import org.jooq.DSLContext
 import org.jooq.Field
-import org.jooq.impl.DSL
 import org.slf4j.LoggerFactory
 import org.springframework.context.event.EventListener
 import java.time.Clock
@@ -79,7 +78,7 @@ class SqlDismissibleNotificationRepository(
 
   private fun generateDismissalJson(user: String? = null): Field<DismissibleNotification> {
     val dismissedAt: String = objectMapper.convertValue(clock.instant())
-    return field<DismissibleNotification>(
+    return field(
       "json_set(json, '$.isActive', 'false', '$.dismissedBy', '$user', '$.dismissedAt', '$dismissedAt')"
     )
   }
@@ -105,7 +104,7 @@ class SqlDismissibleNotificationRepository(
         .where(DISMISSIBLE_NOTIFICATION.APPLICATION.eq(application))
         .and(DISMISSIBLE_NOTIFICATION.TYPE.eq(type.simpleName))
         .apply {
-          if (branch.isNullOrEmpty()) {
+          if (branch.isEmpty()) {
             and(DISMISSIBLE_NOTIFICATION.BRANCH.isNull)
           } else {
             and(DISMISSIBLE_NOTIFICATION.BRANCH.eq(branch))

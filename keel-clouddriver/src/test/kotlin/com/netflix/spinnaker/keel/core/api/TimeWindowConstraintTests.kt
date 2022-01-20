@@ -23,7 +23,7 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 
 internal class TimeWindowConstraintTests {
-  val aMondayAt2am = ZonedDateTime.of(
+  val aMondayAt2am: ZonedDateTime = ZonedDateTime.of(
     LocalDate.of(2021, 8, 2),
     LocalTime.of(2, 0),
     ZoneId.systemDefault()
@@ -31,7 +31,7 @@ internal class TimeWindowConstraintTests {
     check(dayOfWeek == MONDAY)
   }
 
-  val aTuesdayAt2am = ZonedDateTime.of(
+  val aTuesdayAt2am: ZonedDateTime = ZonedDateTime.of(
     LocalDate.of(2021, 8, 3),
     LocalTime.of(2, 0),
     ZoneId.systemDefault()
@@ -39,7 +39,7 @@ internal class TimeWindowConstraintTests {
     check(dayOfWeek == TUESDAY)
   }
 
-  val aTuesdayAt2pm = ZonedDateTime.of(
+  val aTuesdayAt2pm: ZonedDateTime = ZonedDateTime.of(
     LocalDate.of(2021, 8, 3),
     LocalTime.of(14, 0),
     ZoneId.systemDefault()
@@ -47,7 +47,7 @@ internal class TimeWindowConstraintTests {
     check(dayOfWeek == TUESDAY)
   }
 
-  val aTuesdayAt1_59pm = ZonedDateTime.of(
+  val aTuesdayAt1_59pm: ZonedDateTime = ZonedDateTime.of(
     LocalDate.of(2021, 8, 3),
     LocalTime.of(13, 59, 59),
     ZoneId.systemDefault()
@@ -55,7 +55,7 @@ internal class TimeWindowConstraintTests {
     check(dayOfWeek == TUESDAY)
   }
 
-  val aSundayAt2pm = ZonedDateTime.of(
+  val aSundayAt2pm: ZonedDateTime = ZonedDateTime.of(
     LocalDate.of(2021, 8, 8),
     LocalTime.of(14, 0),
     ZoneId.systemDefault()

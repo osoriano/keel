@@ -820,9 +820,9 @@ class ApplicationService(
   }
 
   /**
-   * Stores the [SubmittedDeliveryConfig] for the specified [application] after pausing it, such that we don't
-   * take action on the config. This is so that we can interact with the config in the database like a normal
-   * application (including diffing resources against current state) in support of the migration wizard.
+   * Stores the [DeliveryConfig] for the specified [application] after pausing it, such that we don't take action on the
+   * config. This is so that we can interact with the config in the database like a normal application (including
+   * diffing resources against current state) in support of the migration wizard.
    */
   @Transactional(propagation = REQUIRED)
   fun storePausedMigrationConfig(application: String, user: String): DeliveryConfig {

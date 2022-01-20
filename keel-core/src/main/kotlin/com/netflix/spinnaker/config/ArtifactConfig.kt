@@ -4,6 +4,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 
 
 @ConfigurationProperties(prefix = "keel.artifact")
-class ArtifactConfig() {
+class ArtifactConfig {
   var defaultMaxConsideredVersions: Int = 15
 }

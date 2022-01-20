@@ -165,7 +165,7 @@ class TitusClusterScalingPolicyTests {
     )
   )
 
-  val cloudDriverService = mockk<CloudDriverService>() {
+  val cloudDriverService = mockk<CloudDriverService> {
     every { findDockerImages("testregistry", "fnord/fnord", any(), any(), any(), any()) } returns listOf(
       DockerImage(
         account = "testregistry",
@@ -214,7 +214,7 @@ class TitusClusterScalingPolicyTests {
   }
 
   val stages = slot<List<Job>>()
-  val taskLauncher = mockk<TaskLauncher>() {
+  val taskLauncher = mockk<TaskLauncher> {
     every {
       submitJob(any(), any(), any(), capture(stages), any())
     } answers {

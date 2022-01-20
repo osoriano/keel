@@ -6,7 +6,6 @@ import org.springframework.boot.CommandLineRunner
 import org.springframework.boot.WebApplicationType.NONE
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.builder.SpringApplicationBuilder
-import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.ComponentScan
 import org.springframework.context.annotation.FilterType
 import org.springframework.core.env.Environment
@@ -14,8 +13,6 @@ import java.lang.annotation.ElementType.TYPE
 import java.lang.annotation.Retention
 import java.lang.annotation.RetentionPolicy.RUNTIME
 import java.lang.annotation.Target
-import kotlin.system.exitProcess
-
 
 private val DEFAULT_PROPS = mapOf(
   "netflix.environment" to "test",

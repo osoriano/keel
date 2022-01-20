@@ -13,8 +13,9 @@ import com.netflix.spinnaker.keel.persistence.TaskTrackingRepository
 import com.netflix.spinnaker.keel.retrofit.isNotFound
 import com.netflix.spinnaker.keel.scheduled.ScheduledAgent
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
-import kotlinx.coroutines.async
+import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.event.EventListener
@@ -55,7 +56,8 @@ class OrcaTaskMonitorAgent(
   override suspend fun invokeAgent() {
     coroutineScope {
       taskTrackingRepository.getIncompleteTasks().associateWith {
-        async {
+        // when we get not found exception from orca, we shouldn't try to get the status anymore
+        withContext(IO) {
           try {
             orcaService.getOrchestrationExecution(it.id, DEFAULT_SERVICE_ACCOUNT)
           } catch (e: HttpException) {
@@ -75,7 +77,7 @@ class OrcaTaskMonitorAgent(
             }
             null
           }
-        }.await()
+        }
       }
         .filterValues { it != null && it.status.isComplete() }
         .map { (task, taskDetails) ->

@@ -65,7 +65,7 @@ internal class ClassicLoadBalancerHandlerTests : JUnit5Minutests {
   private val orcaService = mockk<OrcaService>()
   private val springEnv: SpringEnv = mockk(relaxUnitFun = true)
 
-  val repository = mockk<KeelRepository>() {
+  val repository = mockk<KeelRepository> {
     // we're just using this to get notifications
     every { environmentFor(any()) } returns Environment("test")
   }

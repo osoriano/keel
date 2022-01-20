@@ -1,13 +1,11 @@
 package com.netflix.spinnaker.keel.orca
 
 import com.fasterxml.jackson.module.kotlin.readValue
-import com.netflix.buoy.sdk.model.Location
-import com.netflix.buoy.sdk.model.RolloutTarget
 import com.netflix.spinnaker.keel.actuation.ExecutionSummary
-import com.netflix.spinnaker.keel.api.TaskStatus
 import com.netflix.spinnaker.keel.actuation.RolloutStatus.NOT_STARTED
 import com.netflix.spinnaker.keel.actuation.RolloutStatus.RUNNING
 import com.netflix.spinnaker.keel.actuation.RolloutStatus.SUCCEEDED
+import com.netflix.spinnaker.keel.api.TaskStatus
 import com.netflix.spinnaker.keel.test.configuredTestObjectMapper
 import io.mockk.coEvery
 import io.mockk.mockk

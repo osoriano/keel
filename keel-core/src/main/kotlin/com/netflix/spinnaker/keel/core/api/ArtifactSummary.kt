@@ -84,7 +84,7 @@ data class ConstraintSummary(
   val attributes: ConstraintStateAttributes? = null
 )
 
-abstract class ConstraintMetadata()
+abstract class ConstraintMetadata
 
 data class DependOnConstraintMetadata(
   val environment: String

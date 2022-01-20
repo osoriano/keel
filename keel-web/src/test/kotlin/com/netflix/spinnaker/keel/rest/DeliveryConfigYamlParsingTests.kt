@@ -19,7 +19,6 @@ package com.netflix.spinnaker.keel.rest
 
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.ec2.ApplicationLoadBalancerSpec
 import com.netflix.spinnaker.keel.api.ec2.ClassicLoadBalancerSpec
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec
@@ -38,10 +37,7 @@ import dev.minutest.rootContext
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment.NONE
-import strikt.api.Assertion.Builder
 import strikt.api.expectCatching
-import strikt.assertions.elementAt
-import strikt.assertions.filter
 import strikt.assertions.first
 import strikt.assertions.isA
 import strikt.assertions.isEqualTo

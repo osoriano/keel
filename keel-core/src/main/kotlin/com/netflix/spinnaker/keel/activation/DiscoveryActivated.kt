@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.activation
 
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.context.event.EventListener
 import java.util.concurrent.atomic.AtomicBoolean
@@ -10,7 +11,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Use this class if your component needs to do work only while an instance is up.
  */
 open class DiscoveryActivated {
-  val log by lazy { LoggerFactory.getLogger(javaClass) }
+  val log: Logger by lazy { LoggerFactory.getLogger(javaClass) }
 
   val enabled = AtomicBoolean(false)
 

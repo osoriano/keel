@@ -88,7 +88,7 @@ internal class ResourceActuatorTests : JUnit5Minutests {
     val diffFingerprintRepository = mockk<DiffFingerprintRepository>(relaxUnitFun = true) {
       every { actionTakenCount(any()) } returns 0
     }
-    val actuationPauser: ActuationPauser = mockk() {
+    val actuationPauser: ActuationPauser = mockk {
       every { isPaused(any<String>()) } returns false
       every { isPaused(any<Resource<*>>()) } returns false
     }
@@ -99,8 +99,8 @@ internal class ResourceActuatorTests : JUnit5Minutests {
     val javaPlugin = spyk(SleepyJavaResourceHandler(SpringEventPublisherBridge(publisher)))
     val veto = mockk<Veto>()
     val vetoEnforcer = VetoEnforcer(listOf(veto))
-    val clock = Clock.systemUTC()
-    val environmentExclusionEnforcer = mockk<EnvironmentExclusionEnforcer>() {
+    val clock: Clock = Clock.systemUTC()
+    val environmentExclusionEnforcer = mockk<EnvironmentExclusionEnforcer> {
       val action = slot<suspend () -> Unit>()
       every {
         withActuationLease(
@@ -413,11 +413,11 @@ internal class ResourceActuatorTests : JUnit5Minutests {
               val event = slot<ResourceEvent>()
 
               before {
-                val deliveryConfig = mockk<DeliveryConfig>() {
+                val deliveryConfig = mockk<DeliveryConfig> {
                   every { name } returns "fnord-manifest"
                 }
 
-                val environment = mockk<Environment>() {
+                val environment = mockk<Environment> {
                   every { name } returns "staging"
                 }
 

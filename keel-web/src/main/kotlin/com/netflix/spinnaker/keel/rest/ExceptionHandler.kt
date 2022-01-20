@@ -143,8 +143,6 @@ class ExceptionHandler(
           is IllegalStateException -> ParsingError.INVALID_VALUE
           is IllegalArgumentException -> ParsingError.INVALID_VALUE
           is MismatchedInputException -> ParsingError.INVALID_TYPE
-          is InvalidTypeIdException -> ParsingError.INVALID_TYPE
-          is InvalidFormatException -> ParsingError.INVALID_FORMAT
           is DateTimeParseException -> ParsingError.INVALID_FORMAT
           else -> ParsingError.OTHER
         }

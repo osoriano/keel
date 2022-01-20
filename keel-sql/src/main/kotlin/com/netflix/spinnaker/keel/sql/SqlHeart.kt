@@ -1,9 +1,9 @@
 package com.netflix.spinnaker.keel.sql
 
-import com.netflix.spinnaker.keel.activation.DiscoveryActivated
 import com.netflix.spinnaker.keel.persistence.Heart
 import com.netflix.spinnaker.keel.persistence.metamodel.tables.Heartbeat.HEARTBEAT
-import com.netflix.spinnaker.keel.sql.RetryCategory.*
+import com.netflix.spinnaker.keel.sql.RetryCategory.READ
+import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
 import org.jooq.DSLContext
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled

@@ -97,9 +97,9 @@ class TestContainerVerificationEvaluator(
           "${ENV_VAR_PREFIX}PR_NUMBER" to "${fullArtifact.gitMetadata?.pullRequest?.number}",
           "${ENV_VAR_PREFIX}PR_URL" to "${fullArtifact.gitMetadata?.pullRequest?.url}",
         ).apply {
-          if (vipDns != null) put("${ENV_VAR_PREFIX}EUREKA_VIP", "${vipDns.address}")
-          if (clusterDns != null) put ("${ENV_VAR_PREFIX}EUREKA_CLUSTER", "${clusterDns.address}")
-          if (loadBalancerDns != null) put("${ENV_VAR_PREFIX}LOAD_BALANCER", "${loadBalancerDns.address}")
+          if (vipDns != null) put("${ENV_VAR_PREFIX}EUREKA_VIP", vipDns.address)
+          if (clusterDns != null) put ("${ENV_VAR_PREFIX}EUREKA_CLUSTER", clusterDns.address)
+          if (loadBalancerDns != null) put("${ENV_VAR_PREFIX}LOAD_BALANCER", loadBalancerDns.address)
           putAll(verification.env)
         }
       )

@@ -8,7 +8,6 @@ import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.SortingStrategy
-import com.netflix.spinnaker.keel.api.events.ArtifactPublishedEvent
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.kork.exceptions.SystemException
 import com.netflix.spinnaker.kork.plugins.api.internal.SpinnakerExtensionPoint
@@ -18,7 +17,7 @@ import com.netflix.spinnaker.kork.plugins.api.internal.SpinnakerExtensionPoint
  *
  * The primary responsibility of an [ArtifactSupplier] is to detect new versions of artifacts, using
  * whatever mechanism they choose (e.g. they could receive events from another system,
- * or poll an artifact repository for artifact versions), and notify keel via the [publishArtifact]
+ * or poll an artifact repository for artifact versions), and notify keel via the `publishArtifact`
  * method, so that the artifact versions can be persisted and evaluated for promotion.
  *
  * Secondarily, [ArtifactSupplier]s are also periodically called to retrieve the latest available

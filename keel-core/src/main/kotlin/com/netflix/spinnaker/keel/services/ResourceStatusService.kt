@@ -40,6 +40,7 @@ import com.netflix.spinnaker.keel.persistence.ResourceStatus.UNHAPPY
 import com.netflix.spinnaker.keel.persistence.ResourceStatus.UNKNOWN
 import com.netflix.spinnaker.keel.persistence.ResourceStatus.WAITING
 import org.springframework.stereotype.Component
+import kotlin.math.min
 
 /**
  * Service object that offers high-level APIs around resource (event) history and status.
@@ -192,7 +193,7 @@ class ResourceStatusService(
       return true
     }
 
-    val recentSliceOfHistory = this.subList(0, Math.min(10, this.size))
+    val recentSliceOfHistory = this.subList(0, min(10, this.size))
     val filteredHistory = recentSliceOfHistory.filter { it is ResourceDeltaDetected || it is ResourceActuationLaunched }
     if (filteredHistory.size == recentSliceOfHistory.size) {
       return true
@@ -247,8 +248,7 @@ fun List<ResourceHistoryEvent>.lastRelevantMessage(): String? =
   lastRelevantEvent()?.message
 
 fun List<ResourceHistoryEvent>.lastEventTasks(): List<Task>? {
-  val first = firstOrNull()
-  return when (first) {
+  return when (val first = firstOrNull()) {
     is ResourceTaskSucceeded -> first.tasks
     is ResourceTaskFailed -> first.tasks
     is ResourceActuationLaunched -> first.tasks

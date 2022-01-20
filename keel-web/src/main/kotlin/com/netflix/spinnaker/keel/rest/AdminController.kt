@@ -1,16 +1,13 @@
 package com.netflix.spinnaker.keel.rest
 
 import com.netflix.spinnaker.keel.admin.AdminService
-import com.netflix.spinnaker.keel.auth.AuthorizationResourceType
 import com.netflix.spinnaker.keel.auth.AuthorizationResourceType.SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport
-import com.netflix.spinnaker.keel.auth.PermissionLevel
 import com.netflix.spinnaker.keel.auth.PermissionLevel.WRITE
 import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.export.ExportService
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.Front50Service
-import com.netflix.spinnaker.keel.front50.model.ServiceAccount
 import com.netflix.spinnaker.keel.services.ApplicationService
 import com.netflix.spinnaker.keel.yaml.APPLICATION_YAML_VALUE
 import com.netflix.spinnaker.security.AuthenticatedRequest
@@ -19,7 +16,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory.getLogger
 import org.springframework.http.HttpStatus.NO_CONTENT
-import org.springframework.http.MediaType
 import org.springframework.http.MediaType.APPLICATION_JSON_VALUE
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -62,7 +58,7 @@ class AdminController(
 
   @GetMapping(
     path = ["/applications"],
-    produces = [MediaType.APPLICATION_JSON_VALUE, APPLICATION_YAML_VALUE]
+    produces = [APPLICATION_JSON_VALUE, APPLICATION_YAML_VALUE]
   )
   fun getManagedApplications() =
     adminService.getManagedApplications()
@@ -191,7 +187,7 @@ class AdminController(
 
   /**
    * Add apps to the list we track for migration.
-   * [payload.inAllowedList] defines if we ask the app owner to migrate if the app is migratable
+   * [AddAppsToMigrationPayload.inAllowedList] defines if we ask the app owner to migrate if the app is migratable.
    */
   @PostMapping(
     path = ["/migration/add-apps"]
@@ -230,7 +226,7 @@ class AdminController(
   ): CheckPermissionResponse {
     val authorized = authorizationSupport.hasPermission(body.user, body.serviceAccount, SERVICE_ACCOUNT, WRITE)
     if (authorized) {
-      return CheckPermissionResponse(authorized = authorized)
+      return CheckPermissionResponse(authorized = true)
     }
 
     val serviceAccounts = runBlocking {
@@ -240,15 +236,15 @@ class AdminController(
 
     return if (serviceAccount == null) {
       // could be an auto-created sa, how should we deal with that?
-      CheckPermissionResponse(authorized = authorized, errorMessage = "Service account with name ${body.serviceAccount} doesn't exist, was it automatically created?")
+      CheckPermissionResponse(authorized = false, errorMessage = "Service account with name ${body.serviceAccount} doesn't exist, was it automatically created?")
     } else {
-      CheckPermissionResponse(authorized = authorized, errorMessage = "User ${body.user} must have access to all these groups: ${serviceAccount.memberOf}. Request access in go/accessui.")
+      CheckPermissionResponse(authorized = false, errorMessage = "User ${body.user} must have access to all these groups: ${serviceAccount.memberOf}. Request access in go/accessui.")
     }
   }
 
   @GetMapping(
     path = ["/applications/{application}/plan"],
-    produces = [MediaType.APPLICATION_JSON_VALUE, APPLICATION_YAML_VALUE]
+    produces = [APPLICATION_JSON_VALUE, APPLICATION_YAML_VALUE]
   )
   fun getActuationPlan(@PathVariable application: String) =
     runBlocking { applicationService.getActuationPlan(application) }

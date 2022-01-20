@@ -6,7 +6,6 @@ import com.netflix.spinnaker.security.AuthenticatedRequest
 import org.slf4j.LoggerFactory
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
-import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
@@ -88,4 +87,3 @@ class UnsupportedEnvironmentException(
   val environment: String,
   val cloudProvider: String
 ) : UserException("Unsupported environment '$environment' and cloud provider '$cloudProvider', the only supported env for $cloudProvider is 'prod'")
-

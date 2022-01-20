@@ -15,7 +15,7 @@ class ApplicationContextBuilder : DgsCustomContextBuilder<ApplicationContext?> {
   }
 }
 
-class ApplicationContext() {
+class ApplicationContext {
   var deliveryConfig: DeliveryConfig? = null
   var requestedStatuses: Set<MD_ArtifactStatusInEnvironment>? = null
   var requestedVersionIds: Set<String>? = null

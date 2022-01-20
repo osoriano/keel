@@ -1,11 +1,10 @@
 package com.netflix.spinnaker.keel.events
 
-import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
+import com.netflix.spinnaker.keel.events.EventLevel.WARNING
 import java.time.Clock
 import java.time.Instant
-import com.netflix.spinnaker.keel.events.EventLevel.WARNING
 
 @JsonTypeInfo(
   use = JsonTypeInfo.Id.NAME,

@@ -59,7 +59,7 @@ internal class AuthPropagationTests
     }
 
     @Bean
-    fun fiatPermissionEvaluator() = mockk<FiatPermissionEvaluator>() {
+    fun fiatPermissionEvaluator() = mockk<FiatPermissionEvaluator> {
       every {
         getPermission(any())
       } returns mockPermission.view

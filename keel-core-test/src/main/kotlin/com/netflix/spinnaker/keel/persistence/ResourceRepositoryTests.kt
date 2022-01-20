@@ -28,7 +28,6 @@ import com.netflix.spinnaker.keel.events.ResourceEvent
 import com.netflix.spinnaker.keel.events.ResourceUpdated
 import com.netflix.spinnaker.keel.events.ResourceValid
 import com.netflix.spinnaker.keel.test.DummyResourceSpec
-import com.netflix.spinnaker.keel.test.TEST_API_V1
 import com.netflix.spinnaker.keel.test.TEST_API_V2
 import com.netflix.spinnaker.keel.test.deliveryConfig
 import com.netflix.spinnaker.keel.test.locatableResource
@@ -524,6 +523,6 @@ fun <T : List<E>, E> Assertion.Builder<T>.fourth(): Assertion.Builder<E> =
 fun randomString(length: Int = 8) =
   randomUUID()
     .toString()
-    .map { it.toInt().toString(16) }
+    .map { it.code.toString(16) }
     .joinToString("")
     .substring(0 until length)

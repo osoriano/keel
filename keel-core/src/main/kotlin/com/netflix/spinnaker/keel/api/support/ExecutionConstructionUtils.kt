@@ -1,4 +1,4 @@
-package com.netflix.spinnaker.keel.orca
+package com.netflix.spinnaker.keel.api.support
 
 import java.time.Duration
 

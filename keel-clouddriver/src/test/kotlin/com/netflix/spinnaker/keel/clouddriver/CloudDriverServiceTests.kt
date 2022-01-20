@@ -21,7 +21,7 @@ class CloudDriverServiceTests : JUnit5Minutests {
         .addConverterFactory(JacksonConverterFactory.create(configuredObjectMapper()))
         .baseUrl(server.url("/"))
         .build()
-        .create<CloudDriverService>()
+        .create()
     }
   }
 

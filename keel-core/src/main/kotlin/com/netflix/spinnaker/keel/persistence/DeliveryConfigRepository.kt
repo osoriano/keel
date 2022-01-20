@@ -48,7 +48,7 @@ interface DeliveryConfigRepository : PeriodicallyCheckedRepository<DeliveryConfi
   fun all(vararg dependentAttachFilter: DependentAttachFilter = arrayOf(ATTACH_ALL)): Set<DeliveryConfig>
 
   /**
-   * Retrieve the [Environment] a resource belongs to, by the resource [id].
+   * Retrieve the [Environment] a resource belongs to, by the resource [com.netflix.spinnaker.keel.api.Resource.id].
    */
   fun environmentFor(resourceId: String): Environment
 

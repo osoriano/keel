@@ -209,7 +209,8 @@ interface ArtifactRepository : PeriodicallyCheckedRepository<DeliveryArtifact> {
   fun vetoedEnvironmentVersions(deliveryConfig: DeliveryConfig): List<EnvironmentArtifactVetoes>
 
   /**
-   * Marks [version] as vetoed from consideration for deployment to [targetEnvironment].
+   * Marks [EnvironmentArtifactVeto.version] as vetoed from consideration for deployment to
+   * [EnvironmentArtifactVeto.targetEnvironment].
    * When run against the latest approved version, the effect is a rollback to the last
    * previously deployed version. This is in contrast to [pinEnvironment], which forces
    * resolution of the desired artifact version to what is pinned. Only a single

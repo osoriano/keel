@@ -347,7 +347,7 @@ private val PublishedArtifact.pullRequestRepoSlug: String?
   get() = metadata["prRepoSlug"] as? String
 
 private val PublishedArtifact.pullRequestBranch: String
-  get() = (metadata["prBranch"] as? String)?.let { it.replace("refs/heads/", "") }
+  get() = (metadata["prBranch"] as? String)?.replace("refs/heads/", "")
     ?: throw MissingCodeEventDetails("PR branch", this)
 
 private val PublishedArtifact.authorName: String?

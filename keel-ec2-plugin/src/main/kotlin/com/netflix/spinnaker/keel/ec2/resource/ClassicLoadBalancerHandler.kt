@@ -80,8 +80,8 @@ class ClassicLoadBalancerHandler(
         .map { diff ->
           val desired = diff.desired
 
-          val action = when {
-            resourceDiff.current == null -> "Create"
+          val action = when (resourceDiff.current) {
+            null -> "Create"
             else -> "Update"
           }
           val description =

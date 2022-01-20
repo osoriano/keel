@@ -113,7 +113,7 @@ import com.netflix.buoy.sdk.model.Location as RolloutLocation
 import com.netflix.spinnaker.keel.clouddriver.model.ServerGroup as ClouddriverServerGroup
 
 /**
- * [ResourceHandler] implementation for EC2 clusters, represented by [ClusterSpec].
+ * [com.netflix.spinnaker.keel.api.plugins.ResourceHandler] implementation for EC2 clusters, represented by [ClusterSpec].
  */
 class ClusterHandler(
   private val cloudDriverService: CloudDriverService,
@@ -1061,7 +1061,7 @@ class ClusterHandler(
         )
         .serverGroups
         .forEach { sg ->
-          val existing = existingServerGroups.getOrPut(sg.region, { mutableListOf() })
+          val existing = existingServerGroups.getOrPut(sg.region) { mutableListOf() }
           existing.add(sg)
           existingServerGroups[sg.region] = existing
         }

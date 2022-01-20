@@ -136,8 +136,8 @@ class SqlArtifactRepository(
     return objectMapper.writeValueAsString(details)
   }
 
-  override fun get(name: String, type: ArtifactType, deliveryConfigName: String): List<DeliveryArtifact> {
-    return sqlRetry.withRetry(READ) {
+  override fun get(name: String, type: ArtifactType, deliveryConfigName: String): List<DeliveryArtifact> =
+    sqlRetry.withRetry(READ) {
       jooq
         .select(DELIVERY_ARTIFACT.DETAILS, DELIVERY_ARTIFACT.REFERENCE, DELIVERY_ARTIFACT.IS_PREVIEW)
         .from(DELIVERY_ARTIFACT)
@@ -147,11 +147,10 @@ class SqlArtifactRepository(
         .fetch { (details, reference, isPreview) ->
           mapToArtifact(artifactSuppliers.supporting(type), name, type, details, reference, deliveryConfigName, isPreview)
         }
-    } ?: throw NoSuchArtifactException(name, type)
-  }
+    }
 
-  override fun get(name: String, type: ArtifactType, reference: String, deliveryConfigName: String): DeliveryArtifact {
-    return sqlRetry.withRetry(READ) {
+  override fun get(name: String, type: ArtifactType, reference: String, deliveryConfigName: String): DeliveryArtifact =
+    sqlRetry.withRetry(READ) {
       jooq
         .select(DELIVERY_ARTIFACT.DETAILS, DELIVERY_ARTIFACT.REFERENCE, DELIVERY_ARTIFACT.IS_PREVIEW)
         .from(DELIVERY_ARTIFACT)
@@ -164,7 +163,6 @@ class SqlArtifactRepository(
       ?.let { (details, reference, isPreview) ->
         mapToArtifact(artifactSuppliers.supporting(type), name, type, details, reference, deliveryConfigName, isPreview)
       } ?: throw ArtifactNotFoundException(reference, deliveryConfigName)
-  }
 
   override fun get(deliveryConfigName: String, reference: String): DeliveryArtifact {
     return sqlRetry.withRetry(READ) {
@@ -1861,6 +1859,7 @@ class SqlArtifactRepository(
   /**
    * Replaced by the bulk call ^
    */
+  @Suppress("OverridingDeprecatedMember")
   override fun getArtifactSummaryInEnvironment(
     deliveryConfig: DeliveryConfig,
     environmentName: String,

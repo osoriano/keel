@@ -58,13 +58,13 @@ internal class ImageResolverTests : JUnit5Minutests {
     val version1 = "1.0.0-123456"
     val version2 = "1.1.0-123456"
     val version3 = "1.2.0-123456"
-    private val dynamicConfigService = mockk<DynamicConfigService>() {
+    private val dynamicConfigService = mockk<DynamicConfigService> {
       every {
         getConfig(String::class.java, "images.default-account", any())
       } returns account
     }
     val repository = mockk<KeelRepository>()
-    val imageService = mockk<ImageService>() {
+    val imageService = mockk<ImageService> {
       every { log } returns LoggerFactory.getLogger(ImageService::class.java)
     }
     val bakedImageRepository: BakedImageRepository = mockk(relaxUnitFun = true) {

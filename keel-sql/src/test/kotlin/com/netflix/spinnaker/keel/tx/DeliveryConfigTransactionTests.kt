@@ -1,7 +1,6 @@
 package com.netflix.spinnaker.keel.tx
 
 import com.netflix.spinnaker.keel.KeelApplication
-import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceKind.Companion.parseKind
 import com.netflix.spinnaker.keel.api.ResourceSpec
 import com.netflix.spinnaker.keel.api.artifacts.DEBIAN

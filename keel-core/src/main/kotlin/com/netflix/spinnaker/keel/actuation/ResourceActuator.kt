@@ -87,7 +87,7 @@ class ResourceActuator(
   private val publisher: ApplicationEventPublisher,
   private val clock: Clock,
   private val environmentExclusionEnforcer: EnvironmentExclusionEnforcer,
-  private val spectator: Registry,
+  spectator: Registry,
   private val diffFactory: ResourceDiffFactory
 ) {
   companion object {
@@ -194,8 +194,7 @@ class ResourceActuator(
             }
             else -> {
               log.info("Resource {} is valid", id)
-              val lastEvent = resourceRepository.lastEvent(id)
-              when (lastEvent) {
+              when (resourceRepository.lastEvent(id)) {
                 is ResourceActuationLaunched -> log.debug("waiting for actuating task to be completed") // do nothing and wait
                 is ResourceDeltaDetected, is ResourceTaskSucceeded, is ResourceTaskFailed -> {
                   // if a delta was detected and a task wasn't launched, the delta is resolved

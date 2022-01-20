@@ -76,7 +76,7 @@ internal class ClusterExportTests : JUnit5Minutests {
   val cloudDriverCache = mockk<CloudDriverCache>()
   val orcaService = mockk<OrcaService>()
   val normalizers = emptyList<Resolver<ClusterSpec>>()
-  val clock = Clock.systemUTC()
+  val clock: Clock = Clock.systemUTC()
   val publisher: EventPublisher = mockk(relaxUnitFun = true)
   val springEnv: SpringEnv = mockk(relaxUnitFun = true)
   val repository = mockk<KeelRepository>()

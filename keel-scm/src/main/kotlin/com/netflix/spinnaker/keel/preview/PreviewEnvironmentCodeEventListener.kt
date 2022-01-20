@@ -313,7 +313,7 @@ class PreviewEnvironmentCodeEventListener(
     previewEnvSpec: PreviewEnvironmentSpec,
     previewArtifacts: Set<DeliveryArtifact>,
     suffix: String
-  ): Resource<*>? {
+  ): Resource<*> {
     // start by copying the resource
     var previewResource = this.copy()
 

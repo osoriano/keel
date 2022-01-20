@@ -14,13 +14,11 @@ import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
-import io.mockk.clearAllMocks
-import io.mockk.clearMocks
 import io.mockk.mockk
 import io.mockk.verify
-import java.time.Duration
 import strikt.api.expectThat
 import strikt.assertions.isFalse
+import java.time.Duration
 
 internal class ManualJudgementConstraintEvaluatorTests : JUnit5Minutests {
   class Fixture {

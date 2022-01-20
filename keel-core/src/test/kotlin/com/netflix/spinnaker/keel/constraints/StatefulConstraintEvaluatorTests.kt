@@ -15,10 +15,8 @@ import com.netflix.spinnaker.keel.api.constraints.DefaultConstraintAttributes
 import com.netflix.spinnaker.keel.api.constraints.StatefulConstraintEvaluator
 import com.netflix.spinnaker.keel.api.constraints.SupportedConstraintAttributesType
 import com.netflix.spinnaker.keel.api.constraints.SupportedConstraintType
-import com.netflix.spinnaker.keel.api.events.ConstraintStateChanged
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
-import com.netflix.spinnaker.keel.test.deliveryConfig
 import com.netflix.spinnaker.keel.test.resource
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
@@ -28,10 +26,9 @@ import io.mockk.just
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
-import java.time.Instant
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo
-import strikt.assertions.isTrue
+import java.time.Instant
 
 internal class StatefulConstraintEvaluatorTests : JUnit5Minutests {
 

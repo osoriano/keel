@@ -20,7 +20,7 @@ import org.springframework.stereotype.Component
 @EnableConfigurationProperties(SlackConfiguration::class)
 class SlackService(
   private val springEnv: Environment,
-  final val slackConfig: SlackConfiguration,
+  val slackConfig: SlackConfiguration,
   private val spectator: Registry
 ) {
 

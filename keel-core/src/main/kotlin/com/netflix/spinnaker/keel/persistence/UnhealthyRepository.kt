@@ -7,7 +7,7 @@ import java.time.Duration
 /**
  * Tracks resource health so that we can see how long a resource has been unhealthy for
  */
-abstract class UnhealthyRepository() {
+abstract class UnhealthyRepository {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 

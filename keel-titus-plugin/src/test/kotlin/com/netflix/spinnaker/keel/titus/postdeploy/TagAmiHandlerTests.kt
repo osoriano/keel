@@ -56,7 +56,7 @@ internal class TagAmiHandlerTests {
         correlationId = any(),
         stages = any()
       )
-    } returns mockk() {
+    } returns mockk {
       every { id } returns "01FAP29KG410CVJHKXTEW5CA20"
     }
 
@@ -82,7 +82,7 @@ internal class TagAmiHandlerTests {
   fun `task succeeded`() {
     val taskId = "01FAP9T72MWQEF49QY2JNJHPWA"
     val oldState = ActionState(ConstraintStatus.PENDING, now(), null, metadata = mapOf(TASKS to listOf(taskId)))
-    coEvery { orca.getOrchestrationExecution(taskId, any() ) } returns mockk() {
+    coEvery { orca.getOrchestrationExecution(taskId, any() ) } returns mockk {
       every { id } returns taskId
       every { application } returns "fnord"
       every { status } returns TaskStatus.SUCCEEDED
@@ -99,7 +99,7 @@ internal class TagAmiHandlerTests {
   fun `task terminal`() {
     val taskId = "01FAP9T72MWQEF49QY2JNJHPWA"
     val oldState = ActionState(ConstraintStatus.PENDING, now(), null, metadata = mapOf(TASKS to listOf(taskId)))
-    coEvery { orca.getOrchestrationExecution(taskId, any() ) } returns mockk() {
+    coEvery { orca.getOrchestrationExecution(taskId, any() ) } returns mockk {
       every { id } returns taskId
       every { application } returns "fnord"
       every { status } returns TaskStatus.TERMINAL
@@ -128,7 +128,7 @@ internal class TagAmiHandlerTests {
     taskLauncher = launcher,
     orca = orca,
     spectator = NoopRegistry(),
-    baseUrlConfig = mockk() { every { baseUrl } returns "https://spin" },
+    baseUrlConfig = mockk { every { baseUrl } returns "https://spin" },
     imageFinder = finder
   )
   private val deliveryConfig = DeliveryConfig(

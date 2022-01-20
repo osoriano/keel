@@ -79,7 +79,7 @@ internal class TitusClusterExportTests : JUnit5Minutests {
   )
 
   val cloudDriverService = mockk<CloudDriverService>()
-  val cloudDriverCache = mockk<CloudDriverCache>() {
+  val cloudDriverCache = mockk<CloudDriverCache> {
     every { credentialBy(titusAccount) } returns titusAccountCredential
   }
   val orcaService = mockk<OrcaService>()
@@ -94,7 +94,7 @@ internal class TitusClusterExportTests : JUnit5Minutests {
     publisher,
     springEnv
   )
-  val clock = Clock.systemUTC()
+  val clock: Clock = Clock.systemUTC()
   val clusterExportHelper = mockk<ClusterExportHelper>(relaxed = true)
 
   val sg1West = SecurityGroupSummary("keel", "sg-325234532", "vpc-1")
@@ -467,7 +467,7 @@ internal class TitusClusterExportTests : JUnit5Minutests {
       capacity = com.netflix.spinnaker.keel.clouddriver.model.Capacity(
         min = capacity.min * 2,
         max = capacity.max * 2,
-        desired = capacity.desired!! * 2
+        desired = capacity.desired * 2
       )
     )
 

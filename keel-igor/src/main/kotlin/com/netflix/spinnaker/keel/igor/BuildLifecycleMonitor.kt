@@ -6,6 +6,9 @@ import com.netflix.spinnaker.config.BaseUrlConfig
 import com.netflix.spinnaker.config.LifecycleConfig
 import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
 import com.netflix.spinnaker.keel.front50.Front50Service
+import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
+import com.netflix.spinnaker.keel.lifecycle.LifecycleEventStatus
+import com.netflix.spinnaker.keel.lifecycle.LifecycleEventStatus.ABORTED
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventStatus.FAILED
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventStatus.RUNNING
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventStatus.SUCCEEDED
@@ -15,13 +18,9 @@ import com.netflix.spinnaker.keel.lifecycle.LifecycleEventType.BUILD
 import com.netflix.spinnaker.keel.lifecycle.LifecycleMonitor
 import com.netflix.spinnaker.keel.lifecycle.LifecycleMonitorRepository
 import com.netflix.spinnaker.keel.lifecycle.MonitoredTask
-import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
-import com.netflix.spinnaker.keel.lifecycle.LifecycleEventStatus
-import com.netflix.spinnaker.keel.lifecycle.LifecycleEventStatus.ABORTED
 import com.netflix.spinnaker.keel.retrofit.isNotFound
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component

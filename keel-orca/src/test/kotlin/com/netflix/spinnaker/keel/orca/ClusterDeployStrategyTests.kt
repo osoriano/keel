@@ -3,7 +3,6 @@ package com.netflix.spinnaker.keel.orca
 import com.netflix.spinnaker.keel.api.ClusterDeployStrategy.Companion.DEFAULT_WAIT_FOR_INSTANCES_UP
 import com.netflix.spinnaker.keel.api.DeployHealth.NONE
 import com.netflix.spinnaker.keel.api.RedBlack
-import dev.minutest.junit.JUnit5Minutests
 import org.junit.jupiter.api.Test
 import strikt.api.expectThat
 import strikt.assertions.containsExactly

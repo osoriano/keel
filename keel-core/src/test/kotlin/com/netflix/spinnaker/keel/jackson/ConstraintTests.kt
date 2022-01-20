@@ -74,6 +74,6 @@ internal class ConstraintTests : JUnit5Minutests {
       registerSubtypes(NamedType(ManualJudgementConstraint::class.java, "manual-judgement"))
     }
 
-    inline fun <reified T> parse(): T = mapper.readValue<T>(json)
+    inline fun <reified T> parse(): T = mapper.readValue(json)
   }
 }

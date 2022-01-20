@@ -1,7 +1,6 @@
 package com.netflix.spinnaker.keel.caffeine
 
 import com.github.benmanes.caffeine.cache.AsyncCacheLoader
-import com.github.benmanes.caffeine.cache.CacheLoader
 import com.github.benmanes.caffeine.cache.Caffeine
 import io.mockk.clearMocks
 import io.mockk.spyk
@@ -121,4 +120,3 @@ internal class CacheTests {
     expectThat(values).isEmpty()
   }
 }
-

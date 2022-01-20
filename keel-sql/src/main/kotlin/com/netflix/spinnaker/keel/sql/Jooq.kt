@@ -1,6 +1,5 @@
 package com.netflix.spinnaker.keel.sql
 
-import de.huxhorn.sulky.ulid.ULID
 import org.jooq.DSLContext
 import org.jooq.Field
 import org.jooq.Record

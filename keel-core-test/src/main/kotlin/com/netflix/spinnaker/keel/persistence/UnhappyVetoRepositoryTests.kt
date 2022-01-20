@@ -39,7 +39,7 @@ abstract class UnhappyVetoRepositoryTests<T : UnhappyVetoRepository> : JUnit5Min
   val clock = MutableClock()
   val resource = resource()
   val application = "keeldemo"
-  val waitDuration = Duration.ofMinutes(10)
+  val waitDuration: Duration = Duration.ofMinutes(10)
 
   data class Fixture<T : UnhappyVetoRepository>(
     val subject: T

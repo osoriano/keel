@@ -2,7 +2,6 @@ package com.netflix.spinnaker.keel
 
 import com.netflix.spectator.api.BasicTag
 import com.netflix.spectator.api.Registry
-import com.netflix.spectator.api.Spectator
 import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
 import com.netflix.spinnaker.keel.api.action.Action
 import com.netflix.spinnaker.keel.api.action.ActionRepository
@@ -10,7 +9,6 @@ import com.netflix.spinnaker.keel.api.action.ActionState
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.NOT_EVALUATED
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PENDING
-import com.netflix.spinnaker.keel.telemetry.TelemetryListener
 import org.slf4j.LoggerFactory
 
 /**

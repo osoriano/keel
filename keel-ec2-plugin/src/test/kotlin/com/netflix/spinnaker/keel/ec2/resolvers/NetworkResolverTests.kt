@@ -117,7 +117,7 @@ internal abstract class NetworkResolverTests<T : Locatable<SubnetAwareLocations>
       }
     val subnets = (usEastSubnets + usWestSubnets).toSet()
     val allZones = subnets.map { it.availabilityZone }.distinct()
-    val cloudDriverService = mockk<CloudDriverService>() {
+    val cloudDriverService = mockk<CloudDriverService> {
       coEvery { listSubnets("aws") } returns subnets
     }
     val cloudDriverCache = MemoryCloudDriverCache(cloudDriverService, TEST_CACHE_FACTORY)

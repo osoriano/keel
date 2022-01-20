@@ -49,7 +49,6 @@ import strikt.assertions.isEmpty
 import strikt.assertions.isEqualTo
 import strikt.assertions.isFalse
 import strikt.assertions.isNotEmpty
-import strikt.assertions.isNotNull
 import strikt.assertions.isNull
 import strikt.assertions.isTrue
 import java.time.Clock
@@ -281,7 +280,7 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
     )
 
   /**
-   * This function creates [versions.size] versions for artifact [debianFilteredByBranchPattern],
+   * This function creates `versions.size` versions for artifact `debianFilteredByBranchPattern`,
    * where only the first 15 of them have branch names that match the requested pattern
    */
   private fun Fixture<T>.storeVersionsForDebianFilteredByBranchPattern(versions: List<String>) {
@@ -301,7 +300,7 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
   }
 
   /**
-   * This function creates [versions.size] versions for artifact [debianFilteredByPullRequest],
+   * This function creates `versions.size` versions for artifact `debianFilteredByPullRequest`,
    * where only the first 10 of them have the PR info
    */
   private fun Fixture<T>.storeVersionsForDebianFilteredByPullRequest(versions: List<String>) {

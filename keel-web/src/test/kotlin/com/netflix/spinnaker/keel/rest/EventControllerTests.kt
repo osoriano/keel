@@ -204,7 +204,7 @@ internal class EventControllerTests
 }
 
 private inline fun <reified T> MockHttpServletResponse.contentAs(): T =
-  configuredYamlMapper().readValue<T>(contentAsString)
+  configuredYamlMapper().readValue(contentAsString)
 
 private val MockHttpServletResponse.contentAsTree: JsonNode
   get() = configuredYamlMapper().readTree(contentAsString)

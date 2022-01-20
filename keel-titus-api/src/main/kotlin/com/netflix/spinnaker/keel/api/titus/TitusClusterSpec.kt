@@ -114,6 +114,7 @@ data class TitusClusterSpec(
     get() = _defaults
 
   // Returns the artifact name set by resolvers, or attempts to find the artifact name from the container provider.
+  @Suppress("DEPRECATION")
   override val artifactName: String?
     get() = _artifactName
       ?: when (container) {

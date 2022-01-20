@@ -6,6 +6,7 @@ import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.SortingStrategy
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 /**
@@ -44,5 +45,5 @@ abstract class BaseArtifactSupplier<A : DeliveryArtifact, V : SortingStrategy>(
     }
   }
 
-  protected val log by lazy { LoggerFactory.getLogger(javaClass) }
+  protected val log: Logger by lazy { LoggerFactory.getLogger(javaClass) }
 }

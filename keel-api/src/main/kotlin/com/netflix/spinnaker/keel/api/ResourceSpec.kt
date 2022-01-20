@@ -1,7 +1,5 @@
 package com.netflix.spinnaker.keel.api
 
-import com.fasterxml.jackson.annotation.JsonIgnore
-
 /**
  * Implemented by all resource specs.
  */

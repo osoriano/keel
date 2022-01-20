@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.igor.model
 
 import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL
 import java.time.Instant
 
 /**
@@ -8,7 +9,7 @@ import java.time.Instant
  *
  * This class mirrors [com.netflix.spinnaker.igor.build.model.GenericBuild], but without all the Jackson baggage.
  */
-@JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonInclude(NON_NULL)
 data class Build(
   val building: Boolean = false,
   val fullDisplayName: String? = null,
@@ -26,7 +27,7 @@ data class Build(
   val properties: Map<String, Any?> = emptyMap()
 )
 
-@JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonInclude(NON_NULL)
 data class GenericGitRevision(
   val name: String? = null,
   val branch: String? = null,

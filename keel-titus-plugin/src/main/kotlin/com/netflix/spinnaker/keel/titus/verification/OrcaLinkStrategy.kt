@@ -12,7 +12,7 @@ class OrcaLinkStrategy(
   /**
    * $baseUrl/#/applications/APP/tasks/TASKID
    */
-  override fun url(stageExecution: ExecutionDetailResponse): String? =
+  override fun url(stageExecution: ExecutionDetailResponse) =
     "$baseUrl/#/applications/${stageExecution.application}/tasks/${stageExecution.id}"
 
   override fun url(jobStatus: Map<String, Any?>): String? {

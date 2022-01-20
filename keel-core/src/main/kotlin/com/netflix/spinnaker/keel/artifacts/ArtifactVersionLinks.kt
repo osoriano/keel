@@ -6,12 +6,14 @@ import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.caffeine.CacheFactory
 import com.netflix.spinnaker.keel.exceptions.UnsupportedScmType
+import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.springframework.stereotype.Component
 import java.net.URL
 
 @Component
-class ArtifactVersionLinks(private val scmBridge: ScmBridge, private val cacheFactory: CacheFactory) {
+class ArtifactVersionLinks(private val scmBridge: ScmBridge, cacheFactory: CacheFactory) {
   private val cacheName = "scmInfo"
   private val cache = cacheFactory.asyncLoadingCache<Any, Map<String, String?>>(cacheName) {
     scmBridge.getScmInfo()
@@ -77,7 +79,9 @@ class ArtifactVersionLinks(private val scmBridge: ScmBridge, private val cacheFa
     val normScmType = getNormalizedScmType(commitLink)
     val scmType = getScmType(commitLink)
     val scmBaseURLs = runBlocking {
-      val cachedValue = cache[cacheName].get()
+      val cachedValue = withContext(IO) {
+        cache[cacheName].get()
+      }
       cachedValue ?: scmBridge.getScmInfo()
     }
 

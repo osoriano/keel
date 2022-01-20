@@ -72,7 +72,7 @@ import io.mockk.coVerify as verify
 @Suppress("MemberVisibilityCanBePrivate")
 internal class ClusterHandlerTests : JUnit5Minutests {
 
-  val cloudDriverService = mockk<CloudDriverService>() {
+  val cloudDriverService = mockk<CloudDriverService> {
     every { listServerGroups(any(), any(), any(), any(), any()) } returns ServerGroupCollection("test", emptySet())
   }
   val cloudDriverCache = mockk<CloudDriverCache>()

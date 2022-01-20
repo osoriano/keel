@@ -152,7 +152,7 @@ class CapacityAndScalingPoliciesDiffingTests {
     createdTime = Instant.now().toEpochMilli()
   )
 
-  val desiredCapacityPath = NodePath.startBuilding()
+  val desiredCapacityPath: NodePath = NodePath.startBuilding()
     .mapKey("us-west-2")
     .propertyName("capacity")
     .propertyName("desired")
@@ -161,7 +161,7 @@ class CapacityAndScalingPoliciesDiffingTests {
   val Assertion.Builder<DefaultResourceDiff<Map<String, ServerGroup>>>.desiredCapacity: Assertion.Builder<DiffNode?>
     get() = get { diff.getChild(desiredCapacityPath) }
 
-  val scalingPoliciesPath = NodePath.startBuilding()
+  val scalingPoliciesPath: NodePath = NodePath.startBuilding()
     .mapKey("us-west-2")
     .propertyName("scaling")
     .build()

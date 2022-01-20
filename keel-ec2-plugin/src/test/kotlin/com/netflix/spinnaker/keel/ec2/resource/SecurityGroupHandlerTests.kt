@@ -556,7 +556,7 @@ internal class SecurityGroupHandlerTests : JUnit5Minutests {
       "create" to SecurityGroupHandler::create,
       "update" to SecurityGroupHandler::update
     )
-      .forEach { methodName, handlerMethod ->
+      .forEach { (methodName, handlerMethod) ->
         context("$methodName a security group with no ingress rules") {
           before {
             clearMocks(orcaService)

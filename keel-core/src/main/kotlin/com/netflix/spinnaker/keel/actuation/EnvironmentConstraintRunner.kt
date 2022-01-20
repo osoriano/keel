@@ -23,7 +23,7 @@ import org.springframework.stereotype.Component
 @Component
 class EnvironmentConstraintRunner(
   private val repository: KeelRepository,
-  private val constraints: List<ConstraintEvaluator<*>>
+  constraints: List<ConstraintEvaluator<*>>
 ) {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
@@ -83,7 +83,7 @@ class EnvironmentConstraintRunner(
     envContext: EnvironmentContext,
     versionsWithPendingStatefulConstraintStatus: MutableList<PublishedArtifact>
   ) {
-    var selectedVersion: String?
+    val selectedVersion: String?
     var versionIsPending = false
     val vetoedVersions: Set<String> = envContext.vetoedVersions
 

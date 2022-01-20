@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.titus.jackson
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroup
 import com.netflix.spinnaker.keel.clouddriver.model.*
@@ -11,7 +12,7 @@ import strikt.assertions.*
 
 class TitusActiveServerGroupDeserializationTests {
 
-  val mapper = configuredObjectMapper()
+  val mapper: ObjectMapper = configuredObjectMapper()
     .registerModule(KeelApiModule)
     .registerModule(KeelTitusApiModule)
 

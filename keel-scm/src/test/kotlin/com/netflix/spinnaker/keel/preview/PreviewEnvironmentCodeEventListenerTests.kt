@@ -205,6 +205,7 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
       from = ArtifactOriginFilter(branchStartsWith("feature/"))
     )
 
+    @Suppress("DEPRECATION")
     val clusterWithOldSpecVersion = resource(
       kind = EC2_CLUSTER_V1.kind,
       spec = ClusterV1Spec(

@@ -7,11 +7,9 @@ import com.netflix.spinnaker.keel.api.SubnetAwareLocations
 import com.netflix.spinnaker.keel.api.SubnetAwareRegionSpec
 import com.netflix.spinnaker.keel.api.ec2.LoadBalancerDependencies
 import com.netflix.spinnaker.keel.api.ec2.LoadBalancerSpec
-import com.netflix.spinnaker.keel.api.ec2.LoadBalancerType
 import com.netflix.spinnaker.keel.api.ec2.LoadBalancerType.CLASSIC
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
-import com.netflix.spinnaker.keel.clouddriver.model.AmazonLoadBalancer
 import com.netflix.spinnaker.keel.clouddriver.model.ClassicLoadBalancerModel
 import com.netflix.spinnaker.keel.clouddriver.model.ClassicLoadBalancerModel.ClassicLoadBalancerHealthCheck
 import com.netflix.spinnaker.keel.clouddriver.model.Credential
@@ -23,12 +21,12 @@ import com.netflix.spinnaker.keel.test.computeResource
 import com.netflix.spinnaker.keel.test.resource
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
-import io.mockk.coEvery as every
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
 import strikt.api.expectThat
 import strikt.assertions.contains
 import java.time.Duration
+import io.mockk.coEvery as every
 
 class NetworkEndpointProviderTests : JUnit5Minutests {
   class Fixture {
@@ -61,7 +59,7 @@ class NetworkEndpointProviderTests : JUnit5Minutests {
         } returns Credential("test", "aws", "test", mutableMapOf("accountId" to "1234567890"))
 
         every {
-          cloudDriverService.getAmazonLoadBalancer(any(), "test", "us-east-1", "${loadBalancerResource.spec.moniker.toName()}")
+          cloudDriverService.getAmazonLoadBalancer(any(), "test", "us-east-1", loadBalancerResource.spec.moniker.toName())
         } returns listOf(loadBalancerResource.spec.toAmazonLoadBalancer())
       }
 

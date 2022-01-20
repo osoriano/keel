@@ -34,16 +34,13 @@ import com.netflix.spinnaker.keel.sql.RetryCategory.READ
 import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
 import com.netflix.spinnaker.keel.telemetry.AboutToBeChecked
 import de.huxhorn.sulky.ulid.ULID
-import org.jooq.Comment
 import org.jooq.DSLContext
 import org.jooq.Record1
-import org.jooq.Record2
 import org.jooq.Select
 import org.jooq.impl.DSL
 import org.jooq.impl.DSL.coalesce
 import org.jooq.impl.DSL.max
 import org.jooq.impl.DSL.select
-import org.jooq.impl.DSL.sql
 import org.jooq.impl.DSL.value
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
@@ -404,20 +401,18 @@ open class SqlResourceRepository(
           .limit(limit)
           .forUpdate()
           .fetch()
-          .also {
-            it.forEach { (uid, _, _, _, application, lastCheckedAt) ->
-              insertInto(RESOURCE_LAST_CHECKED)
-                .set(RESOURCE_LAST_CHECKED.RESOURCE_UID, uid)
-                .set(RESOURCE_LAST_CHECKED.AT, now)
-                .onDuplicateKeyUpdate()
-                .set(RESOURCE_LAST_CHECKED.AT, now)
-                .execute()
-              publisher.publishEvent(AboutToBeChecked(
-                lastCheckedAt,
-                "resource",
-                "application:$application"
-              ))
-            }
+          .onEach { (uid, _, _, _, application, lastCheckedAt) ->
+            insertInto(RESOURCE_LAST_CHECKED)
+              .set(RESOURCE_LAST_CHECKED.RESOURCE_UID, uid)
+              .set(RESOURCE_LAST_CHECKED.AT, now)
+              .onDuplicateKeyUpdate()
+              .set(RESOURCE_LAST_CHECKED.AT, now)
+              .execute()
+            publisher.publishEvent(AboutToBeChecked(
+              lastCheckedAt,
+              "resource",
+              "application:$application"
+            ))
           }
       }
         .map { (uid, kind, metadata, spec) ->

@@ -67,7 +67,7 @@ open class SecurityGroupHandler(
 
   override suspend fun toResolvedType(resource: Resource<SecurityGroupSpec>): Map<String, SecurityGroup> =
     with(resource.spec) {
-      locations.regions.map { region ->
+      locations.regions.associate { region ->
         region.name to SecurityGroup(
           moniker = Moniker(app = moniker.app, stack = moniker.stack, detail = moniker.detail),
           location = SecurityGroup.Location(
@@ -78,7 +78,7 @@ open class SecurityGroupHandler(
           description = overrides[region.name]?.description ?: description,
           inboundRules = (overrides[region.name]?.inboundRules ?: emptySet()) + inboundRules
         )
-      }.toMap()
+      }
     }
 
   override suspend fun current(resource: Resource<SecurityGroupSpec>): Map<String, SecurityGroup> =
@@ -348,6 +348,7 @@ open class SecurityGroupHandler(
                   rule.description
                 )
               } ?: emptyList()
+<<<<<<< 65b47ecae7ff27dfc849b0d9c2f85131fa800b70
           ingressPrefixList != null ->
             rule.portRanges
               ?.map { it.toPortRange() }
@@ -368,6 +369,8 @@ open class SecurityGroupHandler(
             log.warn("security group $name ($accountName, $region) has inbound rule that references non-existent security group ${ingressGroup.id} (${ingressGroup.accountName}, ${ingressGroup.region}, ${ingressGroup.vpcId})")
             emptyList()
           }
+=======
+>>>>>>> 92c4c14cf87d9935a5329eaf80e33e9a3f7f288d
           else -> emptyList()
         }
       }

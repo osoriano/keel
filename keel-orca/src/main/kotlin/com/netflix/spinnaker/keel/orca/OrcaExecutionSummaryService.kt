@@ -34,20 +34,20 @@ class OrcaExecutionSummaryService(
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
   companion object {
-    val COMPLETED_TARGETS_STAGE = "initManagedRolloutStep"
-    val KICKOFF_STAGE = "startManagedRollout"
-    val DEPLOY_STAGE = "deploy"
+    const val COMPLETED_TARGETS_STAGE = "initManagedRolloutStep"
+    const val KICKOFF_STAGE = "startManagedRollout"
+    const val DEPLOY_STAGE = "deploy"
 
-    val SECURITY_GROUP_STAGE = "upsertSecurityGroup"
-    val LOAD_BALANCER_STAGE = "upsertLoadBalancer"
-    val MANAGED_ROLLOUT_STAGE = "managedRollout"
-    val RESIZE_SERVER_GROUP_STAGE = "resizeServerGroup"
-    val ROLLBACK_SERVER_GROUP_STAGE = "rollbackServerGroup"
-    val DISABLE_SERVER_GROUP_STAGE = "disableServerGroup"
-    val CREATE_SERVER_GROUP_STAGE = "createServerGroup"
-    val MODIFY_SCALING_POLICY_STAGE = "upsertScalingPolicy"
-    val CLONE_SERVER_GROUP_STAGE = "cloneServerGroup"
-    val PUBLISH_DGS_STAGE = "dgsSchemaDeploy"
+    const val SECURITY_GROUP_STAGE = "upsertSecurityGroup"
+    const val LOAD_BALANCER_STAGE = "upsertLoadBalancer"
+    const val MANAGED_ROLLOUT_STAGE = "managedRollout"
+    const val RESIZE_SERVER_GROUP_STAGE = "resizeServerGroup"
+    const val ROLLBACK_SERVER_GROUP_STAGE = "rollbackServerGroup"
+    const val DISABLE_SERVER_GROUP_STAGE = "disableServerGroup"
+    const val CREATE_SERVER_GROUP_STAGE = "createServerGroup"
+    const val MODIFY_SCALING_POLICY_STAGE = "upsertScalingPolicy"
+    const val CLONE_SERVER_GROUP_STAGE = "cloneServerGroup"
+    const val PUBLISH_DGS_STAGE = "dgsSchemaDeploy"
   }
 
   override fun getSummary(executionId: String): ExecutionSummary? {

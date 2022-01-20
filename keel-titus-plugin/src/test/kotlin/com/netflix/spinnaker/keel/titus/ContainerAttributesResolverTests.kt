@@ -53,7 +53,7 @@ internal class ContainerAttributesResolverTests : JUnit5Minutests {
     overrides = emptyMap()
   )
 
-  val clouddriverService = mockk<CloudDriverService>() {
+  val clouddriverService = mockk<CloudDriverService> {
     coEvery { getAccountInformation(account, any()) } returns mapOf("awsAccount" to "aws", "environment" to "test")
     coEvery { getAccountInformation("aws", any()) } returns mapOf("accountId" to awsAccountId, "environment" to "test")
   }

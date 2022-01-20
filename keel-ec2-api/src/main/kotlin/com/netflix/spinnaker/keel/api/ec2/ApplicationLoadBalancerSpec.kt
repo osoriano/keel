@@ -74,7 +74,7 @@ data class ApplicationLoadBalancerSpec(
 
     override fun toString(): String =
       "${protocol}:${port} -> " +
-        defaultActions.joinToString() {
+        defaultActions.joinToString {
           when (it) {
             is ForwardAction -> "forward[${it.targetGroupName}]"
             is RedirectAction -> "redirect[${it.redirectConfig.run { "${protocol}://${host}${port?.let { ":$port" } ?: ""}/$path" }}]"

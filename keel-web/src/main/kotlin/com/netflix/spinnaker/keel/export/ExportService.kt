@@ -112,8 +112,8 @@ class ExportService(
 
     val SPEL_REGEX = Regex("\\$\\{.+\\}")
 
-    val PRODUCTION_EVN = "production"
-    val TESTING_EVN = "testing"
+    const val PRODUCTION_EVN = "production"
+    const val TESTING_EVN = "testing"
   }
 
   private val isScheduledExportEnabled : Boolean
@@ -192,9 +192,7 @@ class ExportService(
    * exported resource with a fresh export, hence the name "re-export".
    */
   suspend fun reExportResource(resource: SubmittedResource<*>, user: String): SubmittedResource<*> {
-    val moniker = (resource.spec as? Monikered)?.let {
-      it.moniker
-    } ?: throw IllegalArgumentException("We can only export resources with a moniker currently.")
+    val moniker = (resource.spec as? Monikered)?.moniker ?: throw IllegalArgumentException("We can only export resources with a moniker currently.")
 
     val locations = (resource.spec as? Locatable<*>)?.let {
       (it.locations as? AccountAwareLocations<*>)
@@ -670,8 +668,7 @@ class ExportService(
           // if trigger is a pipeline trigger, find the upstream environment matching that pipeline to make a depends-on
           // constraint
           val upstreamEnvironment = pipelinesToEnvironments.entries.find { (pipeline, _) ->
-            application == trigger.application
-            pipeline.id == trigger.pipeline
+            application == trigger.application && pipeline.id == trigger.pipeline
           }
             ?.let { (_, envs) ->
               // use the last environment within the matching pipeline (which would match the last deploy,
@@ -817,7 +814,7 @@ data class PipelineExportResult(
   )
 
   val exportSucceeded: Boolean
-    get() = skipped.filterValues { !(VALID_SKIP_REASONS.contains(it)) }.isNullOrEmpty()
+    get() = skipped.filterValues { !(VALID_SKIP_REASONS.contains(it)) }.isEmpty()
 }
 
 private val Exportable.clusterKind: ResourceKind

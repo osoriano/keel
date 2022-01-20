@@ -117,9 +117,17 @@ class ComparableLinksTests : JUnit5Minutests {
       every { parseDefaultGitMetadata(any(), any()) } returns null
     }
 
-    val dependsOnEvaluator = mockk<ConstraintEvaluator<DependsOnConstraint>>() {
+    private val scmInfo = mockk<ScmBridge> {
+      coEvery {
+        getScmInfo()
+      } answers {
+        mapOf("stash" to "https://stash")
+      }
+    }
+
+    val dependsOnEvaluator = mockk<ConstraintEvaluator<DependsOnConstraint>> {
       every { isImplicit() } returns false
-      every { supportedType } returns SupportedConstraintType<DependsOnConstraint>("depends-on")
+      every { supportedType } returns SupportedConstraintType("depends-on")
     }
 
     val lifecycleEventRepository: LifecycleEventRepository = mockk(relaxed = true) {
@@ -130,7 +138,7 @@ class ComparableLinksTests : JUnit5Minutests {
 
     val publisher: ApplicationEventPublisher = mockk(relaxed = true)
 
-    val springEnv: SpringEnvironment = mockk() {
+    val springEnv: SpringEnvironment = mockk {
       every {
         getProperty("keel.verifications.summary.enabled", Boolean::class.java, any())
       } returns true
@@ -285,7 +293,7 @@ class ComparableLinksTests : JUnit5Minutests {
         ) } returns stagingSummaryInEnv
 
         every {
-          repository.constraintStateFor(singleArtifactDeliveryConfig.name, any(), any<String>(), any())
+          repository.constraintStateFor(singleArtifactDeliveryConfig.name, any(), any(), any())
         } answers {
           emptyList()
         }

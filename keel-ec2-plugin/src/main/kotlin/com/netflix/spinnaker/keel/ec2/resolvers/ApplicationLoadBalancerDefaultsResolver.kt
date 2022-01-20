@@ -49,10 +49,8 @@ class ApplicationLoadBalancerDefaultsResolver : Resolver<ApplicationLoadBalancer
       }
         .toSet()
 
-      val securityGroupNames = if (resource.spec.dependencies.securityGroupNames.isEmpty()) {
+      val securityGroupNames = resource.spec.dependencies.securityGroupNames.ifEmpty {
         setOf("${resource.spec.moniker.app}-elb")
-      } else {
-        resource.spec.dependencies.securityGroupNames
       }
 
       return resource.run {

@@ -11,6 +11,7 @@ import com.netflix.spinnaker.keel.exceptions.InvalidAppNameException
 import com.netflix.spinnaker.keel.exceptions.InvalidArtifactReferenceException
 import com.netflix.spinnaker.keel.exceptions.InvalidEnvironmentReferenceException
 import com.netflix.spinnaker.keel.exceptions.MissingEnvironmentReferenceException
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -20,7 +21,7 @@ import org.springframework.stereotype.Component
 @Component
 class DeliveryConfigValidator {
 
-  val log by lazy { LoggerFactory.getLogger(javaClass) }
+  val log: Logger by lazy { LoggerFactory.getLogger(javaClass) }
 
   /**
    * Run validation checks against delivery config to ensure:
@@ -50,8 +51,8 @@ class DeliveryConfigValidator {
     val duplicateResources = resources.duplicates()
 
     if (duplicateResources.isNotEmpty()) {
-      val envToResources: Map<String, MutableList<String>> = config.environments
-        .map { env -> env.name to env.resources.map { it.spec.id }.toMutableList() }.toMap()
+      val envToResources: Map<String, MutableList<String>> =
+        config.environments.associate { env -> env.name to env.resources.map { it.spec.id }.toMutableList() }
       val envsAndDuplicateResources = envToResources
         .filterValues { rs: MutableList<String> ->
           // remove all the resources we don't care about from this mapping

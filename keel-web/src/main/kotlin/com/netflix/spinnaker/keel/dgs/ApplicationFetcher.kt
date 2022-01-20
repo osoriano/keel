@@ -32,7 +32,6 @@ import com.netflix.spinnaker.keel.graphql.types.MD_PackageDiff
 import com.netflix.spinnaker.keel.graphql.types.MD_PausedInfo
 import com.netflix.spinnaker.keel.graphql.types.MD_PinnedVersion
 import com.netflix.spinnaker.keel.graphql.types.MD_PullRequest
-import com.netflix.spinnaker.keel.graphql.types.MD_UserPermissions
 import com.netflix.spinnaker.keel.graphql.types.MD_VersionVeto
 import com.netflix.spinnaker.keel.pause.ActuationPauser
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
@@ -43,7 +42,6 @@ import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
 import org.dataloader.DataLoader
 import org.springframework.security.access.prepost.PreAuthorize
-import org.springframework.web.bind.annotation.RequestHeader
 import java.util.concurrent.CompletableFuture
 
 /**

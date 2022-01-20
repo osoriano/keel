@@ -11,4 +11,4 @@ fun randomUID(): UID = idGenerator.nextValue()
 
 fun parseUID(ulid: String): UID = ULID.parseULID(ulid)
 
-fun UID.timestampAsInstant() = Instant.ofEpochMilli(timestamp())
+fun UID.timestampAsInstant(): Instant = Instant.ofEpochMilli(timestamp())

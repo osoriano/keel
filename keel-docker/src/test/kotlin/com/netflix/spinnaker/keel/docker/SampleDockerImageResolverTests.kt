@@ -47,6 +47,7 @@ class SampleDockerImageResolverTests : JUnit5Minutests {
   )
 
 
+  @Suppress("DEPRECATION")
   private val oldStyleSpec = SampleSpecWithContainer(
     container = VersionedTagProvider(
       organization = "spkr",

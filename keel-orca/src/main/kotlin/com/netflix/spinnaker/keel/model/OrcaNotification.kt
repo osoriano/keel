@@ -79,4 +79,4 @@ fun translateFrequencyToEvents(frequency: NotificationFrequency): List<Notificat
   }
 
 fun generateCustomMessages(frequency: NotificationFrequency): Map<String, NotificationMessage> =
-  translateFrequencyToEvents(frequency).map { it.text() to it.notificationMessage() }.toMap()
+  translateFrequencyToEvents(frequency).associate { it.text() to it.notificationMessage() }

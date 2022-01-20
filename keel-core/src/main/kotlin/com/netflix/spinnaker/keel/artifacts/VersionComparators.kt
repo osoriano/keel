@@ -18,7 +18,6 @@
 package com.netflix.spinnaker.keel.artifacts
 
 import com.netflix.rocket.semver.shaded.DebianVersionComparator
-import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.SortType.INCREASING
 import com.netflix.spinnaker.keel.api.artifacts.SortType.SEMVER
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy
@@ -127,4 +126,3 @@ private fun parseSemver(input: String?): SemVer? {
     null
   }
 }
-

@@ -72,7 +72,7 @@ internal class MemoryCloudDriverCacheTest {
       cloudDriver.getCredential("prod")
     } returns Credential("prod", "aws", "prod")
 
-    subject.securityGroupById("prod", "us-east-1", "sg-2").let { securityGroupSummary ->
+    subject.securityGroupById("prod", "us-east-1", "sg-2").also { securityGroupSummary ->
       expectThat(securityGroupSummary) {
         get { name }.isEqualTo("bar")
         get { id }.isEqualTo("sg-2")
@@ -89,7 +89,7 @@ internal class MemoryCloudDriverCacheTest {
       cloudDriver.getCredential("prod")
     } returns Credential("prod", "aws", "prod")
 
-    subject.securityGroupByName("prod", "us-east-1", "foo").let { securityGroupSummary ->
+    subject.securityGroupByName("prod", "us-east-1", "foo").also { securityGroupSummary ->
       expectThat(securityGroupSummary) {
         get { name }.isEqualTo("foo")
         get { id }.isEqualTo("sg-1")
@@ -148,7 +148,7 @@ internal class MemoryCloudDriverCacheTest {
       cloudDriver.listNetworks("aws")
     } returns vpcs
 
-    subject.networkBy("vpc-2").let { vpc ->
+    subject.networkBy("vpc-2").also { vpc ->
       expectThat(vpc) {
         get { name }.isEqualTo("vpcName")
         get { account }.isEqualTo("test")

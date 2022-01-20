@@ -6,6 +6,7 @@ import com.netflix.spinnaker.keel.api.NotificationConfig
 import com.netflix.spinnaker.keel.api.NotificationFrequency
 import com.netflix.spinnaker.keel.api.NotificationFrequency.normal
 import com.netflix.spinnaker.keel.api.NotificationType
+import com.netflix.spinnaker.keel.api.NotificationType.email
 import com.netflix.spinnaker.keel.api.NotificationType.slack
 import com.netflix.spinnaker.keel.api.PreviewEnvironmentSpec
 import com.netflix.spinnaker.keel.api.Resource
@@ -228,7 +229,7 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
     }
   }
 
-  fun tests() = rootContext<Fixture<T, R, A, P>>() {
+  fun tests() = rootContext<Fixture<T, R, A, P>> {
     fixture {
       Fixture(
         deliveryConfigRepositoryProvider = {
@@ -515,7 +516,7 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
               "manual-judgement"
             )
             val recentConstraintState = repository.constraintStateFor(deliveryConfig.name, environment.name)
-            expectThat(numDeleted).equals(1)
+            expectThat(numDeleted) isEqualTo 1
             expectThat(recentConstraintState).filterNot { it.artifactVersion == artifact.getVersionId(1) }
           }
 
@@ -812,12 +813,12 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
                   ),
                   notifications = setOf(
                     NotificationConfig(
-                      type = NotificationType.slack,
+                      type = slack,
                       address = "test",
                       frequency = NotificationFrequency.verbose
                     ),
                     NotificationConfig(
-                      type = NotificationType.email,
+                      type = email,
                       address = "test",
                       frequency = NotificationFrequency.quiet
                     )

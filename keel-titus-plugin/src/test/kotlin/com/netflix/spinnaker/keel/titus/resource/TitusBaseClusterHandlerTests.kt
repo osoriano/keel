@@ -52,7 +52,7 @@ class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, T
      )
    )
   }
-  val cloudDriverCache: CloudDriverCache = mockk() {
+  val cloudDriverCache: CloudDriverCache = mockk {
     every { credentialBy("account") } returns Credential(
       name = "account",
       type = "titus",

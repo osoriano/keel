@@ -222,7 +222,7 @@ private fun filterDockerVersions(artifact: DockerArtifact, versions: List<Publis
     .filter { filterDockerTag(it.version, artifact) }
 
 /**
- * @return true if a docker tag is a match to the regex associated with the [TagVersionStrategy] and produces exactly
+ * @return true if a docker tag is a match to the regex associated with the `TagVersionStrategy` and produces exactly
  * one capture group on the tag, false otherwise. This only applies if the artifact is defined in terms of versions.
  */
 internal fun filterDockerTag(tag: String, artifact: DockerArtifact) =

@@ -402,14 +402,14 @@ object ActiveServerGroupTest : ModelParsingTestSupport<CloudDriverService, Activ
   """.trimMargin()
 
   override suspend fun CloudDriverService.call(): ActiveServerGroup? =
-    this.activeServerGroup("keel@spinnaker", "keel", "mgmttest", "keel-test", "$region", "aws")
+    this.activeServerGroup("keel@spinnaker", "keel", "mgmttest", "keel-test", region, "aws")
 
   override val expected = ActiveServerGroup(
     name = "$app-v$seq",
     cloudProvider = "aws",
     accountName = "test",
     targetGroups = emptySet(),
-    region = "$region",
+    region = region,
     zones = setOf("a", "b", "c").map { "$region$it" }.toSet(),
     image = ActiveServerGroupImage(
       imageId = ami,

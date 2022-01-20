@@ -27,13 +27,13 @@ import kotlin.coroutines.CoroutineContext
 @Component
 @EnableConfigurationProperties(LifecycleConfig::class)
 class LifecycleMonitorScheduler(
-  val monitors: List<LifecycleMonitor>,
-  val monitorRepository: LifecycleMonitorRepository,
-  val publisher: ApplicationEventPublisher,
-  val lifecycleConfig: LifecycleConfig,
+  private val monitors: List<LifecycleMonitor>,
+  private val monitorRepository: LifecycleMonitorRepository,
+  private val publisher: ApplicationEventPublisher,
+  private val lifecycleConfig: LifecycleConfig,
   private val clock: Clock,
-  val spectator: Registry,
-  val springEnv: Environment
+  private val spectator: Registry,
+  private val springEnv: Environment
 ) : DiscoveryActivated(), CoroutineScope {
   override val coroutineContext: CoroutineContext = Dispatchers.IO
 

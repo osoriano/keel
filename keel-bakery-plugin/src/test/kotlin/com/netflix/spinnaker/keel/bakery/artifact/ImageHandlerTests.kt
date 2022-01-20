@@ -87,10 +87,10 @@ internal class ImageHandlerTests : JUnit5Minutests {
     val igorService = mockk<ArtifactService>()
     val baseImageCache = mockk<BaseImageCache>()
     val bakedImageRepository = mockk<BakedImageRepository>()
-    val imageService = mockk<ImageService>() {
+    val imageService = mockk<ImageService> {
       every { log } returns org.slf4j.LoggerFactory.getLogger(ImageService::class.java)
     }
-    val pausedRepository: PausedRepository = mockk() {
+    val pausedRepository: PausedRepository = mockk {
       every { applicationPaused(any()) } returns false
     }
     val publisher: ApplicationEventPublisher = mockk(relaxUnitFun = true)
