@@ -80,7 +80,9 @@ data class PrefixListRule(
 sealed class IngressPorts
 
 @Literal(value = "ALL")
-object AllPorts : IngressPorts()
+object AllPorts : IngressPorts() {
+  override fun toString() = "ALL"
+}
 
 data class PortRange(
   val startPort: Int,
