@@ -275,6 +275,6 @@ class AdminService(
     }
   }
 
-  fun getTaskSummary(id: String): ExecutionSummary =
+  fun getTaskSummary(id: String): ExecutionSummary? =
       executionSummaryService.getSummary(id)
 }

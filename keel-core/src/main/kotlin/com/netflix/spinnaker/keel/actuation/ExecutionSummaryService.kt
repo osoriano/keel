@@ -9,7 +9,7 @@ import java.time.Instant
  */
 interface ExecutionSummaryService {
 
-  fun getSummary(executionId: String): ExecutionSummary
+  fun getSummary(executionId: String): ExecutionSummary?
 }
 
 data class ExecutionSummary(

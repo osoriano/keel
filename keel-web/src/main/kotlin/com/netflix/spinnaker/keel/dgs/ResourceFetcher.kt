@@ -69,7 +69,7 @@ class ResourceFetcher(
     val task: MD_ResourceTask = dfe.getSource()
     try {
       val summary = executionSummaryService.getSummary(task.id)
-      return summary.toDgs()
+      return summary?.toDgs()
     } catch (e: HttpException) {
       log.debug("Failed to fetch task ID ${task.id} - $e")
     }

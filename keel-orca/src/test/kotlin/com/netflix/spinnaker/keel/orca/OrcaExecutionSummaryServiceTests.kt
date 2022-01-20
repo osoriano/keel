@@ -12,7 +12,11 @@ import com.netflix.spinnaker.keel.test.configuredTestObjectMapper
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
+import okhttp3.ResponseBody
+import okhttp3.internal.http.RealResponseBody
 import org.junit.jupiter.api.Test
+import retrofit2.HttpException
+import retrofit2.Response
 import strikt.api.expect
 import strikt.api.expectThat
 import strikt.assertions.containsExactly
@@ -33,6 +37,13 @@ class OrcaExecutionSummaryServiceTests {
     orcaService,
     mapper
   )
+
+  @Test
+  fun `not found exception returns no summary`() {
+    coEvery { orcaService.getOrchestrationExecution(any()) } throws Exception("not found!")
+    val summary = subject.getSummary("1")
+    expectThat(summary).isNull()
+  }
 
   @Test
   fun `can read managed rollout stage`() {
@@ -191,7 +202,7 @@ class OrcaExecutionSummaryServiceTests {
     coEvery { orcaService.getOrchestrationExecution(any()) } returns mapper.readValue(response)
 
     return runBlocking {
-      subject.getSummary("1")
+      subject.getSummary("1")!!
     }
   }
 }

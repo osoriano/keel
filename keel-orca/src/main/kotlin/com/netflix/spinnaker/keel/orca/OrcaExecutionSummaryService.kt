@@ -19,6 +19,8 @@ import com.netflix.spinnaker.keel.api.TaskStatus.TERMINAL
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import retrofit2.HttpException
+import java.lang.Exception
 
 /**
  * Service for translating a task into a nice summary
@@ -48,10 +50,17 @@ class OrcaExecutionSummaryService(
     val PUBLISH_DGS_STAGE = "dgsSchemaDeploy"
   }
 
-  override fun getSummary(executionId: String): ExecutionSummary {
+  override fun getSummary(executionId: String): ExecutionSummary? {
     val taskDetails = runBlocking {
-      orcaService.getOrchestrationExecution(executionId)
-    }
+      try {
+        orcaService.getOrchestrationExecution(executionId)
+      } catch (e: Exception) {
+        if (e is HttpException && e.code() != 404) {
+          log.debug("error fetching task from orca:", e)
+        }
+        null
+      }
+    } ?: return null
 
     val typedStages: List<OrcaStage> =
       taskDetails.execution?.stages?.map { stage -> stage.mapValues {
