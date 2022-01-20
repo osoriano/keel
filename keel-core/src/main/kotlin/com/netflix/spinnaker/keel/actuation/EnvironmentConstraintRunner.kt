@@ -97,14 +97,20 @@ class EnvironmentConstraintRunner(
       .firstOrNull { version ->
         withThreadTracingContext(envContext.artifact, version) {
           versionsWithPendingStatefulConstraintStatus.removeIf { it.version == version } // remove to indicate we are rechecking this version
-          /**
-           * Only check stateful evaluators if all stateless evaluators pass. We don't
-           * want to request judgement or deploy a canary for artifacts that aren't
-           * deployed to a required environment.
-           */
-          val passesConstraints =
-            checkStatelessConstraints(envContext.artifact, envContext.deliveryConfig, version, envContext.environment) &&
-              checkStatefulConstraints(envContext.artifact, envContext.deliveryConfig, version, envContext.environment)
+
+          val passesStatelessConstraints = checkStatelessConstraints(envContext.artifact, envContext.deliveryConfig, version, envContext.environment)
+          val passesStatefulConstraints = if (passesStatelessConstraints) {
+            /**
+             * Important! Only check stateful evaluators if all stateless evaluators pass. We don't
+             * want to request judgement or deploy a canary for artifacts that aren't
+             * deployed to a required environment.
+             */
+            checkStatefulConstraints(envContext.artifact, envContext.deliveryConfig, version, envContext.environment)
+          } else {
+            false
+          }
+
+          val passesConstraints = passesStatelessConstraints && passesStatefulConstraints
 
           if (envContext.environment.constraints.anyStateful) {
             versionIsPending = repository
@@ -112,10 +118,13 @@ class EnvironmentConstraintRunner(
               .any { it.status == ConstraintStatus.PENDING }
           }
 
-          log.debug(
-            "Version $version of ${envContext.artifact} ${if (passesConstraints) "passes" else "does not pass"} " +
-              "constraints in ${envContext.environment.name}"
+          logConstraintPassFail(
+            passesStateless = passesStatelessConstraints,
+            passesStateful = passesStatefulConstraints,
+            version = version,
+            envContext = envContext
           )
+
           log.debug(
             "Version $version of ${envContext.artifact} ${if (versionIsPending) "is" else "is not"} " +
               "pending constraint approval in ${envContext.environment.name}"
@@ -135,6 +144,20 @@ class EnvironmentConstraintRunner(
       }
     }
   }
+
+  fun logConstraintPassFail(passesStateless: Boolean, passesStateful: Boolean, version: String, envContext: EnvironmentContext) {
+    val passesConstraints = passesStateful && passesStateless
+    log.debug(
+      "Version $version of ${envContext.artifact} ${passesConstraints.passFailWording()} " +
+        "constraints in ${envContext.environment.name}"
+    )
+    if (!passesConstraints) {
+      log.debug("Version $version of ${envContext.artifact} ${passesStateless.passFailWording()} stateless constraints and ${passesStateful.passFailWording()} stateful constraints")
+    }
+  }
+  
+  fun Boolean.passFailWording() =
+    if (this) "passes" else "does not pass"
 
   /**
    * Re-checks older versions with pending stateful constraints to see if they can be approved,
