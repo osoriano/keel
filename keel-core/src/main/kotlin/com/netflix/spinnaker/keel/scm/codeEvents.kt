@@ -325,9 +325,6 @@ internal val KNOWN_ROCKET_CODE_EVENTS = setOf(
 val PublishedArtifact.isCodeEvent: Boolean
   get() = type in KNOWN_ROCKET_CODE_EVENTS
 
-val PublishedArtifact.isBuildEvent: Boolean
-  get() = metadata["eventType"] == "BUILD"
-
 private val PublishedArtifact.repoKey: String
   get() = metadata["repoKey"] as? String ?: throw MissingCodeEventDetails("repository", this)
 

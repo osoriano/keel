@@ -1,15 +1,12 @@
 package com.netflix.spinnaker.keel.rest
 
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
-import com.netflix.spinnaker.keel.api.artifacts.DOCKER
-import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.events.ArtifactPublishedEvent
 import com.netflix.spinnaker.keel.api.events.ArtifactSyncEvent
 import com.netflix.spinnaker.keel.api.plugins.UnsupportedArtifactException
 import com.netflix.spinnaker.keel.artifacts.WorkQueueProcessor
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
 import com.netflix.spinnaker.keel.logging.withThreadTracingContext
-import com.netflix.spinnaker.keel.scm.isBuildEvent
 import com.netflix.spinnaker.keel.scm.isCodeEvent
 import com.netflix.spinnaker.keel.scm.toCodeEvent
 import com.netflix.spinnaker.keel.yaml.APPLICATION_YAML_VALUE
@@ -53,25 +50,18 @@ class ArtifactController(
   fun submitArtifact(@RequestBody echoArtifactEvent: EchoArtifactEvent) {
     log.debug("Received artifact event: $echoArtifactEvent")
     echoArtifactEvent.payload.artifacts.forEach { artifact ->
-      when {
-        artifact.isCodeEvent -> {
-          artifact.toCodeEvent()?.let { codeEvent ->
-            log.debug("Queueing code event: $codeEvent")
-            workQueueProcessor.queueCodeEventForProcessing(codeEvent)
-          }
+      if (artifact.isCodeEvent) {
+        artifact.toCodeEvent()?.let { codeEvent ->
+          log.debug("Queueing code event: $codeEvent")
+          workQueueProcessor.queueCodeEventForProcessing(codeEvent)
         }
-        artifact.isBuildEvent && artifact.type == DOCKER -> {
-          log.debug("Queueing Docker build event: $artifact")
-          workQueueProcessor.queueArtifactForProcessing(artifact)
-        }
-        else -> {
-          withThreadTracingContext(artifact) {
-            try {
-              log.debug("Queueing artifact ${artifact.type}:${artifact.name} version ${artifact.version} from artifact $artifact")
-              workQueueProcessor.queueArtifactForProcessing(artifact)
-            } catch (e: UnsupportedArtifactException) {
-              log.debug("Ignoring artifact event with unsupported type {}: {}", artifact.type, artifact)
-            }
+      } else {
+        withThreadTracingContext(artifact) {
+          try {
+            log.debug("Queueing artifact ${artifact.name} version ${artifact.version} from artifact $artifact")
+            workQueueProcessor.queueArtifactForProcessing(artifact)
+          } catch (e: UnsupportedArtifactException) {
+            log.debug("Ignoring artifact event with unsupported type {}: {}", artifact.type, artifact)
           }
         }
       }
