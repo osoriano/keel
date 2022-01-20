@@ -19,5 +19,7 @@ data class BuildResult(
 enum class BuildState {
   @JsonProperty("INPROGRESS") IN_PROGRESS,
   SUCCESSFUL,
-  FAILED
+  FAILED,
+  ABORTED,
+  UNSTABLE
 }

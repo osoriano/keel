@@ -1,7 +1,9 @@
 package com.netflix.spinnaker.keel.igor
+import com.netflix.spinnaker.keel.igor.model.ArtifactContents
 import com.netflix.spinnaker.keel.igor.model.Build
 import retrofit2.http.GET
 import retrofit2.http.Headers
+import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface BuildService {
@@ -24,4 +26,16 @@ interface BuildService {
     @Query("repoSlug") repoSlug: String? = null,
     @Query("completionStatus") completionStatus: String? = null
   ): List<Build>?
+
+  /**
+   * Retrieves the contents of the specified artifact published from a build.
+   */
+  @GET("/builds/artifactContents/{master}/{job}/{buildNumber}")
+  @Headers("Accept: application/json")
+  suspend fun getArtifactContents(
+    @Path("master") controller: String,
+    @Path("job") job: String,
+    @Path("buildNumber") buildNumber: Int,
+    @Query("filePath") filePath: String
+  ): ArtifactContents
 }
