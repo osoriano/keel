@@ -85,5 +85,5 @@ internal val PublishedArtifact.traceId: String
   get() = version.let {
     if (it.startsWith("$name-")) it.substringAfter("$name-") else it
   }.let { normalizedVersion ->
-    "$type:$name:$normalizedVersion"
+    "${type.lowercase()}:$name:$normalizedVersion"
   }
