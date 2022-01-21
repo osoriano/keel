@@ -56,7 +56,7 @@ data class TitusServerGroup(
   val instanceCounts: InstanceCounts? = null,
   val scaling: Scaling = Scaling(),
   val efs: ElasticFileSystem?,
-  val platformSidecars: List<PlatformSidecar>? = null,
+  val platformSidecars: List<PlatformSidecar> = emptyList(),
 ) : VersionedArtifactProvider, SimpleLocationProvider by location {
 
   // todo eb: should this be more general?

@@ -58,7 +58,6 @@ class TitusActiveServerGroupDeserializationTests {
     }
       .isSuccess()
       .get { platformSidecars }
-      .isNotNull()
       .hasSize(2)
       .and {
         this[0].isEqualTo(PlatformSidecar("foo", "beta"))

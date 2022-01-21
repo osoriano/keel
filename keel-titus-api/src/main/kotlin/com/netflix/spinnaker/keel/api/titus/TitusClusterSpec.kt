@@ -72,7 +72,7 @@ data class TitusClusterSpec(
     resources: ResourcesSpec? = null,
     iamProfile: String? = null,
     entryPoint: String? = null,
-    platformSidecars: List<TitusServerGroup.PlatformSidecar>? = null,
+    platformSidecars: List<TitusServerGroup.PlatformSidecar> = emptyList(),
     capacityGroup: String? = null,
     migrationPolicy: TitusServerGroup.MigrationPolicy? = null,
     dependencies: ClusterDependencies? = null,
@@ -180,7 +180,7 @@ data class TitusServerGroupSpec(
   val tags: Map<String, String>? = null,
   val scaling: TitusScalingSpec? = null,
   val efs: ElasticFileSystem? = null,
-  val platformSidecars: List<TitusServerGroup.PlatformSidecar>? = null
+  val platformSidecars: List<TitusServerGroup.PlatformSidecar> = emptyList()
 )
 
 data class ResourcesSpec(
