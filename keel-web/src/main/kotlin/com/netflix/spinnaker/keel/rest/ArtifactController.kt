@@ -6,6 +6,7 @@ import com.netflix.spinnaker.keel.api.events.ArtifactSyncEvent
 import com.netflix.spinnaker.keel.api.plugins.UnsupportedArtifactException
 import com.netflix.spinnaker.keel.artifacts.WorkQueueProcessor
 import com.netflix.spinnaker.keel.artifacts.isArtifactEvent
+import com.netflix.spinnaker.keel.artifacts.isBuildEvent
 import com.netflix.spinnaker.keel.artifacts.isIncompleteDockerArtifact
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
 import com.netflix.spinnaker.keel.logging.withThreadTracingContext
@@ -74,7 +75,8 @@ class ArtifactController(
             log.debug("Ignoring incomplete docker artifact as feature toggle is off: $artifact")
           }
         }
-        artifact.isArtifactEvent -> {
+        // It's not a build event from Rocket, so it must be either an artifact event from Rocket or from Clouddriver/Igor (for Docker)
+        !artifact.isBuildEvent -> {
           withThreadTracingContext(artifact) {
             try {
               log.debug("Queueing artifact ${artifact.type}:${artifact.name} version ${artifact.version} from artifact $artifact")
