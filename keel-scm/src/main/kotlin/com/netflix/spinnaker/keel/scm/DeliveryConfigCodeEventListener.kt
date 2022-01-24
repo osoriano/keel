@@ -15,6 +15,7 @@ import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 import com.netflix.spinnaker.keel.notifications.DeliveryConfigImportFailed
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
+import com.netflix.spinnaker.keel.persistence.PausedRepository
 import com.netflix.spinnaker.keel.retrofit.isNotFound
 import com.netflix.spinnaker.keel.telemetry.safeIncrement
 import com.netflix.spinnaker.keel.upsert.DeliveryConfigUpserter
@@ -42,7 +43,8 @@ class DeliveryConfigCodeEventListener(
   private val spectator: Registry,
   private val eventPublisher: ApplicationEventPublisher,
   private val authorizationSupport: AuthorizationSupport,
-  private val clock: Clock
+  private val clock: Clock,
+  private val pausedRepository: PausedRepository,
 ) {
   companion object {
     private val log by lazy { LoggerFactory.getLogger(DeliveryConfigCodeEventListener::class.java) }
@@ -182,6 +184,7 @@ class DeliveryConfigCodeEventListener(
       front50Cache.updateManagedDeliveryConfig(application, user, ManagedDeliveryConfig(importDeliveryConfig = true))
       if (isMigrationPr(event, application)) {
         front50Cache.disableAllPipelines(application.name)
+        pausedRepository.resumeApplication(application.name)
       }
     }
   }

@@ -17,6 +17,7 @@ import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 import com.netflix.spinnaker.keel.notifications.DeliveryConfigImportFailed
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
+import com.netflix.spinnaker.keel.persistence.PausedRepository
 import com.netflix.spinnaker.keel.scm.DeliveryConfigCodeEventListener.Companion.CODE_EVENT_COUNTER
 import com.netflix.spinnaker.keel.test.submittedResource
 import com.netflix.spinnaker.keel.upsert.DeliveryConfigUpserter
@@ -53,6 +54,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
     val clock = MutableClock()
     val eventPublisher: ApplicationEventPublisher = mockk(relaxUnitFun = true)
     val authorizationSupport: AuthorizationSupport = mockk(relaxUnitFun = true)
+    val pausedRepository: PausedRepository = mockk()
     val subject = DeliveryConfigCodeEventListener(
       keelRepository = keelRepository,
       deliveryConfigUpserter = deliveryConfigUpserter,
@@ -64,7 +66,8 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
       spectator = spectator,
       eventPublisher = eventPublisher,
       authorizationSupport = authorizationSupport,
-      clock = clock
+      clock = clock,
+      pausedRepository = pausedRepository
     )
 
     val configuredApp = Application(
@@ -168,6 +171,10 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
       every {
         front50Cache.disableAllPipelines(any())
       } just runs
+
+      every {
+        pausedRepository.resumeApplication(any())
+      } just runs
     }
   }
 
@@ -244,13 +251,17 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
             }
           }
 
-          test("auto import is not enabled for an existing app") {
+          test("we are not onboarding existing apps") {
             verify(exactly = 0) {
               front50Cache.updateManagedDeliveryConfig(any<Application>(), any(), any())
             }
 
             verify(exactly = 0) {
               front50Cache.disableAllPipelines(any())
+            }
+
+            verify(exactly = 0) {
+              pausedRepository.resumeApplication(any())
             }
           }
 
@@ -313,6 +324,10 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
 
           verify {
             front50Cache.disableAllPipelines(migratingApp.name)
+          }
+
+          verify {
+            pausedRepository.resumeApplication(migratingApp.name)
           }
         }
 
