@@ -1575,7 +1575,7 @@ class SqlDeliveryConfigRepository(
         .from(DELIVERY_CONFIG)
         .where(DELIVERY_CONFIG.APPLICATION.eq(application))
         .fetchOne { (metadata) ->
-          Pair(true, metadata["migrating"] as? Boolean ?: false)
+          Pair(true, metadata?.get("migrating") as? Boolean ?: false)
         }
         ?: Pair(false, false)
 
