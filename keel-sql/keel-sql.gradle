@@ -6,8 +6,11 @@ plugins {
   id("org.liquibase.gradle") version "2.1.1"
 }
 
-def buildingInDocker = Boolean.parseBoolean(project.properties["buildingInDocker"]?.toString() ?: "false")
-def mysqlImage = System.getProperty("os.arch") == "aarch64" ? "jamielsharief/mysql:arm64" : "mysql:8.0.27"
+ext {
+  buildingInDocker = Boolean.parseBoolean(project.properties["buildingInDocker"]?.toString() ?: "false")
+  mysqlImage = System.getProperty("os.arch") == "aarch64" ? "jamielsharief/mysql:arm64" : "mysql:8.0.27"
+  maxParallelTests = Integer.parseInt(project.properties["maxParallelTests"] ?: "1")
+}
 
 sourceSets {
   main {
@@ -19,6 +22,14 @@ sourceSets {
 
 clean {
   delete.add("$projectDir/src/generated/java")
+}
+
+// Run tests in parallel: https://docs.gradle.org/current/userguide/performance.html#parallel_test_execution
+test {
+  maxParallelForks = maxParallelTests
+  afterEvaluate {
+    logger.lifecycle("Running tests with $maxParallelTests parallel workers")
+  }
 }
 
 dependencies {

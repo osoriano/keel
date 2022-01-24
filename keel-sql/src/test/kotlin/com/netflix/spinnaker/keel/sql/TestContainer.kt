@@ -12,6 +12,14 @@ internal val testDatabase by lazy {
 
 internal val mySQLContainer = MySQLContainerProvider()
   .newInstance(ConnectionUrl.newInstance("jdbc:tc:mysql:8.0.27:///keel?useSSL=false&TC_REUSABLE=true"))
+  .withCreateContainerCmdModifier { cmd ->
+    cmd.hostConfig
+      // According to the Docker docs, setting memory and memory swap to the same value prevents the container
+      // from using swap at all: https://docs.docker.com/config/containers/resource_constraints/#prevent-a-container-from-using-swap
+      ?.withMemory(512 * 1024 * 1024)
+      ?.withMemorySwap(512 * 1024 * 1024)
+      ?.withCpuCount(1)
+  }
   .withDatabaseName("keel")
   .withUsername("keel_service")
   .withPassword("whatever")
