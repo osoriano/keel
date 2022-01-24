@@ -170,11 +170,12 @@ class ActuationPauserTests : JUnit5Minutests {
       }
 
       test("resumes the right resources") {
-        subject.resumeCluster("pancake", titusProd, awsProd, "me@breakfast", "testing resume")
-        verify(exactly = 0) { pausedRepository.resumeResource(testEc2) }
-        verify(exactly = 0) { pausedRepository.resumeResource(testTitus) }
-        verify(exactly = 1) { pausedRepository.resumeResource(prodEc2) }
-        verify(exactly = 1) { pausedRepository.resumeResource(prodTitus) }
+        val user = "me@breakfast"
+        subject.resumeCluster("pancake", titusProd, awsProd, user, "testing resume")
+        verify(exactly = 0) { pausedRepository.resumeResourceIfSameUser(testEc2, user) }
+        verify(exactly = 0) { pausedRepository.resumeResourceIfSameUser(testTitus, user) }
+        verify(exactly = 1) { pausedRepository.resumeResourceIfSameUser(prodEc2, user) }
+        verify(exactly = 1) { pausedRepository.resumeResourceIfSameUser(prodTitus, user) }
       }
     }
   }

@@ -36,6 +36,13 @@ interface PausedRepository {
 
   fun pauseResource(id: String, user: String, comment: String? = null)
   fun resumeResource(id: String)
+
+  /**
+   * Resumes a resource if the users calling resume is the same user that paused the cluster.
+   * This is to support batch pause/resume, because we don't want to resume a cluster that was paused for
+   * a different reason.
+   */
+  fun resumeResourceIfSameUser(id: String, user: String)
   fun resourcePaused(id: String): Boolean
 
   fun getPausedApplications(): List<String>

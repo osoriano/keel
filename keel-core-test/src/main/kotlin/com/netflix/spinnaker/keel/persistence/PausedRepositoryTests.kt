@@ -31,6 +31,7 @@ abstract class PausedRepositoryTests<T : PausedRepository> : JUnit5Minutests {
   open fun T.flush() {}
 
   val application = "keeldemo"
+  val resource = "keel-cluster"
 
   data class Fixture<T : PausedRepository>(
     val subject: T
@@ -69,6 +70,22 @@ abstract class PausedRepositoryTests<T : PausedRepository> : JUnit5Minutests {
       test("resume works") {
         subject.resumeApplication(application)
         expectThat(subject.applicationPaused(application)).isFalse()
+      }
+    }
+
+    context("resource paused") {
+      before {
+        subject.pauseResource(resource, "keel@keel.io")
+      }
+
+      test("resume works") {
+        subject.resumeResource(resource)
+        expectThat(subject.resourcePaused(resource)).isFalse()
+      }
+
+      test("resume doesn't work with different user") {
+        subject.resumeResourceIfSameUser(resource, "me@hi.org")
+        expectThat(subject.resourcePaused(resource)).isTrue()
       }
     }
   }

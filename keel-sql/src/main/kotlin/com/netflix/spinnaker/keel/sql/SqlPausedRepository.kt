@@ -66,6 +66,10 @@ class SqlPausedRepository(
     remove(RESOURCE, id)
   }
 
+  override fun resumeResourceIfSameUser(id: String, user: String) {
+    removeMatchingUser(RESOURCE, id, user)
+  }
+
   override fun resourcePaused(id: String): Boolean =
     exists(RESOURCE, id)
 
@@ -95,6 +99,17 @@ class SqlPausedRepository(
         .deleteFrom(PAUSED)
         .where(PAUSED.SCOPE.eq(scope))
         .and(PAUSED.NAME.eq(name))
+        .execute()
+    }
+  }
+
+  private fun removeMatchingUser(scope: PauseScope, name: String, user: String) {
+    sqlRetry.withRetry(WRITE) {
+      jooq
+        .deleteFrom(PAUSED)
+        .where(PAUSED.SCOPE.eq(scope))
+        .and(PAUSED.NAME.eq(name))
+        .and(PAUSED.PAUSED_BY.eq(user))
         .execute()
     }
   }

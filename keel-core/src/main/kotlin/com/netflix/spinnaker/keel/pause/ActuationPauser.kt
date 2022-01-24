@@ -96,11 +96,15 @@ class ActuationPauser(
       }
   }
 
+  /**
+   * Resumes resource if it was paused by the user calling resume, so that batch resume requests don't
+   * resume resources that were paused by someone else.
+   */
   fun resumeCluster(name: String, titusAccount: String, ec2Account: String, user: String, comment: String) {
     log.info("Preparing to resume cluster $name ${logReason(comment)}")
     getClusters(name, titusAccount, ec2Account)
       .forEach { resourceId ->
-        resumeResource(resourceId, user)
+        resumeResourceSameUser(resourceId, user)
       }
   }
 
@@ -116,6 +120,12 @@ class ActuationPauser(
   fun resumeResource(id: String, user: String) {
     log.info("Resuming resource $id")
     pausedRepository.resumeResource(id)
+    publisher.publishEvent(ResourceActuationResumed(resourceRepository.get(id), user, clock))
+  }
+
+  fun resumeResourceSameUser(id: String, user: String) {
+    log.info("Resuming resource $id if pause user is $user")
+    pausedRepository.resumeResourceIfSameUser(id, user)
     publisher.publishEvent(ResourceActuationResumed(resourceRepository.get(id), user, clock))
   }
 
