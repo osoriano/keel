@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.titus.resource
 
+import com.netflix.spinnaker.config.FeatureToggles
+import com.netflix.spinnaker.config.Features.OPTIMIZED_DOCKER_FLOW
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.SimpleLocations
 import com.netflix.spinnaker.keel.api.SimpleRegionSpec
@@ -20,8 +22,10 @@ import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.keel.titus.NETFLIX_CONTAINER_ENV_VARS
 import com.netflix.spinnaker.keel.titus.TitusClusterHandler
+import com.netflix.spinnaker.keel.titus.registry.TitusRegistryService
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
 import strikt.api.expectThat
@@ -146,6 +150,10 @@ class TitusClusterDesiredStateResolutionTests : JUnit5Minutests {
     val orcaService = mockk<OrcaService>()
     val taskLauncher = mockk<TaskLauncher>()
     val publisher = mockk<EventPublisher>()
+    val titusRegistryService = mockk<TitusRegistryService>()
+    val featureToggles: FeatureToggles = mockk {
+      every { isEnabled(OPTIMIZED_DOCKER_FLOW) } returns false
+    }
     val handler = TitusClusterHandler(
       cloudDriverService,
       cloudDriverCache,
@@ -155,7 +163,9 @@ class TitusClusterDesiredStateResolutionTests : JUnit5Minutests {
       publisher,
       emptyList(),
       ClusterExportHelper(cloudDriverService, orcaService),
-      DefaultResourceDiffFactory()
+      DefaultResourceDiffFactory(),
+      titusRegistryService,
+      featureToggles
     )
 
     val desired: Map<String, TitusServerGroup> by lazy {

@@ -54,6 +54,7 @@ dependencies {
     exclude(module: "keel-sql")
   }
   testImplementation(project(":keel-testcontainers"))
+  testImplementation(project(":keel-titus-registry"))
 
   jooqGenerator(platform("com.netflix.spinnaker.netflixplatform:netflixplatform-bom:${netflixplatformVersion}"))
   jooqGenerator("mysql:mysql-connector-java")

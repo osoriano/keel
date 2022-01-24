@@ -17,6 +17,9 @@
  */
 package com.netflix.spinnaker.keel.titus
 
+import com.netflix.spinnaker.config.FeatureToggles
+import com.netflix.spinnaker.config.Features.OPTIMIZED_DOCKER_FLOW
+
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.titus.TITUS_CLUSTER_V1
 import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
@@ -29,6 +32,7 @@ import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.titus.exceptions.ImageTooOld
 import com.netflix.spinnaker.keel.titus.exceptions.NoDigestFound
 import com.netflix.spinnaker.keel.titus.exceptions.RegistryNotFound
+import com.netflix.spinnaker.keel.titus.registry.TitusRegistryService
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -43,7 +47,9 @@ class TitusImageResolver(
   override val repository: KeelRepository,
   private val clock: Clock,
   private val cloudDriverCache: CloudDriverCache,
-  private val cloudDriverService: CloudDriverService
+  private val cloudDriverService: CloudDriverService,
+  private val titusRegistryService: TitusRegistryService,
+  private val featureToggles: FeatureToggles
 ) : DockerImageResolver<TitusClusterSpec>(
   repository
 ) {
@@ -55,7 +61,7 @@ class TitusImageResolver(
     resource.spec.container
 
   override fun getAccountFromSpec(resource: Resource<TitusClusterSpec>) =
-    resource.spec.deriveRegistry()
+    resource.spec.locations.account
 
   override fun updateContainerInSpec(
     resource: Resource<TitusClusterSpec>,
@@ -77,9 +83,17 @@ class TitusImageResolver(
       cloudDriverService.findDockerTagsForImage(account, repository)
     }
 
-  override fun getDigest(account: String, artifact: DockerArtifact, tag: String) =
+  override fun getDigest(titusAccount: String, artifact: DockerArtifact, tag: String) =
     runBlocking {
-      val images = cloudDriverService.findDockerImages(account, artifact.name, tag)
+      val images = if (featureToggles.isEnabled(OPTIMIZED_DOCKER_FLOW)) {
+        val awsAccount = cloudDriverCache.getAwsAccountNameForTitusAccount(titusAccount)
+        titusRegistryService.findImages(artifact.name, awsAccount, tag)
+      }
+      else {
+        val registry = cloudDriverCache.getRegistryForTitusAccount(titusAccount)
+        cloudDriverService.findDockerImages(registry, artifact.name, tag)
+      }
+
       val digest = images.firstOrNull()?.digest
 
       if (digest == null) {
@@ -94,10 +108,6 @@ class TitusImageResolver(
       digest
     }
 
-  protected fun TitusClusterSpec.deriveRegistry(): String =
-    cloudDriverCache.credentialBy(locations.account).attributes["registry"]?.toString()
-      ?: throw RegistryNotFound(locations.account)
-  
   companion object {
     val TITUS_REGISTRY_IMAGE_TTL: Duration = Duration.ofDays(60)
   }

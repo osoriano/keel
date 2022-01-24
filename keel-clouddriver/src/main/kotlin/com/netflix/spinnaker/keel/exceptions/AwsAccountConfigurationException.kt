@@ -1,4 +1,4 @@
-package com.netflix.spinnaker.keel.titus.exceptions
+package com.netflix.spinnaker.keel.exceptions
 
 import com.netflix.spinnaker.kork.exceptions.IntegrationException
 

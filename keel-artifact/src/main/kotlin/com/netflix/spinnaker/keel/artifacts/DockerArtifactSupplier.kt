@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.artifacts
 
+import com.netflix.spinnaker.config.FeatureToggles
+import com.netflix.spinnaker.config.Features.OPTIMIZED_DOCKER_FLOW
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
 import com.netflix.spinnaker.keel.api.artifacts.DOCKER
@@ -15,6 +17,7 @@ import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
+import com.netflix.spinnaker.keel.titus.registry.TitusRegistryService
 import org.springframework.stereotype.Component
 
 /**
@@ -25,10 +28,13 @@ import org.springframework.stereotype.Component
 class DockerArtifactSupplier(
   override val eventPublisher: EventPublisher,
   private val cloudDriverService: CloudDriverService,
-  override val artifactMetadataService: ArtifactMetadataService
+  override val artifactMetadataService: ArtifactMetadataService,
+  private val titusRegistryService: TitusRegistryService,
+  private val featureToggles: FeatureToggles
 ) : BaseArtifactSupplier<DockerArtifact, DockerVersionSortingStrategy>(artifactMetadataService) {
   override val supportedArtifact = SupportedArtifact("docker", DockerArtifact::class.java)
 
+<<<<<<< 9a74071d2401ab3654fed604310d90eb11dd94ff
   private fun findArtifactVersions(artifact: DeliveryArtifact, version: String? = null): List<PublishedArtifact> {
     return runWithIoContext {
       // TODO: we currently don't have a way to derive account information from artifacts,
@@ -59,7 +65,39 @@ class DockerArtifactSupplier(
             }
           )
         }
+=======
+  private fun findArtifactVersions(artifact: DeliveryArtifact, limit: Int): List<PublishedArtifact> {
+    // TODO: we currently don't have a way to derive account information from artifacts,
+    //  so we look in all accounts/registries.
+    return if (featureToggles.isEnabled(OPTIMIZED_DOCKER_FLOW)) {
+      titusRegistryService.findImages(artifact.name)
+    } else {
+      runWithIoContext {
+        cloudDriverService.findDockerImages(registry = "*", repository = artifact.name, includeDetails = true)
+      }
+>>>>>>> d3fd8a09b7e726420d9315438a7435aa9e2a346f
     }
+      .map { dockerImage ->
+        PublishedArtifact(
+          name = dockerImage.repository,
+          type = DOCKER,
+          reference = dockerImage.repository.substringAfter(':', dockerImage.repository),
+          version = dockerImage.tag,
+          metadata = let {
+            if (dockerImage.commitId != null && dockerImage.buildNumber != null) {
+              mapOf(
+                "commitId" to dockerImage.commitId,
+                "prCommitId" to dockerImage.prCommitId,
+                "buildNumber" to dockerImage.buildNumber,
+                "branch" to dockerImage.branch,
+                "createdAt" to dockerImage.date
+              )
+            } else {
+              emptyMap()
+            }
+          }
+        )
+      }
   }
 
   override fun getLatestArtifact(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact): PublishedArtifact? =
@@ -74,10 +112,10 @@ class DockerArtifactSupplier(
       throw IllegalArgumentException("Only Docker artifacts are supported by this implementation.")
     }
 
-    return findArtifactVersions(artifact)
+    return findArtifactVersions(artifact, limit)
       .filter { shouldProcessArtifact(it) }
       .sortedWith(artifact.sortingStrategy.comparator)
-      .take(limit)
+      .take(limit) // unfortunately we can only limit here because we need to sort with the comparator above
   }
 
   override fun parseDefaultBuildMetadata(artifact: PublishedArtifact, sortingStrategy: SortingStrategy): BuildMetadata? {

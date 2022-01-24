@@ -1,11 +1,12 @@
 package com.netflix.spinnaker.keel.rest
 
+import com.netflix.spinnaker.config.FeatureToggles
+import com.netflix.spinnaker.config.Features.OPTIMIZED_DOCKER_FLOW
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
 import com.netflix.spinnaker.keel.api.events.ArtifactPublishedEvent
 import com.netflix.spinnaker.keel.api.events.ArtifactSyncEvent
 import com.netflix.spinnaker.keel.api.plugins.UnsupportedArtifactException
 import com.netflix.spinnaker.keel.artifacts.WorkQueueProcessor
-import com.netflix.spinnaker.keel.artifacts.isArtifactEvent
 import com.netflix.spinnaker.keel.artifacts.isBuildEvent
 import com.netflix.spinnaker.keel.artifacts.isIncompleteDockerArtifact
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
@@ -33,12 +34,9 @@ class ArtifactController(
   private val eventPublisher: ApplicationEventPublisher,
   private val artifactMetadataService: ArtifactMetadataService,
   private val workQueueProcessor: WorkQueueProcessor,
-  private val springEnv: ConfigurableEnvironment
+  private val featureToggles: FeatureToggles
 ) {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
-
-  private val optimizedDockerFlow: Boolean
-    get() = springEnv.getProperty("keel.artifacts.optimized-docker-flow", Boolean::class.java, true)
 
   /**
    * Handles "artifact events" submitted from other Spinnaker services (Echo for Debian and NPM packages,
@@ -69,7 +67,7 @@ class ArtifactController(
          *  In this case, we still queue the artifact and [WorkQueueProcessor] will fill in the details at the
          *  time of processing. */
         artifact.isIncompleteDockerArtifact -> {
-          if (optimizedDockerFlow) {
+          if (featureToggles.isEnabled(OPTIMIZED_DOCKER_FLOW)) {
             workQueueProcessor.queueArtifactForProcessing(artifact)
           } else {
             log.debug("Ignoring incomplete docker artifact as feature toggle is off: $artifact")

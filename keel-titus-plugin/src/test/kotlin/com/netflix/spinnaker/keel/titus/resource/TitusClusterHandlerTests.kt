@@ -17,6 +17,9 @@
  */
 package com.netflix.spinnaker.keel.titus.resource
 
+import com.netflix.spinnaker.config.FeatureToggles
+import com.netflix.spinnaker.config.Features
+import com.netflix.spinnaker.config.Features.OPTIMIZED_DOCKER_FLOW
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.Exportable
 import com.netflix.spinnaker.keel.api.Highlander
@@ -44,7 +47,7 @@ import com.netflix.spinnaker.keel.api.titus.TitusServerGroupSpec
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.clouddriver.model.Credential
-import com.netflix.spinnaker.keel.clouddriver.model.DockerImage
+import com.netflix.spinnaker.keel.api.artifacts.DockerImage
 import com.netflix.spinnaker.keel.clouddriver.model.SecurityGroupSummary
 import com.netflix.spinnaker.keel.clouddriver.model.ServerGroupCollection
 import com.netflix.spinnaker.keel.core.orcaClusterMoniker
@@ -60,6 +63,7 @@ import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.keel.titus.TitusClusterHandler
 import com.netflix.spinnaker.keel.titus.byRegion
+import com.netflix.spinnaker.keel.titus.registry.TitusRegistryService
 import com.netflix.spinnaker.keel.titus.resolve
 import com.netflix.spinnaker.keel.titus.resolveCapacity
 import de.huxhorn.sulky.ulid.ULID
@@ -72,6 +76,7 @@ import io.mockk.slot
 import kotlinx.coroutines.runBlocking
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.ResponseBody.Companion.toResponseBody
+import org.springframework.core.env.ConfigurableEnvironment
 import retrofit2.HttpException
 import retrofit2.Response
 import strikt.api.Assertion
@@ -115,7 +120,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
   val resolvers = emptyList<Resolver<TitusClusterSpec>>()
   val repository = mockk<KeelRepository>()
   val publisher: EventPublisher = mockk(relaxUnitFun = true)
-  val springEnv: org.springframework.core.env.Environment = mockk(relaxUnitFun = true)
+  val springEnv: ConfigurableEnvironment = mockk(relaxUnitFun = true)
 
   val taskLauncher = OrcaTaskLauncher(
     orcaService,
@@ -221,6 +226,8 @@ class TitusClusterHandlerTests : JUnit5Minutests {
   )
 
   val diffFactory = DefaultResourceDiffFactory()
+  val titusRegistryService = mockk<TitusRegistryService>()
+  val featureToggles = mockk<FeatureToggles>()
 
   fun tests() = rootContext<TitusClusterHandler> {
     fixture {
@@ -233,7 +240,9 @@ class TitusClusterHandlerTests : JUnit5Minutests {
         publisher,
         resolvers,
         clusterExportHelper,
-        DefaultResourceDiffFactory()
+        DefaultResourceDiffFactory(),
+        titusRegistryService,
+        featureToggles
       )
     }
 
@@ -249,6 +258,8 @@ class TitusClusterHandlerTests : JUnit5Minutests {
         every { securityGroupByName(awsAccount, "us-east-1", sg1East.name) } returns sg1East
         every { securityGroupByName(awsAccount, "us-east-1", sg2East.name) } returns sg2East
         every { cloudDriverCache.credentialBy(titusAccount) } returns titusAccountCredential
+        every { cloudDriverCache.getAwsAccountNameForTitusAccount(any()) } returns "test"
+        every { cloudDriverCache.getRegistryForTitusAccount(any()) } returns "testregistry"
       }
       every { repository.environmentFor(any()) } returns Environment("test")
       every {
@@ -257,6 +268,10 @@ class TitusClusterHandlerTests : JUnit5Minutests {
 
       every {
         springEnv.getProperty("keel.notifications.slack", Boolean::class.java, true)
+      } returns false
+
+      every {
+        featureToggles.isEnabled(OPTIMIZED_DOCKER_FLOW)
       } returns false
     }
 
@@ -804,6 +819,31 @@ class TitusClusterHandlerTests : JUnit5Minutests {
       test("does not generate any task") {
         runBlocking { delete(resource) }
         verify { orcaService wasNot called }
+      }
+    }
+
+    context("with optimized Docker flow") {
+      before {
+        every {
+          featureToggles.isEnabled(OPTIMIZED_DOCKER_FLOW)
+        } returns true
+
+        every {
+          titusRegistryService.findImages(any(), any(), digest = any())
+        } returns emptyList()
+
+        every { cloudDriverService.listTitusServerGroups(any(), any(), any(), any()) } returns allActiveServerGroups
+        every { cloudDriverService.titusActiveServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast
+        every { cloudDriverService.titusActiveServerGroup(any(), "us-west-2") } returns activeServerGroupResponseWest
+      }
+
+      test("uses Titus registry cache to find tags for digest") {
+        runBlocking {
+          current(resource)
+        }
+        verify {
+          titusRegistryService.findImages(any(), any(), digest = any())
+        }
       }
     }
   }

@@ -5,10 +5,7 @@ import com.netflix.spinnaker.keel.api.plugins.Resolver
 import com.netflix.spinnaker.keel.api.titus.TITUS_CLUSTER_V1
 import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroupSpec
-import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
-import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
-import com.netflix.spinnaker.keel.titus.exceptions.AwsAccountConfigurationException
-import com.netflix.spinnaker.keel.titus.exceptions.TitusAccountConfigurationException
+import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import kotlinx.coroutines.runBlocking
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.core.env.Environment
@@ -22,7 +19,7 @@ import org.springframework.stereotype.Component
 @EnableConfigurationProperties(DefaultContainerAttributes::class)
 class ContainerAttributesResolver(
   val defaults: DefaultContainerAttributes,
-  val cloudDriverService: CloudDriverService,
+  val cloudDriverCache: CloudDriverCache,
   val springEnv: Environment
 ) : Resolver<TitusClusterSpec> {
 
@@ -42,7 +39,7 @@ class ContainerAttributesResolver(
     val account = resource.spec.locations.account
     // account key will be the same for all regions, so add it to the top level
     if (!keyPresentInAllRegions(resource, defaults.getAccountKey())) {
-      val awsAccountId = getAwsAccountId(account)
+      val awsAccountId = cloudDriverCache.getAwsAccountIdForTitusAccount(account)
       topLevelAttrs.putIfAbsent(defaults.getAccountKey(), awsAccountId)
     }
 
@@ -65,7 +62,7 @@ class ContainerAttributesResolver(
       }
     }
 
-    val containerEnv = getAccountEnvironment(account)
+    val containerEnv = cloudDriverCache.getAccountEnvironment(account)
     if (containerEnv == "test" && !keyPresentInAllRegions(resource, defaults.getIPv6Key())) {
       // Container tunables should be a true/false boolean string
       topLevelAttrs.putIfAbsent(defaults.getIPv6Key(), "true")
@@ -89,24 +86,5 @@ class ContainerAttributesResolver(
       }
     }
     return allPresent
-  }
-
-  private fun getAwsAccountId(titusAccount: String): String =
-    runBlocking {
-      val awsName = getAwsAccountNameForTitusAccount(titusAccount)
-      getAccountId(awsName)
-    }
-
-  private suspend fun getAwsAccountNameForTitusAccount(titusAccount: String): String =
-    cloudDriverService.getAccountInformation(titusAccount, DEFAULT_SERVICE_ACCOUNT)["awsAccount"]?.toString()
-      ?: throw TitusAccountConfigurationException(titusAccount, "awsAccount")
-
-  private suspend fun getAccountId(accountName: String): String =
-    cloudDriverService.getAccountInformation(accountName, DEFAULT_SERVICE_ACCOUNT)["accountId"]?.toString()
-      ?: throw AwsAccountConfigurationException(accountName, "accountId")
-
-  private fun getAccountEnvironment(titusAccount: String): String = runBlocking {
-    cloudDriverService.getAccountInformation(titusAccount, DEFAULT_SERVICE_ACCOUNT)["environment"]?.toString()
-      ?: throw AwsAccountConfigurationException(titusAccount, "environment")
   }
 }

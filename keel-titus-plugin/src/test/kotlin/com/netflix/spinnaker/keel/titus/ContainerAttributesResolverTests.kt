@@ -8,13 +8,14 @@ import com.netflix.spinnaker.keel.api.plugins.supporting
 import com.netflix.spinnaker.keel.api.titus.TITUS_CLUSTER_V1
 import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroupSpec
+import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
+import com.netflix.spinnaker.keel.clouddriver.model.Credential
 import com.netflix.spinnaker.keel.docker.ReferenceProvider
 import com.netflix.spinnaker.keel.test.resource
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
-import io.mockk.coEvery
-import io.mockk.every
+import io.mockk.coEvery as every
 import io.mockk.mockk
 import org.springframework.core.env.Environment
 import strikt.api.expect
@@ -53,12 +54,15 @@ internal class ContainerAttributesResolverTests : JUnit5Minutests {
     overrides = emptyMap()
   )
 
-  val clouddriverService = mockk<CloudDriverService> {
-    coEvery { getAccountInformation(account, any()) } returns mapOf("awsAccount" to "aws", "environment" to "test")
-    coEvery { getAccountInformation("aws", any()) } returns mapOf("accountId" to awsAccountId, "environment" to "test")
+  val clouddriverCache = mockk<CloudDriverCache> {
+    every { credentialBy(account) } answers { Credential(account, "aws", "test", mutableMapOf("awsAccount" to "aws")) }
+    every { credentialBy("aws") } returns Credential("aws", "aws", "test", mutableMapOf("accountId" to awsAccountId))
+    every { getAccountEnvironment(any()) } returns "test"
+    every { getRegistryForTitusAccount(any()) } returns "testregistry"
+    every { getAwsAccountIdForTitusAccount(any()) } returns awsAccountId
   }
   val springEnv: Environment = mockk(relaxed = true) {
-    coEvery { getProperty("keel.titus.resolvers.container-attributes.enabled", Boolean::class.java, true) } returns true
+    every { getProperty("keel.titus.resolvers.container-attributes.enabled", Boolean::class.java, true) } returns true
   }
 
   data class Fixture(val subject: ContainerAttributesResolver, val spec: TitusClusterSpec) {
@@ -73,7 +77,7 @@ internal class ContainerAttributesResolverTests : JUnit5Minutests {
     context("basic test") {
       fixture {
         Fixture(
-          ContainerAttributesResolver(defaults, clouddriverService, springEnv),
+          ContainerAttributesResolver(defaults, clouddriverCache, springEnv),
           baseSpec
         )
       }
@@ -93,7 +97,7 @@ internal class ContainerAttributesResolverTests : JUnit5Minutests {
     context("account is set") {
       fixture {
         Fixture(
-          ContainerAttributesResolver(defaults, clouddriverService, springEnv),
+          ContainerAttributesResolver(defaults, clouddriverCache, springEnv),
           baseSpec.copy(_defaults = baseSpec.defaults.copy(containerAttributes = mapOf(accountKey to awsAccountId)))
         )
       }
@@ -106,7 +110,7 @@ internal class ContainerAttributesResolverTests : JUnit5Minutests {
     context("non-default values are present") {
       fixture {
         Fixture(
-          ContainerAttributesResolver(defaults, clouddriverService, springEnv),
+          ContainerAttributesResolver(defaults, clouddriverCache, springEnv),
           baseSpec.copy(_defaults = baseSpec.defaults.copy(containerAttributes = mapOf(accountKey to "blah", subnetKey to "fake-subnets")))
         )
       }
@@ -126,7 +130,7 @@ internal class ContainerAttributesResolverTests : JUnit5Minutests {
     context("we don't have an entry for the region") {
       fixture {
         Fixture(
-          ContainerAttributesResolver(defaults, clouddriverService, springEnv),
+          ContainerAttributesResolver(defaults, clouddriverCache, springEnv),
           baseSpec.copy(locations = SimpleLocations(
             account = account,
             regions = setOf(SimpleRegionSpec("south"))

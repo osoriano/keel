@@ -20,6 +20,10 @@ package com.netflix.spinnaker.keel.titus
 import com.fasterxml.jackson.module.kotlin.convertValue
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.netflix.buoy.sdk.model.RolloutTarget
+import com.netflix.spinnaker.config.FeatureToggles
+import com.netflix.spinnaker.config.Features.OPTIMIZED_DOCKER_FLOW
+
+import com.netflix.spinnaker.config.Features
 import com.netflix.spinnaker.keel.api.ClusterDeployStrategy
 import com.netflix.spinnaker.keel.api.Exportable
 import com.netflix.spinnaker.keel.api.Moniker
@@ -101,8 +105,7 @@ import com.netflix.spinnaker.keel.orca.toOrcaJobProperties
 import com.netflix.spinnaker.keel.plugin.buildSpecFromDiff
 import com.netflix.spinnaker.keel.retrofit.isNotFound
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
-import com.netflix.spinnaker.keel.titus.exceptions.RegistryNotFoundException
-import com.netflix.spinnaker.keel.titus.exceptions.TitusAccountConfigurationException
+import com.netflix.spinnaker.keel.titus.registry.TitusRegistryService
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
@@ -129,7 +132,9 @@ class TitusClusterHandler(
   override val eventPublisher: EventPublisher,
   resolvers: List<Resolver<*>>,
   private val clusterExportHelper: ClusterExportHelper,
-  diffFactory: ResourceDiffFactory
+  diffFactory: ResourceDiffFactory,
+  private val titusRegistryService: TitusRegistryService,
+  private val featureToggles: FeatureToggles
 ) : BaseClusterHandler<TitusClusterSpec, TitusServerGroup>(resolvers, taskLauncher, diffFactory) {
 
   private val mapper = configuredObjectMapper()
@@ -334,10 +339,10 @@ class TitusClusterHandler(
     val container = serverGroups.values.maxByOrNull { it.capacity.desired }?.container
       ?: throw ExportError("Unable to locate container from the largest server group: $serverGroups")
 
-    val registry = getRegistryForTitusAccount(exportable.account)
+    val registry = cloudDriverCache.getRegistryForTitusAccount(exportable.account)
 
     val images = cloudDriverService.findDockerImages(
-      account = registry,
+      registry = registry,
       repository = container.repository(),
       user = DEFAULT_SERVICE_ACCOUNT
     )
@@ -712,7 +717,7 @@ class TitusClusterHandler(
         "env" to env,
         "containerAttributes" to containerAttributes,
         "constraints" to constraints,
-        "registry" to runBlocking { getRegistryForTitusAccount(location.account) },
+        "registry" to runBlocking { cloudDriverCache.getRegistryForTitusAccount(location.account) },
         "migrationPolicy" to migrationPolicy,
         "resources" to resources,
         // </titus things>
@@ -812,7 +817,7 @@ private fun jsonStringify(arguments: Map<String, Any>?) =
         "targetHealthyDeployPercentage" to 100, // TODO: any reason to do otherwise?
         "cloudProvider" to TITUS_CLOUD_PROVIDER,
         "network" to "default",
-        "registry" to runBlocking { getRegistryForTitusAccount(locations.account) },
+        "registry" to runBlocking { cloudDriverCache.getRegistryForTitusAccount(locations.account) },
         "capacity" to resolveCapacity(),
         "capacityGroup" to resolveCapacityGroup(),
         "securityGroups" to dependencies.securityGroupNames,
@@ -1004,11 +1009,19 @@ private fun jsonStringify(arguments: Map<String, Any>?) =
    * Note: there may be more than one tag with the same digest
    */
   private suspend fun getTagsForDigest(container: DigestProvider, titusAccount: String): Set<String> =
-    cloudDriverService.findDockerImages(
-      account = getRegistryForTitusAccount(titusAccount),
-      repository = container.repository(),
-      user = DEFAULT_SERVICE_ACCOUNT
-    )
+    if (featureToggles.isEnabled(Features.OPTIMIZED_DOCKER_FLOW)) {
+      titusRegistryService.findImages(
+        awsAccount = cloudDriverCache.getAwsAccountNameForTitusAccount(titusAccount),
+        repository = container.repository(),
+        digest = container.digest
+      )
+    } else {
+      cloudDriverService.findDockerImages(
+        registry = cloudDriverCache.getRegistryForTitusAccount(titusAccount),
+        repository = container.repository(),
+        user = DEFAULT_SERVICE_ACCOUNT
+      )
+    }
       .filter { it.digest == container.digest && it.tag != "latest" }
       .map { it.tag }
       .toSet()
@@ -1146,17 +1159,9 @@ private fun jsonStringify(arguments: Map<String, Any>?) =
       }
     )
 
-  private fun getAwsAccountNameForTitusAccount(titusAccount: String): String =
-    cloudDriverCache.credentialBy(titusAccount).attributes["awsAccount"] as? String
-      ?: throw TitusAccountConfigurationException(titusAccount, "awsAccount")
-
-  private fun getRegistryForTitusAccount(titusAccount: String): String =
-    cloudDriverCache.credentialBy(titusAccount).attributes["registry"] as? String
-      ?: throw RegistryNotFoundException(titusAccount)
-
   private fun TitusServerGroup.securityGroupIds(): Collection<String> =
     runBlocking {
-      val awsAccount = getAwsAccountNameForTitusAccount(location.account)
+      val awsAccount = cloudDriverCache.getAwsAccountNameForTitusAccount(location.account)
       dependencies
         .securityGroupNames
         // no need to specify these as Orca will auto-assign them, also the application security group
@@ -1167,7 +1172,7 @@ private fun jsonStringify(arguments: Map<String, Any>?) =
 
   private fun TitusServerGroup.securityGroupIdsForClone(): Collection<String> =
     runBlocking {
-      val awsAccount = getAwsAccountNameForTitusAccount(location.account)
+      val awsAccount = cloudDriverCache.getAwsAccountNameForTitusAccount(location.account)
       dependencies
         .securityGroupNames
         .map { cloudDriverCache.securityGroupByName(awsAccount, location.region, it).id }

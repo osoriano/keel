@@ -29,6 +29,7 @@ import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.persistence.FeatureRolloutRepository
 import com.netflix.spinnaker.keel.titus.InstanceMetadataServiceResolver
 import com.netflix.spinnaker.keel.titus.TitusClusterHandler
+import com.netflix.spinnaker.keel.titus.registry.TitusRegistryService
 import org.springframework.beans.factory.getBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.ApplicationContext
@@ -49,7 +50,9 @@ class TitusConfig {
     eventPublisher: EventPublisher,
     resolvers: List<Resolver<*>>,
     clusterExportHelper: ClusterExportHelper,
-    diffFactory: ResourceDiffFactory
+    diffFactory: ResourceDiffFactory,
+    titusRegistryService: TitusRegistryService,
+    featureToggles: FeatureToggles
   ): TitusClusterHandler = TitusClusterHandler(
     cloudDriverService,
     cloudDriverCache,
@@ -59,7 +62,9 @@ class TitusConfig {
     eventPublisher,
     resolvers,
     clusterExportHelper,
-    diffFactory
+    diffFactory,
+    titusRegistryService,
+    featureToggles
   )
 
   @Bean

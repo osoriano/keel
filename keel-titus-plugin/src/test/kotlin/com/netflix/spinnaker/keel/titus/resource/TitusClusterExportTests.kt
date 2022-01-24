@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.titus.resource
 
+import com.netflix.spinnaker.config.FeatureToggles
+import com.netflix.spinnaker.config.Features.OPTIMIZED_DOCKER_FLOW
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.Exportable
 import com.netflix.spinnaker.keel.api.Moniker
@@ -24,7 +26,7 @@ import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.clouddriver.model.Credential
 import com.netflix.spinnaker.keel.clouddriver.model.CustomizedMetricSpecificationModel
-import com.netflix.spinnaker.keel.clouddriver.model.DockerImage
+import com.netflix.spinnaker.keel.api.artifacts.DockerImage
 import com.netflix.spinnaker.keel.clouddriver.model.MetricDimensionModel
 import com.netflix.spinnaker.keel.clouddriver.model.Resources
 import com.netflix.spinnaker.keel.clouddriver.model.SecurityGroupSummary
@@ -43,6 +45,7 @@ import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.keel.titus.NETFLIX_CONTAINER_ENV_VARS
 import com.netflix.spinnaker.keel.titus.TitusClusterHandler
+import com.netflix.spinnaker.keel.titus.registry.TitusRegistryService
 import com.netflix.spinnaker.keel.titus.resolve
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
@@ -52,6 +55,7 @@ import io.mockk.confirmVerified
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
+import org.springframework.core.env.ConfigurableEnvironment
 import strikt.api.expect
 import strikt.api.expectThat
 import strikt.api.expectThrows
@@ -86,7 +90,13 @@ internal class TitusClusterExportTests : JUnit5Minutests {
   val resolvers = emptyList<Resolver<TitusClusterSpec>>()
   val repository = mockk<KeelRepository>()
   val publisher: EventPublisher = mockk(relaxUnitFun = true)
-  val springEnv: org.springframework.core.env.Environment = mockk(relaxUnitFun = true)
+  val springEnv: ConfigurableEnvironment = mockk(relaxUnitFun = true)
+  val titusRegistryService = mockk<TitusRegistryService>()
+  val featureToggles = mockk<FeatureToggles> {
+    every {
+      isEnabled(OPTIMIZED_DOCKER_FLOW)
+    } returns false
+  }
 
   val taskLauncher = OrcaTaskLauncher(
     orcaService,
@@ -184,7 +194,9 @@ internal class TitusClusterExportTests : JUnit5Minutests {
         publisher,
         resolvers,
         clusterExportHelper,
-        DefaultResourceDiffFactory()
+        DefaultResourceDiffFactory(),
+        titusRegistryService,
+        featureToggles
       )
     }
 
@@ -201,6 +213,7 @@ internal class TitusClusterExportTests : JUnit5Minutests {
         every { securityGroupByName(awsAccount, "us-east-1", sg2East.name) } returns sg2East
 
         every { cloudDriverCache.credentialBy(titusAccount) } returns titusAccountCredential
+        every { cloudDriverCache.getRegistryForTitusAccount(any()) } returns "testregistry"
       }
       coEvery { orcaService.orchestrate(resource.serviceAccount, any()) } returns TaskRefResponse("/tasks/${UUID.randomUUID()}")
       every { repository.environmentFor(any()) } returns Environment("test")

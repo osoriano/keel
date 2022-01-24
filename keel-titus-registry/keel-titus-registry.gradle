@@ -1,0 +1,13 @@
+dependencies {
+  api(project(":keel-titus-api"))
+  implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+  implementation("com.netflix.spinnaker.kork.internal:kork-core")
+  implementation("com.netflix.spinnaker.kork.internal:kork-web")
+  implementation("org.elasticsearch.client:elasticsearch-rest-high-level-client:5.6.16")
+
+  testImplementation(project(":keel-test"))
+  testImplementation("io.strikt:strikt-jackson")
+  testImplementation("io.strikt:strikt-mockk")
+  testImplementation("dev.minutest:minutest")
+  testImplementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml")
+}

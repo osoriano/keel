@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.artifacts
 
+import com.netflix.spinnaker.config.FeatureToggles
+import com.netflix.spinnaker.config.Features.OPTIMIZED_DOCKER_FLOW
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
 import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
 import com.netflix.spinnaker.keel.api.artifacts.Commit
@@ -15,10 +17,15 @@ import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.SEMVER_TAG
 import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
 import com.netflix.spinnaker.keel.api.support.SpringEventPublisherBridge
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
+<<<<<<< 9a74071d2401ab3654fed604310d90eb11dd94ff
 import com.netflix.spinnaker.keel.clouddriver.model.ArtifactProperty
 import com.netflix.spinnaker.keel.clouddriver.model.DockerImage
+=======
+import com.netflix.spinnaker.keel.api.artifacts.DockerImage
+>>>>>>> d3fd8a09b7e726420d9315438a7435aa9e2a346f
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
 import com.netflix.spinnaker.keel.test.deliveryConfig
+import com.netflix.spinnaker.keel.titus.registry.TitusRegistryService
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import io.mockk.mockk
@@ -37,6 +44,9 @@ internal class DockerArtifactSupplierTests : JUnit5Minutests {
     val clouddriverService: CloudDriverService = mockk(relaxUnitFun = true)
     val eventBridge: SpringEventPublisherBridge = mockk(relaxUnitFun = true)
     val artifactMetadataService: ArtifactMetadataService = mockk(relaxUnitFun = true)
+    val titusRegistryService: TitusRegistryService = mockk()
+    val featureToggles: FeatureToggles = mockk()
+
     val deliveryConfig = deliveryConfig()
     val dockerArtifact = DockerArtifact(
       name = "fnord",
@@ -146,7 +156,7 @@ internal class DockerArtifactSupplierTests : JUnit5Minutests {
       )
     )
 
-    val dockerArtifactSupplier = DockerArtifactSupplier(eventBridge, clouddriverService, artifactMetadataService)
+    val dockerArtifactSupplier = DockerArtifactSupplier(eventBridge, clouddriverService, artifactMetadataService, titusRegistryService, featureToggles)
   }
 
   fun tests() = rootContext<Fixture> {
@@ -156,8 +166,12 @@ internal class DockerArtifactSupplierTests : JUnit5Minutests {
       val versionSlot = slot<String>()
       before {
         every {
-          clouddriverService.findDockerImages(account = "*", repository = dockerArtifact.name, tag = null, includeDetails = true)
+          clouddriverService.findDockerImages(registry = "*", repository = dockerArtifact.name, tag = null, includeDetails = true)
         } returns listOf(latestDockerImage)
+
+        every {
+          featureToggles.isEnabled(OPTIMIZED_DOCKER_FLOW)
+        } returns false
       }
 
       test("supports Docker artifacts") {
@@ -172,7 +186,7 @@ internal class DockerArtifactSupplierTests : JUnit5Minutests {
         }
         expectThat(result).isEqualTo(latestArtifact)
         verify(exactly = 1) {
-          clouddriverService.findDockerImages(account = "*", repository = latestArtifact.name, tag = null, includeDetails = true)
+          clouddriverService.findDockerImages(registry = "*", repository = latestArtifact.name, tag = null, includeDetails = true)
         }
       }
 
@@ -204,7 +218,7 @@ internal class DockerArtifactSupplierTests : JUnit5Minutests {
     context("DockerArtifactSupplier with metadata") {
       before {
         every {
-          clouddriverService.findDockerImages(account = "*", repository = dockerArtifact.name, tag = null, includeDetails = true)
+          clouddriverService.findDockerImages(registry = "*", repository = dockerArtifact.name, tag = null, includeDetails = true)
         } returns listOf(dockerImageWithMetaData)
       }
 
@@ -214,6 +228,30 @@ internal class DockerArtifactSupplierTests : JUnit5Minutests {
         }
         expectThat(results)
           .isEqualTo(latestArtifactWithMetadata)
+      }
+    }
+
+    context("with optimized Docker flow") {
+      before {
+        every {
+          featureToggles.isEnabled(OPTIMIZED_DOCKER_FLOW)
+        } returns true
+
+        every {
+          titusRegistryService.findImages(dockerArtifact.name)
+        } returns listOf(dockerImageWithMetaData)
+      }
+
+      test("uses Titus registry cache to find versions") {
+        val result = runBlocking {
+          dockerArtifactSupplier.getLatestArtifact(deliveryConfig, dockerArtifact)
+        }
+        expectThat(result)
+          .isEqualTo(latestArtifactWithMetadata)
+
+        io.mockk.verify {
+          titusRegistryService.findImages(dockerArtifact.name)
+        }
       }
     }
   }

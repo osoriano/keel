@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.titus.resource
 
+import com.netflix.spinnaker.config.FeatureToggles
+import com.netflix.spinnaker.config.Features.OPTIMIZED_DOCKER_FLOW
 import com.netflix.spinnaker.keel.api.Alphabetical
 import com.netflix.spinnaker.keel.api.Highlander
 import com.netflix.spinnaker.keel.api.RolloutConfig
@@ -25,7 +27,7 @@ import com.netflix.spinnaker.keel.api.titus.TitusServerGroupSpec
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.clouddriver.model.Credential
-import com.netflix.spinnaker.keel.clouddriver.model.DockerImage
+import com.netflix.spinnaker.keel.api.artifacts.DockerImage
 import com.netflix.spinnaker.keel.core.serverGroup
 import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.docker.DigestProvider
@@ -33,6 +35,7 @@ import com.netflix.spinnaker.keel.orca.ClusterExportHelper
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.titus.TitusClusterHandler
 import com.netflix.spinnaker.keel.titus.byRegion
+import com.netflix.spinnaker.keel.titus.registry.TitusRegistryService
 import com.netflix.spinnaker.keel.titus.resolve
 import io.mockk.coEvery
 import io.mockk.every
@@ -59,9 +62,21 @@ class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, T
       environment = "testenv",
       attributes = mutableMapOf("awsAccount" to "awsAccount", "registry" to "testregistry")
     )
+
+    every {
+      getRegistryForTitusAccount(any())
+    } returns "testregistry"
+
+    every {
+      getAwsAccountNameForTitusAccount(any())
+    } returns "test"
   }
   private val orcaService: OrcaService = mockk()
   private val clusterExportHelper: ClusterExportHelper = mockk()
+  private val titusRegistryService: TitusRegistryService = mockk()
+  private val featureToggles: FeatureToggles = mockk {
+    every { isEnabled(OPTIMIZED_DOCKER_FLOW) } returns false
+  }
 
   val metadata = mapOf("id" to "1234", "application" to "waffles", "serviceAccount" to "me@you.com" )
 
@@ -97,7 +112,9 @@ class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, T
       eventPublisher = eventPublisher,
       resolvers = resolvers,
       clusterExportHelper = clusterExportHelper,
-      diffFactory = DefaultResourceDiffFactory()
+      diffFactory = DefaultResourceDiffFactory(),
+      titusRegistryService = titusRegistryService,
+      featureToggles = featureToggles
     ))
 
   override fun getSingleRegionCluster(): Resource<TitusClusterSpec> {

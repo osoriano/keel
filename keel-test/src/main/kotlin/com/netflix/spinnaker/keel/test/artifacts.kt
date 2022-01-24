@@ -1,5 +1,8 @@
 package com.netflix.spinnaker.keel.test
 
+import com.netflix.spinnaker.config.FeatureToggles
+import com.netflix.spinnaker.config.Features.OPTIMIZED_DOCKER_FLOW
+
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactOriginFilter
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
@@ -17,7 +20,9 @@ import com.netflix.spinnaker.keel.artifacts.NpmArtifactSupplier
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactService
+import com.netflix.spinnaker.keel.titus.registry.TitusRegistryService
 import io.mockk.mockk
+import io.mockk.every
 import org.springframework.core.env.Environment
 
 class DummyArtifact(
@@ -43,9 +48,13 @@ fun defaultArtifactSuppliers(): List<ArtifactSupplier<*, *>> {
   val eventBridge: SpringEventPublisherBridge = mockk(relaxUnitFun = true)
   val artifactMetadataService: ArtifactMetadataService = mockk(relaxUnitFun = true)
   val springEnv: Environment = mockk(relaxed = true)
+  val titusRegistryService: TitusRegistryService = mockk()
+  val featureToggles: FeatureToggles = mockk {
+    every { isEnabled(OPTIMIZED_DOCKER_FLOW) } returns false
+  }
   return listOf(
     DebianArtifactSupplier(eventBridge, artifactService, artifactMetadataService, springEnv),
-    DockerArtifactSupplier(eventBridge, clouddriverService, artifactMetadataService),
+    DockerArtifactSupplier(eventBridge, clouddriverService, artifactMetadataService, titusRegistryService, featureToggles),
     NpmArtifactSupplier(eventBridge, artifactService, artifactMetadataService)
   )
 }

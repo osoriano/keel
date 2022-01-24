@@ -18,7 +18,7 @@ internal class SqlEnvironmentLeaseRepositoryTests :
   private val jooq = testDatabase.context
   private val retryProperties = RetryProperties(1, 0)
   private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties))
-  private val artifactSuppliers = listOf(DockerArtifactSupplier(mockk(), mockk(), mockk()))
+  private val artifactSuppliers = listOf(DockerArtifactSupplier(mockk(), mockk(), mockk(), mockk(), mockk()))
   private val mapper = configuredObjectMapper()
     .registerKeelApiModule()
   private val resourceFactory = resourceFactory()

@@ -9,6 +9,7 @@ dependencies {
   api(project(":keel-clouddriver"))
   implementation(project(":keel-ec2-api"))
   implementation(project(":keel-titus-api"))
+  implementation(project(":keel-titus-registry"))
   implementation("io.mockk:mockk")
   implementation(project(":keel-spring-test-support"))
 }

@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.titus.resource
 
+import com.netflix.spinnaker.config.FeatureToggles
+import com.netflix.spinnaker.config.Features.OPTIMIZED_DOCKER_FLOW
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.SimpleLocations
 import com.netflix.spinnaker.keel.api.SimpleRegionSpec
@@ -22,7 +24,7 @@ import com.netflix.spinnaker.keel.clouddriver.model.Capacity
 import com.netflix.spinnaker.keel.clouddriver.model.Constraints
 import com.netflix.spinnaker.keel.clouddriver.model.Credential
 import com.netflix.spinnaker.keel.clouddriver.model.CustomizedMetricSpecificationModel
-import com.netflix.spinnaker.keel.clouddriver.model.DockerImage
+import com.netflix.spinnaker.keel.api.artifacts.DockerImage
 import com.netflix.spinnaker.keel.clouddriver.model.InstanceCounts
 import com.netflix.spinnaker.keel.clouddriver.model.MetricDimensionModel
 import com.netflix.spinnaker.keel.clouddriver.model.MigrationPolicy
@@ -183,6 +185,9 @@ class TitusClusterScalingPolicyTests {
       environment = "testenv",
       attributes = mutableMapOf("awsAccount" to "test", "registry" to "testregistry")
     )
+    every { getAwsAccountNameForTitusAccount(any()) } returns "test"
+    every { getRegistryForTitusAccount(any()) } returns "testregistry"
+    every { getAwsAccountIdForTitusAccount(any()) } returns "1234567890"
   }
 
   val diffFactory = DefaultResourceDiffFactory()
@@ -231,7 +236,11 @@ class TitusClusterScalingPolicyTests {
     eventPublisher = mockk(relaxUnitFun = true),
     resolvers = emptyList(),
     clusterExportHelper = mockk(),
-    diffFactory = DefaultResourceDiffFactory()
+    diffFactory = DefaultResourceDiffFactory(),
+    titusRegistryService = mockk(),
+    featureToggles = mockk<FeatureToggles> {
+      every { isEnabled(OPTIMIZED_DOCKER_FLOW) } returns false
+    }
   )
 
   val resource = resource(

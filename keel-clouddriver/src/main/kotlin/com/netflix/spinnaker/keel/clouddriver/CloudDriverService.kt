@@ -21,7 +21,7 @@ import com.netflix.spinnaker.keel.clouddriver.model.ApplicationLoadBalancerModel
 import com.netflix.spinnaker.keel.clouddriver.model.Certificate
 import com.netflix.spinnaker.keel.clouddriver.model.ClassicLoadBalancerModel
 import com.netflix.spinnaker.keel.clouddriver.model.Credential
-import com.netflix.spinnaker.keel.clouddriver.model.DockerImage
+import com.netflix.spinnaker.keel.api.artifacts.DockerImage
 import com.netflix.spinnaker.keel.clouddriver.model.NamedImage
 import com.netflix.spinnaker.keel.clouddriver.model.Network
 import com.netflix.spinnaker.keel.clouddriver.model.SecurityGroupModel
@@ -178,7 +178,7 @@ interface CloudDriverService {
 
   @GET("/dockerRegistry/images/find")
   suspend fun findDockerImages(
-    @Query("account") account: String? = null,
+    @Query("account") registry: String? = null,
     @Query("repository") repository: String? = null,
     @Query("tag") tag: String? = null,
     @Query("q") q: String? = null,
