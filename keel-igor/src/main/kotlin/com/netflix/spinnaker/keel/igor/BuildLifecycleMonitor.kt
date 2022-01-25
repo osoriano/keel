@@ -25,6 +25,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import retrofit2.HttpException
+import java.time.Clock
+import java.time.Duration
 import java.time.Instant
 
 /**
@@ -40,7 +42,8 @@ class BuildLifecycleMonitor(
   val objectMapper: ObjectMapper,
   val artifactMetadataService: ArtifactMetadataService,
   val front50Service: Front50Service?,
-  val baseUrlConfig: BaseUrlConfig
+  val baseUrlConfig: BaseUrlConfig,
+  val clock: Clock
 ) : LifecycleMonitor(monitorRepository, publisher, lifecycleConfig) {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
@@ -68,10 +71,18 @@ class BuildLifecycleMonitor(
           "ABORTED" -> publishAbortedEvent(task, buildMetadata)
           // UNSTABLE means build passed but tests failed (might need to reevaluate success status choice in the future)
           "UNSTABLE" -> publishSucceededEvent(task, buildMetadata)
-          else -> publishUnknownStatusEvent(task, buildMetadata.status)
+          else -> {
+            publishUnknownStatusEvent(task, buildMetadata.status)
+            log.debug("Ending monitoring of task $task because status is unknown")
+            endMonitoringOfTask(task)
+          }
         }
 
-        if (buildMetadata.isComplete()) {
+        val olderThanOneDay = buildMetadata.startedAtInstant?.isBefore(clock.instant().minus(Duration.ofDays(1))) ?: false
+        if (olderThanOneDay) {
+          log.debug("Ending monitoring of task $task because this build has been running for more than 24 hours.")
+          endMonitoringOfTask(task)
+        } else if (buildMetadata.isComplete()) {
           endMonitoringOfTask(task)
         } else {
           markSuccessFetchingStatus(task)

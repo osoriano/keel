@@ -22,6 +22,7 @@ import com.netflix.spinnaker.keel.lifecycle.LifecycleEventType.BUILD
 import com.netflix.spinnaker.keel.lifecycle.LifecycleMonitorRepository
 import com.netflix.spinnaker.keel.lifecycle.MonitoredTask
 import com.netflix.spinnaker.keel.test.configuredTestObjectMapper
+import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import io.mockk.Called
@@ -34,6 +35,7 @@ import org.springframework.context.ApplicationEventPublisher
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo
 import strikt.assertions.isTrue
+import java.time.Duration
 import java.time.Instant
 
 class BuildLifecycleMonitorTests : JUnit5Minutests {
@@ -47,6 +49,7 @@ class BuildLifecycleMonitorTests : JUnit5Minutests {
     val uid = "c9bb7369-8433-4014-bcaa-b0ef814234c3"
     val fallbackLink = "www.jenkins.com/my-build"
     val objectMapper = configuredTestObjectMapper()
+    val clock = MutableClock()
     val buildNumber = "4"
     val commitId = "56203b1"
     val originalBuildMetadata = BuildMetadata(
@@ -107,7 +110,8 @@ class BuildLifecycleMonitorTests : JUnit5Minutests {
       objectMapper,
       artifactMetadataService,
       front50Service,
-      BaseUrlConfig()
+      BaseUrlConfig(),
+      clock
     )
   }
 
@@ -138,6 +142,20 @@ class BuildLifecycleMonitorTests : JUnit5Minutests {
         }
       }
 
+      context("too old") {
+        before {
+          coEvery { artifactMetadataService.getArtifactMetadata(buildNumber, commitId) } returns getArtifactMetadata(
+            "BUILDING",
+            "2021-10-08T15:47:09.043Z"
+          )
+          runBlocking { subject.monitor(task) }
+        }
+
+        test("stops monitoring if too old") {
+          verify { monitorRepository.delete(any()) }
+        }
+      }
+
       context("success") {
         before {
           coEvery { artifactMetadataService.getArtifactMetadata(buildNumber, commitId) } returns
@@ -150,6 +168,7 @@ class BuildLifecycleMonitorTests : JUnit5Minutests {
           verify(exactly = 1) {
             publisher.publishEvent(capture(slot))
           }
+          verify { monitorRepository.delete(any()) }
           expectThat(slot.captured.status).isEqualTo(SUCCEEDED)
           expectThat(slot.captured.startMonitoring).isEqualTo(false)
         }
@@ -167,6 +186,7 @@ class BuildLifecycleMonitorTests : JUnit5Minutests {
           verify(exactly = 1) {
             publisher.publishEvent(capture(slot))
           }
+          verify { monitorRepository.delete(any()) }
           expectThat(slot.captured.status).isEqualTo(FAILED)
           expectThat(slot.captured.startMonitoring).isEqualTo(false)
         }
@@ -184,6 +204,7 @@ class BuildLifecycleMonitorTests : JUnit5Minutests {
           verify(exactly = 1) {
             publisher.publishEvent(capture(slot))
           }
+          verify { monitorRepository.delete(any()) }
           expectThat(slot.captured.status).isEqualTo(ABORTED)
           expectThat(slot.captured.startMonitoring).isEqualTo(false)
         }
@@ -201,6 +222,7 @@ class BuildLifecycleMonitorTests : JUnit5Minutests {
           verify(exactly = 1) {
             publisher.publishEvent(capture(slot))
           }
+          verify { monitorRepository.delete(any()) }
           expectThat(slot.captured.status).isEqualTo(SUCCEEDED)
           expectThat(slot.captured.startMonitoring).isEqualTo(false)
         }
@@ -218,6 +240,7 @@ class BuildLifecycleMonitorTests : JUnit5Minutests {
           verify(exactly = 1) {
             publisher.publishEvent(capture(slot))
           }
+          verify { monitorRepository.delete(any()) }
           expectThat(slot.captured.status).isEqualTo(UNKNOWN)
           expectThat(slot.captured.startMonitoring).isEqualTo(false)
         }
@@ -237,6 +260,7 @@ class BuildLifecycleMonitorTests : JUnit5Minutests {
           verify(exactly = 1) {
             publisher.publishEvent(capture(slot))
           }
+          verify { monitorRepository.delete(any()) }
           expectThat(slot.captured.status).isEqualTo(SUCCEEDED)
           expectThat(slot.captured.startMonitoring).isEqualTo(false)
         }
@@ -348,13 +372,14 @@ class BuildLifecycleMonitorTests : JUnit5Minutests {
     }
   }
 
-  private fun getArtifactMetadata(status: String): ArtifactMetadata =
+  private fun getArtifactMetadata(status: String, startedAt: String? = null): ArtifactMetadata =
     ArtifactMetadata(
       buildMetadata = BuildMetadata(
         id = 4,
         number = "4",
         uid = "c9bb7369-8433-4014-bcaa-b0ef814234c3",
-        status = status
+        status = status,
+        startedAt = startedAt
       ),
       gitMetadata = null
     )
