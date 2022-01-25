@@ -126,7 +126,7 @@ class EnvironmentPromotionChecker(
                             deliveryConfig.name, environment.name, artifact, artifactVersion.version
                           )
                         } else {
-                          log.debug("Version ${artifactVersion.version} of $artifact does not currently pass stateless constraints")
+                          log.debug("Version ${artifactVersion.version} of $artifact does not currently pass stateless constraints in environment ${environment.name}")
                           queuedForApproval.remove(artifactVersion)
                         }
                       }

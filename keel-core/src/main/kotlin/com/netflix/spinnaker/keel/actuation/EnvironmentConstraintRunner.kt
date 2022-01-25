@@ -152,7 +152,8 @@ class EnvironmentConstraintRunner(
         "constraints in ${envContext.environment.name}"
     )
     if (!passesConstraints) {
-      log.debug("Version $version of ${envContext.artifact} ${passesStateless.passFailWording()} stateless constraints and ${passesStateful.passFailWording()} stateful constraints")
+      log.debug("Version $version of ${envContext.artifact} ${passesStateless.passFailWording()} stateless constraints " +
+        "and ${passesStateful.passFailWording()} stateful constraints in environment ${envContext.environment.name}")
     }
   }
   

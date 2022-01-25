@@ -55,13 +55,17 @@ class DependsOnConstraintEvaluator(
 
     val context = ArtifactInEnvironmentContext(deliveryConfig, requiredEnvironment.name, artifact.reference, version)
 
-    return artifactRepository.wasSuccessfullyDeployedTo(
+    val successfullyDeployed = artifactRepository.wasSuccessfullyDeployedTo(
       deliveryConfig,
       artifact,
       version,
       requiredEnvironment.name
-    ) && actionRepository.allPassed(context, VERIFICATION)
-     && actionRepository.allStarted(context, POST_DEPLOY)
+    )
+    val verificationsPassed = actionRepository.allPassed(context, VERIFICATION)
+    val postDeployActionsStarted = actionRepository.allStarted(context, POST_DEPLOY)
+    log.debug("Evaluating depends on for $version in environment ${requiredEnvironment.name} for app ${deliveryConfig.application}: " +
+      "deployed: $successfullyDeployed, verificationsPassed: $verificationsPassed, postDeployActionsStarted: $postDeployActionsStarted")
+    return successfullyDeployed && verificationsPassed && postDeployActionsStarted
   }
 
   override fun generateConstraintStateSnapshot(
