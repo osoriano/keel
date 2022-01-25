@@ -159,9 +159,7 @@ internal class WorkQueueProcessorTests : JUnit5Minutests {
     val artifactSuppliers = listOf(dockerArtifactSupplier, debianArtifactSupplier)
     val spectator = NoopRegistry()
     val clock: Clock = MutableClock()
-    val springEnv: Environment = mockk(relaxed = true) {
-      every { getProperty("keel.work-processing.build-monitoring", Boolean::class.java, true) } returns true
-    }
+    val springEnv: Environment = mockk(relaxed = true)
 
     val subject = spyk(
       WorkQueueProcessor(

@@ -85,10 +85,6 @@ final class WorkQueueProcessor(
   private val codeEventBatchSize: Int
     get() = springEnv.getProperty("keel.work-processing.code-event-batch-size", Int::class.java, config.codeEventBatchSize)
 
-  // controls whether we monitor new builds to add helpful information for customers
-  private val monitorBuilds: Boolean
-    get() = springEnv.getProperty("keel.work-processing.build-monitoring", Boolean::class.java, true)
-
   init {
     PolledMeter
       .using(spectator)
@@ -291,7 +287,7 @@ final class WorkQueueProcessor(
             )
           )
 
-          if (artifact.buildMetadata != null && monitorBuilds) {
+          if (artifact.buildMetadata != null) {
             log.debug("Publishing build lifecycle event for published artifact $artifact")
             val data = mutableMapOf(
               "buildNumber" to artifact.buildNumber,
