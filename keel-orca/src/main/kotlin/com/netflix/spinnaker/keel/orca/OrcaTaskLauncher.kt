@@ -1,20 +1,3 @@
-/*
- *
- * Copyright 2019 Netflix, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License")
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
 package com.netflix.spinnaker.keel.orca
 
 import com.netflix.spinnaker.keel.api.NotificationConfig
@@ -26,6 +9,7 @@ import com.netflix.spinnaker.keel.api.actuation.Task
 import com.netflix.spinnaker.keel.api.actuation.TaskLauncher
 import com.netflix.spinnaker.keel.api.plugins.JobInterceptor
 import com.netflix.spinnaker.keel.api.support.EventPublisher
+import com.netflix.spinnaker.keel.auth.AuthorizationSupport.Companion.withSpinnakerAuthToken
 import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.events.TaskCreatedEvent
 import com.netflix.spinnaker.keel.model.OrcaNotification
@@ -101,41 +85,42 @@ class OrcaTaskLauncher(
     parameters: Map<String, Any>,
     artifactVersion: String?
   ) =
-    orcaService
-      .orchestrate(
-        user,
-        OrchestrationRequest(
-          name = description,
-          application = application,
-          description = description,
-          job = jobInterceptors.fold(stages) { updatedStages, interceptor ->
-            interceptor.intercept(updatedStages, user)
-          },
-          trigger = OrchestrationTrigger(
-            correlationId = correlationId,
-            notifications = generateNotifications(notifications),
-            artifacts = artifacts,
-            parameters = parameters
-          )
-        )
-      )
-      .let {
-        log.info("Started task {} to upsert {}", it.ref, resourceId)
-        publisher.publishEvent(
-          TaskCreatedEvent(
-            TaskRecord(
-              id = it.taskId,
-              name = description,
-              subjectType = type,
-              application = application,
-              environmentName = environmentName,
-              resourceId = resourceId,
-              artifactVersion = artifactVersion
+    withSpinnakerAuthToken(application, user) {
+      orcaService
+        .orchestrate(
+          user,
+          OrchestrationRequest(
+            name = description,
+            application = application,
+            description = description,
+            job = jobInterceptors.fold(stages) { updatedStages, interceptor ->
+              interceptor.intercept(updatedStages, user)
+            },
+            trigger = OrchestrationTrigger(
+              correlationId = correlationId,
+              notifications = generateNotifications(notifications),
+              artifacts = artifacts,
+              parameters = parameters
             )
           )
         )
-        Task(id = it.taskId, name = description)
-      }
+    }.let {
+      log.info("Started task {} to upsert {}", it.ref, resourceId)
+      publisher.publishEvent(
+        TaskCreatedEvent(
+          TaskRecord(
+            id = it.taskId,
+            name = description,
+            subjectType = type,
+            application = application,
+            environmentName = environmentName,
+            resourceId = resourceId,
+            artifactVersion = artifactVersion
+          )
+        )
+      )
+      Task(id = it.taskId, name = description)
+    }
 
   //TODO[gyardeni]: remove this function and just return an empty list for orca notifications,
   //as all notifications will be controlled from keel directly from now on.

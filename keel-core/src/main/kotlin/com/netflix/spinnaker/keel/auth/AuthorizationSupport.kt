@@ -1,6 +1,8 @@
 package com.netflix.spinnaker.keel.auth
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.fiat.shared.FiatPermissionEvaluator
+import com.netflix.spinnaker.fiat.shared.triggers.ManagedDeliveryTriggerIdentity
 import com.netflix.spinnaker.keel.api.AccountAwareLocations
 import com.netflix.spinnaker.keel.api.Locatable
 import com.netflix.spinnaker.keel.persistence.KeelRepository
@@ -9,11 +11,17 @@ import com.netflix.spinnaker.keel.auth.AuthorizationSupport.TargetEntity.APPLICA
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport.TargetEntity.DELIVERY_CONFIG
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport.TargetEntity.RESOURCE
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport.TargetEntity.SERVICE_ACCOUNT
+import com.netflix.spinnaker.keel.logging.blankMDC
+import com.netflix.spinnaker.kork.common.Header.AUTH_TOKEN
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import com.netflix.spinnaker.kork.web.exceptions.InvalidRequestException
 import com.netflix.spinnaker.security.AuthenticatedRequest
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.slf4j.MDCContext
+import kotlinx.coroutines.withContext
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import org.slf4j.MDC
 import org.springframework.security.access.AccessDeniedException
 import org.springframework.security.core.Authentication
 import org.springframework.security.core.context.SecurityContextHolder
@@ -188,4 +196,32 @@ class AuthorizationSupport(
   private fun Boolean.toAuthorization() = if (this) "ALLOWED" else "DENIED"
 
   private fun String.humanFriendly() = this.lowercase().replace('_', ' ')
+
+  companion object {
+    private val objectMapper: ObjectMapper = ObjectMapper()
+
+    /**
+     * Runs the specified [block] within an isolated MDC coroutine context containing an
+     * X-SPINNAKER-AUTH-TOKEN for the specified [application] and [legacyRunAs] user.
+     */
+    suspend fun <T> withSpinnakerAuthToken(
+      application: String,
+      legacyRunAs: String,
+      block: suspend CoroutineScope.() -> T
+    ): T {
+      val mdIdentity = ManagedDeliveryTriggerIdentity().let {
+        it.applicationName = application
+        it.legacyRunAs = legacyRunAs
+        "object:" + objectMapper.writeValueAsString(it)
+      }
+      return withContext(blankMDC) {
+        try {
+          MDC.put(AUTH_TOKEN.header, mdIdentity)
+          withContext(MDCContext(), block)
+        } finally {
+          MDC.remove(AUTH_TOKEN.header)
+        }
+      }
+    }
+  }
 }

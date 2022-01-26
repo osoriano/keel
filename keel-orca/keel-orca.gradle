@@ -10,6 +10,7 @@ dependencies {
   implementation("org.jetbrains.kotlin:kotlin-reflect")
   implementation("org.springframework:spring-context")
   implementation("org.springframework.boot:spring-boot-autoconfigure")
+  implementation("com.netflix.spinnaker.fiat.internal:fiat-api")
 
   testImplementation(project(":keel-test"))
   testImplementation(project(":keel-core-test"))
