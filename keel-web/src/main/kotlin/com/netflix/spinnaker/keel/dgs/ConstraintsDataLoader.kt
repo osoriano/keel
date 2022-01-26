@@ -18,6 +18,7 @@ import com.netflix.spinnaker.keel.graphql.types.MD_Constraint
 import com.netflix.spinnaker.keel.graphql.types.MD_ConstraintStatus
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.services.removePrivateConstraintAttrs
+import kotlinx.coroutines.runBlocking
 import org.dataloader.BatchLoaderEnvironment
 import org.dataloader.MappedBatchLoaderWithContext
 import java.util.concurrent.CompletableFuture
@@ -85,7 +86,7 @@ class ConstraintsDataLoader(
 
             // Evaluate the current status of the constraint
             val artifact = config.matchingArtifactByReference(key.artifactReference) ?: return@forEach
-            val passes = evaluator.canPromote(artifact, version = key.version, deliveryConfig = config, targetEnvironment = environment)
+            val passes = runBlocking { evaluator.constraintPasses(artifact, version = key.version, deliveryConfig = config, targetEnvironment = environment) }
 
             ConstraintState(
               deliveryConfigName = config.name,
@@ -131,7 +132,7 @@ class ConstraintsDataLoader(
     return CompletableFuture.supplyAsync {
       // TODO: optimize that by querying only the needed versions
       val config = context.getConfig()
-      val constraintStates = getConstraintsState(keys, config)
+      val constraintStates = runBlocking { getConstraintsState(keys, config) }
       constraintStates.mapValues { pair -> pair.value.map { it.toDgs() } }.toMutableMap()
     }
   }

@@ -24,6 +24,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.verify
+import kotlinx.coroutines.runBlocking
 import strikt.api.expect
 import strikt.api.expectCatching
 import strikt.api.expectThat
@@ -115,7 +116,7 @@ internal class AllowedTimesConstraintEvaluatorTests : JUnit5Minutests {
     }
 
     test("canPromote when in-window") {
-      expectThat(subject.canPromote(artifact, "1.1", manifest, environment))
+      expectThat(runBlocking { subject.constraintPasses(artifact, "1.1", manifest, environment) })
         .isTrue()
       val newState = slot<ConstraintState>()
       verify(exactly = 1) { repository.storeConstraintState(capture(newState)) }
@@ -123,7 +124,7 @@ internal class AllowedTimesConstraintEvaluatorTests : JUnit5Minutests {
     }
 
     test("saved status changes from pending to pass") {
-      subject.canPromote(artifact, "1.1", manifest, environment)
+      runBlocking { subject.constraintPasses(artifact, "1.1", manifest, environment) }
       val newState = slot<ConstraintState>()
       verify(exactly = 1) { repository.storeConstraintState(capture(newState)) }
       expectThat(newState.captured.status).isEqualTo(PASS)
@@ -145,7 +146,7 @@ internal class AllowedTimesConstraintEvaluatorTests : JUnit5Minutests {
         }
 
         test("we can promote") {
-          expectThat(subject.canPromote(artifact, "1.1", manifest, environment))
+          expectThat(runBlocking { subject.constraintPasses(artifact, "1.1", manifest, environment) })
             .isTrue()
         }
 
@@ -165,7 +166,7 @@ internal class AllowedTimesConstraintEvaluatorTests : JUnit5Minutests {
         }
 
         test("we cannot promote") {
-          expectThat(subject.canPromote(artifact, "1.1", manifest, environment))
+          expectThat(runBlocking { subject.constraintPasses(artifact, "1.1", manifest, environment) })
             .isFalse()
         }
       }
@@ -189,7 +190,7 @@ internal class AllowedTimesConstraintEvaluatorTests : JUnit5Minutests {
       test("time is updated to last judged time") {
         mutableClock.incrementBy(Duration.ofMinutes(1))
         val currentTime = mutableClock.instant()
-        subject.canPromote(artifact, "1.1", manifest, environment)
+        runBlocking { subject.constraintPasses(artifact, "1.1", manifest, environment) }
         val newState = slot<ConstraintState>()
         verify(exactly = 1) { repository.storeConstraintState(capture(newState)) }
         expectThat(newState.captured.status).isEqualTo(FAIL)
@@ -219,7 +220,7 @@ internal class AllowedTimesConstraintEvaluatorTests : JUnit5Minutests {
       }
 
       test("canPromote due to second window") {
-        expectThat(subject.canPromote(artifact, "1.1", manifest, environment))
+        expectThat(runBlocking { subject.constraintPasses(artifact, "1.1", manifest, environment) })
           .isTrue()
       }
 
@@ -256,12 +257,12 @@ internal class AllowedTimesConstraintEvaluatorTests : JUnit5Minutests {
       }
 
       test("can't promote, out of window") {
-        expectThat(subject.canPromote(artifact, "1.1", manifest, environment))
+        expectThat(runBlocking { subject.constraintPasses(artifact, "1.1", manifest, environment) })
           .isFalse()
       }
 
       test("saved status flips from pass to fail") {
-        subject.canPromote(artifact, "1.1", manifest, environment)
+        runBlocking { subject.constraintPasses(artifact, "1.1", manifest, environment) }
         val newState = slot<ConstraintState>()
         verify(exactly = 1) { repository.storeConstraintState(capture(newState)) }
         expectThat(newState.captured.status).isEqualTo(FAIL)
@@ -294,7 +295,7 @@ internal class AllowedTimesConstraintEvaluatorTests : JUnit5Minutests {
       }
 
       test("can't promote, not a weekday") {
-        expectThat(subject.canPromote(artifact, "1.1", manifest, environment))
+        expectThat(runBlocking { subject.constraintPasses(artifact, "1.1", manifest, environment) })
           .isFalse()
       }
 
@@ -325,7 +326,7 @@ internal class AllowedTimesConstraintEvaluatorTests : JUnit5Minutests {
       }
 
       test("can't promote, not a weekday") {
-        expectThat(subject.canPromote(artifact, "1.1", manifest, environment))
+        expectThat(runBlocking {  subject.constraintPasses(artifact, "1.1", manifest, environment) })
           .isTrue()
       }
 
@@ -361,7 +362,7 @@ internal class AllowedTimesConstraintEvaluatorTests : JUnit5Minutests {
       }
 
       test("in window with short day format") {
-        expectThat(subject.canPromote(artifact, "1.1", manifest, environment))
+        expectThat(runBlocking { subject.constraintPasses(artifact, "1.1", manifest, environment)})
           .isTrue()
       }
 
@@ -393,7 +394,7 @@ internal class AllowedTimesConstraintEvaluatorTests : JUnit5Minutests {
       }
 
       test("11-16 is outside of allowed times when defaulting tz to UTC") {
-        expectThat(subject.canPromote(artifact, "1.1", manifest, environment))
+        expectThat(runBlocking { subject.constraintPasses(artifact, "1.1", manifest, environment)})
           .isFalse()
       }
     }
@@ -415,7 +416,7 @@ internal class AllowedTimesConstraintEvaluatorTests : JUnit5Minutests {
       }
 
       test("in window due to day and hour wrap-around") {
-        expectThat(subject.canPromote(artifact, "1.1", manifest, environment))
+        expectThat(runBlocking { subject.constraintPasses(artifact, "1.1", manifest, environment)})
           .isTrue()
       }
 
@@ -447,7 +448,7 @@ internal class AllowedTimesConstraintEvaluatorTests : JUnit5Minutests {
       }
 
       test("not in window, hour does not wrap-around") {
-        expectThat(subject.canPromote(artifact, "1.1", manifest, environment))
+        expectThat(runBlocking { subject.constraintPasses(artifact, "1.1", manifest, environment)})
           .isFalse()
       }
     }

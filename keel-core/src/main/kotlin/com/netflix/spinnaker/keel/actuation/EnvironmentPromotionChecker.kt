@@ -189,7 +189,7 @@ class EnvironmentPromotionChecker(
     }
   }
 
-  private fun approveVersion(
+  private suspend fun approveVersion(
     deliveryConfig: DeliveryConfig,
     artifact: DeliveryArtifact,
     version: String,
@@ -232,7 +232,7 @@ class EnvironmentPromotionChecker(
    * Save the passing status of all stateless constraints when a version is approved so that
    * their status stays the same forever. We don't want them to be evaluated anymore.
    */
-  private fun snapshotStatelessConstraintStatus(
+  private suspend fun snapshotStatelessConstraintStatus(
     deliveryConfig: DeliveryConfig,
     artifact: DeliveryArtifact,
     version: String,

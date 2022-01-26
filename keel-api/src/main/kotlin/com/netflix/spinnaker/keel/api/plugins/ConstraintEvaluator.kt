@@ -72,7 +72,7 @@ interface ConstraintEvaluator<CONSTRAINT : Constraint> :
   /**
    * @return true if the constraint passes, false otherwise.
    */
-  fun canPromote(
+  suspend fun constraintPasses(
     artifact: DeliveryArtifact,
     version: String,
     deliveryConfig: DeliveryConfig,

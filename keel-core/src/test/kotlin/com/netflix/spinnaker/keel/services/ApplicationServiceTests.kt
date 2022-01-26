@@ -424,7 +424,7 @@ class ApplicationServiceTests : JUnit5Minutests {
             }
 
             every {
-              dependsOnEvaluator.canPromote(
+              dependsOnEvaluator.constraintPasses(
                 releaseArtifact,
                 any(),
                 singleArtifactDeliveryConfig,
@@ -521,7 +521,7 @@ class ApplicationServiceTests : JUnit5Minutests {
             }
 
             every {
-              dependsOnEvaluator.canPromote(
+              dependsOnEvaluator.constraintPasses(
                 releaseArtifact,
                 any(),
                 singleArtifactDeliveryConfig,
@@ -734,7 +734,7 @@ class ApplicationServiceTests : JUnit5Minutests {
             } returns emptyList()
 
             every {
-              dependsOnEvaluator.canPromote(
+              dependsOnEvaluator.constraintPasses(
                 releaseArtifact,
                 any(),
                 singleArtifactDeliveryConfig,
@@ -822,7 +822,7 @@ class ApplicationServiceTests : JUnit5Minutests {
             }
 
             every {
-              dependsOnEvaluator.canPromote(
+              dependsOnEvaluator.constraintPasses(
                 releaseArtifact,
                 any(),
                 singleArtifactDeliveryConfig,
@@ -1181,7 +1181,7 @@ class ApplicationServiceTests : JUnit5Minutests {
 
 
         every {
-          dependsOnEvaluator.canPromote(any(), any(), any(), any())
+          dependsOnEvaluator.constraintPasses(any(), any(), any(), any())
         } returns false
       }
 

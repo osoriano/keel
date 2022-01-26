@@ -32,7 +32,7 @@ import com.netflix.spinnaker.keel.test.resourceFactory
 import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
-import io.mockk.every
+import io.mockk.coEvery as every
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
 import org.springframework.context.ApplicationEventPublisher
@@ -89,7 +89,7 @@ abstract class ApproveOldVersionTests<T : KeelRepository> : JUnit5Minutests {
     val implicitStatelessEvaluator = mockk<ConstraintEvaluator<DummyImplicitConstraint>> {
       every { supportedType } returns SupportedConstraintType("implicit")
       every { isImplicit() } returns true
-      every { canPromote(any(), any(), any(), any()) } returns true
+      every { constraintPasses(any(), any(), any(), any()) } returns true
     }
     val environmentConstraintRunner = EnvironmentConstraintRunner(
       repository,
@@ -169,8 +169,8 @@ abstract class ApproveOldVersionTests<T : KeelRepository> : JUnit5Minutests {
         repository.storeConstraintState(pendingManualJudgement1)
         repository.storeConstraintState(pendingManualJudgement2)
 
-        every { statelessEvaluator.canPromote(artifact, version2, deliveryConfig, environment) } returns true
-        every { statelessEvaluator.canPromote(artifact, version1, deliveryConfig, environment) } returns true
+        every { statelessEvaluator.constraintPasses(artifact, version2, deliveryConfig, environment) } returns true
+        every { statelessEvaluator.constraintPasses(artifact, version1, deliveryConfig, environment) } returns true
       }
 
       test("no version is approved, so the latest approved version is null") {

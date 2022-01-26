@@ -49,6 +49,7 @@ import java.time.ZoneId
  *    maxDeploysPerWindow: 2
  * ```
  */
+@JvmDefaultWithoutCompatibility  // see https://youtrack.jetbrains.com/issue/KT-39603
 @Component
 class AllowedTimesConstraintEvaluator(
   private val clock: Clock,
@@ -96,7 +97,7 @@ class AllowedTimesConstraintEvaluator(
     return constraint.activeWindowOrNull(now)?.windowRange(now)
   }
 
-  override fun canPromote(
+  override suspend fun constraintPasses(
     artifact: DeliveryArtifact,
     version: String,
     deliveryConfig: DeliveryConfig,

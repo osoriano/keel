@@ -15,7 +15,6 @@ import com.netflix.spinnaker.keel.getConfig
 import com.netflix.spinnaker.keel.parseAppVersion
 import com.netflix.spinnaker.keel.persistence.BakedImageRepository
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
-import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -37,7 +36,7 @@ class ImageExistsConstraintEvaluator(
 
   override val supportedType = SupportedConstraintType<ImageExistsConstraint>("bake")
 
-  override fun canPromote(
+  override suspend fun constraintPasses(
     artifact: DeliveryArtifact,
     version: String,
     deliveryConfig: DeliveryConfig,
@@ -49,15 +48,14 @@ class ImageExistsConstraintEvaluator(
    * Check both clouddriver cached images and the images we've baked that haven't been
    * cached yet.
    */
-  private fun imagesExistInAllRegions(version: String, vmOptions: VirtualMachineOptions, artifact: DebianArtifact): Boolean {
-    val clouddriverImages = runBlocking {
+  private suspend fun imagesExistInAllRegions(version: String, vmOptions: VirtualMachineOptions, artifact: DebianArtifact): Boolean {
+    val clouddriverImages =
       imageService.getLatestNamedImages(
         appVersion = version.parseAppVersion(),
         account = defaultImageAccount,
         regions = vmOptions.regions,
         baseOs = vmOptions.baseOs
       )
-    }
 
     val bakedImage = bakedImageRepository.getByArtifactVersion(version, artifact)
 

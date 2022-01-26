@@ -28,6 +28,7 @@ import io.mockk.Runs
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.slot
+import kotlinx.coroutines.runBlocking
 import strikt.api.expectThat
 import strikt.assertions.isA
 import strikt.assertions.isEqualTo
@@ -79,7 +80,9 @@ internal class PipelineConstraintEvaluatorTests : JUnit5Minutests {
     var result: Boolean? = null
 
     fun evaluate() {
-      result = subject.canPromote(DebianArtifact("fnord", vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2"))), version, manifest, environment)
+      result = runBlocking {
+        subject.constraintPasses(DebianArtifact("fnord", vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2"))), version, manifest, environment)
+      }
     }
   }
 

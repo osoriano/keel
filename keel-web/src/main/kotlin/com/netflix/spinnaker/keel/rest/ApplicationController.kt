@@ -31,6 +31,7 @@ import com.netflix.spinnaker.keel.persistence.ResourceRepository.Companion.DEFAU
 import com.netflix.spinnaker.keel.services.ApplicationService
 import com.netflix.spinnaker.keel.yaml.APPLICATION_YAML_VALUE
 import com.netflix.spinnaker.kork.web.exceptions.InvalidRequestException
+import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.http.HttpStatus
@@ -82,7 +83,7 @@ class ApplicationController(
         entities.add("resources")
       }
       if (entities.size == 3) { // requesting everything, can optimize
-        results.putAll(applicationService.getSummariesAllEntities(application))
+        results.putAll(runBlocking { applicationService.getSummariesAllEntities(application) })
       } else {
         entities.forEach { entity ->
           results[entity] = when (entity) {

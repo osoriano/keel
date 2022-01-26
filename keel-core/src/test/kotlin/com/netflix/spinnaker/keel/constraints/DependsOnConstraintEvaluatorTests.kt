@@ -15,6 +15,7 @@ import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.runBlocking
 import strikt.api.expectCatching
 import strikt.api.expectThat
 import strikt.assertions.contains
@@ -67,14 +68,14 @@ internal class DependsOnConstraintEvaluatorTests : JUnit5Minutests {
 
     test("an invalid environment name causes an exception") {
       expectCatching {
-        subject.canPromote(artifact, "1.1", manifest, Environment(name = "foo"))
+        subject.constraintPasses(artifact, "1.1", manifest, Environment(name = "foo"))
       }
         .isFailure()
         .isA<IllegalArgumentException>()
     }
 
     test("an environment without the constraint throws an exception (don't pass it to this method)") {
-      expectCatching { subject.canPromote(artifact, "1.1", manifest, previousEnvironment) }
+      expectCatching { subject.constraintPasses(artifact, "1.1", manifest, previousEnvironment) }
         .isFailure()
     }
 
@@ -93,7 +94,7 @@ internal class DependsOnConstraintEvaluatorTests : JUnit5Minutests {
       }
 
       test("promotion is vetoed") {
-        expectThat(subject.canPromote(artifact, "1.1", manifest, constrainedEnvironment))
+        expectThat(runBlocking { subject.constraintPasses(artifact, "1.1", manifest, constrainedEnvironment)})
           .isFalse()
       }
     }
@@ -106,14 +107,14 @@ internal class DependsOnConstraintEvaluatorTests : JUnit5Minutests {
       }
 
       test("promotion is allowed") {
-        expectThat(subject.canPromote(artifact, "1.1", manifest, constrainedEnvironment))
+        expectThat(runBlocking { subject.constraintPasses(artifact, "1.1", manifest, constrainedEnvironment)})
           .isTrue()
       }
     }
 
     context("generating constraint state") {
       test("can get state") {
-        val state = subject.generateConstraintStateSnapshot(artifact = artifact, version = "1.1", deliveryConfig = manifest, targetEnvironment = constrainedEnvironment)
+        val state = runBlocking { subject.generateConstraintStateSnapshot(artifact = artifact, version = "1.1", deliveryConfig = manifest, targetEnvironment = constrainedEnvironment) }
         expectThat(state)
           .and { get { type }.isEqualTo("depends-on") }
           .and { get { status }.isEqualTo(ConstraintStatus.PASS) }

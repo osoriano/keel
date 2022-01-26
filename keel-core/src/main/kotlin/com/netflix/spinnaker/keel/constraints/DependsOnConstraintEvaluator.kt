@@ -32,13 +32,13 @@ class DependsOnConstraintEvaluator(
   companion object {
     const val CONSTRAINT_NAME = "depends-on"
   }
-  
+
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
   override val supportedType = SupportedConstraintType<DependsOnConstraint>("depends-on")
   override val attributeType = SupportedConstraintAttributesType<DependsOnConstraintAttributes>("depends-on")
 
-  override fun canPromote(
+  override suspend fun constraintPasses(
     artifact: DeliveryArtifact,
     version: String,
     deliveryConfig: DeliveryConfig,
@@ -68,7 +68,7 @@ class DependsOnConstraintEvaluator(
     return successfullyDeployed && verificationsPassed && postDeployActionsStarted
   }
 
-  override fun generateConstraintStateSnapshot(
+  override suspend fun generateConstraintStateSnapshot(
     artifact: DeliveryArtifact,
     version: String,
     deliveryConfig: DeliveryConfig,
@@ -77,7 +77,7 @@ class DependsOnConstraintEvaluator(
   ): ConstraintState {
     val constraint = getConstraintForEnvironment(deliveryConfig, targetEnvironment.name, supportedType.type)
     val status = currentStatus
-      ?: if (canPromote(artifact, version, deliveryConfig, targetEnvironment)) {
+      ?: if (constraintPasses(artifact, version, deliveryConfig, targetEnvironment)) {
         PASS
       } else {
         FAIL

@@ -86,6 +86,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ApplicationEventPublisher
@@ -647,7 +648,7 @@ class ApplicationService(
       statelessEvaluators.find { evaluator ->
         evaluator.supportedType.name == constraint.type
       }?.let { evaluator ->
-        val passes = evaluator.canPromote(artifact, version = version, deliveryConfig = deliveryConfig, targetEnvironment = environment)
+        val passes = runBlocking { evaluator.constraintPasses(artifact, version = version, deliveryConfig = deliveryConfig, targetEnvironment = environment) }
         ConstraintSummary(
           type = constraint.type,
           status = if (passes) PASS else ConstraintStatus.PENDING,

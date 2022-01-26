@@ -26,9 +26,9 @@ import com.netflix.spinnaker.keel.api.plugins.PluginNotificationConfig
 /**
  * A [ConstraintEvaluator] that deals with the logic for stateful constraints.
  *
- * The [canPromote] function handles reading state from the repository and saving initial state.
+ * The [constraintPasses] function handles reading state from the repository and saving initial state.
  * If the state is 'done' (failed or passed) the specific implementations don't get called.
- * If the state is not 'done', underlying implementations [canPromote] functions get called.
+ * If the state is not 'done', underlying implementations [constraintPasses] functions get called.
  */
 interface StatefulConstraintEvaluator<CONSTRAINT : Constraint, ATTRIBUTES : ConstraintStateAttributes> : ConstraintEvaluator<CONSTRAINT> {
   /**
@@ -39,7 +39,7 @@ interface StatefulConstraintEvaluator<CONSTRAINT : Constraint, ATTRIBUTES : Cons
 
   val repository: ConstraintRepository
 
-  override fun canPromote(
+  override suspend fun constraintPasses(
     artifact: DeliveryArtifact,
     version: String,
     deliveryConfig: DeliveryConfig,
@@ -75,14 +75,46 @@ interface StatefulConstraintEvaluator<CONSTRAINT : Constraint, ATTRIBUTES : Cons
       state.judgedByUser() &&  state.failed() -> false
       state.judgedByUser() &&  state.passed() -> true
       !state.judgedByUser() &&  shouldAlwaysReevaluate() -> {
-        canPromote(artifact, version, deliveryConfig, targetEnvironment, constraint, state)
+        checkConstraintPasses(artifact, version, deliveryConfig, targetEnvironment, constraint, state)
       }
       !state.judgedByUser() && !shouldAlwaysReevaluate() && state.failed() -> false
       !state.judgedByUser() && !shouldAlwaysReevaluate() && state.passed() -> false
       else -> {
-        canPromote(artifact, version, deliveryConfig, targetEnvironment, constraint, state)
+        checkConstraintPasses(artifact, version, deliveryConfig, targetEnvironment, constraint, state)
       }
     }
+  }
+
+  /**
+   * Helper function for checking both the [constraintPasses] and the deprecated [canPromote] methods.
+   *
+   * This should be deleted and replaced with [constraintPasses] once nobody is using the deprecated [canPromote]
+   * method.
+   */
+  suspend fun checkConstraintPasses(
+    artifact: DeliveryArtifact,
+    version: String,
+    deliveryConfig: DeliveryConfig,
+    targetEnvironment: Environment,
+    constraint: CONSTRAINT,
+    state: ConstraintState
+  ) =
+    constraintPasses(artifact, version, deliveryConfig, targetEnvironment, constraint, state) ||
+      canPromote(artifact, version, deliveryConfig, targetEnvironment, constraint, state)
+
+  @Deprecated(
+    "Deprecated due to potential coroutine/thread interaction problems",
+    ReplaceWith("constraintPasses(artifact, version, deliveryConfig, targetEnvironment, state)")
+  )
+  fun canPromote(
+    artifact: DeliveryArtifact,
+    version: String,
+    deliveryConfig: DeliveryConfig,
+    targetEnvironment: Environment,
+    constraint: CONSTRAINT,
+    state: ConstraintState
+  ): Boolean {
+    return false
   }
 
   /**
@@ -94,14 +126,16 @@ interface StatefulConstraintEvaluator<CONSTRAINT : Constraint, ATTRIBUTES : Cons
    *
    * @return true if the artifact can be promoted, false otherwise
    */
-  fun canPromote(
+  suspend fun constraintPasses(
     artifact: DeliveryArtifact,
     version: String,
     deliveryConfig: DeliveryConfig,
     targetEnvironment: Environment,
     constraint: CONSTRAINT,
     state: ConstraintState
-  ): Boolean
+  ): Boolean {
+    return false
+  }
 
   /**
    * Callback API for [ConstraintStateChanged]. Override this method if your [StatefulConstraintEvaluator] needs

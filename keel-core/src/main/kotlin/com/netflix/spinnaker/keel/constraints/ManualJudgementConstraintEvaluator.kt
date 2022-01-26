@@ -14,6 +14,7 @@ import com.netflix.spinnaker.keel.core.api.ManualJudgementConstraint
 import java.time.Clock
 import org.springframework.stereotype.Component
 
+@JvmDefaultWithoutCompatibility  // see https://youtrack.jetbrains.com/issue/KT-39603
 @Component
 class ManualJudgementConstraintEvaluator(
   override val repository: ConstraintRepository,
@@ -24,7 +25,7 @@ class ManualJudgementConstraintEvaluator(
   override val supportedType = SupportedConstraintType<ManualJudgementConstraint>("manual-judgement")
   override val attributeType = SupportedConstraintAttributesType<ManualJudgementConstraintAttributes>("manual-judgement")
 
-  override fun canPromote(
+  override suspend fun constraintPasses(
     artifact: DeliveryArtifact,
     version: String,
     deliveryConfig: DeliveryConfig,

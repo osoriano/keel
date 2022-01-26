@@ -11,7 +11,8 @@ import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
 import com.netflix.spinnaker.keel.api.constraints.StatefulConstraintEvaluator
 import com.netflix.spinnaker.keel.api.constraints.StatelessConstraintEvaluator
 import com.netflix.spinnaker.keel.api.plugins.ConstraintEvaluator
-import com.netflix.spinnaker.keel.logging.withThreadTracingContext
+import com.netflix.spinnaker.keel.logging.withCoroutineTracingContext
+import com.netflix.spinnaker.keel.logging.withTracingContext
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -45,7 +46,7 @@ class EnvironmentConstraintRunner(
    * or null if there is no version that passes the constraints for an env + artifact combo.
    * Queues that version for approval if it exists.
    */
-  fun checkEnvironment(
+  suspend fun checkEnvironment(
     envContext: EnvironmentContext
   ) {
     val versionsWithPendingStatefulConstraintStatus: MutableList<PublishedArtifact> =
@@ -79,7 +80,7 @@ class EnvironmentConstraintRunner(
    *
    * If a version passes all constraints it is queued for approval.
    */
-  private fun checkConstraints(
+  private suspend fun checkConstraints(
     envContext: EnvironmentContext,
     versionsWithPendingStatefulConstraintStatus: MutableList<PublishedArtifact>
   ) {
@@ -95,7 +96,7 @@ class EnvironmentConstraintRunner(
     selectedVersion = envContext.versions // all versions
       .filterNot { vetoedVersions.contains(it) }
       .firstOrNull { version ->
-        withThreadTracingContext(envContext.artifact, version) {
+        withCoroutineTracingContext(envContext.artifact, version) {
           versionsWithPendingStatefulConstraintStatus.removeIf { it.version == version } // remove to indicate we are rechecking this version
 
           val passesStatelessConstraints = checkStatelessConstraints(envContext.artifact, envContext.deliveryConfig, version, envContext.environment)
@@ -139,7 +140,7 @@ class EnvironmentConstraintRunner(
 
     if (selectedVersion != null && !versionIsPending) {
       // we've selected a version that passes all constraints, queue it for approval
-      withThreadTracingContext(envContext.artifact, selectedVersion) {
+      withCoroutineTracingContext(envContext.artifact, selectedVersion) {
         queueForApproval(envContext.deliveryConfig, envContext.artifact, selectedVersion, envContext.environment.name)
       }
     }
@@ -156,7 +157,7 @@ class EnvironmentConstraintRunner(
         "and ${passesStateful.passFailWording()} stateful constraints in environment ${envContext.environment.name}")
     }
   }
-  
+
   fun Boolean.passFailWording() =
     if (this) "passes" else "does not pass"
 
@@ -164,7 +165,7 @@ class EnvironmentConstraintRunner(
    * Re-checks older versions with pending stateful constraints to see if they can be approved,
    * queues them for approval if they pass
    */
-  private fun handleOlderPendingVersions(
+  private suspend fun handleOlderPendingVersions(
     envContext: EnvironmentContext,
     versionsWithPendingStatefulConstraintStatus: MutableList<PublishedArtifact>
   ) {
@@ -172,7 +173,7 @@ class EnvironmentConstraintRunner(
     versionsWithPendingStatefulConstraintStatus
       .reversed() // oldest first
       .forEach { artifactVersion ->
-        withThreadTracingContext(artifactVersion) {
+        withCoroutineTracingContext(artifactVersion) {
           val passesConstraints =
             checkStatelessConstraints(envContext.artifact, envContext.deliveryConfig, artifactVersion.version, envContext.environment) &&
               checkStatefulConstraints(envContext.artifact, envContext.deliveryConfig, artifactVersion.version, envContext.environment)
@@ -214,7 +215,7 @@ class EnvironmentConstraintRunner(
     }
   }
 
-  fun getStatelessConstraintSnapshots(
+  suspend fun getStatelessConstraintSnapshots(
     artifact: DeliveryArtifact,
     deliveryConfig: DeliveryConfig,
     version: String,
@@ -233,7 +234,7 @@ class EnvironmentConstraintRunner(
         )
     }
 
-  fun checkStatelessConstraints(
+  suspend fun checkStatelessConstraints(
     artifact: DeliveryArtifact,
     deliveryConfig: DeliveryConfig,
     version: String,
@@ -242,7 +243,7 @@ class EnvironmentConstraintRunner(
     checkConstraintForEveryEnvironment(implicitStatelessEvaluators, artifact, deliveryConfig, version, environment) &&
       checkConstraintWhenSpecified(statelessEvaluators, artifact, deliveryConfig, version, environment)
 
-  fun checkStatefulConstraints(
+  suspend fun checkStatefulConstraints(
     artifact: DeliveryArtifact,
     deliveryConfig: DeliveryConfig,
     version: String,
@@ -256,7 +257,7 @@ class EnvironmentConstraintRunner(
    * Evaluates the constraint for every environment passed in.
    * @return true if all constraints pass
    */
-  private fun checkConstraintForEveryEnvironment(
+  private suspend fun checkConstraintForEveryEnvironment(
     evaluators: List<ConstraintEvaluator<*>>,
     artifact: DeliveryArtifact,
     deliveryConfig: DeliveryConfig,
@@ -264,7 +265,7 @@ class EnvironmentConstraintRunner(
     environment: Environment
   ): Boolean =
     evaluators.all { evaluator ->
-      evaluator.canPromote(artifact, version, deliveryConfig, environment)
+      evaluator.constraintPasses(artifact, version, deliveryConfig, environment)
     }
 
   /**
@@ -272,7 +273,7 @@ class EnvironmentConstraintRunner(
    * Evaluates the constraint only if it's defined on the environment.
    * @return true if all constraints pass
    */
-  private fun checkConstraintWhenSpecified(
+  private suspend fun checkConstraintWhenSpecified(
     evaluators: List<ConstraintEvaluator<*>>,
     artifact: DeliveryArtifact,
     deliveryConfig: DeliveryConfig,
@@ -283,7 +284,7 @@ class EnvironmentConstraintRunner(
     // we want to run all stateful evaluators even if some fail
     evaluators.forEach { evaluator ->
       val canPromote = !environment.hasSupportedConstraint(evaluator) ||
-        evaluator.canPromote(artifact, version, deliveryConfig, environment)
+        evaluator.constraintPasses(artifact, version, deliveryConfig, environment)
 
       if (!canPromote) {
         allPass = false

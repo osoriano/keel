@@ -24,6 +24,7 @@ import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import io.mockk.Called
 import io.mockk.mockk
+import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import strikt.api.expectThat
 import strikt.assertions.isFalse
@@ -79,12 +80,14 @@ internal class ImageExistsConstraintEvaluatorTests : JUnit5Minutests {
   }
 
   private fun Fixture.canPromote() {
-    promotionResult = evaluator.canPromote(
-      deliveryConfig.artifacts.first(),
-      appVersion,
-      deliveryConfig,
-      deliveryConfig.environments.first()
-    )
+    runBlocking {
+      promotionResult = evaluator.constraintPasses(
+        deliveryConfig.artifacts.first(),
+        appVersion,
+        deliveryConfig,
+        deliveryConfig.environments.first()
+      )
+    }
   }
 
   fun tests() = rootContext<Fixture> {

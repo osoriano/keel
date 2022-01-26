@@ -21,14 +21,15 @@ import com.netflix.spinnaker.keel.test.resource
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import io.mockk.Runs
-import io.mockk.every
+import io.mockk.coEvery as every
+import io.mockk.coVerify as verify
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.slot
-import io.mockk.verify
+import java.time.Instant
+import kotlinx.coroutines.runBlocking
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo
-import java.time.Instant
 
 internal class StatefulConstraintEvaluatorTests : JUnit5Minutests {
 
@@ -44,7 +45,7 @@ internal class StatefulConstraintEvaluatorTests : JUnit5Minutests {
       override val eventPublisher: EventPublisher,
       val delegate: StatefulConstraintEvaluator<FakeConstraint, DefaultConstraintAttributes>
     ) : StatefulConstraintEvaluator<FakeConstraint, DefaultConstraintAttributes> {
-      override fun canPromote(
+      override suspend fun constraintPasses(
         artifact: DeliveryArtifact,
         version: String,
         deliveryConfig: DeliveryConfig,
@@ -52,7 +53,7 @@ internal class StatefulConstraintEvaluatorTests : JUnit5Minutests {
         constraint: FakeConstraint,
         state: ConstraintState
       ) =
-        delegate.canPromote(artifact, version, deliveryConfig, targetEnvironment, constraint, state)
+        delegate.constraintPasses(artifact, version, deliveryConfig, targetEnvironment, constraint, state)
 
       override val supportedType = SupportedConstraintType<FakeConstraint>("fake")
       override val attributeType = SupportedConstraintAttributesType<DefaultConstraintAttributes>("fake")
@@ -118,16 +119,21 @@ internal class StatefulConstraintEvaluatorTests : JUnit5Minutests {
       every {
         fakeStatefulConstraintEvaluatorDelegate.canPromote(artifact, "v1.0.0", manifest, environment, constraint, any())
       } returns true
+
+      every {
+        fakeStatefulConstraintEvaluatorDelegate.constraintPasses(artifact, "v1.0.0", manifest, environment, constraint, any())
+      } returns true
+
     }
 
     test("abstract canPromote delegates to concrete sub-class") {
       // The method defined in StatefulConstraintEvaluator...
-      subject.canPromote(artifact, "v1.0.0", manifest, environment)
+      runBlocking { subject.constraintPasses(artifact, "v1.0.0", manifest, environment) }
 
       val state = slot<ConstraintState>()
       verify {
-        // ...in turns calls this method on the sub-class
-        subject.canPromote(artifact, "v1.0.0", manifest, environment, constraint, capture(state))
+        // ...in turns calls the constraintPasses method on the sub-class
+        subject.constraintPasses(artifact, "v1.0.0", manifest, environment, constraint, capture(state))
       }
       // We ignore the timestamp because it's generated dynamically
       expectThat(state.captured).isEqualTo(pendingConstraintState.createdAt(state.captured.createdAt))

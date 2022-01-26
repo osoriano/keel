@@ -18,9 +18,9 @@ import com.netflix.spinnaker.keel.core.api.TimeWindowConstraint
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
-import io.mockk.every
+import io.mockk.coEvery as every
 import io.mockk.mockk
-import io.mockk.verify
+import io.mockk.coVerify as verify
 import kotlinx.coroutines.runBlocking
 import strikt.api.expectCatching
 import strikt.assertions.isSuccess
@@ -51,7 +51,7 @@ internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
     val implicitStatelessEvaluator = mockk<ConstraintEvaluator<*>> {
       every { supportedType } returns SupportedConstraintType<DummyImplicitConstraint>("implicit")
       every { isImplicit() } returns true
-      every { canPromote(any(), any(), any(), any()) } returns true
+      every { constraintPasses(any(), any(), any(), any()) } returns true
     }
     val subject = EnvironmentConstraintRunner(
       repository,
@@ -135,7 +135,7 @@ internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
 
         test("the implicit constraint is checked") {
           verify {
-            implicitStatelessEvaluator.canPromote(artifact, "2.0", deliveryConfig, environment)
+            implicitStatelessEvaluator.constraintPasses(artifact, "2.0", deliveryConfig, environment)
           }
         }
 
@@ -160,7 +160,7 @@ internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
 
         test("the version doesn't get checked") {
           verify(exactly = 0) {
-            implicitStatelessEvaluator.canPromote(artifact, "2.0", deliveryConfig, environment)
+            implicitStatelessEvaluator.constraintPasses(artifact, "2.0", deliveryConfig, environment)
           }
         }
       }
@@ -199,10 +199,10 @@ internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
             repository.getPendingConstraintsForArtifactVersions(any(), any(), any())
           } returns emptyList()
 
-          every { statelessEvaluator.canPromote(artifact, "1.2", deliveryConfig, environment) } returns true
-          every { mjEvaluator.canPromote(artifact, "1.2", deliveryConfig, environment) } returns true
-          every { statelessEvaluator.canPromote(artifact, "2.0", deliveryConfig, environment) } returns true
-          every { mjEvaluator.canPromote(artifact, "2.0", deliveryConfig, environment) } returns true
+          every { statelessEvaluator.constraintPasses(artifact, "1.2", deliveryConfig, environment) } returns true
+          every { mjEvaluator.constraintPasses(artifact, "1.2", deliveryConfig, environment) } returns true
+          every { statelessEvaluator.constraintPasses(artifact, "2.0", deliveryConfig, environment) } returns true
+          every { mjEvaluator.constraintPasses(artifact, "2.0", deliveryConfig, environment) } returns true
 
           every {
             repository.latestVersionApprovedIn(deliveryConfig, artifact, environment.name)
@@ -223,13 +223,13 @@ internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
 
           test("the vetoed version doesn't get checked") {
             verify(exactly = 0) {
-              implicitStatelessEvaluator.canPromote(artifact, "2.0", deliveryConfig, environment)
+              implicitStatelessEvaluator.constraintPasses(artifact, "2.0", deliveryConfig, environment)
             }
           }
           test("the other version is checked and queued for approval") {
             verify(exactly = 1) {
-              implicitStatelessEvaluator.canPromote(artifact, "1.2", deliveryConfig, environment)
-              statelessEvaluator.canPromote(artifact, "1.2", deliveryConfig, environment)
+              implicitStatelessEvaluator.constraintPasses(artifact, "1.2", deliveryConfig, environment)
+              statelessEvaluator.constraintPasses(artifact, "1.2", deliveryConfig, environment)
             }
           }
 
@@ -256,12 +256,12 @@ internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
 
           test("we only check the latest version") {
             verify(exactly = 1) {
-              implicitStatelessEvaluator.canPromote(artifact, "2.0", deliveryConfig, environment)
-              statelessEvaluator.canPromote(artifact, "2.0", deliveryConfig, environment)
+              implicitStatelessEvaluator.constraintPasses(artifact, "2.0", deliveryConfig, environment)
+              statelessEvaluator.constraintPasses(artifact, "2.0", deliveryConfig, environment)
             }
             verify(exactly = 0) {
-              implicitStatelessEvaluator.canPromote(artifact, "1.2", deliveryConfig, environment)
-              statelessEvaluator.canPromote(artifact, "1.2", deliveryConfig, environment)
+              implicitStatelessEvaluator.constraintPasses(artifact, "1.2", deliveryConfig, environment)
+              statelessEvaluator.constraintPasses(artifact, "1.2", deliveryConfig, environment)
             }
           }
 
@@ -305,10 +305,10 @@ internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
             repository.constraintStateFor("my-manifest", "staging", "2.0", artifact.reference)
           } returns listOf(pendingManualJudgement)
 
-          every { statelessEvaluator.canPromote(artifact, "1.2", deliveryConfig, environment) } returns true
-          every { mjEvaluator.canPromote(artifact, "1.2", deliveryConfig, environment) } returns true
-          every { statelessEvaluator.canPromote(artifact, "2.0", deliveryConfig, environment) } returns false
-          every { mjEvaluator.canPromote(artifact, "2.0", deliveryConfig, environment) } returns false
+          every { statelessEvaluator.constraintPasses(artifact, "1.2", deliveryConfig, environment) } returns true
+          every { mjEvaluator.constraintPasses(artifact, "1.2", deliveryConfig, environment) } returns true
+          every { statelessEvaluator.constraintPasses(artifact, "2.0", deliveryConfig, environment) } returns false
+          every { mjEvaluator.constraintPasses(artifact, "2.0", deliveryConfig, environment) } returns false
 
           every {
             repository.latestVersionApprovedIn(deliveryConfig, artifact, environment.name)
@@ -324,7 +324,7 @@ internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
 
           test("the implicit constraint is checked") {
             verify {
-              implicitStatelessEvaluator.canPromote(artifact, "2.0", deliveryConfig, environment)
+              implicitStatelessEvaluator.constraintPasses(artifact, "2.0", deliveryConfig, environment)
             }
           }
 
@@ -337,7 +337,7 @@ internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
              * Verify that stateful constraints are not checked if a stateless constraint blocks promotion
              */
             verify(exactly = 0) {
-              mjEvaluator.canPromote(artifact, "2.0", deliveryConfig, environment)
+              mjEvaluator.constraintPasses(artifact, "2.0", deliveryConfig, environment)
             }
           }
         }
@@ -368,9 +368,9 @@ internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
           } returns listOf(passedManualJudgement)
 
 
-          every { statelessEvaluator.canPromote(artifact, "1.2", deliveryConfig, environment) } returns true
-          every { mjEvaluator.canPromote(artifact, "1.2", deliveryConfig, environment) } returns true
-          every { allowedTimesEvaluator.canPromote(artifact, "1.2", deliveryConfig, environment) } returns false
+          every { statelessEvaluator.constraintPasses(artifact, "1.2", deliveryConfig, environment) } returns true
+          every { mjEvaluator.constraintPasses(artifact, "1.2", deliveryConfig, environment) } returns true
+          every { allowedTimesEvaluator.constraintPasses(artifact, "1.2", deliveryConfig, environment) } returns false
 
           every {
             repository.latestVersionApprovedIn(deliveryConfig, artifact, environment.name)
@@ -383,8 +383,8 @@ internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
 
         test("all stateful constraints are checked even if one fails") {
           verify(exactly = 1) {
-            mjEvaluator.canPromote(artifact, "1.2", deliveryConfig, environment)
-            allowedTimesEvaluator.canPromote(artifact, "1.2", deliveryConfig, environment)
+            mjEvaluator.constraintPasses(artifact, "1.2", deliveryConfig, environment)
+            allowedTimesEvaluator.constraintPasses(artifact, "1.2", deliveryConfig, environment)
           }
         }
       }
@@ -401,7 +401,7 @@ internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
 
         before {
           // TODO: sucks that this is necessary but when using deriveFixture you get a different mockk
-          every { statelessEvaluator.canPromote(artifact, "1.0", deliveryConfig, environment) } returns false
+          every { statelessEvaluator.constraintPasses(artifact, "1.0", deliveryConfig, environment) } returns false
         }
 
         test("no exception is thrown") {
@@ -436,7 +436,7 @@ internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
           // TODO: sucks that this is necessary but when using deriveFixture you get a different mockk
           every { repository.getPendingConstraintsForArtifactVersions(any(), any(), any()) } returns emptyList()
 
-          every { mjEvaluator.canPromote(artifact, "2.0", deliveryConfig, environment) } returns false
+          every { mjEvaluator.constraintPasses(artifact, "2.0", deliveryConfig, environment) } returns false
 
           every {
             repository.constraintStateFor("my-manifest", "staging", "2.0", artifact.reference)
@@ -449,11 +449,11 @@ internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
 
         test("stateful constraints are only evaluated for the most recent version") {
           verify(exactly = 1) {
-            mjEvaluator.canPromote(artifact, "2.0", deliveryConfig, environment)
+            mjEvaluator.constraintPasses(artifact, "2.0", deliveryConfig, environment)
           }
           verify(exactly = 0) {
-            mjEvaluator.canPromote(artifact, "1.2", deliveryConfig, environment)
-            mjEvaluator.canPromote(artifact, "1.1", deliveryConfig, environment)
+            mjEvaluator.constraintPasses(artifact, "1.2", deliveryConfig, environment)
+            mjEvaluator.constraintPasses(artifact, "1.1", deliveryConfig, environment)
           }
         }
 
@@ -495,13 +495,13 @@ internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
           } returns setOf("1.2", "1.0")
             .map { PublishedArtifact(artifact.name, artifact.type, it) }
 
-          every { mjEvaluator.canPromote(any(), "2.0", any(), any()) } returns false
-          every { mjEvaluator.canPromote(any(), "1.2", any(), any()) } returns true
-          every { mjEvaluator.canPromote(any(), "1.1", any(), any()) } returns false
-          every { statelessEvaluator.canPromote(any(), "2.0", any(), any()) } returns true
-          every { statelessEvaluator.canPromote(any(), "1.2", any(), any()) } returns true
-          every { statelessEvaluator.canPromote(any(), "1.1", any(), any()) } returns true
-          every { statelessEvaluator.canPromote(any(), "1.0", any(), any()) } returns true
+          every { mjEvaluator.constraintPasses(any(), "2.0", any(), any()) } returns false
+          every { mjEvaluator.constraintPasses(any(), "1.2", any(), any()) } returns true
+          every { mjEvaluator.constraintPasses(any(), "1.1", any(), any()) } returns false
+          every { statelessEvaluator.constraintPasses(any(), "2.0", any(), any()) } returns true
+          every { statelessEvaluator.constraintPasses(any(), "1.2", any(), any()) } returns true
+          every { statelessEvaluator.constraintPasses(any(), "1.1", any(), any()) } returns true
+          every { statelessEvaluator.constraintPasses(any(), "1.0", any(), any()) } returns true
 
           every { repository.approveVersionFor(deliveryConfig, artifact, "1.2", environment.name) } returns true
           every { repository.approveVersionFor(deliveryConfig, artifact, "1.0", environment.name) } returns true
@@ -515,8 +515,8 @@ internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
 
         test("pending versions are checked and approved if passed") {
           verify(exactly = 1) {
-            mjEvaluator.canPromote(artifact, "1.2", deliveryConfig, environment)
-            mjEvaluator.canPromote(artifact, "1.1", deliveryConfig, environment)
+            mjEvaluator.constraintPasses(artifact, "1.2", deliveryConfig, environment)
+            mjEvaluator.constraintPasses(artifact, "1.1", deliveryConfig, environment)
           }
 
           verify(exactly = 1) {

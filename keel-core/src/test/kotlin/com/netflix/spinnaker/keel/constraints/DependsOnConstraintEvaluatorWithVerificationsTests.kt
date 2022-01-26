@@ -16,6 +16,7 @@ import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.runBlocking
 import strikt.api.expectThat
 import strikt.assertions.isFalse
 import strikt.assertions.isTrue
@@ -85,7 +86,7 @@ class DependsOnConstraintEvaluatorWithVerificationsTests : JUnit5Minutests {
       }
 
       test("promotion is allowed") {
-        expectThat(subject.canPromote(artifact, "1.1", manifest, constrainedEnvironment))
+        expectThat(runBlocking { subject.constraintPasses(artifact, "1.1", manifest, constrainedEnvironment)})
           .isTrue()
       }
     }
@@ -96,7 +97,7 @@ class DependsOnConstraintEvaluatorWithVerificationsTests : JUnit5Minutests {
       }
 
       test("promotion is not allowed") {
-        expectThat(subject.canPromote(artifact, "1.1", manifest, constrainedEnvironment))
+        expectThat(runBlocking { subject.constraintPasses(artifact, "1.1", manifest, constrainedEnvironment)})
           .isFalse()
       }
     }

@@ -16,9 +16,10 @@ import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import io.mockk.mockk
 import io.mockk.verify
+import java.time.Duration
+import kotlinx.coroutines.runBlocking
 import strikt.api.expectThat
 import strikt.assertions.isFalse
-import java.time.Duration
 
 internal class ManualJudgementConstraintEvaluatorTests : JUnit5Minutests {
   class Fixture {
@@ -67,7 +68,7 @@ internal class ManualJudgementConstraintEvaluatorTests : JUnit5Minutests {
 
     context("evaluating state") {
       test("before timeout we don't pass") {
-        val result = subject.canPromote(artifact, version, config, env, constraint, state)
+        val result = runBlocking { subject.constraintPasses(artifact, version, config, env, constraint, state) }
         expectThat(result).isFalse()
         verify(exactly = 0) { repository.storeConstraintState(any()) }
       }
@@ -75,13 +76,13 @@ internal class ManualJudgementConstraintEvaluatorTests : JUnit5Minutests {
       test("after timeout we still don't pass but we persist a failure") {
         clock.tickHours(1)
         clock.tickMinutes(1)
-        val result = subject.canPromote(artifact, version, config, env, constraint, state)
+        val result = runBlocking { subject.constraintPasses(artifact, version, config, env, constraint, state) }
         expectThat(result).isFalse()
         verify(exactly = 1) { repository.storeConstraintState(any()) }
       }
 
       test("with no timeout we don't pass") {
-        val result = subject.canPromote(artifact, version, config, env, constraint.copy(timeout = null), state)
+        val result = runBlocking { subject.constraintPasses(artifact, version, config, env, constraint.copy(timeout = null), state) }
         expectThat(result).isFalse()
         verify(exactly = 0) { repository.storeConstraintState(any()) }
       }

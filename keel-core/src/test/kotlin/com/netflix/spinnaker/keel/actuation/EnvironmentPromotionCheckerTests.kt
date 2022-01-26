@@ -27,10 +27,10 @@ import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
-import io.mockk.every
+import io.mockk.coEvery as every
 import io.mockk.mockk
 import io.mockk.slot
-import io.mockk.verify
+import io.mockk.coVerify as verify
 import kotlinx.coroutines.runBlocking
 import org.springframework.context.ApplicationEventPublisher
 import strikt.api.expectCatching

@@ -26,12 +26,12 @@ interface StatelessConstraintEvaluator<T: Constraint, A : ConstraintStateAttribu
    * when they are passing.
    *
    * @param currentStatus the status of the constraint if it has already been evaluated.
-   * If this is null this function should call [canPromote] and get the current status.
+   * If this is null this function should call [constraintPasses] and get the current status.
    *
    * If a summary of the constraint will not be shown to the user (like with an implicit constraint)
    * this function does not need to be implemented.
    */
-  fun generateConstraintStateSnapshot(
+  suspend fun generateConstraintStateSnapshot(
     artifact: DeliveryArtifact,
     version: String,
     deliveryConfig: DeliveryConfig,

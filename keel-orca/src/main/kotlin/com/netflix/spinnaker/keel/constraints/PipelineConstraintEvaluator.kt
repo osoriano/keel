@@ -17,7 +17,6 @@ import com.netflix.spinnaker.keel.api.TaskStatus
 import com.netflix.spinnaker.keel.orca.OrcaService
 import java.time.Clock
 import java.util.HashMap
-import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory.getLogger
 import org.springframework.stereotype.Component
 
@@ -38,6 +37,7 @@ import org.springframework.stereotype.Component
  *    parameters: (OPTIONAL, Map of trigger parameters to pass along, `user` and `type` are reserved)
  *
  */
+@JvmDefaultWithoutCompatibility  // see https://youtrack.jetbrains.com/issue/KT-39603
 @Component
 class PipelineConstraintEvaluator(
   private val orcaService: OrcaService,
@@ -50,7 +50,7 @@ class PipelineConstraintEvaluator(
 
   private val log by lazy { getLogger(javaClass) }
 
-  override fun canPromote(
+  override suspend fun constraintPasses(
     artifact: DeliveryArtifact,
     version: String,
     deliveryConfig: DeliveryConfig,
@@ -90,9 +90,8 @@ class PipelineConstraintEvaluator(
 
     if (shouldTrigger(constraint, attributes)) {
       try {
-        val executionId = runBlocking {
-          startPipeline(targetEnvironment, constraint, deliveryConfig.serviceAccount)
-        }
+        val executionId = startPipeline(targetEnvironment, constraint, deliveryConfig.serviceAccount)
+
 
         attributes = PipelineConstraintStateAttributes(
           executionId = executionId,
@@ -193,16 +192,15 @@ class PipelineConstraintEvaluator(
       .taskId
   }
 
-  private fun pipelineStatus(serviceAccount: String, attributes: PipelineConstraintStateAttributes?): TaskStatus? {
+  private suspend fun pipelineStatus(serviceAccount: String, attributes: PipelineConstraintStateAttributes?): TaskStatus? {
     if (attributes?.executionId == null) {
       return null
     }
 
-    return runBlocking {
-      orcaService
+    return orcaService
         .getPipelineExecution(attributes.executionId!!, serviceAccount)
         .status
-    }
+
   }
 
   private fun shouldTrigger(
