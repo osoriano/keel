@@ -35,3 +35,10 @@ dependencies {
   testImplementation(project(":keel-testcontainers"))
   testImplementation(project(":keel-sql"))
 }
+
+test {
+  if (mySqlMode == "local") {
+    dependsOn(":recreateLocalDatabase")
+    environment("SPRING_PROFILES_ACTIVE", "localmysql")
+  }
+}

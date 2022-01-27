@@ -74,3 +74,10 @@ application {
   mainClassName = "com.netflix.spinnaker.keel.MainKt"
   applicationName("keel")
 }
+
+test {
+  if (mySqlMode == "local") {
+    dependsOn(":recreateLocalDatabase")
+    environment("SPRING_PROFILES_ACTIVE", "localmysql")
+  }
+}

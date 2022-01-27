@@ -32,6 +32,8 @@ import com.netflix.spinnaker.keel.artifacts.DockerArtifact
 import com.netflix.spinnaker.keel.artifacts.TagComparator
 import com.netflix.spinnaker.keel.exceptions.InvalidRegexException
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ARTIFACT_VERSIONS
+import com.netflix.spinnaker.keel.persistence.metamodel.tables.ActiveEnvironment
+import com.netflix.spinnaker.keel.persistence.metamodel.tables.ArtifactVersions
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
 import org.jooq.Record7
 import org.jooq.ResultQuery
@@ -42,14 +44,14 @@ import java.time.Instant
 private val objectMapper: ObjectMapper = configuredObjectMapper()
 private val log by lazy { LoggerFactory.getLogger("ArtifactUtils") }
 
-internal val ARTIFACT_VERSIONS_BRANCH =
-  field<String?>("json_unquote(keel.artifact_versions.git_metadata->'$.branch')")
+internal val ArtifactVersions.BRANCH
+  get() = field<String?>("${name}.${GIT_METADATA.name}->>'$.branch'")
 
-internal val ARTIFACT_VERSIONS_PR_NUMBER =
-  field<String?>("json_unquote(keel.artifact_versions.git_metadata->'$.pullRequest.number')")
+internal val ArtifactVersions.PR_NUMBER
+  get() = field<String?>("${name}.${GIT_METADATA.name}->>'$.pullRequest.number'")
 
-internal val ACTIVE_ENVIRONMENT_BRANCH =
-  field<String?>("json_unquote(keel.active_environment.metadata->'$.branch')")
+internal val ActiveEnvironment.BRANCH
+  get() = field<String?>("${name}.${METADATA.name}->>'$.branch'")
 
 internal const val EMPTY_PR_NUMBER = "\"\""
 
@@ -110,18 +112,18 @@ private fun ArtifactVersionSelectStep.fetchArtifactVersionsSortedWithQuery(
 ): List<PublishedArtifact> {
   // TODO: should we also be comparing the repo with what's configured for the app in front50?
   if (artifact.filteredByPullRequest) {
-    and(ARTIFACT_VERSIONS_PR_NUMBER.isNotNull).and(ARTIFACT_VERSIONS_PR_NUMBER.ne(EMPTY_PR_NUMBER))
+    and(ARTIFACT_VERSIONS.PR_NUMBER.isNotNull).and(ARTIFACT_VERSIONS.PR_NUMBER.ne(EMPTY_PR_NUMBER))
   }
 
   if (artifact.filteredByBranch) {
     artifact.from?.branch?.name?.also {
-      and(ARTIFACT_VERSIONS_BRANCH.eq(it))
+      and(ARTIFACT_VERSIONS.BRANCH.eq(it))
     }
     artifact.from?.branch?.startsWith?.also {
-      and(ARTIFACT_VERSIONS_BRANCH.startsWith(it))
+      and(ARTIFACT_VERSIONS.BRANCH.startsWith(it))
     }
     artifact.from?.branch?.regex?.also {
-      and(ARTIFACT_VERSIONS_BRANCH.likeRegex(it))
+      and(ARTIFACT_VERSIONS.BRANCH.likeRegex(it))
     }
   }
 

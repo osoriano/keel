@@ -1364,7 +1364,7 @@ class SqlArtifactRepository(
         }
         // For preview environments, select only those artifact versions with a matching branch
         if (environment.isPreview) {
-          and(ARTIFACT_VERSIONS_BRANCH.eq(ACTIVE_ENVIRONMENT_BRANCH))
+          and(ARTIFACT_VERSIONS.BRANCH.eq(ACTIVE_ENVIRONMENT.BRANCH))
         }
       }
 

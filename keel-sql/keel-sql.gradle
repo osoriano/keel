@@ -24,11 +24,16 @@ clean {
   delete.add("$projectDir/src/generated/java")
 }
 
-// Run tests in parallel: https://docs.gradle.org/current/userguide/performance.html#parallel_test_execution
 test {
-  maxParallelForks = maxParallelTests
-  afterEvaluate {
-    logger.lifecycle("Running tests with $maxParallelTests parallel workers")
+  if (mySqlMode == "local") {
+    dependsOn(":recreateLocalDatabase")
+    environment("SPRING_PROFILES_ACTIVE", "localmysql")
+  } else {
+    // Run tests in parallel: https://docs.gradle.org/current/userguide/performance.html#parallel_test_execution
+    maxParallelForks = maxParallelTests
+    afterEvaluate {
+      logger.lifecycle("Running tests with $maxParallelTests parallel workers")
+    }
   }
 }
 
