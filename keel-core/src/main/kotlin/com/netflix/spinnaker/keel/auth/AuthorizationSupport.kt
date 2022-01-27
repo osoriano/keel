@@ -201,26 +201,14 @@ class AuthorizationSupport(
     private val objectMapper: ObjectMapper = ObjectMapper()
 
     /**
-     * Runs the specified [block] within an isolated MDC coroutine context containing an
-     * X-SPINNAKER-AUTH-TOKEN for the specified [application] and [legacyRunAs] user.
+     * @return A token appropriate for setting the  X-SPINNAKER-AUTH-TOKEN request header
+     * for the specified [application] and [legacyRunAs] user.
      */
-    suspend fun <T> withSpinnakerAuthToken(
-      application: String,
-      legacyRunAs: String,
-      block: suspend CoroutineScope.() -> T
-    ): T {
-      val mdIdentity = ManagedDeliveryTriggerIdentity().let {
+    fun getSpinnakerAuthToken(application: String, legacyRunAs: String): String {
+      return ManagedDeliveryTriggerIdentity().let {
         it.applicationName = application
         it.legacyRunAs = legacyRunAs
         "object:" + objectMapper.writeValueAsString(it)
-      }
-      return withContext(blankMDC) {
-        try {
-          MDC.put(AUTH_TOKEN.header, mdIdentity)
-          withContext(MDCContext(), block)
-        } finally {
-          MDC.remove(AUTH_TOKEN.header)
-        }
       }
     }
   }

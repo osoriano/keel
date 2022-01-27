@@ -215,7 +215,7 @@ internal class TitusClusterExportTests : JUnit5Minutests {
         every { cloudDriverCache.credentialBy(titusAccount) } returns titusAccountCredential
         every { cloudDriverCache.getRegistryForTitusAccount(any()) } returns "testregistry"
       }
-      coEvery { orcaService.orchestrate(resource.serviceAccount, any()) } returns TaskRefResponse("/tasks/${UUID.randomUUID()}")
+      coEvery { orcaService.orchestrate(resource.serviceAccount, any(), any()) } returns TaskRefResponse("/tasks/${UUID.randomUUID()}")
       every { repository.environmentFor(any()) } returns Environment("test")
       coEvery {
         clusterExportHelper.discoverDeploymentStrategy("titus", "titustest", "keel", any())

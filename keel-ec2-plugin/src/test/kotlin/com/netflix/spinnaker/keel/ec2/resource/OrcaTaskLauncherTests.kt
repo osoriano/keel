@@ -65,7 +65,7 @@ class OrcaTaskLauncherTests : JUnit5Minutests {
 
     before {
       coEvery {
-        orcaService.orchestrate(any(), capture(request))
+        orcaService.orchestrate(any(), any(), capture(request))
       } returns TaskRefResponse("/tasks/${randomUID()}")
 
       coEvery {

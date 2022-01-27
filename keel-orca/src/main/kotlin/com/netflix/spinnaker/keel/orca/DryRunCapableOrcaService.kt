@@ -21,12 +21,12 @@ class DryRunCapableOrcaService(
   private val dryRunEnabled: Boolean
     get() = springEnv.getProperty("keel.dryRun.enabled", Boolean::class.java, false)
 
-  override suspend fun orchestrate(user: String, request: OrchestrationRequest): TaskRefResponse {
+  override suspend fun orchestrate(user: String, authToken: String, request: OrchestrationRequest): TaskRefResponse {
     return if (dryRunEnabled) {
       log.warn("[DRY RUN] Skipping call to Orca to submit orchestration: {}", request)
       TaskRefResponse("orchestration/dryRun")
     } else {
-      delegate.orchestrate(user, request)
+      delegate.orchestrate(user, authToken, request)
     }
   }
 

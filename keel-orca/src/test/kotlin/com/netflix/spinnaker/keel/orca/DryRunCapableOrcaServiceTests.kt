@@ -17,6 +17,7 @@ import io.mockk.coVerify as verify
 class DryRunCapableOrcaServiceTests : JUnit5Minutests {
   object Fixture {
     const val user = "keel"
+    const val authToken = "token"
     const val someId = "blah"
     val delegate: OrcaService = mockk()
     val springEnv: Environment = mockk()
@@ -33,7 +34,7 @@ class DryRunCapableOrcaServiceTests : JUnit5Minutests {
     }
 
     before {
-      every { delegate.orchestrate(user, request) } returns taskResponse
+      every { delegate.orchestrate(user, authToken, request) } returns taskResponse
       every { delegate.triggerPipeline(user, someId, trigger) } returns taskResponse
       every { delegate.cancelOrchestration(someId, user) } just runs
       every { delegate.getPipelineExecution(someId, user) } returns executionResponse
@@ -47,9 +48,9 @@ class DryRunCapableOrcaServiceTests : JUnit5Minutests {
       }
 
       test("OrcaDryRunService delegates orchestrate call") {
-        runBlocking { subject.orchestrate(user, request) }
+        runBlocking { subject.orchestrate(user, authToken, request) }
         verify(exactly = 1) {
-          delegate.orchestrate(user, request)
+          delegate.orchestrate(user, authToken, request)
         }
       }
 
@@ -77,7 +78,7 @@ class DryRunCapableOrcaServiceTests : JUnit5Minutests {
       }
 
       test("OrcaDryRunService does not delegate orchestrate call") {
-        runBlocking { subject.orchestrate(user, request) }
+        runBlocking { subject.orchestrate(user, authToken, request) }
         verify {
           delegate wasNot called
         }

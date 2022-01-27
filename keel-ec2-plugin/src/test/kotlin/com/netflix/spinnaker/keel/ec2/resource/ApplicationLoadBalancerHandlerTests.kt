@@ -217,7 +217,7 @@ internal class ApplicationLoadBalancerHandlerTests : JUnit5Minutests {
         } returns false
       }
 
-      every { orcaService.orchestrate("keel@spinnaker", any()) } returns TaskRefResponse("/tasks/${UUID.randomUUID()}")
+      every { orcaService.orchestrate("keel@spinnaker", any(), any()) } returns TaskRefResponse("/tasks/${UUID.randomUUID()}")
     }
 
     context("the ALB does not exist") {
@@ -233,7 +233,7 @@ internal class ApplicationLoadBalancerHandlerTests : JUnit5Minutests {
         }
 
         val slot = slot<OrchestrationRequest>()
-        verify { orcaService.orchestrate("keel@spinnaker", capture(slot)) }
+        verify { orcaService.orchestrate("keel@spinnaker", any(), capture(slot)) }
 
         expectThat(slot.captured.job.first()) {
           get("type").isEqualTo("upsertLoadBalancer")
@@ -344,7 +344,7 @@ internal class ApplicationLoadBalancerHandlerTests : JUnit5Minutests {
 
       test("the diff reflects the new spec and is upserted") {
         val slot = slot<OrchestrationRequest>()
-        every { orcaService.orchestrate("keel@spinnaker", capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+        every { orcaService.orchestrate("keel@spinnaker", any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
 
         val tgroup = resource.spec.targetGroups.first().copy(port = 7505)
         val newResource = resource.copy(spec = resource.spec.copy(targetGroups = setOf(tgroup)))
@@ -380,7 +380,7 @@ internal class ApplicationLoadBalancerHandlerTests : JUnit5Minutests {
       test("generates the correct task") {
         val slot = slot<OrchestrationRequest>()
         every {
-          orcaService.orchestrate(resource.serviceAccount, capture(slot))
+          orcaService.orchestrate(resource.serviceAccount, any(), capture(slot))
         } answers { TaskRefResponse(ULID().nextULID()) }
 
         val expectedJob = mapOf(

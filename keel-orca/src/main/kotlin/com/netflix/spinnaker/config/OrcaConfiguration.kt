@@ -1,10 +1,10 @@
 package com.netflix.spinnaker.config
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.netflix.spinnaker.config.okhttp3.OkHttpClientProvider
 import com.netflix.spinnaker.keel.orca.DryRunCapableOrcaService
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.retrofit.InstrumentedJacksonConverter
-import com.netflix.spinnaker.keel.okhttp.MdcAwareOkhttpClientProvider
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.springframework.beans.factory.annotation.Value
@@ -28,11 +28,11 @@ class OrcaConfiguration {
   fun orcaService(
     orcaEndpoint: HttpUrl,
     objectMapper: ObjectMapper,
-    springEnv: Environment,
-    mdcAwareOkhttpClientProvider: MdcAwareOkhttpClientProvider
+    clientProvider: OkHttpClientProvider,
+    springEnv: Environment
   ): OrcaService {
     val endpoint = DefaultServiceEndpoint("orca", orcaEndpoint.toString())
-    val client = mdcAwareOkhttpClientProvider.getClient(endpoint)
+    val client = clientProvider.getClient(endpoint)
     return DryRunCapableOrcaService(
       springEnv = springEnv,
       delegate = Retrofit.Builder()

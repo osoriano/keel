@@ -300,7 +300,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
 
       test("resolving diff a diff creates a new server group") {
         val slot = slot<OrchestrationRequest>()
-        every { orcaService.orchestrate(resource.serviceAccount, capture(slot)) } answers {
+        every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers {
           TaskRefResponse(ULID().nextULID())
         }
 
@@ -482,7 +482,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
 
         test("resolving diff resizes the current server group") {
           val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, capture(slot)) } answers { TaskRefResponse(ULID().nextULID())}
+          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID())}
           every { cloudDriverService.listTitusServerGroups(any(), any(), any(), any(), any()) } returns ServerGroupCollection(titusAccount, emptySet())
 
           runBlocking {
@@ -532,7 +532,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
 
         test("resolving diff disables the oldest enabled server group") {
           val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
 
           runBlocking {
             upsert(resource, diff)
@@ -566,7 +566,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
 
         test("resolving diff clones the current server group by tag") {
           val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
           every { cloudDriverService.listTitusServerGroups(any(), any(), any(), any(), any()) } returns ServerGroupCollection(titusAccount, emptySet())
 
           runBlocking {
@@ -602,7 +602,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
 
         test("events are fired for the artifact deploying") {
           val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
           every { cloudDriverService.listTitusServerGroups(any(), any(), any(), any(), any()) } returns ServerGroupCollection(titusAccount, emptySet())
 
           runBlocking {
@@ -615,7 +615,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
 
         test("resolving diff clones the current server group by digest") {
           val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
           every { cloudDriverService.listTitusServerGroups(any(), any(), any(), any(), any()) } returns ServerGroupCollection(titusAccount, emptySet())
 
           runBlocking {
@@ -638,7 +638,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
 
         test("the default deploy strategy is used") {
           val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
           every { cloudDriverService.listTitusServerGroups(any(), any(), any(), any(), any()) } returns ServerGroupCollection(titusAccount, emptySet())
 
           val deployWith = RedBlack()
@@ -658,7 +658,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
 
         test("the deploy strategy is configured") {
           val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
           every { cloudDriverService.listTitusServerGroups(any(), any(), any(), any(), any()) } returns ServerGroupCollection(titusAccount, emptySet())
 
           val deployWith = RedBlack(
@@ -683,7 +683,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
 
         test("a different deploy strategy is used") {
           val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
           every { cloudDriverService.listTitusServerGroups(any(), any(), any(), any(), any()) } returns ServerGroupCollection(titusAccount, emptySet())
 
           runBlocking {
@@ -718,7 +718,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
 
         test("resolving diff launches one task per server group") {
           val tasks = mutableListOf<OrchestrationRequest>()
-          every { orcaService.orchestrate(any(), capture(tasks)) } answers { TaskRefResponse(ULID().nextULID()) }
+          every { orcaService.orchestrate(any(), any(), capture(tasks)) } answers { TaskRefResponse(ULID().nextULID()) }
 
           runBlocking {
             upsert(resource, diff)
@@ -732,7 +732,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
 
         test("each task has a distinct correlation id") {
           val tasks = mutableListOf<OrchestrationRequest>()
-          every { orcaService.orchestrate(any(), capture(tasks)) } answers { TaskRefResponse(ULID().nextULID()) }
+          every { orcaService.orchestrate(any(), any(), capture(tasks)) } answers { TaskRefResponse(ULID().nextULID()) }
 
           runBlocking {
             upsert(resource, diff)
@@ -778,7 +778,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
       test("generates the correct task") {
         val slot = slot<OrchestrationRequest>()
         every {
-          orcaService.orchestrate(resource.serviceAccount, capture(slot))
+          orcaService.orchestrate(resource.serviceAccount, any(), capture(slot))
         } answers { TaskRefResponse(ULID().nextULID()) }
 
         val expectedJobs = allServerGroups.serverGroups.map {

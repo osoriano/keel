@@ -192,7 +192,7 @@ internal class ClassicLoadBalancerHandlerTests : JUnit5Minutests {
         } returns false
       }
 
-      every { orcaService.orchestrate("keel@spinnaker", any()) } returns TaskRefResponse("/tasks/${UUID.randomUUID()}")
+      every { orcaService.orchestrate("keel@spinnaker", any(), any()) } returns TaskRefResponse("/tasks/${UUID.randomUUID()}")
     }
 
     context("the CLB does not exist") {
@@ -213,6 +213,7 @@ internal class ClassicLoadBalancerHandlerTests : JUnit5Minutests {
         every {
           orcaService.orchestrate(
             "keel@spinnaker",
+            any(),
             capture(slot)
           )
         } answers { TaskRefResponse(ULID().nextULID()) }
@@ -237,6 +238,7 @@ internal class ClassicLoadBalancerHandlerTests : JUnit5Minutests {
         every {
           orcaService.orchestrate(
             "keel@spinnaker",
+            any(),
             capture(slot)
           )
         } answers { TaskRefResponse(ULID().nextULID()) }
@@ -297,7 +299,7 @@ internal class ClassicLoadBalancerHandlerTests : JUnit5Minutests {
           upsert(newResource, diff)
         }
 
-        verify { orcaService.orchestrate("keel@spinnaker", any()) }
+        verify { orcaService.orchestrate("keel@spinnaker", any(), any()) }
       }
 
       test("export generates a valid spec for the deployed CLB") {
@@ -337,7 +339,7 @@ internal class ClassicLoadBalancerHandlerTests : JUnit5Minutests {
       test("generates the correct task") {
         val slot = slot<OrchestrationRequest>()
         every {
-          orcaService.orchestrate(resource.serviceAccount, capture(slot))
+          orcaService.orchestrate(resource.serviceAccount, any(), capture(slot))
         } answers { TaskRefResponse(ULID().nextULID()) }
 
         val expectedJob = mapOf(

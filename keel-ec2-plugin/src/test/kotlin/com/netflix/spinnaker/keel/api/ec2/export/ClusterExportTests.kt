@@ -235,7 +235,7 @@ internal class ClusterExportTests : JUnit5Minutests {
           setOf(subnet1East.availabilityZone)
       }
 
-      every { orcaService.orchestrate(resource.serviceAccount, any()) } returns TaskRefResponse("/tasks/${UUID.randomUUID()}")
+      every { orcaService.orchestrate(resource.serviceAccount, any(), any()) } returns TaskRefResponse("/tasks/${UUID.randomUUID()}")
       every { repository.environmentFor(any()) } returns Environment("test")
       every {
         clusterExportHelper.discoverDeploymentStrategy("aws", "test", "keel", any())

@@ -32,6 +32,7 @@ interface OrcaService {
   @Headers("Content-Type: application/context+json", "X-SPINNAKER-USER-ORIGIN: keel")
   suspend fun orchestrate(
     @Header("X-SPINNAKER-USER") user: String,
+    @Header("X-SPINNAKER-AUTH-TOKEN") authToken: String,
     @Body request: OrchestrationRequest
   ): TaskRefResponse
 

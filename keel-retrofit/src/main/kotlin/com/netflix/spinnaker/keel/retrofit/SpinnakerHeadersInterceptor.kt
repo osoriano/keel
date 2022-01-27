@@ -26,10 +26,6 @@ class SpinnakerHeadersInterceptor : Interceptor {
       headers[Header.REQUEST_ID.header] = id
     }
 
-    AuthenticatedRequest.getAuthToken().ifPresent { token ->
-      headers[Header.AUTH_TOKEN.header] = token
-    }
-
     request = request.newBuilder().let { builder ->
       headers.forEach { (header, value) ->
         builder.addHeader(header, value)

@@ -251,7 +251,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
           setOf(subnet1East.availabilityZone)
       }
 
-      every { orcaService.orchestrate(resource.serviceAccount, any()) } returns TaskRefResponse("/tasks/${randomUUID()}")
+      every { orcaService.orchestrate(resource.serviceAccount, any(), any()) } returns TaskRefResponse("/tasks/${randomUUID()}")
       every { repository.environmentFor(any()) } returns Environment("test")
       every {
         clusterExportHelper.discoverDeploymentStrategy("aws", "test", "keel", any())
@@ -312,7 +312,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
 
       test("annealing a staggered cluster with simple capacity doesn't attempt to upsertScalingPolicy") {
         val slot = slot<OrchestrationRequest>()
-        every { orcaService.orchestrate(resource.serviceAccount, capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+        every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
 
         runBlocking {
           upsert(
@@ -350,7 +350,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
       test("annealing a diff creates staggered server groups with scaling policies upserted in the same orchestration") {
         every { cloudDriverService.listServerGroups(any(), any(), any(), any(), any()) } returns ServerGroupCollection("test", emptySet())
         val slot = slot<OrchestrationRequest>()
-        every { orcaService.orchestrate(resource.serviceAccount, capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+        every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
 
         runBlocking {
           upsert(resource, diffFactory.compare(serverGroups.byRegion(), emptyMap()))
@@ -517,7 +517,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
 
       test("applying the diff creates a server group in the region with missing tag") {
         val slot = slot<OrchestrationRequest>()
-        every { orcaService.orchestrate(resource.serviceAccount, capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+        every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
 
         val modified = setOf(
           serverGroupEast.copy(name = activeServerGroupResponseEast.name),
@@ -560,7 +560,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
 
       test("applying the diff creates a disable job for the oldest server group") {
         val slot = slot<OrchestrationRequest>()
-        every { orcaService.orchestrate(resource.serviceAccount, capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+        every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
 
         val modified = setOf(
           serverGroupEast.copy(name = activeServerGroupResponseEast.name, onlyEnabledServerGroup = false),
@@ -669,7 +669,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
 
         test("annealing resizes the current server group with no stagger") {
           val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
 
           runBlocking {
             upsert(resource, diff)
@@ -703,7 +703,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
 
         test("annealing only upserts scaling policies on the current server group") {
           val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
 
           val metricSpec = serverGroupWest.scaling.targetTrackingPolicies.first().customMetricSpec!!
           runBlocking {
@@ -742,7 +742,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
 
         test("annealing only deletes policies from the current server group") {
           val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
 
           runBlocking {
             upsert(resource, diff)
@@ -777,7 +777,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
 
         test("the modified policy is applied in two phases via one task") {
           val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
 
           runBlocking {
             upsert(resource, diff)
@@ -819,7 +819,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
 
         test("annealing resizes and modifies scaling policies in-place on the current server group") {
           val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
 
           runBlocking {
             upsert(resource, diff)
@@ -857,7 +857,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
 
         test("an artifact deploying event fires when upserting the cluster") {
           val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
 
           runBlocking {
             upsert(resource, diff)
@@ -868,7 +868,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
 
         test("annealing clones the current server group") {
           val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
 
           runBlocking {
             upsert(resource, diff)
@@ -888,7 +888,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
 
         test("the default deploy strategy is used") {
           val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
 
           val deployWith = RedBlack()
           runBlocking {
@@ -907,7 +907,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
 
         test("the deploy strategy is configured") {
           val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
 
           val deployWith = RedBlack(
             resizePreviousToZero = true,
@@ -931,7 +931,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
 
         test("the cluster does not use discovery-based health during deployment") {
           val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
 
           val deployWith = RedBlack(health = NONE)
           runBlocking {
@@ -946,7 +946,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
 
         test("the cluster uses discovery-based health during deployment") {
           val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
 
           val deployWith = RedBlack(health = AUTO)
           runBlocking {
@@ -961,7 +961,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
 
         test("a different deploy strategy is used") {
           val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
 
           runBlocking {
             upsert(resource.copy(spec = resource.spec.copy(deployWith = Highlander())), diff)
@@ -995,6 +995,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
           every {
             orcaService.orchestrate(
               resource.serviceAccount,
+              any(),
               capture(slot)
             )
           } answers { TaskRefResponse(ULID().nextULID()) }
@@ -1029,7 +1030,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
 
         test("annealing launches one task per server group") {
           val tasks = mutableListOf<OrchestrationRequest>()
-          every { orcaService.orchestrate(any(), capture(tasks)) } answers { TaskRefResponse(ULID().nextULID()) }
+          every { orcaService.orchestrate(any(), any(), capture(tasks)) } answers { TaskRefResponse(ULID().nextULID()) }
 
           runBlocking {
             upsert(resource, diff)
@@ -1043,7 +1044,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
 
         test("each task has a distinct correlation id") {
           val tasks = mutableListOf<OrchestrationRequest>()
-          every { orcaService.orchestrate(any(), capture(tasks)) } answers { TaskRefResponse(ULID().nextULID()) }
+          every { orcaService.orchestrate(any(), any(), capture(tasks)) } answers { TaskRefResponse(ULID().nextULID()) }
 
           runBlocking {
             upsert(resource, diff)
@@ -1078,6 +1079,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
             every {
               orcaService.orchestrate(
                 resource.serviceAccount,
+                any(),
                 capture(slot)
               )
             } answers { TaskRefResponse(ULID().nextULID()) }
@@ -1111,7 +1113,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
 
         test("unsupported instance type for setting EBS volume type") {
           val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
 
           val instanceType = "c1.medium"
           runBlocking {
@@ -1134,7 +1136,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
       test("generates the correct task") {
         val slot = slot<OrchestrationRequest>()
         every {
-          orcaService.orchestrate(resource.serviceAccount, capture(slot))
+          orcaService.orchestrate(resource.serviceAccount, any(), capture(slot))
         } answers { TaskRefResponse(ULID().nextULID()) }
 
         val expectedJobs = allServerGroups.serverGroups.map {
