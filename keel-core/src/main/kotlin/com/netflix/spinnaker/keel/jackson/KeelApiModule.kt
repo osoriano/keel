@@ -30,7 +30,6 @@ import com.netflix.spinnaker.keel.api.PreviewEnvironmentSpec
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceKind
 import com.netflix.spinnaker.keel.api.ResourceSpec
-import com.netflix.spinnaker.keel.api.StaggeredRegion
 import com.netflix.spinnaker.keel.api.SubnetAwareRegionSpec
 import com.netflix.spinnaker.keel.api.Verification
 import com.netflix.spinnaker.keel.api.artifacts.Commit
@@ -53,7 +52,6 @@ import com.netflix.spinnaker.keel.jackson.mixins.PreviewEnvironmentSpecMixin
 import com.netflix.spinnaker.keel.jackson.mixins.ResourceKindMixin
 import com.netflix.spinnaker.keel.jackson.mixins.ResourceMixin
 import com.netflix.spinnaker.keel.jackson.mixins.ResourceSpecMixin
-import com.netflix.spinnaker.keel.jackson.mixins.StaggeredRegionMixin
 import com.netflix.spinnaker.keel.jackson.mixins.SubnetAwareRegionSpecMixin
 import com.netflix.spinnaker.keel.jackson.mixins.VerificationMixin
 
@@ -73,7 +71,6 @@ object KeelApiModule : SimpleModule("Keel API") {
       setMixInAnnotations<Locatable<*>, LocatableMixin<*>>()
       setMixInAnnotations<Monikered, MonikeredMixin>()
       setMixInAnnotations<ResourceKind, ResourceKindMixin>()
-      setMixInAnnotations<StaggeredRegion, StaggeredRegionMixin>()
       setMixInAnnotations<SubnetAwareRegionSpec, SubnetAwareRegionSpecMixin>()
       setMixInAnnotations<Resource<*>, ResourceMixin>()
       setMixInAnnotations<ResourceSpec, ResourceSpecMixin>()

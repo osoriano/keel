@@ -195,9 +195,6 @@ class ClusterHandler(
   override fun ServerGroup.serverGroup(): String =
     name
 
-  override fun Resource<ClusterSpec>.isStaggeredDeploy(): Boolean =
-    spec.deployWith.isStaggered
-
   override fun Resource<ClusterSpec>.isManagedRollout(): Boolean =
     spec.rolloutWith != null
 

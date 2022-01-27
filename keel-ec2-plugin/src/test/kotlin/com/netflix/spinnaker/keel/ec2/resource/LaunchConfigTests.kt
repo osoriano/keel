@@ -3,7 +3,6 @@ package com.netflix.spinnaker.keel.ec2.resource
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.RedBlack
 import com.netflix.spinnaker.keel.api.Resource
-import com.netflix.spinnaker.keel.api.StaggeredRegion
 import com.netflix.spinnaker.keel.api.SubnetAwareLocations
 import com.netflix.spinnaker.keel.api.SubnetAwareRegionSpec
 import com.netflix.spinnaker.keel.api.ec2.ClusterDependencies
@@ -118,11 +117,7 @@ internal class LaunchConfigTests {
           )
         }.toSet()
       ),
-      deployWith = RedBlack(
-        stagger = listOf(
-          StaggeredRegion(region = vpc.region, hours = "16-02")
-        )
-      ),
+      deployWith = RedBlack(),
       _defaults = serverGroupSpec(ramdiskId, instanceMetadataServiceVersion)
     )
 

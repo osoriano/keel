@@ -4,14 +4,12 @@ import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.config.Features.OPTIMIZED_DOCKER_FLOW
 import com.netflix.spinnaker.keel.api.Alphabetical
 import com.netflix.spinnaker.keel.api.Highlander
-import com.netflix.spinnaker.keel.api.RolloutConfig
 import com.netflix.spinnaker.keel.api.Moniker
-import com.netflix.spinnaker.keel.api.RedBlack
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceDiff
+import com.netflix.spinnaker.keel.api.RolloutConfig
 import com.netflix.spinnaker.keel.api.SimpleLocations
 import com.netflix.spinnaker.keel.api.SimpleRegionSpec
-import com.netflix.spinnaker.keel.api.StaggeredRegion
 import com.netflix.spinnaker.keel.api.actuation.TaskLauncher
 import com.netflix.spinnaker.keel.api.ec2.Capacity
 import com.netflix.spinnaker.keel.api.ec2.ClusterDependencies
@@ -42,7 +40,6 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.spyk
 import java.time.Clock
-import java.time.Duration
 
 class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, TitusServerGroup, TitusClusterHandler>() {
   val cloudDriverService: CloudDriverService = mockk(relaxed = true) {
@@ -130,28 +127,6 @@ class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, T
       locations = SimpleLocations(
         account = "account",
         regions = setOf(SimpleRegionSpec("east"), SimpleRegionSpec("west"))
-      )
-    )
-    return Resource(
-      kind = TITUS_CLUSTER_V1.kind,
-      metadata = metadata,
-      spec = spec
-    )
-  }
-
-  override fun getMultiRegionStaggeredDeployCluster(): Resource<TitusClusterSpec> {
-    val spec = baseSpec.copy(
-      locations = SimpleLocations(
-        account = "account",
-        regions = setOf(SimpleRegionSpec("east"), SimpleRegionSpec("west"))
-      ),
-      deployWith = RedBlack(
-        stagger = listOf(
-          StaggeredRegion(
-            region = "east",
-            pauseTime = Duration.ofMinutes(1)
-          )
-        )
       )
     )
     return Resource(

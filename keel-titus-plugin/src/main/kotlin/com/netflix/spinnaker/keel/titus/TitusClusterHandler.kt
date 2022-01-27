@@ -228,9 +228,6 @@ class TitusClusterHandler(
   override fun correlationId(resource: Resource<TitusClusterSpec>, diff: ResourceDiff<TitusServerGroup>): String =
     "${resource.id}:${diff.desired.location.region}"
 
-  override fun Resource<TitusClusterSpec>.isStaggeredDeploy(): Boolean =
-    spec.deployWith.isStaggered
-
   override fun Resource<TitusClusterSpec>.isManagedRollout(): Boolean =
     spec.rolloutWith != null
 

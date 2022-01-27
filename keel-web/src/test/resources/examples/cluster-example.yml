@@ -32,9 +32,6 @@ environments:
         min: 3
         desired: 3
       deployWith:
-        stagger:
-        - region: us-west-2
-          pauseTime: PT30S
         strategy: red-black
         delayBeforeScaleDown: PT1H
         resizePreviousToZero: true

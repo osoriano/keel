@@ -20,8 +20,6 @@ import com.netflix.spinnaker.keel.core.serverGroup
 import com.netflix.spinnaker.keel.diff.toIndividualDiffs
 import com.netflix.spinnaker.keel.events.ResourceActuationLaunched
 import com.netflix.spinnaker.keel.api.support.dependsOn
-import com.netflix.spinnaker.keel.api.support.restrictedExecutionWindow
-import com.netflix.spinnaker.keel.api.support.waitStage
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -251,7 +249,6 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Simple
     "Rolling back to $version [cluster ${moniker()} in ${accountRegionString(this)} (disabling ${current?.moniker()?.serverGroup}, enabling ${rollbackServerGroup.moniker().serverGroup})]"
 
   abstract fun correlationId(resource: Resource<SPEC>, diff: ResourceDiff<RESOLVED>): String
-  abstract fun Resource<SPEC>.isStaggeredDeploy(): Boolean
   abstract fun Resource<SPEC>.isManagedRollout(): Boolean
   abstract fun Resource<SPEC>.regions(): List<String>
   abstract fun Resource<SPEC>.moniker(): Moniker
@@ -373,11 +370,6 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Simple
 
       val version = diffs.first().version(resource)
 
-      if (resource.isStaggeredDeploy() && createDiffs.isNotEmpty()) {
-        val tasks = upsertStaggered(resource, createDiffs, version)
-        return@coroutineScope tasks + deferred.map { it.await() }
-      }
-
       val launchedTasks = mutableListOf<Task>()
 
       if (resource.isManagedRollout() && createDiffs.isNotEmpty()) {
@@ -387,7 +379,7 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Simple
       } else {
         // otherwise, launch a new task for each region
         deferred.addAll(
-          upsertUnstaggered(resource, createDiffs, version)
+          upsert(resource, createDiffs, version)
         )
       }
 
@@ -450,7 +442,7 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Simple
   /**
    * Deploys a new server group
    */
-  private suspend fun upsertUnstaggered(
+  private suspend fun upsert(
     resource: Resource<SPEC>,
     diffs: List<ResourceDiff<RESOLVED>>,
     version: String,
@@ -489,107 +481,6 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Simple
           }
         }
       }
-    }
-
-  private suspend fun upsertStaggered(
-    resource: Resource<SPEC>,
-    diffs: List<ResourceDiff<RESOLVED>>,
-    version: String
-  ): List<Task> =
-    coroutineScope {
-      val regionalDiffs = diffs.associateBy { getDesiredRegion(it) }
-      val tasks: MutableList<Task> = mutableListOf()
-      var priorExecutionId: String? = null
-      val staggeredRegions = resource.getDeployWith().stagger.map {
-        it.region
-      }
-        .toSet()
-
-      // If any, these are deployed in-parallel after all regions with a defined stagger
-      val unstaggeredRegions = regionalDiffs.keys - staggeredRegions
-
-      for (stagger in resource.getDeployWith().stagger) {
-        if (!regionalDiffs.containsKey(stagger.region)) {
-          continue
-        }
-
-        val diff = regionalDiffs[stagger.region] as ResourceDiff<RESOLVED>
-        val stages: MutableList<Map<String, Any?>> = mutableListOf()
-        var refId = 0
-
-        /**
-         * Given regions staggered as [A, B, C], this makes the execution of the B
-         * `createServerGroup` task dependent on the A task, and C dependent on B,
-         * while preserving the unstaggered behavior of an orca task per region.
-         */
-        if (priorExecutionId != null) {
-          stages.add(dependsOn(priorExecutionId))
-          refId++
-        }
-
-        val stage = diff.upsertOrCloneServerGroupJob(
-          resource = resource,
-          startingRefId = refId,
-          version = version
-        ).toMutableMap()
-
-        refId++
-
-        /**
-         * If regions are staggered by time windows, add a `restrictedExecutionWindow`
-         * to the `createServerGroup` stage.
-         */
-        if (stagger.hours != null) {
-          val hours = stagger.hours!!.split("-").map { it.toInt() }
-          stage.putAll(restrictedExecutionWindow(hours[0], hours[1]))
-        }
-
-        stages.add(stage)
-
-        if (diff.shouldDeployAndModifyScalingPolicies()) {
-          stages.addAll(diff.modifyScalingPolicyJob(refId))
-        }
-
-        if (stagger.pauseTime != null) {
-          stages.add(
-            waitStage(stagger.pauseTime!!, stages.size)
-          )
-        }
-
-        val deferred = async {
-          taskLauncher.submitJob(
-            resource = resource,
-            description = diff.upsertMessage(version),
-            correlationId = correlationId(resource, diff),
-            stages = stages,
-            artifactVersion = diff.version(resource)
-          )
-        }
-
-        notifyArtifactDeploying(resource, getDeployingVersions(resource, diff))
-
-        val task = deferred.await()
-        priorExecutionId = task.id
-        tasks.add(task)
-      }
-
-      /**
-       * `ClusterSpec.stagger` doesn't have to define a stagger for all of the regions clusters.
-       * If a cluster deploys into 4 regions [A, B, C, D] but only defines a stagger for [A, B],
-       * [C, D] will deploy in parallel after the completion of B and any pauseTime it defines.
-       */
-      if (unstaggeredRegions.isNotEmpty()) {
-        val unstaggeredDiffs = regionalDiffs
-          .filter { unstaggeredRegions.contains(it.key) }
-          .map { it.value }
-
-        tasks.addAll(
-          upsertUnstaggered(resource, unstaggeredDiffs, version, priorExecutionId)
-            .map { it.await() }
-        )
-      }
-
-      return@coroutineScope tasks
     }
 
   override suspend fun redeploy(deliveryConfig: DeliveryConfig, environment: Environment, resource: Resource<SPEC>) {

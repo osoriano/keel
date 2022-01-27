@@ -15,16 +15,16 @@ import java.time.Duration
  * Example yaml:
  *
  * rolloutWith:
- *  strategy:
- *   type: staggered
- *   postDeployWait: PT30M # default, can omit
- *   order: # todo eb: take from locations order
- *    - region1
- *    - region2 # todo eb: allow multi region here, like `region2, region3`
- *    - region4
- *   overrides: # optional
- *    us-east-1:
- *      postDeployWait: PT1M
+ *   strategy:
+ *    type: staggered
+ *    postDeployWait: PT30M # default, can omit
+ *    order: # todo eb: take from locations order
+ *      - region1
+ *      - region2 # todo eb: allow multi region here, like `region2, region3`
+ *      - region4
+ *    overrides: # optional
+ *      us-east-1:
+ *        postDeployWait: PT1M
  */
 data class RolloutConfig(
   val strategy: RolloutStrategy

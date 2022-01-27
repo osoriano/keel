@@ -2,12 +2,10 @@ package com.netflix.spinnaker.keel.ec2.resource
 
 import com.netflix.spinnaker.keel.api.Alphabetical
 import com.netflix.spinnaker.keel.api.Highlander
-import com.netflix.spinnaker.keel.api.RolloutConfig
 import com.netflix.spinnaker.keel.api.Moniker
-import com.netflix.spinnaker.keel.api.RedBlack
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceDiff
-import com.netflix.spinnaker.keel.api.StaggeredRegion
+import com.netflix.spinnaker.keel.api.RolloutConfig
 import com.netflix.spinnaker.keel.api.SubnetAwareLocations
 import com.netflix.spinnaker.keel.api.SubnetAwareRegionSpec
 import com.netflix.spinnaker.keel.api.actuation.TaskLauncher
@@ -34,7 +32,6 @@ import io.mockk.mockk
 import io.mockk.spyk
 import org.springframework.core.env.Environment
 import java.time.Clock
-import java.time.Duration
 
 class Ec2BaseClusterHandlerTests : BaseClusterHandlerTests<ClusterSpec, ServerGroup, ClusterHandler>() {
   private val cloudDriverService: CloudDriverService = mockk()
@@ -109,29 +106,6 @@ class Ec2BaseClusterHandlerTests : BaseClusterHandlerTests<ClusterSpec, ServerGr
         account = "account",
         regions = setOf(SubnetAwareRegionSpec("east"), SubnetAwareRegionSpec("west")),
         subnet = "subnet-1"
-      )
-    )
-    return Resource(
-      kind = EC2_CLUSTER_V1_1.kind,
-      metadata = metadata,
-      spec = spec
-    )
-  }
-
-  override fun getMultiRegionStaggeredDeployCluster(): Resource<ClusterSpec> {
-    val spec = baseSpec.copy(
-      locations = SubnetAwareLocations(
-        account = "account",
-        regions = setOf(SubnetAwareRegionSpec("east"), SubnetAwareRegionSpec("west")),
-        subnet = "subnet-1"
-      ),
-      deployWith = RedBlack(
-        stagger = listOf(
-          StaggeredRegion(
-            region = "east",
-            pauseTime = Duration.ofMinutes(1)
-          )
-        )
       )
     )
     return Resource(

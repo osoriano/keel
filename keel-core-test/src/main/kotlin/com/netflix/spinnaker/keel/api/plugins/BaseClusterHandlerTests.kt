@@ -55,7 +55,6 @@ abstract class BaseClusterHandlerTests<
 
   abstract fun getSingleRegionCluster(): Resource<SPEC>
   abstract fun getMultiRegionCluster(): Resource<SPEC>
-  abstract fun getMultiRegionStaggeredDeployCluster(): Resource<SPEC>
   abstract fun getMultiRegionManagedRolloutCluster(): Resource<SPEC>
   abstract fun getMultiRegionTimeDelayManagedRolloutCluster(): Resource<SPEC>
   abstract fun getManagedRolloutClusterWithTargetGroup(): Resource<SPEC>
@@ -132,76 +131,6 @@ abstract class BaseClusterHandlerTests<
     val diff = getDiffOnlyInEnabled(resource)
     val response = runBlocking { handler.willTakeAction(resource, diff) }
     expectThat(response.willAct).isFalse()
-  }
-
-  @Test
-  fun `staggered deploy, multi region, image diff`() {
-    coEvery { handler.getDisabledServerGroupsByRegion(any()) } returns emptyMap()
-
-    val slots = mutableListOf<List<Job>>() // done this way so we can capture the stages for multiple requests
-    coEvery { taskLauncher.submitJob(any(), any(), any(), capture(slots), any()) } returns Task("id", "name")
-
-    val resource = getMultiRegionStaggeredDeployCluster()
-    runBlocking { handler.upsert(resource, getDiffInImage(resource)) }
-
-    val firstRegionStages = slots[0]
-    val secondRegionStages = slots[1]
-    expect {
-      // first region
-      that(firstRegionStages).isNotEmpty().hasSize(2)
-      val deployStage1 = firstRegionStages[0]
-      that(deployStage1["type"]).isEqualTo("createServerGroup")
-      that(deployStage1["refId"]).isEqualTo("1")
-      that(deployStage1["requisiteRefIds"]).isNull()
-      val waitStage = firstRegionStages[1]
-      that(waitStage["type"]).isEqualTo("wait")
-      that(waitStage["refId"]).isEqualTo("2")
-      that(waitStage["requisiteStageRefIds"] as? List<*>).isEqualTo(listOf("1"))
-
-      //second region
-      that(secondRegionStages).isNotEmpty().hasSize(2)
-      val dependsOnExecutionStage = secondRegionStages[0]
-      that(dependsOnExecutionStage["type"]).isEqualTo("dependsOnExecution")
-      that(dependsOnExecutionStage["refId"]).isEqualTo("1")
-      that(dependsOnExecutionStage["requisiteRefIds"]).isNull()
-      val deployStage2 = secondRegionStages[1]
-      that(deployStage2["type"]).isEqualTo("createServerGroup")
-      that(deployStage2["refId"]).isEqualTo("2")
-      that(deployStage2["requisiteStageRefIds"] as? List<*>).isEqualTo(listOf("1"))
-    }
-  }
-
-  @Test
-  fun `staggered deploy, multi region, capacity diff (no stagger resize stages)`() {
-    coEvery { handler.getDisabledServerGroupsByRegion(any()) } returns emptyMap()
-
-    val slots = mutableListOf<List<Job>>() // done this way so we can capture the stages for multiple requests
-    coEvery { taskLauncher.submitJob(any(), any(), any(), capture(slots), any()) } returns Task("id", "name")
-
-    val resource = getMultiRegionStaggeredDeployCluster()
-    runBlocking { handler.upsert(resource, getDiffInCapacity(resource)) }
-
-    val region1Stages = slots[0]
-    val region2Stages = slots[1]
-    val stages = slots.associate {
-      it[0]["region"] to it[0]
-    }
-
-    expect {
-      that(region1Stages).isNotEmpty().hasSize(1)
-      val resizeEast = stages["east"] as Map<String, Any?>
-      that(resizeEast["type"]).isEqualTo("resizeServerGroup")
-      that(resizeEast["refId"]).isEqualTo("1")
-      that(resizeEast["requisiteRefIds"]).isNull()
-      that(resizeEast["region"]).isEqualTo("east")
-
-      that(region2Stages).isNotEmpty().hasSize(1)
-      val resizeWest = stages["west"] as Map<String, Any?>
-      that(resizeWest["type"]).isEqualTo("resizeServerGroup")
-      that(resizeWest["refId"]).isEqualTo("1")
-      that(resizeWest["requisiteRefIds"]).isNull()
-      that(resizeWest["region"]).isEqualTo("west")
-    }
   }
 
   @Test

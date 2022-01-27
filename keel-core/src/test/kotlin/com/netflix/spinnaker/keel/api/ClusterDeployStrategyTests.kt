@@ -52,38 +52,6 @@ internal class ClusterDeployStrategyTests : JUnit5Minutests {
           path("stagger").isMissing()
         }
       }
-
-      context("with stagger") {
-        fixture {
-          Fixture(
-            RedBlack(
-              stagger = listOf(
-                StaggeredRegion(
-                  region = "us-west-2",
-                  hours = "12-18"
-                )
-              )
-            )
-          )
-        }
-
-        test("serializes to JSON") {
-          println(mapper.writeValueAsString(strategy))
-          expectThat<ObjectNode>(mapper.valueToTree(strategy)) {
-            path("strategy").textValue() isEqualTo "red-black"
-            path("resizePreviousToZero").isBoolean().booleanValue().isFalse()
-            path("rollbackOnFailure").isBoolean().booleanValue().isFalse()
-            path("maxServerGroups").numberValue().isEqualTo(2)
-            path("delayBeforeDisable").isTextual().textValue() isEqualTo "PT0S"
-            path("delayBeforeScaleDown").isTextual().textValue() isEqualTo "PT0S"
-            path("stagger").isArray().hasSize(1)
-            at("/stagger/0/region").isTextual().textValue() isEqualTo "us-west-2"
-            at("/stagger/0/hours").isTextual().textValue() isEqualTo "12-18"
-            at("/stagger/0/allowedHours").isMissing()
-            at("/stagger/0/pauseTime").isMissing()
-          }
-        }
-      }
     }
   }
 }

@@ -4,7 +4,6 @@ import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.Exportable
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.RedBlack
-import com.netflix.spinnaker.keel.api.StaggeredRegion
 import com.netflix.spinnaker.keel.api.SubnetAwareLocations
 import com.netflix.spinnaker.keel.api.SubnetAwareRegionSpec
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactOriginFilter
@@ -118,12 +117,7 @@ internal class ClusterExportTests : JUnit5Minutests {
         )
       }.toSet()
     ),
-    deployWith = RedBlack(
-      stagger = listOf(
-        StaggeredRegion(region = vpcWest.region, hours = "10-14", pauseTime = Duration.ofMinutes(30)),
-        StaggeredRegion(region = vpcEast.region, hours = "16-02")
-      )
-    ),
+    deployWith = RedBlack(),
     _defaults = ServerGroupSpec(
       launchConfiguration = LaunchConfigurationSpec(
         image = VirtualMachineImage(
@@ -337,7 +331,6 @@ internal class ClusterExportTests : JUnit5Minutests {
             get { resizePreviousToZero }.isNull()
             get { delayBeforeScaleDown }.isNull()
             get { rollbackOnFailure }.isNull()
-            get { stagger }.isEmpty()
           }
         }
       }
