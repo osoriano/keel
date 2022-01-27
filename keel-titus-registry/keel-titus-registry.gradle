@@ -1,5 +1,7 @@
 dependencies {
   api(project(":keel-titus-api"))
+  implementation(project(":keel-core"))
+  implementation(project(":keel-clouddriver"))
   implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
   implementation("com.netflix.spinnaker.kork.internal:kork-core")
   implementation("com.netflix.spinnaker.kork.internal:kork-web")

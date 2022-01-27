@@ -1,7 +1,7 @@
 package com.netflix.spinnaker.keel.rest
 
 import com.netflix.spinnaker.config.FeatureToggles
-import com.netflix.spinnaker.config.Features.OPTIMIZED_DOCKER_FLOW
+import com.netflix.spinnaker.config.FeatureToggles.Companion.OPTIMIZED_DOCKER_FLOW
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
 import com.netflix.spinnaker.keel.api.events.ArtifactPublishedEvent
 import com.netflix.spinnaker.keel.api.events.ArtifactSyncEvent
@@ -17,7 +17,6 @@ import com.netflix.spinnaker.keel.yaml.APPLICATION_YAML_VALUE
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
-import org.springframework.core.env.ConfigurableEnvironment
 import org.springframework.http.HttpStatus.ACCEPTED
 import org.springframework.http.MediaType.APPLICATION_JSON_VALUE
 import org.springframework.web.bind.annotation.GetMapping

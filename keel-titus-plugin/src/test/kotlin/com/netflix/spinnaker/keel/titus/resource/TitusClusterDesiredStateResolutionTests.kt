@@ -1,7 +1,5 @@
 package com.netflix.spinnaker.keel.titus.resource
 
-import com.netflix.spinnaker.config.FeatureToggles
-import com.netflix.spinnaker.config.Features.OPTIMIZED_DOCKER_FLOW
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.SimpleLocations
 import com.netflix.spinnaker.keel.api.SimpleRegionSpec
@@ -151,9 +149,6 @@ class TitusClusterDesiredStateResolutionTests : JUnit5Minutests {
     val taskLauncher = mockk<TaskLauncher>()
     val publisher = mockk<EventPublisher>()
     val titusRegistryService = mockk<TitusRegistryService>()
-    val featureToggles: FeatureToggles = mockk {
-      every { isEnabled(OPTIMIZED_DOCKER_FLOW) } returns false
-    }
     val handler = TitusClusterHandler(
       cloudDriverService,
       cloudDriverCache,
@@ -164,8 +159,7 @@ class TitusClusterDesiredStateResolutionTests : JUnit5Minutests {
       emptyList(),
       ClusterExportHelper(cloudDriverService, orcaService),
       DefaultResourceDiffFactory(),
-      titusRegistryService,
-      featureToggles
+      titusRegistryService
     )
 
     val desired: Map<String, TitusServerGroup> by lazy {

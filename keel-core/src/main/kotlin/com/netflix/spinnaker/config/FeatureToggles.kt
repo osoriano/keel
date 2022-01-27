@@ -8,6 +8,11 @@ import org.springframework.stereotype.Component
  */
 @Component
 class FeatureToggles(private val springEnvironment: ConfigurableEnvironment) {
+  companion object {
+    // Feature names that can be used with FeatureToggles
+    const val OPTIMIZED_DOCKER_FLOW: String = "keel.artifacts.optimized-docker-flow"
+  }
+
   /**
    * @return the boolean value of the specified [feature] from the [springEnvironment], or the [default]
    * if the corresponding configuration property is not set.

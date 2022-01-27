@@ -2,8 +2,13 @@ package com.netflix.spinnaker.keel.titus.registry
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.convertValue
+import com.netflix.spinnaker.config.FeatureToggles
+import com.netflix.spinnaker.config.FeatureToggles.Companion.OPTIMIZED_DOCKER_FLOW
 import com.netflix.spinnaker.config.RegistryCacheProperties
 import com.netflix.spinnaker.keel.api.artifacts.DockerImage
+import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
+import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
+import com.netflix.spinnaker.keel.coroutines.runWithIoContext
 import com.netflix.spinnaker.kork.exceptions.IntegrationException
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.client.RestHighLevelClient
@@ -14,7 +19,8 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 /**
- * Interface to the Titus Registry image data cache backed by ElasticSearch.
+ * Interface to the Titus Registry image data cache backed by ElasticSearch, with a fallback to the
+ * CloudDriver image cache (which periodically syncs from ES).
  *
  * @link https://manuals.netflix.net/view/titus-docs/mkdocs/master/registry/#elasticsearch
  * @link https://www.elastic.co/guide/en/elasticsearch/client/java-rest/5.6/java-rest-high-search.html
@@ -23,6 +29,9 @@ import org.springframework.stereotype.Component
 class TitusRegistryService(
   private val config: RegistryCacheProperties,
   private val elasticSearchClient: RestHighLevelClient,
+  private val cloudDriverCache: CloudDriverCache,
+  private val cloudDriverService: CloudDriverService,
+  private val featureToggles: FeatureToggles,
   private val objectMapper: ObjectMapper
 ) {
   companion object {
@@ -31,10 +40,43 @@ class TitusRegistryService(
   }
 
   /**
+   * Searches the Titus Registry for images in the specified [image] and (optionally) [titusAccount],
+   * with the specified [tag] (optional) and [digest] (optional), up to the maximum [limit] of results.
+   * This method will first try the Titus Registry ElasticSearch mirror if the [OPTIMIZED_DOCKER_FLOW] feature
+   * toggle is enabled, and fallback to calling [cloudDriverService] if the results from ElasticSearch are empty,
+   * or if the toggle is disabled.
+   */
+  fun findImages(
+    image: String,
+    titusAccount: String? = null,
+    tag: String? = null,
+    digest: String? = null,
+    limit: Int = DEFAULT_MAX_RESULTS
+  ): List<DockerImage> {
+    return if (featureToggles.isEnabled(OPTIMIZED_DOCKER_FLOW)) {
+      val awsAccount = titusAccount?.let { cloudDriverCache.getAwsAccountNameForTitusAccount(it) }
+      findImagesInElasticSearch(image, awsAccount, tag, digest, limit)
+    } else {
+      emptyList()
+    }.ifEmpty {
+      // fallback to CloudDriver if the optimized flow is off or ElasticSearch returns no results
+      val registry = titusAccount?.let { cloudDriverCache.getRegistryForTitusAccount(it) } ?: "*"
+      runWithIoContext {
+        cloudDriverService.findDockerImages(
+          registry = registry,
+          repository = image,
+          tag = tag,
+          includeDetails = true
+        )
+      }
+    }
+  }
+
+  /**
    * Searches the Titus Registry ElasticSearch index for images with the specified [repository],
    * [awsAccount] (optional), [tag] (optional) and [digest] (optional), up to the maximum [limit] of results.
    */
-  fun findImages(
+  fun findImagesInElasticSearch(
     repository: String,
     awsAccount: String? = null,
     tag: String? = null,

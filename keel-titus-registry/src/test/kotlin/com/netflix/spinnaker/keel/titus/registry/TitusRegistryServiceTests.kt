@@ -1,17 +1,21 @@
 package com.netflix.spinnaker.keel.titus.registry
 
+import com.netflix.spinnaker.config.FeatureToggles
+import com.netflix.spinnaker.config.FeatureToggles.Companion.OPTIMIZED_DOCKER_FLOW
 import com.netflix.spinnaker.config.RegistryCacheProperties
 import com.netflix.spinnaker.keel.api.artifacts.DockerImage
+import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
+import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
-import io.mockk.every
+import io.mockk.called
+import io.mockk.coEvery as every
+import io.mockk.coVerify as verify
 import io.mockk.mockk
 import io.mockk.slot
-import io.mockk.verify
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.RestHighLevelClient
 import org.elasticsearch.index.query.BoolQueryBuilder
-import org.elasticsearch.index.query.MatchQueryBuilder
 import org.elasticsearch.index.query.TermQueryBuilder
 import org.elasticsearch.search.SearchHit
 import org.elasticsearch.search.SearchHits
@@ -32,16 +36,35 @@ import strikt.assertions.hasSize
 
 
 internal class TitusRegistryServiceTests {
+  private val cloudDriverCache: CloudDriverCache = mockk()
+  private val cloudDriverService: CloudDriverService = mockk()
+  private val featureToggles: FeatureToggles = mockk()
   private val objectMapper = configuredObjectMapper()
   private val config = RegistryCacheProperties("host", "index")
   private val elasticSearchClient: RestHighLevelClient = mockk()
   private val searchResponse: SearchResponse = mockk()
   private val searchHits: SearchHits = mockk()
   private val imageHit: SearchHit = mockk()
-  private val subject = TitusRegistryService(config, elasticSearchClient, objectMapper)
+  private val subject = TitusRegistryService(config, elasticSearchClient, cloudDriverCache, cloudDriverService, featureToggles, objectMapper)
 
   @BeforeEach
   fun setup() {
+    every {
+      featureToggles.isEnabled(OPTIMIZED_DOCKER_FLOW)
+    } returns true
+
+    every {
+      cloudDriverService.findDockerImages(any(), any(), any(), any(), any())
+    } returns emptyList()
+
+    every {
+      cloudDriverCache.getRegistryForTitusAccount(any())
+    } returns registry
+
+    every {
+      cloudDriverCache.getAwsAccountNameForTitusAccount(any())
+    } returns awsAccount
+
     every {
       elasticSearchClient.search(any())
     } returns searchResponse
@@ -60,13 +83,60 @@ internal class TitusRegistryServiceTests {
   }
 
   @Test
-  fun `correctly parses search results`() {
-    val images = subject.findImages(image, account, tag, digest)
+  fun `uses ElasticSearch when optimized Docker flow is enabled`() {
+    subject.findImages(image, titusAccount, tag, digest)
+
+    verify {
+      elasticSearchClient.search(any())
+    }
+
+    verify {
+      cloudDriverService wasNot called
+    }
+  }
+
+  @Test
+  fun `falls back to CloudDriver if ElasticSearch returns empty results`() {
+    every {
+      searchHits.hits
+    } returns emptyArray()
+
+    subject.findImages(image, titusAccount, tag, digest)
+
+    verify {
+      elasticSearchClient.search(any())
+    }
+
+    verify {
+      cloudDriverService.findDockerImages(registry, image, tag, includeDetails = true)
+    }
+  }
+
+  @Test
+  fun `falls back to CloudDriver when optimized Docker flow is disabled`() {
+    every {
+      featureToggles.isEnabled(OPTIMIZED_DOCKER_FLOW)
+    } returns false
+
+    subject.findImages(image, titusAccount, tag, digest)
+
+    verify {
+      cloudDriverService.findDockerImages(registry, image, tag, includeDetails = true)
+    }
+
+    verify {
+      elasticSearchClient wasNot called
+    }
+  }
+
+  @Test
+  fun `correctly parses ElasticSearch results`() {
+    val images = subject.findImages(image, titusAccount, tag, digest)
     expectThat(images)
       .hasSize(1)
       .first().isEqualTo(
         DockerImage(
-          account = account,
+          account = titusAccount,
           repository = image,
           tag = tag,
           digest = digest,
@@ -79,10 +149,10 @@ internal class TitusRegistryServiceTests {
       )
   }
 
-  @ParameterizedTest(name = "account: {0}, tag: {1}, digest: {2}")
+  @ParameterizedTest(name = "titusAccount: {0}, tag: {1}, digest: {2}")
   @MethodSource("testParameters")
-  fun `includes non-null parameters in the search`(account: String?, tag: String?, digest: String?) {
-    subject.findImages(image, account, tag, digest)
+  fun `includes non-null parameters in the ElasticSearch query`(titusAccount: String?, tag: String?, digest: String?) {
+    subject.findImages(image, titusAccount, tag, digest)
 
     val searchRequest = slot<SearchRequest>()
     verify {
@@ -94,8 +164,8 @@ internal class TitusRegistryServiceTests {
       get { source().query() }.isA<BoolQueryBuilder>().and {
         get { must() }.and {
           contains(TermQueryBuilder("repository.keyword", image))
-          account?.also {
-            contains(TermQueryBuilder("account", it))
+          titusAccount?.also {
+            contains(TermQueryBuilder("account", awsAccount))
           }
           tag?.also {
             contains(TermQueryBuilder("tag.keyword", it))
@@ -109,7 +179,9 @@ internal class TitusRegistryServiceTests {
   }
 
   companion object {
-    private const val account = "test"
+    private const val titusAccount = "titustest"
+    private const val awsAccount = "awstest"
+    private const val registry = "testregistry"
     private const val image = "lpollo/lpollo-md-prestaging"
     private const val tag = "master-h2.44021ac"
     private const val digest = "sha256:41af286dc0b172ed2f1ca934fd2278de4a1192302ffa07087cea2682e7d372e3"
@@ -118,7 +190,7 @@ internal class TitusRegistryServiceTests {
     private const val branch = "main"
     private val date = Instant.now().toEpochMilli().toString()
     private val imageAsMap = mapOf(
-      "account" to account,
+      "account" to titusAccount,
       "repository" to image,
       "tag" to tag,
       "digest" to digest,
@@ -134,9 +206,9 @@ internal class TitusRegistryServiceTests {
     @JvmStatic
     private fun testParameters(): Stream<Arguments> = Stream.of(
       of(null, null, null),
-      of(account, null, null),
-      of(account, tag, null),
-      of(account, tag, digest)
+      of(titusAccount, null, null),
+      of(titusAccount, tag, null),
+      of(titusAccount, tag, digest)
     )
   }
 }

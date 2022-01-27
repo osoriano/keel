@@ -17,9 +17,6 @@
  */
 package com.netflix.spinnaker.keel.titus.resource
 
-import com.netflix.spinnaker.config.FeatureToggles
-import com.netflix.spinnaker.config.Features
-import com.netflix.spinnaker.config.Features.OPTIMIZED_DOCKER_FLOW
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.Exportable
 import com.netflix.spinnaker.keel.api.Highlander
@@ -227,7 +224,6 @@ class TitusClusterHandlerTests : JUnit5Minutests {
 
   val diffFactory = DefaultResourceDiffFactory()
   val titusRegistryService = mockk<TitusRegistryService>()
-  val featureToggles = mockk<FeatureToggles>()
 
   fun tests() = rootContext<TitusClusterHandler> {
     fixture {
@@ -241,8 +237,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
         resolvers,
         clusterExportHelper,
         DefaultResourceDiffFactory(),
-        titusRegistryService,
-        featureToggles
+        titusRegistryService
       )
     }
 
@@ -269,10 +264,6 @@ class TitusClusterHandlerTests : JUnit5Minutests {
       every {
         springEnv.getProperty("keel.notifications.slack", Boolean::class.java, true)
       } returns false
-
-      every {
-        featureToggles.isEnabled(OPTIMIZED_DOCKER_FLOW)
-      } returns false
     }
 
     after {
@@ -283,7 +274,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
       before {
         every { cloudDriverService.titusActiveServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast
         every { cloudDriverService.titusActiveServerGroup(any(), "us-west-2") } throws RETROFIT_NOT_FOUND
-        every { cloudDriverService.findDockerImages("testregistry", "spinnaker/keel", any(), any()) } returns
+        every { titusRegistryService.findImages("spinnaker/keel", titusAccount, any(), any()) } returns
           listOf(DockerImage("testregistry", "spinnaker/keel", "master-h2.blah", "sha:1111"))
         every { cloudDriverService.listTitusServerGroups(any(), any(), any(), any()) } throws RETROFIT_NOT_FOUND
       }
@@ -319,7 +310,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
       before {
         every { cloudDriverService.titusActiveServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast
         every { cloudDriverService.titusActiveServerGroup(any(), "us-west-2") } returns activeServerGroupResponseWest
-        every { cloudDriverService.findDockerImages("testregistry", "spinnaker/keel", any(), any()) } returns
+        every { titusRegistryService.findImages("spinnaker/keel", titusAccount, any(), any()) } returns
           listOf(DockerImage("testregistry", "spinnaker/keel", "master-h2.blah", "sha:1111"))
         every { cloudDriverService.listTitusServerGroups(any(), any(), any(), any())} returns allActiveServerGroups
       }
@@ -362,7 +353,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
         val west = serverGroupWest.toClouddriverResponse(listOf(sg1West, sg2West), awsAccount, instanceCounts)
         every { cloudDriverService.titusActiveServerGroup(any(), "us-east-1") } returns east
         every { cloudDriverService.titusActiveServerGroup(any(), "us-west-2") } returns west
-        every { cloudDriverService.findDockerImages("testregistry", "spinnaker/keel", any(), any()) } returns
+        every { titusRegistryService.findImages("spinnaker/keel", titusAccount, any(), any()) } returns
           listOf(DockerImage("testregistry", "spinnaker/keel", "master-h2.blah", "sha:1111"))
         every { cloudDriverService.listTitusServerGroups(any(), any(), any(), any())} returns
           ServerGroupCollection(titusAccount, setOf(east.toAllServerGroupsResponse(), west.toAllServerGroupsResponse()))
@@ -396,7 +387,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
             titusAccount,
             east + west
           )
-        every { cloudDriverService.findDockerImages("testregistry", "spinnaker/keel", any(), any(), any()) } returns
+        every { titusRegistryService.findImages("spinnaker/keel", titusAccount, any(), any(), any()) } returns
           listOf(
             DockerImage("testregistry", "spinnaker/keel", "master-h2.blah", "sha:1111")
           )
@@ -464,7 +455,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
 
     context("a diff has been detected") {
       before {
-        every { cloudDriverService.findDockerImages("testregistry", "spinnaker/keel", any(), any(), any()) } returns
+        every { titusRegistryService.findImages("spinnaker/keel", titusAccount, any(), any(), any()) } returns
           listOf(
             DockerImage("testregistry", "spinnaker/keel", "master-h2.blah", "sha:1111")
           )
@@ -524,7 +515,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
               titusAccount,
               east + west
             )
-          every { cloudDriverService.findDockerImages("testregistry", "spinnaker/keel", any(), any(), any()) } returns
+          every { titusRegistryService.findImages("spinnaker/keel", titusAccount, any(), any(), any()) } returns
             listOf(
               DockerImage("testregistry", "spinnaker/keel", "master-h2.blah", "sha:1111")
             )
@@ -547,7 +538,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
 
       context("a version diff with one tag per sha deploys by tag") {
         before {
-          every { cloudDriverService.findDockerImages("testregistry", "spinnaker/keel", any(), any(), any()) } returns
+          every { titusRegistryService.findImages("spinnaker/keel", titusAccount, any(), any(), any()) } returns
             listOf(
               DockerImage("testregistry", "spinnaker/keel", "master-h2.blah", "sha:1111")
             )
@@ -582,7 +573,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
 
       context("the diff is something other than just capacity") {
         before {
-          every { cloudDriverService.findDockerImages("testregistry", "spinnaker/keel", any(), any(), any()) } returns
+          every { titusRegistryService.findImages("spinnaker/keel", titusAccount, any(), any(), any()) } returns
             listOf(
               DockerImage("testregistry", "spinnaker/keel", "master-h2.blah", "sha:1111"),
               DockerImage("testregistry", "spinnaker/keel", "im-master-now", "sha:1111")
@@ -703,7 +694,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
 
       context("multiple server groups have a diff") {
         before {
-          every { cloudDriverService.findDockerImages("testregistry", "spinnaker/keel", any(), any(), any()) } returns
+          every { titusRegistryService.findImages("spinnaker/keel", titusAccount, any(), any(), any()) } returns
             listOf(DockerImage("testregistry", "spinnaker/keel", "master-h2.blah", "sha:1111"))
           every { cloudDriverService.listTitusServerGroups(any(), any(), any(), any(), any()) } returns ServerGroupCollection(titusAccount, emptySet())
         }
@@ -819,31 +810,6 @@ class TitusClusterHandlerTests : JUnit5Minutests {
       test("does not generate any task") {
         runBlocking { delete(resource) }
         verify { orcaService wasNot called }
-      }
-    }
-
-    context("with optimized Docker flow") {
-      before {
-        every {
-          featureToggles.isEnabled(OPTIMIZED_DOCKER_FLOW)
-        } returns true
-
-        every {
-          titusRegistryService.findImages(any(), any(), digest = any())
-        } returns emptyList()
-
-        every { cloudDriverService.listTitusServerGroups(any(), any(), any(), any()) } returns allActiveServerGroups
-        every { cloudDriverService.titusActiveServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast
-        every { cloudDriverService.titusActiveServerGroup(any(), "us-west-2") } returns activeServerGroupResponseWest
-      }
-
-      test("uses Titus registry cache to find tags for digest") {
-        runBlocking {
-          current(resource)
-        }
-        verify {
-          titusRegistryService.findImages(any(), any(), digest = any())
-        }
       }
     }
   }

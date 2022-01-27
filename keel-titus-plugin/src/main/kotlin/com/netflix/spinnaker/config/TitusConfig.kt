@@ -51,8 +51,7 @@ class TitusConfig {
     resolvers: List<Resolver<*>>,
     clusterExportHelper: ClusterExportHelper,
     diffFactory: ResourceDiffFactory,
-    titusRegistryService: TitusRegistryService,
-    featureToggles: FeatureToggles
+    titusRegistryService: TitusRegistryService
   ): TitusClusterHandler = TitusClusterHandler(
     cloudDriverService,
     cloudDriverCache,
@@ -63,8 +62,7 @@ class TitusConfig {
     resolvers,
     clusterExportHelper,
     diffFactory,
-    titusRegistryService,
-    featureToggles
+    titusRegistryService
   )
 
   @Bean

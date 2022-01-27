@@ -1,7 +1,5 @@
 package com.netflix.spinnaker.keel.titus.resource
 
-import com.netflix.spinnaker.config.FeatureToggles
-import com.netflix.spinnaker.config.Features.OPTIMIZED_DOCKER_FLOW
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.Exportable
 import com.netflix.spinnaker.keel.api.Moniker
@@ -92,11 +90,6 @@ internal class TitusClusterExportTests : JUnit5Minutests {
   val publisher: EventPublisher = mockk(relaxUnitFun = true)
   val springEnv: ConfigurableEnvironment = mockk(relaxUnitFun = true)
   val titusRegistryService = mockk<TitusRegistryService>()
-  val featureToggles = mockk<FeatureToggles> {
-    every {
-      isEnabled(OPTIMIZED_DOCKER_FLOW)
-    } returns false
-  }
 
   val taskLauncher = OrcaTaskLauncher(
     orcaService,
@@ -195,8 +188,7 @@ internal class TitusClusterExportTests : JUnit5Minutests {
         resolvers,
         clusterExportHelper,
         DefaultResourceDiffFactory(),
-        titusRegistryService,
-        featureToggles
+        titusRegistryService
       )
     }
 

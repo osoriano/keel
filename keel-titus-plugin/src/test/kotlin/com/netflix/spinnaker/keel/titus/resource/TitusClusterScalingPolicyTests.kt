@@ -1,7 +1,5 @@
 package com.netflix.spinnaker.keel.titus.resource
 
-import com.netflix.spinnaker.config.FeatureToggles
-import com.netflix.spinnaker.config.Features.OPTIMIZED_DOCKER_FLOW
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.SimpleLocations
 import com.netflix.spinnaker.keel.api.SimpleRegionSpec
@@ -47,6 +45,7 @@ import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.docker.DigestProvider
 import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.keel.titus.TitusClusterHandler
+import com.netflix.spinnaker.keel.titus.registry.TitusRegistryService
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.runBlocking
@@ -167,16 +166,7 @@ class TitusClusterScalingPolicyTests {
     )
   )
 
-  val cloudDriverService = mockk<CloudDriverService> {
-    every { findDockerImages("testregistry", "fnord/fnord", any(), any(), any(), any()) } returns listOf(
-      DockerImage(
-        account = "testregistry",
-        repository = actualServerGroup.image.dockerImageName,
-        tag = actualServerGroup.image.dockerImageVersion,
-        digest = actualServerGroup.image.dockerImageDigest
-      )
-    )
-  }
+  val cloudDriverService = mockk<CloudDriverService>()
 
   val cloudDriverCache: CloudDriverCache = mockk {
     every { credentialBy(account) } returns Credential(
@@ -188,6 +178,17 @@ class TitusClusterScalingPolicyTests {
     every { getAwsAccountNameForTitusAccount(any()) } returns "test"
     every { getRegistryForTitusAccount(any()) } returns "testregistry"
     every { getAwsAccountIdForTitusAccount(any()) } returns "1234567890"
+  }
+
+  val titusRegistryService: TitusRegistryService = mockk {
+    every { findImages(any(), any(), any(), any()) } returns listOf(
+      DockerImage(
+        account = "testregistry",
+        repository = actualServerGroup.image.dockerImageName,
+        tag = actualServerGroup.image.dockerImageVersion,
+        digest = actualServerGroup.image.dockerImageDigest
+      )
+    )
   }
 
   val diffFactory = DefaultResourceDiffFactory()
@@ -237,10 +238,7 @@ class TitusClusterScalingPolicyTests {
     resolvers = emptyList(),
     clusterExportHelper = mockk(),
     diffFactory = DefaultResourceDiffFactory(),
-    titusRegistryService = mockk(),
-    featureToggles = mockk<FeatureToggles> {
-      every { isEnabled(OPTIMIZED_DOCKER_FLOW) } returns false
-    }
+    titusRegistryService = titusRegistryService
   )
 
   val resource = resource(

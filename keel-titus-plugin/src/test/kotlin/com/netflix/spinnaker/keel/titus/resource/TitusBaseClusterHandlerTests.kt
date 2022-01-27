@@ -1,7 +1,5 @@
 package com.netflix.spinnaker.keel.titus.resource
 
-import com.netflix.spinnaker.config.FeatureToggles
-import com.netflix.spinnaker.config.Features.OPTIMIZED_DOCKER_FLOW
 import com.netflix.spinnaker.keel.api.Alphabetical
 import com.netflix.spinnaker.keel.api.Highlander
 import com.netflix.spinnaker.keel.api.Moniker
@@ -35,23 +33,13 @@ import com.netflix.spinnaker.keel.titus.TitusClusterHandler
 import com.netflix.spinnaker.keel.titus.byRegion
 import com.netflix.spinnaker.keel.titus.registry.TitusRegistryService
 import com.netflix.spinnaker.keel.titus.resolve
-import io.mockk.coEvery
-import io.mockk.every
+import io.mockk.coEvery as every
 import io.mockk.mockk
 import io.mockk.spyk
 import java.time.Clock
 
 class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, TitusServerGroup, TitusClusterHandler>() {
-  val cloudDriverService: CloudDriverService = mockk(relaxed = true) {
-   coEvery { findDockerImages(any(),any(),any()) } returns listOf(
-     DockerImage(
-       account = "account", repository = "repo", tag = "butter", digest = "1234567890"
-     ),
-     DockerImage(
-       account = "account", repository = "repo", tag = "margerine", digest = "1255555555555555"
-     )
-   )
-  }
+  val cloudDriverService: CloudDriverService = mockk(relaxed = true)
   val cloudDriverCache: CloudDriverCache = mockk {
     every { credentialBy("account") } returns Credential(
       name = "account",
@@ -70,9 +58,17 @@ class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, T
   }
   private val orcaService: OrcaService = mockk()
   private val clusterExportHelper: ClusterExportHelper = mockk()
-  private val titusRegistryService: TitusRegistryService = mockk()
-  private val featureToggles: FeatureToggles = mockk {
-    every { isEnabled(OPTIMIZED_DOCKER_FLOW) } returns false
+  private val titusRegistryService: TitusRegistryService = mockk {
+    every {
+      findImages(any(), any(), any(), any())
+    } returns listOf(
+      DockerImage(
+        account = "account", repository = "repo", tag = "butter", digest = "1234567890"
+      ),
+      DockerImage(
+        account = "account", repository = "repo", tag = "margerine", digest = "1255555555555555"
+      )
+    )
   }
 
   val metadata = mapOf("id" to "1234", "application" to "waffles", "serviceAccount" to "me@you.com" )
@@ -110,8 +106,7 @@ class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, T
       resolvers = resolvers,
       clusterExportHelper = clusterExportHelper,
       diffFactory = DefaultResourceDiffFactory(),
-      titusRegistryService = titusRegistryService,
-      featureToggles = featureToggles
+      titusRegistryService = titusRegistryService
     ))
 
   override fun getSingleRegionCluster(): Resource<TitusClusterSpec> {

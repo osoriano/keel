@@ -1,7 +1,5 @@
 package com.netflix.spinnaker.keel.artifacts
 
-import com.netflix.spinnaker.config.FeatureToggles
-import com.netflix.spinnaker.config.Features.OPTIMIZED_DOCKER_FLOW
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
 import com.netflix.spinnaker.keel.api.artifacts.DOCKER
@@ -15,7 +13,6 @@ import com.netflix.spinnaker.keel.api.artifacts.SortingStrategy
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
 import com.netflix.spinnaker.keel.api.support.EventPublisher
-import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
 import com.netflix.spinnaker.keel.titus.registry.TitusRegistryService
 import org.springframework.stereotype.Component
@@ -27,10 +24,8 @@ import org.springframework.stereotype.Component
 @Component
 class DockerArtifactSupplier(
   override val eventPublisher: EventPublisher,
-  private val cloudDriverService: CloudDriverService,
   override val artifactMetadataService: ArtifactMetadataService,
   private val titusRegistryService: TitusRegistryService,
-  private val featureToggles: FeatureToggles
 ) : BaseArtifactSupplier<DockerArtifact, DockerVersionSortingStrategy>(artifactMetadataService) {
   override val supportedArtifact = SupportedArtifact("docker", DockerArtifact::class.java)
 
@@ -68,6 +63,7 @@ class DockerArtifactSupplier(
 =======
   private fun findArtifactVersions(artifact: DeliveryArtifact, limit: Int): List<PublishedArtifact> {
     // TODO: we currently don't have a way to derive account information from artifacts,
+<<<<<<< b3859ed7eccc2ab980465dbaacc4d37c0a030215
     //  so we look in all accounts/registries.
     return if (featureToggles.isEnabled(OPTIMIZED_DOCKER_FLOW)) {
       titusRegistryService.findImages(artifact.name)
@@ -95,9 +91,31 @@ class DockerArtifactSupplier(
             } else {
               emptyMap()
             }
+=======
+    //  so we search by image name only, i.e. we look in all accounts/registries.
+    val images = titusRegistryService.findImages(artifact.name)
+    return images.map { dockerImage ->
+      PublishedArtifact(
+        name = dockerImage.repository,
+        type = DOCKER,
+        reference = dockerImage.repository.substringAfter(':', dockerImage.repository),
+        version = dockerImage.tag,
+        metadata = let {
+          if (dockerImage.commitId != null && dockerImage.buildNumber != null) {
+            mapOf(
+              "commitId" to dockerImage.commitId,
+              "prCommitId" to dockerImage.prCommitId,
+              "buildNumber" to dockerImage.buildNumber,
+              "branch" to dockerImage.branch,
+              "createdAt" to dockerImage.date
+            )
+          } else {
+            emptyMap()
+>>>>>>> ce8ad4d9b3c8a1056ae78ebb313e9d2dbee2719c
           }
-        )
-      }
+        }
+      )
+    }
   }
 
   override fun getLatestArtifact(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact): PublishedArtifact? =

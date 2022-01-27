@@ -1,29 +1,8 @@
-/*
- *
- * Copyright 2019 Netflix, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License")
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
 package com.netflix.spinnaker.keel.titus
 
 import com.fasterxml.jackson.module.kotlin.convertValue
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.netflix.buoy.sdk.model.RolloutTarget
-import com.netflix.spinnaker.config.FeatureToggles
-import com.netflix.spinnaker.config.Features.OPTIMIZED_DOCKER_FLOW
-
-import com.netflix.spinnaker.config.Features
 import com.netflix.spinnaker.keel.api.ClusterDeployStrategy
 import com.netflix.spinnaker.keel.api.Exportable
 import com.netflix.spinnaker.keel.api.Moniker
@@ -133,8 +112,7 @@ class TitusClusterHandler(
   resolvers: List<Resolver<*>>,
   private val clusterExportHelper: ClusterExportHelper,
   diffFactory: ResourceDiffFactory,
-  private val titusRegistryService: TitusRegistryService,
-  private val featureToggles: FeatureToggles
+  private val titusRegistryService: TitusRegistryService
 ) : BaseClusterHandler<TitusClusterSpec, TitusServerGroup>(resolvers, taskLauncher, diffFactory) {
 
   private val mapper = configuredObjectMapper()
@@ -1006,19 +984,11 @@ private fun jsonStringify(arguments: Map<String, Any>?) =
    * Note: there may be more than one tag with the same digest
    */
   private suspend fun getTagsForDigest(container: DigestProvider, titusAccount: String): Set<String> =
-    if (featureToggles.isEnabled(Features.OPTIMIZED_DOCKER_FLOW)) {
-      titusRegistryService.findImages(
-        awsAccount = cloudDriverCache.getAwsAccountNameForTitusAccount(titusAccount),
-        repository = container.repository(),
-        digest = container.digest
-      )
-    } else {
-      cloudDriverService.findDockerImages(
-        registry = cloudDriverCache.getRegistryForTitusAccount(titusAccount),
-        repository = container.repository(),
-        user = DEFAULT_SERVICE_ACCOUNT
-      )
-    }
+    titusRegistryService.findImages(
+      titusAccount = titusAccount,
+      image = container.repository(),
+      digest = container.digest
+    )
       .filter { it.digest == container.digest && it.tag != "latest" }
       .map { it.tag }
       .toSet()
