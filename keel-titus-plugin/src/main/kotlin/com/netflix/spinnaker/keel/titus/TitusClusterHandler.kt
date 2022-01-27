@@ -220,9 +220,9 @@ class TitusClusterHandler(
     }
   }
 
-  override fun ResourceDiff<TitusServerGroup>.getDeployingVersions(resource: Resource<TitusClusterSpec>): Set<String> =
+  override fun getDeployingVersions(resource: Resource<TitusClusterSpec>, diff: ResourceDiff<TitusServerGroup>): Set<String> =
     runBlocking {
-      getTagsForDigest(desired.container, desired.location.account)
+      getTagsForDigest(diff.desired.container, diff.desired.location.account)
     }
 
   override fun correlationId(resource: Resource<TitusClusterSpec>, diff: ResourceDiff<TitusServerGroup>): String =

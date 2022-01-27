@@ -339,8 +339,8 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Simple
    * override this function if more than one 'version' needs to be marked as deploying
    * when a cluster deploy happens.
    */
-  open fun ResourceDiff<RESOLVED>.getDeployingVersions(resource: Resource<SPEC>): Set<String> =
-    setOf(version(resource))
+  open fun getDeployingVersions(resource: Resource<SPEC>, diff: ResourceDiff<RESOLVED>): Set<String> =
+    setOf(diff.version(resource))
 
   /**
    * consolidates the general orchestration logic to the top level, and delegates the cloud-specific bits
@@ -392,7 +392,7 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Simple
       }
 
       if (createDiffs.isNotEmpty()) {
-        val versions = createDiffs.map { it.getDeployingVersions(resource) }.flatten().toSet()
+        val versions = createDiffs.map { getDeployingVersions(resource, it) }.flatten().toSet()
         notifyArtifactDeploying(resource, versions)
       }
 
@@ -420,6 +420,10 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Simple
             listOf(job) to diff.enabledOnlyMessage(job)
           }
           rollbackServerGroup != null -> {
+            // even though we're 'modifying' here, another version is getting deployed.
+            // we need to send the deploying event so that's clear to users.
+            val version = getDeployingVersions(resource, diff)
+            notifyArtifactDeploying(resource, version)
             listOf(diff.rollbackServerGroupJob(resource, rollbackServerGroup)) to diff.rollbackMessage(diff.version(resource), rollbackServerGroup)
           }
           else -> listOf(diff.resizeServerGroupJob()) + diff.modifyScalingPolicyJob(1) to diff.capacityAndAutoscalingMessage()
@@ -562,7 +566,7 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Simple
           )
         }
 
-        notifyArtifactDeploying(resource, diff.getDeployingVersions(resource))
+        notifyArtifactDeploying(resource, getDeployingVersions(resource, diff))
 
         val task = deferred.await()
         priorExecutionId = task.id
@@ -611,7 +615,7 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Simple
               stages = listOf(job),
               artifactVersion = version
             )
-            val redeployingVersions = diff.getDeployingVersions(resource)
+            val redeployingVersions = getDeployingVersions(resource, diff)
             log.debug("Redeploying versions $redeployingVersions for ${resource.spec.moniker} in $account/$region")
             notifyArtifactDeploying(resource, redeployingVersions)
             notifyActuationLaunched(resource, task)
@@ -637,7 +641,7 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Simple
       )
     }
 
-  private fun notifyArtifactDeploying(resource: Resource<SPEC>, versions: Set<String>) {
+  fun notifyArtifactDeploying(resource: Resource<SPEC>, versions: Set<String>) {
     versions.forEach { version ->
       log.debug("Notifying artifact deploying for version $version and resource ${resource.id}")
       notifyArtifactDeploying(resource, version)

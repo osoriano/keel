@@ -384,6 +384,7 @@ abstract class BaseClusterHandlerTests<
     val rollbackMoniker = resource.spec.moniker.copy(sequence = 1)
     coEvery { handler.getDisabledServerGroupsByRegion(resource) } returns
       getRollbackServerGroupsByRegion(resource, version, rollbackMoniker)
+    every { handler.getDeployingVersions(resource, any()) } returns setOf(version)
 
     val slots = mutableListOf<List<Job>>()
     coEvery { taskLauncher.submitJob(any(), any(), any(), capture(slots), any()) } returns Task("id", "name")
@@ -401,6 +402,8 @@ abstract class BaseClusterHandlerTests<
       that(rollbackContext["rollbackServerGroupName"]).isEqualTo(currentMoniker.serverGroup)
       that(rollbackContext["restoreServerGroupName"]).isEqualTo(rollbackMoniker.serverGroup)
     }
+
+    verify { handler.notifyArtifactDeploying(resource, setOf(version)) }
   }
 
   @Test
