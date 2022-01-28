@@ -134,6 +134,7 @@ class ExportService(
       "classicloadbalancers" -> EC2_CLASSIC_LOAD_BALANCER_V1.kind
       "applicationloadbalancer" -> EC2_APPLICATION_LOAD_BALANCER_V1_2.kind
       "applicationloadbalancers" -> EC2_APPLICATION_LOAD_BALANCER_V1_2.kind
+      "security-group" -> EC2_SECURITY_GROUP_V1.kind
       "securitygroup" -> EC2_SECURITY_GROUP_V1.kind
       "securitygroups" -> EC2_SECURITY_GROUP_V1.kind
       "cluster" -> PROVIDERS_TO_CLUSTER_KINDS[cloudProvider] ?: error("Cloud provider $cloudProvider is not supported")
