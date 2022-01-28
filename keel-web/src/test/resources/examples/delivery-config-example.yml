@@ -215,7 +215,6 @@ environments:
       artifactReference: "fnord"
       deployWith:
         strategy: "red-black"
-        rollbackOnFailure: true
         resizePreviousToZero: false
         maxServerGroups: 2
         delayBeforeDisable: "PT0S"

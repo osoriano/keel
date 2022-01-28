@@ -330,7 +330,6 @@ internal class ClusterExportTests : JUnit5Minutests {
             get { delayBeforeDisable }.isNull()
             get { resizePreviousToZero }.isNull()
             get { delayBeforeScaleDown }.isNull()
-            get { rollbackOnFailure }.isNull()
           }
         }
       }

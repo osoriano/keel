@@ -25,7 +25,6 @@ class ClusterDeployStrategyTests {
           "delayBeforeDisableSec" to delayBeforeDisable?.seconds,
           "delayBeforeScaleDownSec" to delayBeforeScaleDown?.seconds,
           "scaleDown" to resizePreviousToZero,
-          "rollback" to mapOf("onFailure" to rollbackOnFailure),
           "stageTimeoutMs" to DEFAULT_WAIT_FOR_INSTANCES_UP.toMillis(),
           "interestingHealthProviderNames" to null
         )
@@ -50,7 +49,6 @@ class ClusterDeployStrategyTests {
           "delayBeforeDisableSec" to delayBeforeDisable?.seconds,
           "delayBeforeScaleDownSec" to delayBeforeScaleDown?.seconds,
           "scaleDown" to resizePreviousToZero,
-          "rollback" to mapOf("onFailure" to rollbackOnFailure),
           "stageTimeoutMs" to (
             delayBeforeDisable!! +
               delayBeforeScaleDown!! +

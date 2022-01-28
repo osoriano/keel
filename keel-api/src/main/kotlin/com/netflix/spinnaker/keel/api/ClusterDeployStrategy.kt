@@ -20,8 +20,6 @@ abstract class ClusterDeployStrategy {
 
 data class RedBlack(
   override val health: DeployHealth = AUTO,
-  // defaulting to false because this rollback behavior doesn't seem to play nice with managed delivery
-  val rollbackOnFailure: Boolean? = false,
   val resizePreviousToZero: Boolean? = false,
   val maxServerGroups: Int? = 2,
   val delayBeforeDisable: Duration? = ZERO,
@@ -77,7 +75,6 @@ fun ClusterDeployStrategy.withDefaultsOmitted(): ClusterDeployStrategy =
         delayBeforeDisable = nullIfDefault(delayBeforeDisable, defaults.delayBeforeDisable),
         delayBeforeScaleDown = nullIfDefault(delayBeforeScaleDown, defaults.delayBeforeScaleDown),
         resizePreviousToZero = nullIfDefault(resizePreviousToZero, defaults.resizePreviousToZero),
-        rollbackOnFailure = nullIfDefault(rollbackOnFailure, defaults.rollbackOnFailure)
       )
     }
     else -> this

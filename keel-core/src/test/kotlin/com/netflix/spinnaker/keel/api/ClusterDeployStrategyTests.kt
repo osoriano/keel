@@ -45,7 +45,6 @@ internal class ClusterDeployStrategyTests : JUnit5Minutests {
           path("strategy").textValue() isEqualTo "red-black"
           path("health").textValue() isEqualTo DeployHealth.AUTO.name
           path("resizePreviousToZero").isBoolean().booleanValue().isFalse()
-          path("rollbackOnFailure").isBoolean().booleanValue().isFalse()
           path("maxServerGroups").numberValue().isEqualTo(2)
           path("delayBeforeDisable").isTextual().textValue() isEqualTo "PT0S"
           path("delayBeforeScaleDown").isTextual().textValue() isEqualTo "PT0S"

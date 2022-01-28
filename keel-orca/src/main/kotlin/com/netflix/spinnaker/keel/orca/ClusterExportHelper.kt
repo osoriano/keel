@@ -139,12 +139,6 @@ class ClusterExportHelper(
 
   private fun Map<String, Any?>.contextToRedBlack() =
     RedBlack(
-      rollbackOnFailure = this["rollback"]
-        ?.let {
-          @Suppress("UNCHECKED_CAST")
-          it as Map<String, Any>
-        }
-        ?.get("onFailure") as Boolean?,
       resizePreviousToZero = this["scaleDown"] as? Boolean,
       maxServerGroups = this["maxRemainingAsgs"]?.toString()?.toInt(),
       delayBeforeDisable = this["delayBeforeDisableSec"]?.toString()?.toInt()?.toLong()?.let{ Duration.ofSeconds(it) },
