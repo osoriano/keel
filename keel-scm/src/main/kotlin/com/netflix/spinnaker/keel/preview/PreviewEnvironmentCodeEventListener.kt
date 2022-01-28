@@ -146,9 +146,11 @@ class PreviewEnvironmentCodeEventListener(
       return
     }
 
+    val branchName = event.pullRequestBranch
+
     event.matchingPreviewEnvironmentSpecs().forEach { (deliveryConfig, previewEnvSpecs) ->
       log.debug("Importing delivery config for app ${deliveryConfig.application} " +
-        "from branch ${event.pullRequestBranch}")
+        "from branch $branchName")
 
       // We always want to dismiss the previous notifications, and if needed to create a new one
       notificationRepository.dismissNotification(DeliveryConfigImportFailed::class.java, deliveryConfig.application, event.pullRequestBranch)
@@ -165,14 +167,14 @@ class PreviewEnvironmentCodeEventListener(
           manifestPath = manifestPath
         ).also {
           event.emitCounterMetric(CODE_EVENT_COUNTER, DELIVERY_CONFIG_RETRIEVAL_SUCCESS, deliveryConfig.application)
-          log.info("Validating config for application ${deliveryConfig.application} from branch ${event.pullRequestBranch}")
+          log.info("Validating config for application ${deliveryConfig.application} from branch $branchName")
           deliveryConfigValidator.validate(it)
         }.toDeliveryConfig()
       } catch (e: Exception) {
-        log.error("Error retrieving delivery config: $e", e)
+        log.error("Error retrieving delivery config for branch $branchName: $e", e)
         event.emitCounterMetric(CODE_EVENT_COUNTER, DELIVERY_CONFIG_RETRIEVAL_ERROR, deliveryConfig.application)
         if (e.isNotFound) {
-          log.debug("Skipping publishing an event for http errors as we assume that the file does not exist - $e")
+          log.debug("Skipping publishing an event for http errors as we assume that the file does not exist for branch $branchName- $e")
         } else {
           eventPublisher.publishDeliveryConfigImportFailed(
             deliveryConfig.application,
@@ -187,7 +189,7 @@ class PreviewEnvironmentCodeEventListener(
       }
 
       log.info("Creating/updating preview environments for application ${deliveryConfig.application} " +
-        "from branch ${event.pullRequestBranch}")
+        "from branch $branchName")
       createPreviewEnvironments(event, deliveryConfigFromBranch, previewEnvSpecs)
       event.emitDurationMetric(COMMIT_HANDLING_DURATION, startTime, deliveryConfig.application)
     }
@@ -205,7 +207,7 @@ class PreviewEnvironmentCodeEventListener(
           try {
             front50Cache.applicationByName(deliveryConfig.application)
           } catch (e: Exception) {
-            log.error("Error retrieving application ${deliveryConfig.application}: $e")
+            log.error("Error retrieving application ${deliveryConfig.application} for branch $targetBranch: $e")
             emitCounterMetric(CODE_EVENT_COUNTER, APPLICATION_RETRIEVAL_ERROR, deliveryConfig.application)
             null
           }
@@ -221,7 +223,7 @@ class PreviewEnvironmentCodeEventListener(
           log.debug("No delivery configs with matching preview environments found for code event: $this")
           emitCounterMetric(CODE_EVENT_COUNTER, DELIVERY_CONFIG_NOT_FOUND)
         } else if (it.size > 1 || it.any { (_, previewEnvSpecs) -> previewEnvSpecs.size > 1 }) {
-          log.warn("Expected a single delivery config and preview env spec to match code event, found many: $this")
+          log.warn("Expected a single delivery config and preview env spec to match code event for branch $targetBranch, found many: $this")
         }
       }
   }
@@ -237,7 +239,7 @@ class PreviewEnvironmentCodeEventListener(
   ) {
     previewEnvSpecs.forEach { previewEnvSpec ->
       val baseEnv = configFromBranch.environments.find { it.name == previewEnvSpec.baseEnvironment }
-        ?: error("Environment '${previewEnvSpec.baseEnvironment}' referenced in preview environment spec not found.")
+        ?: error("Environment '${previewEnvSpec.baseEnvironment}' referenced in preview environment spec not found (branch ${prEvent.targetBranch}.")
 
       val suffix = prEvent.pullRequestBranch.shortHash
 
@@ -281,7 +283,7 @@ class PreviewEnvironmentCodeEventListener(
         repository.upsertPreviewEnvironment(configFromBranch, previewEnv, previewArtifacts)
         prEvent.emitCounterMetric(CODE_EVENT_COUNTER, PREVIEW_ENVIRONMENT_UPSERT_SUCCESS, configFromBranch.application)
       } catch (e: Exception) {
-        log.error("Error storing/updating preview environment ${configFromBranch.application}/${previewEnv.name}: $e", e)
+        log.error("Error storing/updating preview environment ${configFromBranch.application}/${previewEnv.name} for branch ${prEvent.pullRequestBranch}: $e", e)
         prEvent.emitCounterMetric(CODE_EVENT_COUNTER, PREVIEW_ENVIRONMENT_UPSERT_ERROR, configFromBranch.application)
       }
     }
