@@ -14,6 +14,7 @@ import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.client.RestHighLevelClient
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.builder.SearchSourceBuilder
+import org.elasticsearch.search.sort.SortOrder.DESC
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -95,6 +96,8 @@ class TitusRegistryService(
             awsAccount?.also { must(QueryBuilders.termQuery("account", awsAccount)) }
             // tag is optional (if not specified, and digest is also not specified, we return all tags)
             tag?.also { must(QueryBuilders.termQuery("tag.keyword", it)) }
+              // we don't care about the "latest" tag
+              ?: mustNot(QueryBuilders.termQuery("tag.keyword", "latest"))
             // digest is optional (if specified, we return only images with a matching digest)
             digest?.also { must(QueryBuilders.termQuery("digest", it)) }
           }
@@ -106,6 +109,7 @@ class TitusRegistryService(
           emptyArray<String>()
         )
         .size(limit)
+        .sort("date", DESC)
 
       val searchRequest = SearchRequest(config.index).source(sourceBuilder)
       val searchResponse = elasticSearchClient.search(searchRequest)

@@ -19,6 +19,8 @@ import org.elasticsearch.index.query.BoolQueryBuilder
 import org.elasticsearch.index.query.TermQueryBuilder
 import org.elasticsearch.search.SearchHit
 import org.elasticsearch.search.SearchHits
+import org.elasticsearch.search.sort.SortBuilders
+import org.elasticsearch.search.sort.SortOrder.DESC
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -164,17 +166,28 @@ internal class TitusRegistryServiceTests {
       get { source().query() }.isA<BoolQueryBuilder>().and {
         get { must() }.and {
           contains(TermQueryBuilder("repository.keyword", image))
-          titusAccount?.also {
-            contains(TermQueryBuilder("account", awsAccount))
-          }
-          tag?.also {
-            contains(TermQueryBuilder("tag.keyword", it))
-          }
-          digest?.also {
-            contains(TermQueryBuilder("digest", it))
-          }
+          titusAccount?.also { contains(TermQueryBuilder("account", awsAccount)) }
+          tag?.also { contains(TermQueryBuilder("tag.keyword", it)) }
+          digest?.also { contains(TermQueryBuilder("digest", it)) }
         }
+        tag ?: get { mustNot() }.contains(TermQueryBuilder("tag.keyword", "latest"))
       }
+    }
+  }
+
+  @Test
+  fun `sorts ElasticSearch results by descending order of date`() {
+    subject.findImages(image, titusAccount, tag, digest)
+
+    val searchRequest = slot<SearchRequest>()
+    verify {
+      elasticSearchClient.search(capture(searchRequest))
+    }
+
+    expectThat(searchRequest.captured) {
+      get { source().sorts() }
+        .hasSize(1)
+        .first().isEqualTo(SortBuilders.fieldSort("date").order(DESC))
     }
   }
 
