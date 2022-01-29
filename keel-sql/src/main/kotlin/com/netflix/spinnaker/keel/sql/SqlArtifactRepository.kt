@@ -555,7 +555,7 @@ class SqlArtifactRepository(
     targetEnvironment: String
   ): Boolean {
     val environment = deliveryConfig.environmentNamed(targetEnvironment)
-    return sqlRetry.withRetry(READ) {
+    val result = sqlRetry.withRetry(READ) {
       jooq
         .fetchExists(
           CURRENT_ENVIRONMENT_ARTIFACT_VERSIONS,
@@ -572,6 +572,10 @@ class SqlArtifactRepository(
             .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.`in`(listOf(CURRENT, PREVIOUS)))
         )
     }
+
+    log.debug("wasSuccessfullyDeployedTo=$result : artifact_version=$version environment_uid=${deliveryConfig.getUidFor(environment)} artifact_uid=${artifact.uid}")
+
+    return result
   }
 
   override fun isCurrentlyDeployedTo(
