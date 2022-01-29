@@ -444,5 +444,5 @@ class PreviewEnvironmentCodeEventListener(
     spectator.counter(metric, metricTags(application, setOf(extraTag)) ).safeIncrement()
 
   private fun CodeEvent.emitDurationMetric(metric: String, startTime: Instant, application: String? = null) =
-    spectator.recordDuration(metric, clock, startTime, metricTags(application))
+    spectator.recordDuration(metric, startTime, clock.instant(), metricTags(application))
 }

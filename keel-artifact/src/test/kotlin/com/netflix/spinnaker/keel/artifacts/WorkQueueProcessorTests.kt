@@ -14,6 +14,7 @@ import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
 import com.netflix.spinnaker.keel.api.events.ArtifactVersionDetected
+import com.netflix.spinnaker.keel.api.events.ArtifactVersionStored
 import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
 import com.netflix.spinnaker.keel.config.WorkProcessingConfig
 import com.netflix.spinnaker.keel.igor.BuildService
@@ -274,6 +275,12 @@ internal class WorkQueueProcessorTests : JUnit5Minutests {
           with(artifactVersion.captured) {
             expectThat(gitMetadata).isEqualTo(artifactMetadata.gitMetadata)
             expectThat(buildMetadata).isEqualTo(artifactMetadata.buildMetadata)
+          }
+        }
+
+        test("a telemetry event is published") {
+          verify {
+            publisher.publishEvent(ofType<ArtifactVersionStored>())
           }
         }
       }

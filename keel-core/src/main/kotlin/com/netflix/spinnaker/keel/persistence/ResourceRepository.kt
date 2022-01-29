@@ -18,6 +18,8 @@ package com.netflix.spinnaker.keel.persistence
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceKind
 import com.netflix.spinnaker.keel.api.ResourceSpec
+import com.netflix.spinnaker.keel.api.ResourceStatus
+import com.netflix.spinnaker.keel.api.ResourceStatusSnapshot
 import com.netflix.spinnaker.keel.events.ApplicationEvent
 import com.netflix.spinnaker.keel.events.ResourceEvent
 import com.netflix.spinnaker.keel.events.ResourceHistoryEvent
@@ -161,6 +163,16 @@ interface ResourceRepository : PeriodicallyCheckedRepository<Resource<ResourceSp
    */
   fun countDeletionAttempts(resource: Resource<*>): Int
 
+  /**
+   * Updates the status of the specified resource.
+   */
+  fun updateStatus(resourceId: String, status: ResourceStatus)
+
+  /**
+   * @return The current status of the specified resource.
+   */
+  fun getStatus(resourceId: String): ResourceStatusSnapshot?
+
   companion object {
     const val DEFAULT_MAX_EVENTS: Int = 10
   }
@@ -175,20 +187,3 @@ abstract class NoSuchResourceException(override val message: String?) :
 
 class NoSuchResourceId(id: String) :
   NoSuchResourceException("No resource with id $id exists in the database")
-
-enum class ResourceStatus {
-  CREATED,
-  DIFF,
-  ACTUATING,
-  HAPPY,
-  UNHAPPY,
-  MISSING_DEPENDENCY,
-  CURRENTLY_UNRESOLVABLE,
-  ERROR,
-  PAUSED,
-  RESUMED,
-  UNKNOWN,
-  DIFF_NOT_ACTIONABLE,
-  WAITING,
-  DELETING
-}

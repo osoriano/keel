@@ -1,8 +1,10 @@
 package com.netflix.spinnaker.keel.api.events
 
 import com.netflix.spinnaker.keel.api.DeliveryConfig
+import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
+import java.time.Instant
 
 /**
  * An event that conveys information about one or more [PublishedArtifact] that are
@@ -28,11 +30,29 @@ data class ArtifactSyncEvent(
 )
 
 /**
+ * An event fired when an artifact version is stored in the database.
+ */
+data class ArtifactVersionStored(
+  val publishedArtifact: PublishedArtifact
+)
+
+/**
  * An event fired to signal that an artifact version is deploying to a resource.
  */
 data class ArtifactVersionDeploying(
   val resourceId: String,
   val artifactVersion: String
+)
+
+/**
+ * An event fired when an artifact version is marked as deploying in the database.
+ */
+data class ArtifactVersionMarkedDeploying(
+  val deliveryConfig: DeliveryConfig,
+  val artifact: DeliveryArtifact,
+  val version: String,
+  val environment: Environment,
+  val timestamp: Instant
 )
 
 /**

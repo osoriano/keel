@@ -1,0 +1,56 @@
+databaseChangeLog:
+- changeSet:
+    id: add-resource-status
+    author: lpollo
+    changes:
+    - addColumn:
+        tableName: resource
+        columns:
+          - column:
+              name: status
+              type: varchar(100)
+              constraints:
+                # TODO: make this non-nullable once statuses for all resources are filled in
+                nullable: true
+    - addColumn:
+        tableName: resource
+        columns:
+          - column:
+              name: status_updated_at
+              type: timestamp(3)
+              constraints:
+                # TODO: make this non-nullable once statuses for all resources are filled in
+                nullable: true
+    - createView:
+        viewName: active_resource
+        replaceIfExists: true
+        selectQuery: |
+          select
+            resource.uid,
+            resource.id,
+            resource.application,
+            resource.kind,
+            resource.status,
+            resource.status_updated_at,
+            json_object(
+              'uid', resource.uid,
+              'id', resource.id,
+              'version', resource_version.version,
+              'application', resource.application,
+              'environment', active_environment.uid,
+              'environmentName', active_environment.name,
+              'deliveryConfig', delivery_config.uid,
+              'serviceAccount', delivery_config.service_account
+            ) as metadata,
+            resource_version.spec
+          from resource
+          join resource_version
+            on resource.uid = resource_version.resource_uid
+          join environment_resource
+            on resource.uid = environment_resource.resource_uid
+            and resource_version.version = environment_resource.resource_version
+          join active_environment
+            on active_environment.uid = environment_resource.environment_uid
+            and active_environment.version = environment_resource.environment_version
+          join delivery_config
+            on delivery_config.uid = active_environment.delivery_config_uid;

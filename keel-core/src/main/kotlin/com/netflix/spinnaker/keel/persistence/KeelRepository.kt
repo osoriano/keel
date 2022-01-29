@@ -8,6 +8,7 @@ import com.netflix.spinnaker.keel.api.NotificationConfig
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceDiffFactory
 import com.netflix.spinnaker.keel.api.ResourceSpec
+import com.netflix.spinnaker.keel.api.ResourceStatusSnapshot
 import com.netflix.spinnaker.keel.api.action.Action
 import com.netflix.spinnaker.keel.api.action.ActionRepository
 import com.netflix.spinnaker.keel.api.action.ActionState
@@ -411,6 +412,9 @@ class KeelRepository(
 
   override fun getResource(id: String): Resource<ResourceSpec> =
     resourceRepository.get(id)
+
+  fun getResourceStatus(id: String): ResourceStatusSnapshot? =
+    resourceRepository.getStatus(id)
 
   override fun getRawResource(id: String): Resource<ResourceSpec> =
     resourceRepository.getRaw(id)

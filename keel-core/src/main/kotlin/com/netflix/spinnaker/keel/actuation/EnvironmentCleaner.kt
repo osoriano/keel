@@ -13,8 +13,8 @@ import com.netflix.spinnaker.keel.events.MaxResourceDeletionAttemptsReached
 import com.netflix.spinnaker.keel.events.ResourceDeletionLaunched
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
 import com.netflix.spinnaker.keel.persistence.ResourceRepository
-import com.netflix.spinnaker.keel.persistence.ResourceStatus
-import com.netflix.spinnaker.keel.persistence.ResourceStatus.DELETING
+import com.netflix.spinnaker.keel.api.ResourceStatus
+import com.netflix.spinnaker.keel.api.ResourceStatus.DELETING
 import com.netflix.spinnaker.keel.services.ResourceStatusService
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking

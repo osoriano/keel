@@ -1,0 +1,14 @@
+databaseChangeLog:
+- changeSet:
+    id: add-artifact-stored-at
+    author: lpollo
+    changes:
+    - addColumn:
+        tableName: artifact_versions
+        columns:
+          - column:
+              name: stored_at
+              type: timestamp(3)
+              afterColumn: created_at
+              constraints:
+                nullable: true

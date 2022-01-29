@@ -20,8 +20,8 @@ import com.netflix.spinnaker.keel.events.ResourceActuationLaunched
 import com.netflix.spinnaker.keel.events.ResourceDeletionLaunched
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
 import com.netflix.spinnaker.keel.persistence.ResourceRepository
-import com.netflix.spinnaker.keel.persistence.ResourceStatus.DELETING
-import com.netflix.spinnaker.keel.persistence.ResourceStatus.HAPPY
+import com.netflix.spinnaker.keel.api.ResourceStatus.DELETING
+import com.netflix.spinnaker.keel.api.ResourceStatus.HAPPY
 import com.netflix.spinnaker.keel.services.ResourceStatusService
 import com.netflix.spinnaker.keel.test.DummyDependentResourceHandler
 import com.netflix.spinnaker.keel.test.DummyLocatableResourceHandler

@@ -19,6 +19,8 @@ import com.netflix.spinnaker.keel.pause.PauseScope
 import com.netflix.spinnaker.keel.persistence.NoSuchResourceId
 import com.netflix.spinnaker.keel.persistence.ResourceHeader
 import com.netflix.spinnaker.keel.persistence.ResourceRepository
+import com.netflix.spinnaker.keel.api.ResourceStatus
+import com.netflix.spinnaker.keel.api.ResourceStatusSnapshot
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ACTIVE_ENVIRONMENT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ACTIVE_RESOURCE
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.DELIVERY_CONFIG
@@ -333,6 +335,29 @@ open class SqlResourceRepository(
         .set(EVENT.SCOPE, event.scope)
         .set(EVENT.JSON, event)
         .execute()
+    }
+  }
+
+  override fun updateStatus(resourceId: String, status: ResourceStatus) {
+    sqlRetry.withRetry(WRITE) {
+      jooq
+        .update(RESOURCE)
+        .set(RESOURCE.STATUS, status)
+        .set(RESOURCE.STATUS_UPDATED_AT, clock.instant())
+        .where(RESOURCE.ID.eq(resourceId))
+        .execute()
+    }
+  }
+
+  override fun getStatus(resourceId: String): ResourceStatusSnapshot? {
+    return sqlRetry.withRetry(READ) {
+      jooq
+        .select(RESOURCE.STATUS, RESOURCE.STATUS_UPDATED_AT)
+        .from(RESOURCE)
+        .where(RESOURCE.ID.eq(resourceId))
+        .fetchOne { (status, updatedAt) ->
+          ResourceStatusSnapshot(status, updatedAt)
+        }
     }
   }
 

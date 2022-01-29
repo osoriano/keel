@@ -24,21 +24,22 @@ import com.netflix.spinnaker.keel.events.ResourceValid
 import com.netflix.spinnaker.keel.events.VerificationBlockedActuation
 import com.netflix.spinnaker.keel.pause.ActuationPauser
 import com.netflix.spinnaker.keel.persistence.ResourceRepository
-import com.netflix.spinnaker.keel.persistence.ResourceStatus
-import com.netflix.spinnaker.keel.persistence.ResourceStatus.ACTUATING
-import com.netflix.spinnaker.keel.persistence.ResourceStatus.CREATED
-import com.netflix.spinnaker.keel.persistence.ResourceStatus.CURRENTLY_UNRESOLVABLE
-import com.netflix.spinnaker.keel.persistence.ResourceStatus.DELETING
-import com.netflix.spinnaker.keel.persistence.ResourceStatus.DIFF
-import com.netflix.spinnaker.keel.persistence.ResourceStatus.DIFF_NOT_ACTIONABLE
-import com.netflix.spinnaker.keel.persistence.ResourceStatus.ERROR
-import com.netflix.spinnaker.keel.persistence.ResourceStatus.HAPPY
-import com.netflix.spinnaker.keel.persistence.ResourceStatus.MISSING_DEPENDENCY
-import com.netflix.spinnaker.keel.persistence.ResourceStatus.PAUSED
-import com.netflix.spinnaker.keel.persistence.ResourceStatus.RESUMED
-import com.netflix.spinnaker.keel.persistence.ResourceStatus.UNHAPPY
-import com.netflix.spinnaker.keel.persistence.ResourceStatus.UNKNOWN
-import com.netflix.spinnaker.keel.persistence.ResourceStatus.WAITING
+import com.netflix.spinnaker.keel.api.ResourceStatus
+import com.netflix.spinnaker.keel.api.ResourceStatus.ACTUATING
+import com.netflix.spinnaker.keel.api.ResourceStatus.CREATED
+import com.netflix.spinnaker.keel.api.ResourceStatus.CURRENTLY_UNRESOLVABLE
+import com.netflix.spinnaker.keel.api.ResourceStatus.DELETING
+import com.netflix.spinnaker.keel.api.ResourceStatus.DIFF
+import com.netflix.spinnaker.keel.api.ResourceStatus.DIFF_NOT_ACTIONABLE
+import com.netflix.spinnaker.keel.api.ResourceStatus.ERROR
+import com.netflix.spinnaker.keel.api.ResourceStatus.HAPPY
+import com.netflix.spinnaker.keel.api.ResourceStatus.MISSING_DEPENDENCY
+import com.netflix.spinnaker.keel.api.ResourceStatus.PAUSED
+import com.netflix.spinnaker.keel.api.ResourceStatus.RESUMED
+import com.netflix.spinnaker.keel.api.ResourceStatus.UNHAPPY
+import com.netflix.spinnaker.keel.api.ResourceStatus.UNKNOWN
+import com.netflix.spinnaker.keel.api.ResourceStatus.WAITING
+import com.netflix.spinnaker.keel.events.ApplicationEvent
 import org.springframework.stereotype.Component
 import kotlin.math.min
 
@@ -65,22 +66,41 @@ class ResourceStatusService(
     }
 
     val history = resourceRepository.eventHistory(id, 10)
-      .filterForStatus()
+
+    return getStatusFromHistory(history)
+  }
+
+  /**
+   * Calculates a resource's status based on the specified [history] of events.
+   */
+  fun getStatusFromHistory(history: List<ResourceHistoryEvent>): ResourceStatus {
+    val filteredHistory = history.filterForStatus()
+
+    // sanity check events in history
+    filteredHistory.filterIsInstance<ResourceEvent>().groupBy { it.ref }
+      .also {
+        if (it.size > 1) error("Resource history contains events for multiple resources (${it.keys})")
+      }
+
+    filteredHistory.filterIsInstance<ApplicationEvent>().groupBy { it.ref }
+      .also {
+        if (it.size > 1) error("Resource history contains events for multiple applications (${it.keys})")
+      }
 
     return when {
-      history.isEmpty() -> UNKNOWN // shouldn't happen, but is a safeguard since events are persisted asynchronously
-      history.isHappy() -> HAPPY
-      history.isMissingDependency() -> MISSING_DEPENDENCY
-      history.isUnhappy() -> UNHAPPY // order matters! must be after all other veto-related statuses
-      history.isDiff() -> DIFF
-      history.isActuating() -> ACTUATING
-      history.isDiffNotActionable() -> DIFF_NOT_ACTIONABLE
-      history.isError() -> ERROR
-      history.isCreated() -> CREATED
-      history.isResumed() -> RESUMED
-      history.isDeleting() -> DELETING
-      history.isWaiting() -> WAITING // must be before CURRENTLY_UNRESOLVABLE because it's a special case of that status
-      history.isCurrentlyUnresolvable() -> CURRENTLY_UNRESOLVABLE
+      filteredHistory.isEmpty() -> UNKNOWN // shouldn't happen, but is a safeguard since events are persisted asynchronously
+      filteredHistory.isHappy() -> HAPPY
+      filteredHistory.isMissingDependency() -> MISSING_DEPENDENCY
+      filteredHistory.isUnhappy() -> UNHAPPY // order matters! must be after all other veto-related statuses
+      filteredHistory.isDiff() -> DIFF
+      filteredHistory.isActuating() -> ACTUATING
+      filteredHistory.isDiffNotActionable() -> DIFF_NOT_ACTIONABLE
+      filteredHistory.isError() -> ERROR
+      filteredHistory.isCreated() -> CREATED
+      filteredHistory.isResumed() -> RESUMED
+      filteredHistory.isDeleting() -> DELETING
+      filteredHistory.isWaiting() -> WAITING // must be before CURRENTLY_UNRESOLVABLE because it's a special case of that status
+      filteredHistory.isCurrentlyUnresolvable() -> CURRENTLY_UNRESOLVABLE
       else -> UNKNOWN
     }
   }

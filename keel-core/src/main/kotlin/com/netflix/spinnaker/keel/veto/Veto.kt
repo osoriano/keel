@@ -18,7 +18,7 @@
 package com.netflix.spinnaker.keel.veto
 
 import com.netflix.spinnaker.keel.api.Resource
-import com.netflix.spinnaker.keel.persistence.ResourceStatus
+import com.netflix.spinnaker.keel.api.ResourceStatus
 
 /**
  * Implement this interface to create a veto that will be consulted

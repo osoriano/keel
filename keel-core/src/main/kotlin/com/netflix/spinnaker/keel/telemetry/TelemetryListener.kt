@@ -9,9 +9,14 @@ import com.netflix.spinnaker.keel.actuation.ScheduledArtifactCheckStarting
 import com.netflix.spinnaker.keel.actuation.ScheduledEnvironmentCheckStarting
 import com.netflix.spinnaker.keel.actuation.ScheduledEnvironmentVerificationStarting
 import com.netflix.spinnaker.keel.actuation.ScheduledPostDeployActionRunStarting
+import com.netflix.spinnaker.keel.api.ResourceStatus.HAPPY
+import com.netflix.spinnaker.keel.api.events.ArtifactVersionMarkedDeploying
+import com.netflix.spinnaker.keel.api.events.ArtifactVersionStored
+import com.netflix.spinnaker.keel.events.ArtifactDeployedNotification
 import com.netflix.spinnaker.keel.events.ResourceActuationLaunched
 import com.netflix.spinnaker.keel.events.ResourceCheckResult
 import com.netflix.spinnaker.keel.events.VerificationBlockedActuation
+import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.rollout.FeatureRolloutAttempted
 import com.netflix.spinnaker.keel.rollout.FeatureRolloutFailed
 import org.springframework.context.event.EventListener
@@ -28,6 +33,7 @@ import java.util.concurrent.atomic.AtomicReference
 class TelemetryListener(
   private val spectator: Registry,
   private val clock: Clock,
+  private val repository: KeelRepository,
   threadPoolTaskSchedulers: List<ThreadPoolTaskScheduler>,
   threadPoolTaskExecutors: List<ThreadPoolTaskExecutor>,
 ): DiscoveryActivated() {
@@ -150,9 +156,29 @@ class TelemetryListener(
     ).safeIncrement()
   }
 
+  @EventListener(ResourceCheckStarted::class)
+  fun onResourceCheckStarted(event: ResourceCheckStarted) {
+    spectator.counter(
+      RESOURCE_CHECK_STARTED_COUNTER_ID,
+      listOf(
+        BasicTag("resourceKind", event.resource.kind.toString())
+      )
+    ).safeIncrement()
+  }
+
   @EventListener(ResourceCheckCompleted::class)
   fun onResourceCheckCompleted(event: ResourceCheckCompleted) {
     lastResourceCheck.set(clock.instant())
+  }
+
+  @EventListener(EnvironmentCheckStarted::class)
+  fun onEnvironmentCheckStarted(event: EnvironmentCheckStarted) {
+    spectator.counter(
+      ENVIRONMENT_CHECK_STARTED_COUNTER_ID,
+      listOf(
+        BasicTag("application", event.deliveryConfig.application)
+      )
+    ).safeIncrement()
   }
 
   @EventListener(ResourceCheckCompleted::class)
@@ -296,6 +322,96 @@ class TelemetryListener(
     ).safeIncrement()
   }
 
+  @EventListener(ArtifactVersionStored::class)
+  fun onArtifactVersionStored(event: ArtifactVersionStored) {
+    with(event.publishedArtifact) {
+      if (createdAt != null) {
+        // record how long it took us to store this version since the artifact was created
+        log.debug("Recording storage delay for $type:$name: ${Duration.between(createdAt!!, clock.instant())}")
+        spectator.recordDuration(ARTIFACT_DELAY, createdAt!!, clock.instant(),
+          "delayType" to "storage",
+          "artifactType" to type,
+          "artifactName" to name
+        )
+      }
+    }
+  }
+
+  @EventListener(ArtifactVersionMarkedDeploying::class)
+  fun onArtifactVersionMarkedDeploying(event: ArtifactVersionMarkedDeploying) {
+    with(event) {
+      val approvedAt = repository.getApprovedAt(deliveryConfig, artifact, version, environment.name)
+      val pinnedAt = repository.getPinnedAt(deliveryConfig, artifact, version, environment.name)
+      val startTime = when {
+        pinnedAt != null && approvedAt == null -> pinnedAt
+        pinnedAt == null && approvedAt != null -> approvedAt
+        pinnedAt != null && approvedAt != null -> when {
+          pinnedAt.isAfter(approvedAt) -> pinnedAt
+          else -> approvedAt
+        }
+        else -> null
+      }
+      val action = if (startTime == pinnedAt) "pinned" else "approved"
+
+      // record how long it took us to deploy this version since it was approved or pinned
+      if (startTime != null) {
+        log.debug("Recording deployment delay since $action for $artifact: ${Duration.between(startTime, timestamp)}")
+        spectator.recordDuration(
+          ARTIFACT_DELAY, startTime, timestamp,
+          "delayType" to "deployment",
+          "artifactType" to artifact.type,
+          "artifactName" to artifact.name,
+          "action" to action
+        )
+      }
+
+      // for environments with no constraints, record how long it took us to deploy this version since it was stored
+      if (environment.constraints.isEmpty()) {
+        val publishedArtifact = repository.getArtifactVersion(artifact, version)
+        if (publishedArtifact?.storedAt != null) {
+          log.debug("Recording deployment delay since storing for $artifact: ${Duration.between(publishedArtifact.storedAt!!, timestamp)}")
+          spectator.recordDuration(
+            ARTIFACT_DELAY, publishedArtifact.storedAt!!, timestamp,
+            "delayType" to "deployment",
+            "artifactType" to artifact.type,
+            "artifactName" to artifact.name,
+            "action" to "stored"
+          )
+        }
+      }
+    }
+  }
+
+  @EventListener(ArtifactDeployedNotification::class)
+  fun onArtifactVersionMarkedDeployed(event: ArtifactDeployedNotification) {
+    with(event) {
+      val resource = config.resourcesUsing(deliveryArtifact.reference, targetEnvironment.name).firstOrNull()
+        ?: return
+
+      // retrieve the resource status to check if it's happy and get the timestamp -- this costs us an extra
+      // database call, but we need the metric
+      val happyTime = repository.getResourceStatus(resource.id)
+        ?.let {
+          if (it.status == HAPPY) {
+            it.updatedAt
+          } else {
+            null
+          }
+        }
+
+      // record how long it took us to mark this version deployed since we deemed the parent resource "happy"
+      if (happyTime != null) {
+        log.debug("Recording delay for $deliveryArtifact: ${Duration.between(happyTime, clock.instant())}")
+        spectator.recordDuration(
+          ARTIFACT_DELAY, happyTime, clock.instant(),
+          "delayType" to "resourceHappy",
+          "artifactType" to deliveryArtifact.type,
+          "artifactName" to deliveryArtifact.name
+        )
+      }
+    }
+  }
+
   private fun secondsSince(start: AtomicReference<Instant>): Double =
     Duration
       .between(start.get(), clock.instant())
@@ -317,6 +433,7 @@ class TelemetryListener(
   companion object {
     private const val TIME_SINCE_LAST_CHECK = "keel.periodically.checked.age"
     private const val RESOURCE_CHECKED_COUNTER_ID = "keel.resource.checked"
+    private const val RESOURCE_CHECK_STARTED_COUNTER_ID = "keel.resource.check.started"
     private const val RESOURCE_CHECK_SKIPPED_COUNTER_ID = "keel.resource.check.skipped"
     private const val RESOURCE_CHECK_TIMED_OUT_ID = "keel.resource.check.timeout"
     private const val RESOURCE_LOAD_FAILED_ID = "keel.resource.load.failed"
@@ -326,6 +443,7 @@ class TelemetryListener(
     private const val ARTIFACT_APPROVED_COUNTER_ID = "keel.artifact.approved"
     private const val ARTIFACT_CHECK_DURATION_ID = "keel.artifact.check.duration"
     private const val RESOURCE_CHECK_DRIFT_GAUGE = "keel.resource.check.drift"
+    private const val ENVIRONMENT_CHECK_STARTED_COUNTER_ID = "keel.environment.check.started"
     private const val ENVIRONMENT_CHECK_DRIFT_GAUGE = "keel.environment.check.drift"
     private const val ENVIRONMENT_CHECK_TIMED_OUT_ID = "keel.environment.check.timeout"
     private const val ENVIRONMENT_CHECK_DURATION_ID = "keel.environment.check.duration"
@@ -341,5 +459,6 @@ class TelemetryListener(
     private const val POST_DEPLOY_CHECK_DURATION_ID = "keel.post-deploy.check.duration"
     private const val FEATURE_ROLLOUT_ATTEMPTED_ID = "keel.feature-rollout.attempted"
     private const val FEATURE_ROLLOUT_FAILED_ID = "keel.feature-rollout.failed"
+    const val ARTIFACT_DELAY = "artifact.delay"
   }
 }

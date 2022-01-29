@@ -257,15 +257,7 @@ class SqlArtifactRepository(
 
     return sqlRetry.withRetry(READ) {
       jooq
-        .select(
-          ARTIFACT_VERSIONS.NAME,
-          ARTIFACT_VERSIONS.TYPE,
-          ARTIFACT_VERSIONS.VERSION,
-          ARTIFACT_VERSIONS.RELEASE_STATUS,
-          ARTIFACT_VERSIONS.CREATED_AT,
-          ARTIFACT_VERSIONS.GIT_METADATA,
-          ARTIFACT_VERSIONS.BUILD_METADATA
-        )
+        .selectArtifactVersionColumns()
         .from(ARTIFACT_VERSIONS)
         .where(ARTIFACT_VERSIONS.NAME.eq(artifact.name))
         .and(ARTIFACT_VERSIONS.TYPE.eq(artifact.type))
@@ -279,32 +271,12 @@ class SqlArtifactRepository(
 
     return sqlRetry.withRetry(READ) {
       jooq
-        .select(
-          ARTIFACT_VERSIONS.NAME,
-          ARTIFACT_VERSIONS.TYPE,
-          ARTIFACT_VERSIONS.VERSION,
-          ARTIFACT_VERSIONS.RELEASE_STATUS,
-          ARTIFACT_VERSIONS.CREATED_AT,
-          ARTIFACT_VERSIONS.GIT_METADATA,
-          ARTIFACT_VERSIONS.BUILD_METADATA,
-          ARTIFACT_VERSIONS.ORIGINAL_METADATA
-        )
+        .selectArtifactVersionColumns()
         .from(ARTIFACT_VERSIONS)
         .where(ARTIFACT_VERSIONS.GIT_METADATA.isNull.or(ARTIFACT_VERSIONS.BUILD_METADATA.isNull))
         .and(ARTIFACT_VERSIONS.CREATED_AT.greaterOrEqual(cutoff))
         .limit(limit)
-        .fetch { (name, type, version, status, createdAt, gitMetadata, buildMetadata, originalMetadata) ->
-          PublishedArtifact(
-            name = name,
-            type = type,
-            version = version,
-            status = status,
-            createdAt = createdAt,
-            gitMetadata = gitMetadata,
-            buildMetadata = buildMetadata,
-            metadata = originalMetadata?.let { objectMapper.readValue(it) } ?: emptyMap()
-          )
-        }
+        .fetchArtifactVersions()
     }
   }
 
@@ -321,6 +293,7 @@ class SqlArtifactRepository(
           .set(ARTIFACT_VERSIONS.VERSION, version)
           .set(ARTIFACT_VERSIONS.RELEASE_STATUS, status)
           .set(ARTIFACT_VERSIONS.CREATED_AT, createdAt)
+          .set(ARTIFACT_VERSIONS.STORED_AT, clock.instant())
           .set(ARTIFACT_VERSIONS.GIT_METADATA, gitMetadata)
           .set(ARTIFACT_VERSIONS.BUILD_METADATA, buildMetadata)
           .set(ARTIFACT_VERSIONS.ORIGINAL_METADATA, objectMapper.writeValueAsString(artifactVersion.metadata))
@@ -337,34 +310,14 @@ class SqlArtifactRepository(
   ): PublishedArtifact? {
     return sqlRetry.withRetry(READ) {
       jooq
-        .select(
-          ARTIFACT_VERSIONS.NAME,
-          ARTIFACT_VERSIONS.TYPE,
-          ARTIFACT_VERSIONS.VERSION,
-          ARTIFACT_VERSIONS.RELEASE_STATUS,
-          ARTIFACT_VERSIONS.CREATED_AT,
-          ARTIFACT_VERSIONS.GIT_METADATA,
-          ARTIFACT_VERSIONS.BUILD_METADATA,
-          ARTIFACT_VERSIONS.ORIGINAL_METADATA
-        )
+        .selectArtifactVersionColumns()
         .from(ARTIFACT_VERSIONS)
         .where(ARTIFACT_VERSIONS.NAME.eq(artifact.name))
         .and(ARTIFACT_VERSIONS.TYPE.eq(artifact.type))
         .and(ARTIFACT_VERSIONS.VERSION.eq(version))
         .apply { if (status != null) and(ARTIFACT_VERSIONS.RELEASE_STATUS.eq(status)) }
-        .fetchOne { (name, type, version, status, createdAt, gitMetadata, buildMetadata, originalMetadata) ->
-          PublishedArtifact(
-            name = name,
-            type = type,
-            reference = artifact.reference,
-            version = version,
-            status = status,
-            createdAt = createdAt,
-            gitMetadata = gitMetadata,
-            buildMetadata = buildMetadata,
-            metadata = originalMetadata?.let { objectMapper.readValue(it) } ?: emptyMap()
-          )
-        }
+        .fetchArtifactVersions()
+        .first()
     }
   }
 
@@ -435,15 +388,7 @@ class SqlArtifactRepository(
   private fun latestApprovedArtifact(envUid: Select<Record1<String>>, artifactId: Select<Record1<String>>, excludeStatuses: List<PromotionStatus>, artifact: DeliveryArtifact): PublishedArtifact? {
     return sqlRetry.withRetry(READ) {
       jooq
-        .select(
-          ARTIFACT_VERSIONS.NAME,
-          ARTIFACT_VERSIONS.TYPE,
-          ARTIFACT_VERSIONS.VERSION,
-          ARTIFACT_VERSIONS.RELEASE_STATUS,
-          ARTIFACT_VERSIONS.CREATED_AT,
-          ARTIFACT_VERSIONS.GIT_METADATA,
-          ARTIFACT_VERSIONS.BUILD_METADATA
-        )
+        .selectArtifactVersionColumns()
         .from(ARTIFACT_VERSIONS, ENVIRONMENT_ARTIFACT_VERSIONS)
         .where(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION.eq(ARTIFACT_VERSIONS.VERSION))
         .and(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(envUid))
@@ -760,15 +705,7 @@ class SqlArtifactRepository(
         log.debug("markAsSuccessfullyDeployedTo: # of records marked PREVIOUS: $previousUpdates. name: ${artifact.name}. version: $version. env: $targetEnvironment")
         // update any past artifacts that were "APPROVED" to be "SKIPPED"
         // because the new version takes precedence
-        val approved = txn.select(
-          ARTIFACT_VERSIONS.NAME,
-          ARTIFACT_VERSIONS.TYPE,
-          ARTIFACT_VERSIONS.VERSION,
-          ARTIFACT_VERSIONS.RELEASE_STATUS,
-          ARTIFACT_VERSIONS.CREATED_AT,
-          ARTIFACT_VERSIONS.GIT_METADATA,
-          ARTIFACT_VERSIONS.BUILD_METADATA
-        )
+        val approved = txn.selectArtifactVersionColumns()
           .from(ENVIRONMENT_ARTIFACT_VERSIONS, DELIVERY_ARTIFACT, ARTIFACT_VERSIONS)
           .where(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(environmentUid))
           .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(artifact.uid))
@@ -1352,7 +1289,7 @@ class SqlArtifactRepository(
   /**
    * Common select criteria for finding artifacts that belong with a delivery config and environment.
    */
-  private fun <T : Record?> SelectJoinStep<T>.selectMatchingArtifactVersions(deliveryConfig: DeliveryConfig, environment: Environment, artifact: DeliveryArtifact) =
+  private fun <T : Record?> SelectJoinStep<T>.whereArtifactVersionsMatch(deliveryConfig: DeliveryConfig, environment: Environment, artifact: DeliveryArtifact) =
     where(DELIVERY_ARTIFACT.NAME.eq(artifact.name))
       .and(DELIVERY_ARTIFACT.TYPE.eq(artifact.type))
       .and(DELIVERY_ARTIFACT.REFERENCE.eq(artifact.reference))
@@ -1382,40 +1319,23 @@ class SqlArtifactRepository(
     val environment = deliveryConfig.environmentNamed(environmentName)
     return sqlRetry.withRetry(READ) {
       jooq
-        .select(
-          ARTIFACT_VERSIONS.NAME,
-          ARTIFACT_VERSIONS.TYPE,
-          ARTIFACT_VERSIONS.VERSION,
-          ARTIFACT_VERSIONS.RELEASE_STATUS,
-          ARTIFACT_VERSIONS.CREATED_AT,
-          ARTIFACT_VERSIONS.GIT_METADATA,
-          ARTIFACT_VERSIONS.BUILD_METADATA,
-        )
+        .selectArtifactVersionColumns()
         .from(
           ARTIFACT_VERSIONS,
           DELIVERY_ARTIFACT,
           ACTIVE_ENVIRONMENT,
           DELIVERY_CONFIG
         )
-        .selectMatchingArtifactVersions(deliveryConfig, environment, artifact)
+        .whereArtifactVersionsMatch(deliveryConfig, environment, artifact)
         .andNotExists(
           selectOne()
             .from(ENVIRONMENT_ARTIFACT_VERSIONS)
             .where(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION.eq(ARTIFACT_VERSIONS.VERSION))
             .and(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(ACTIVE_ENVIRONMENT.UID))
             .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(DELIVERY_ARTIFACT.UID))
-        ).fetch { (name, type, version, status, createdAt, gitMetadata, buildMetadata) ->
-          PublishedArtifact(
-            name = name,
-            type = type,
-            version = version,
-            reference = artifactReference,
-            status = status,
-            createdAt = createdAt,
-            gitMetadata = gitMetadata,
-            buildMetadata = buildMetadata,
-          )
-        }.filter {
+        )
+        .fetchArtifactVersions()
+        .filter {
           artifact.hasMatchingSource(it.gitMetadata)
         }
     }
@@ -1500,7 +1420,7 @@ class SqlArtifactRepository(
             ACTIVE_ENVIRONMENT,
             DELIVERY_CONFIG
           )
-          .selectMatchingArtifactVersions(deliveryConfig, environment, artifact)
+          .whereArtifactVersionsMatch(deliveryConfig, environment, artifact)
           .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(DELIVERY_ARTIFACT.UID))
           .and(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(ACTIVE_ENVIRONMENT.UID))
           .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION.eq(ARTIFACT_VERSIONS.VERSION))
@@ -1522,7 +1442,7 @@ class SqlArtifactRepository(
             ACTIVE_ENVIRONMENT,
             DELIVERY_CONFIG
           )
-          .selectMatchingArtifactVersions(deliveryConfig, environment, artifact)
+          .whereArtifactVersionsMatch(deliveryConfig, environment, artifact)
           .andNotExists(
             selectOne()
               .from(ENVIRONMENT_ARTIFACT_VERSIONS)

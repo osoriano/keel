@@ -9,6 +9,7 @@ import com.netflix.spinnaker.keel.activation.DiscoveryActivated
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.events.ArtifactVersionDetected
+import com.netflix.spinnaker.keel.api.events.ArtifactVersionStored
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.api.plugins.supporting
 import com.netflix.spinnaker.keel.config.WorkProcessingConfig
@@ -24,7 +25,6 @@ import com.netflix.spinnaker.keel.logging.withThreadTracingContext
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.WorkQueueRepository
 import com.netflix.spinnaker.keel.scm.CodeEvent
-import com.netflix.spinnaker.keel.telemetry.ARTIFACT_DELAY
 import com.netflix.spinnaker.keel.telemetry.recordDuration
 import com.netflix.spinnaker.keel.telemetry.safeIncrement
 import kotlinx.coroutines.CoroutineScope
@@ -142,7 +142,7 @@ final class WorkQueueProcessor(
             }
         }
       runBlocking { job.join() }
-      spectator.recordDuration(ARTIFACT_PROCESSING_DURATION, clock, startTime)
+      spectator.recordDuration(ARTIFACT_PROCESSING_DURATION, startTime, clock.instant())
     }
   }
 
@@ -207,7 +207,7 @@ final class WorkQueueProcessor(
         }
       }
       runBlocking { job.join() }
-      spectator.recordDuration(CODE_EVENT_PROCESSING_DURATION, clock, startTime)
+      spectator.recordDuration(CODE_EVENT_PROCESSING_DURATION, startTime, clock.instant())
     }
   }
 
@@ -234,16 +234,8 @@ final class WorkQueueProcessor(
     log.debug("Storing artifact ${artifact.type}:${artifact.name} version ${artifact.version}")
     val stored = repository.storeArtifactVersion(enrichedArtifact)
 
-    if (stored && enrichedArtifact.createdAt != null) {
-      with(enrichedArtifact) {
-        // record how long it took us to store this version since the artifact was created
-        log.debug("Recording storage delay for $type:$name: ${Duration.between(createdAt!!, clock.instant())}")
-        spectator.recordDuration(ARTIFACT_DELAY, clock, createdAt!!,
-          "delayType" to "storage",
-          "artifactType" to type,
-          "artifactName" to name
-        )
-      }
+    if (stored) {
+      publisher.publishEvent(ArtifactVersionStored(enrichedArtifact))
     }
 
     return stored

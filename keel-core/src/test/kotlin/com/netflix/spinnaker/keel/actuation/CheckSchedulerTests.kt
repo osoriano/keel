@@ -18,7 +18,10 @@ import com.netflix.spinnaker.keel.persistence.EnvironmentDeletionRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.postdeploy.PostDeployActionRunner
 import com.netflix.spinnaker.keel.scheduled.ScheduledAgent
+import com.netflix.spinnaker.keel.telemetry.EnvironmentCheckStarted
+import com.netflix.spinnaker.keel.telemetry.ResourceCheckStarted
 import com.netflix.spinnaker.keel.telemetry.ResourceLoadFailed
+import com.netflix.spinnaker.keel.test.deliveryConfig
 import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.keel.verification.VerificationRunner
 import com.netflix.spinnaker.time.MutableClock
@@ -126,6 +129,11 @@ internal class CheckSchedulerTests : JUnit5Minutests {
     )
   )
 
+  private val deliveryConfigs = listOf(
+    deliveryConfig(application = "app1", configName = "app1"),
+    deliveryConfig(application = "app2", configName = "app2")
+  )
+
   private val environmentsForDeletion = listOf(
     Environment("my-preview-environment1"),
     Environment("my-preview-environment2")
@@ -204,6 +212,14 @@ internal class CheckSchedulerTests : JUnit5Minutests {
               }
             }
           }
+
+          test("a telemetry event is published for each resource check") {
+            resources.forEach { resource ->
+              verify {
+                publisher.publishEvent(ResourceCheckStarted(resource))
+              }
+            }
+          }
         }
 
         context("resources cannot be loaded from the database") {
@@ -217,6 +233,40 @@ internal class CheckSchedulerTests : JUnit5Minutests {
 
           test("an event is published") {
             verify { publisher.publishEvent(match<Any> { it is ResourceLoadFailed }) }
+          }
+        }
+      }
+
+      context("checking environments") {
+        before {
+          every {
+            repository.deliveryConfigsDueForCheck(any(), any())
+          } returns deliveryConfigs
+
+          every {
+            repository.markDeliveryConfigCheckComplete(any())
+          } just runs
+
+          every {
+            environmentPromotionChecker.checkEnvironments(any())
+          } just runs
+
+          checkEnvironments()
+        }
+
+        test("all delivery configs due are checked") {
+          deliveryConfigs.forEach {
+            verify {
+              environmentPromotionChecker.checkEnvironments(it)
+            }
+          }
+        }
+
+        test("a telemetry event is published for each delivery config check") {
+          deliveryConfigs.forEach {
+            verify {
+              publisher.publishEvent(EnvironmentCheckStarted(it))
+            }
           }
         }
       }

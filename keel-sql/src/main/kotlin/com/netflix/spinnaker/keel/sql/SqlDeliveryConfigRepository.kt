@@ -1107,15 +1107,7 @@ class SqlDeliveryConfigRepository(
 
     return sqlRetry.withRetry(READ) {
       jooq
-        .select(
-          ARTIFACT_VERSIONS.NAME,
-          ARTIFACT_VERSIONS.TYPE,
-          ARTIFACT_VERSIONS.VERSION,
-          ARTIFACT_VERSIONS.RELEASE_STATUS,
-          ARTIFACT_VERSIONS.CREATED_AT,
-          ARTIFACT_VERSIONS.GIT_METADATA,
-          ARTIFACT_VERSIONS.BUILD_METADATA
-        )
+        .selectArtifactVersionColumns()
         .from(ENVIRONMENT_ARTIFACT_CONSTRAINT, ARTIFACT_VERSIONS)
         .where(
           ENVIRONMENT_ARTIFACT_CONSTRAINT.ENVIRONMENT_UID.eq(environmentUID),
@@ -1137,15 +1129,7 @@ class SqlDeliveryConfigRepository(
       ?: return emptyList()
 
     return sqlRetry.withRetry(READ) {
-      jooq.select(
-        ARTIFACT_VERSIONS.NAME,
-        ARTIFACT_VERSIONS.TYPE,
-        ARTIFACT_VERSIONS.VERSION,
-        ARTIFACT_VERSIONS.RELEASE_STATUS,
-        ARTIFACT_VERSIONS.CREATED_AT,
-        ARTIFACT_VERSIONS.GIT_METADATA,
-        ARTIFACT_VERSIONS.BUILD_METADATA
-      )
+      jooq.selectArtifactVersionColumns()
         .from(ENVIRONMENT_ARTIFACT_QUEUED_APPROVAL, ARTIFACT_VERSIONS)
         .where(ENVIRONMENT_ARTIFACT_QUEUED_APPROVAL.ENVIRONMENT_UID.eq(environmentUID))
         .and(

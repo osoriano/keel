@@ -254,9 +254,8 @@ abstract class ArtifactRepositoryPromotionFlowTests<T : ArtifactRepository> : JU
       setOf(version6, version9).forEach {
         storeArtifactVersion(versionedDockerArtifact.toArtifactVersion(
           it,
-          null,
           createdAt = clock.tickMinutes(5),
-          artifactMetadata.gitMetadata?.copy(pullRequest = null, branch = "main")
+          gitMetadata = artifactMetadata.gitMetadata?.copy(pullRequest = null, branch = "main")
         ))
       }
       register(debianFilteredByBranch)

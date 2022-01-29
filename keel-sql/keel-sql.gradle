@@ -250,6 +250,11 @@ jooq {
                 enumConverter = true
                 includeExpression = "ENVIRONMENT_ARTIFACT_PIN.TYPE"
               }
+              forcedType {
+                userType = "com.netflix.spinnaker.keel.api.ResourceStatus"
+                enumConverter = true
+                includeExpression = "RESOURCE.STATUS"
+              }
             }
           }
           target {

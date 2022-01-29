@@ -149,6 +149,7 @@ abstract class DeliveryArtifact {
     version: String,
     status: ArtifactStatus? = null,
     createdAt: Instant? = null,
+    storedAt: Instant? = null,
     gitMetadata: GitMetadata? = null,
     buildMetadata: BuildMetadata? = null,
     metadata: Map<String, Any?> = emptyMap()
@@ -163,7 +164,8 @@ abstract class DeliveryArtifact {
         "createdAt" to createdAt
       ),
       gitMetadata = gitMetadata,
-      buildMetadata = buildMetadata
+      buildMetadata = buildMetadata,
+      storedAt = storedAt
     ).normalized()
 
   /**

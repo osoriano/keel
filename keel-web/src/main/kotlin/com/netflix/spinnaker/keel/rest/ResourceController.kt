@@ -24,7 +24,7 @@ import com.netflix.spinnaker.keel.core.api.id
 import com.netflix.spinnaker.keel.export.ExportService
 import com.netflix.spinnaker.keel.pause.ActuationPauser
 import com.netflix.spinnaker.keel.persistence.KeelRepository
-import com.netflix.spinnaker.keel.persistence.ResourceStatus
+import com.netflix.spinnaker.keel.api.ResourceStatus
 import com.netflix.spinnaker.keel.services.ResourceStatusService
 import com.netflix.spinnaker.keel.yaml.APPLICATION_YAML_VALUE
 import kotlinx.coroutines.runBlocking

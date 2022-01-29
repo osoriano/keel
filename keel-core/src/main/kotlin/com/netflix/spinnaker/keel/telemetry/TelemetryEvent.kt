@@ -6,6 +6,7 @@ import com.netflix.spinnaker.keel.api.Verification
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
 import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
+import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.postdeploy.PostDeployAction
 import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactVeto
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventType
@@ -29,6 +30,10 @@ data class ResourceCheckTimedOut(
 data class ResourceLoadFailed(
   val ex: Throwable
 ) : TelemetryEvent()
+
+data class ResourceCheckStarted(
+  val resource: Resource<*>
+)
 
 data class ResourceCheckCompleted(
   val duration: Duration
@@ -66,6 +71,10 @@ data class ArtifactVersionApproved(
 
 data class ArtifactCheckComplete(
   val duration: Duration
+) : TelemetryEvent()
+
+data class EnvironmentCheckStarted(
+  val deliveryConfig: DeliveryConfig
 ) : TelemetryEvent()
 
 data class EnvironmentsCheckTimedOut(

@@ -35,7 +35,9 @@ import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ARTIFACT_VERSIONS
 import com.netflix.spinnaker.keel.persistence.metamodel.tables.ActiveEnvironment
 import com.netflix.spinnaker.keel.persistence.metamodel.tables.ArtifactVersions
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
+import org.jooq.DSLContext
 import org.jooq.Record7
+import org.jooq.Record9
 import org.jooq.ResultQuery
 import org.jooq.SelectConditionStep
 import org.slf4j.LoggerFactory
@@ -83,22 +85,36 @@ fun mapToArtifact(
   }
 }
 
-typealias ArtifactVersionSelectStep = SelectConditionStep<Record7<String, String, String, ArtifactStatus, Instant, GitMetadata, BuildMetadata>>
-typealias ArtifactVersionRow = ResultQuery<Record7<String, String, String, ArtifactStatus, Instant, GitMetadata, BuildMetadata>>
+typealias ArtifactVersionSelectStep = SelectConditionStep<Record9<String, String, String, ArtifactStatus, Instant, Instant, GitMetadata, BuildMetadata, String>>
+typealias ArtifactVersionRow = ResultQuery<Record9<String, String, String, ArtifactStatus, Instant, Instant, GitMetadata, BuildMetadata, String>>
+
+internal fun DSLContext.selectArtifactVersionColumns() = select(
+  ARTIFACT_VERSIONS.NAME,
+  ARTIFACT_VERSIONS.TYPE,
+  ARTIFACT_VERSIONS.VERSION,
+  ARTIFACT_VERSIONS.RELEASE_STATUS,
+  ARTIFACT_VERSIONS.CREATED_AT,
+  ARTIFACT_VERSIONS.STORED_AT,
+  ARTIFACT_VERSIONS.GIT_METADATA,
+  ARTIFACT_VERSIONS.BUILD_METADATA,
+  ARTIFACT_VERSIONS.ORIGINAL_METADATA
+)
 
 /**
  * Encapsulates the fetching of a row from the ARTIFACT_VERSIONS table into a [PublishedArtifact].
  */
 internal fun ArtifactVersionRow.fetchArtifactVersions() =
-  fetch { (name, type, version, status, createdAt, gitMetadata, buildMetadata) ->
+  fetch { (name, type, version, status, createdAt, storedAt, gitMetadata, buildMetadata, originalMetadata) ->
     PublishedArtifact(
       name = name,
       type = type,
       version = version,
       status = status,
       createdAt = createdAt,
+      storedAt = storedAt,
       gitMetadata = gitMetadata,
       buildMetadata = buildMetadata,
+      metadata = originalMetadata?.let { objectMapper.readValue(it) } ?: emptyMap()
     )
   }
 

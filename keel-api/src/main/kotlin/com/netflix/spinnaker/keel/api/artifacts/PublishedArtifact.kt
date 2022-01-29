@@ -27,7 +27,8 @@ data class PublishedArtifact(
   val metadata: Map<String, Any?> = emptyMap(),
   // keel-specific fields ---
   val gitMetadata: GitMetadata? = null,
-  val buildMetadata: BuildMetadata? = null
+  val buildMetadata: BuildMetadata? = null,
+  val storedAt: Instant? = null
 ) {
 
   // The stuff that matters to keel
@@ -38,6 +39,7 @@ data class PublishedArtifact(
     reference: String? = null,
     status: ArtifactStatus? = null,
     createdAt: Instant? = null,
+    storedAt: Instant? = null,
     gitMetadata: GitMetadata? = null,
     buildMetadata: BuildMetadata? = null,
     metadata: Map<String, Any?>? = null
@@ -51,7 +53,8 @@ data class PublishedArtifact(
       "createdAt" to createdAt
     ) ,
     gitMetadata = gitMetadata,
-    buildMetadata = buildMetadata
+    buildMetadata = buildMetadata,
+    storedAt = storedAt
   )
 
   constructor(
@@ -61,6 +64,7 @@ data class PublishedArtifact(
     reference: String,
     status: ArtifactStatus? = null,
     createdAt: Instant? = null,
+    storedAt: Instant? = null,
     gitMetadata: GitMetadata? = null,
     buildMetadata: BuildMetadata? = null
   ) : this(
@@ -73,7 +77,8 @@ data class PublishedArtifact(
       "createdAt" to createdAt
     ),
     gitMetadata = gitMetadata,
-    buildMetadata = buildMetadata
+    buildMetadata = buildMetadata,
+    storedAt = storedAt
   )
 
   val status: ArtifactStatus? = metadata["releaseStatus"]?.toString()

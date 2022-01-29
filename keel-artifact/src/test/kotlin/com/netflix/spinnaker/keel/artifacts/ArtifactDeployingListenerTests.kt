@@ -1,12 +1,10 @@
 package com.netflix.spinnaker.keel.artifacts
 
-import com.netflix.spectator.api.Registry
-import com.netflix.spectator.api.Tag
-import com.netflix.spectator.api.Timer
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.events.ArtifactVersionDeploying
+import com.netflix.spinnaker.keel.api.events.ArtifactVersionMarkedDeploying
+import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.persistence.KeelRepository
-import com.netflix.spinnaker.keel.telemetry.ARTIFACT_DELAY
 import com.netflix.spinnaker.keel.test.DummyResourceSpec
 import com.netflix.spinnaker.keel.test.deliveryConfig
 import com.netflix.spinnaker.keel.test.resource
@@ -15,15 +13,10 @@ import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
-import io.mockk.slot
 import io.mockk.spyk
 import io.mockk.verify
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import strikt.api.expectThat
-import strikt.assertions.isEqualTo
-import strikt.assertions.one
-import java.time.Duration
 
 internal class ArtifactDeployingListenerTests {
   private val resource = resource()
@@ -31,16 +24,15 @@ internal class ArtifactDeployingListenerTests {
   private val config = deliveryConfig(resource = resourceSpy)
   private val artifact = config.artifacts.first()
   private val repository = mockk<KeelRepository>(relaxUnitFun = true)
-  private val spectator = mockk<Registry>()
   private val clock = MutableClock()
-  private val timer = mockk<Timer>()
+  private val publisher = mockk<EventPublisher>()
 
   private val event = ArtifactVersionDeploying(
     resourceId = resourceSpy.id,
     artifactVersion = "1.1.1"
   )
 
-  private val subject = ArtifactDeployingListener(repository, spectator, clock)
+  private val subject = ArtifactDeployingListener(repository, publisher, clock)
 
   @BeforeEach
   fun setup() {
@@ -48,11 +40,8 @@ internal class ArtifactDeployingListenerTests {
     every { repository.deliveryConfigFor(resource.id) } returns config
     every { repository.environmentFor(resource.id) } returns config.environments.first()
     every { repository.isApprovedFor(any(), any(), event.artifactVersion, any()) } returns true
-    every { repository.getApprovedAt(any(), any(), event.artifactVersion, any()) } returns clock.instant()
-    every { repository.getPinnedAt(any(), any(), event.artifactVersion, any()) } returns null
     every { resourceSpy.findAssociatedArtifact(config) } returns artifact
-    every { spectator.timer(any(), any<Iterable<Tag>>()) } returns timer
-    every { timer.record(any<Duration>()) } just runs
+    every { publisher.publishEvent(any()) } just runs
   }
 
   @Test
@@ -76,39 +65,18 @@ internal class ArtifactDeployingListenerTests {
   }
 
   @Test
-  fun `records deployment delay when version is approved`() {
+  fun `publishes a telemetry event when version is approved`() {
     subject.onArtifactVersionDeploying(event)
-    verifyDeploymentDelayRecorded("approved")
+    verify {
+      publisher.publishEvent(ofType<ArtifactVersionMarkedDeploying>())
+    }
   }
 
   @Test
-  fun `records deployment delay when version is pinned`() {
-    every { repository.getPinnedAt(any(), any(), event.artifactVersion, any()) } returns clock.instant()
+  fun `publishes a telemetry event when version is pinned`() {
     subject.onArtifactVersionDeploying(event)
-    verifyDeploymentDelayRecorded("pinned")
-  }
-
-  private fun verifyDeploymentDelayRecorded(action: String) {
-    val tags = slot<Iterable<Tag>>()
-
-    verify { spectator.timer(ARTIFACT_DELAY, capture(tags)) }
-    verify { timer.record(any<Duration>()) }
-
-    expectThat(tags.captured) {
-      one {
-        get { key() }.isEqualTo("delayType")
-        get { value() }.isEqualTo("deployment")
-      }
-      one {
-        get { key() }.isEqualTo("action")
-        get { value() }.isEqualTo(action)
-      }
-      one {
-        get { key() }.isEqualTo("artifactType")
-      }
-      one {
-        get { key() }.isEqualTo("artifactName")
-      }
+    verify {
+      publisher.publishEvent(ofType<ArtifactVersionMarkedDeploying>())
     }
   }
 }

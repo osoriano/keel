@@ -18,10 +18,12 @@ import com.netflix.spinnaker.keel.postdeploy.PostDeployActionRunner
 import com.netflix.spinnaker.keel.telemetry.AgentInvocationComplete
 import com.netflix.spinnaker.keel.telemetry.ArtifactCheckComplete
 import com.netflix.spinnaker.keel.telemetry.ArtifactCheckTimedOut
+import com.netflix.spinnaker.keel.telemetry.EnvironmentCheckStarted
 import com.netflix.spinnaker.keel.telemetry.EnvironmentsCheckTimedOut
 import com.netflix.spinnaker.keel.telemetry.PostDeployActionCheckComplete
 import com.netflix.spinnaker.keel.telemetry.PostDeployActionTimedOut
 import com.netflix.spinnaker.keel.telemetry.ResourceCheckCompleted
+import com.netflix.spinnaker.keel.telemetry.ResourceCheckStarted
 import com.netflix.spinnaker.keel.telemetry.ResourceCheckTimedOut
 import com.netflix.spinnaker.keel.telemetry.ResourceLoadFailed
 import com.netflix.spinnaker.keel.telemetry.VerificationCheckComplete
@@ -119,6 +121,7 @@ class CheckScheduler(
                    */
                   withTimeout(resourceCheckConfig.timeoutDuration.toMillis()) {
                     launch {
+                      publisher.publishEvent(ResourceCheckStarted(it))
                       resourceActuator.checkResource(it)
                       publisher.publishEvent(ResourceCheckCompleted(Duration.between(startTime, clock.instant())))
                     }
@@ -156,7 +159,10 @@ class CheckScheduler(
                  *  individual environments, allowing fairer timeouts.
                  */
                 withTimeout(environmentCheckConfig.timeoutDuration.toMillis() * max(it.environments.size, 1)) {
-                  launch { environmentPromotionChecker.checkEnvironments(it) }
+                  launch {
+                    publisher.publishEvent(EnvironmentCheckStarted(it))
+                    environmentPromotionChecker.checkEnvironments(it)
+                  }
                 }
               } catch (e: TimeoutCancellationException) {
                 log.error("Timed out checking environments for ${it.application}/${it.name}", e)
@@ -316,5 +322,5 @@ class CheckScheduler(
   }
 
   private fun recordDuration(startTime : Instant, type: String) =
-    spectator.recordDurationPercentile("keel.scheduled.method.duration", clock, startTime, setOf(BasicTag("type", type)))
+    spectator.recordDurationPercentile("keel.scheduled.method.duration", startTime, clock.instant(), setOf(BasicTag("type", type)))
 }

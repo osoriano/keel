@@ -419,3 +419,9 @@ databaseChangeLog:
 - include:
     file: changelog/20220118-fix-constraint-comment-type.yml
     relativeToChangelogFile: true
+- include:
+    file: changelog/20220128-add-resource-status.yml
+    relativeToChangelogFile: true
+- include:
+    file: changelog/20220128-add-artifact-stored-at.yml
+    relativeToChangelogFile: true

@@ -11,7 +11,7 @@ import com.netflix.spinnaker.keel.api.ec2.securityGroupsByRegion
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
-import com.netflix.spinnaker.keel.persistence.ResourceStatus.MISSING_DEPENDENCY
+import com.netflix.spinnaker.keel.api.ResourceStatus.MISSING_DEPENDENCY
 import com.netflix.spinnaker.keel.veto.Veto
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
