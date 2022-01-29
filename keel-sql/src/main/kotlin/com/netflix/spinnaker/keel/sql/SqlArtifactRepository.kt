@@ -317,7 +317,7 @@ class SqlArtifactRepository(
         .and(ARTIFACT_VERSIONS.VERSION.eq(version))
         .apply { if (status != null) and(ARTIFACT_VERSIONS.RELEASE_STATUS.eq(status)) }
         .fetchArtifactVersions()
-        .first()
+        .firstOrNull()
     }
   }
 
