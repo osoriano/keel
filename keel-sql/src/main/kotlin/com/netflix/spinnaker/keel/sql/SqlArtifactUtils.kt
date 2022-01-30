@@ -36,7 +36,6 @@ import com.netflix.spinnaker.keel.persistence.metamodel.tables.ActiveEnvironment
 import com.netflix.spinnaker.keel.persistence.metamodel.tables.ArtifactVersions
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
 import org.jooq.DSLContext
-import org.jooq.Record7
 import org.jooq.Record9
 import org.jooq.ResultQuery
 import org.jooq.SelectConditionStep
@@ -103,11 +102,12 @@ internal fun DSLContext.selectArtifactVersionColumns() = select(
 /**
  * Encapsulates the fetching of a row from the ARTIFACT_VERSIONS table into a [PublishedArtifact].
  */
-internal fun ArtifactVersionRow.fetchArtifactVersions() =
+internal fun ArtifactVersionRow.fetchArtifactVersions(artifactReference: String?) =
   fetch { (name, type, version, status, createdAt, storedAt, gitMetadata, buildMetadata, originalMetadata) ->
     PublishedArtifact(
       name = name,
       type = type,
+      reference = artifactReference,
       version = version,
       status = status,
       createdAt = createdAt,
@@ -151,7 +151,7 @@ private fun ArtifactVersionSelectStep.fetchArtifactVersionsSortedWithQuery(
     limit(limit)
   }
 
-  return fetchArtifactVersions()
+  return fetchArtifactVersions(artifact.reference)
 }
 
 /**
@@ -170,7 +170,7 @@ private fun ArtifactVersionSelectStep.fetchArtifactVersionsSortedWithComparator(
   }
 
   // fallback for when we can't delegate sorting and limiting to the database
-  return fetchArtifactVersions()
+  return fetchArtifactVersions(artifact.reference)
     .sortedWith(artifact.sortingStrategy.comparator)
     .let {
       if (artifact is DockerArtifact) {
@@ -200,31 +200,6 @@ internal fun ArtifactVersionSelectStep.fetchSortedArtifactVersions(
 ): List<PublishedArtifact> {
   return if (artifact.filteredBySource) {
     fetchArtifactVersionsSortedWithQuery(artifact, limit)
-  } else {
-    fetchArtifactVersionsSortedWithComparator(artifact, limit)
-  }
-}
-
-private fun ArtifactVersionSelectStep.fetchAndSortByCreatedAt(
-  limit: Int? = null
-): List<PublishedArtifact> {
-  // delegate sorting and limiting to the database
-  and(ARTIFACT_VERSIONS.CREATED_AT.isNotNull)
-    .orderBy(ARTIFACT_VERSIONS.CREATED_AT.desc())
-
-  if (limit != null) {
-    limit(limit)
-  }
-
-  return fetchArtifactVersions()
-}
-
-fun ArtifactVersionSelectStep.fetchSortedArtifactVersionsForLatest(
-  artifact: DeliveryArtifact,
-  limit: Int? = null
-): List<PublishedArtifact> {
-  return if (artifact.filteredBySource) {
-    fetchAndSortByCreatedAt(limit)
   } else {
     fetchArtifactVersionsSortedWithComparator(artifact, limit)
   }

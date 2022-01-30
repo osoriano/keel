@@ -502,7 +502,7 @@ class KeelRepository(
     artifactRepository.versions(artifact, limit)
 
   override fun getVersionsWithoutMetadata(limit: Int, maxAge: Duration): List<PublishedArtifact> =
-    artifactRepository.getVersionsWithoutMetadata(limit, maxAge)
+    artifactRepository.getVersionsWithMissingMetadata(limit, maxAge)
 
   override fun latestVersionApprovedIn(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact, targetEnvironment: String): String? =
     artifactRepository.latestVersionApprovedIn(deliveryConfig, artifact, targetEnvironment)

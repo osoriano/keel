@@ -2,7 +2,6 @@ package com.netflix.spinnaker.keel.sql
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.convertValue
-import com.fasterxml.jackson.module.kotlin.readValue
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
@@ -266,7 +265,7 @@ class SqlArtifactRepository(
     }
   }
 
-  override fun getVersionsWithoutMetadata(limit: Int, maxAge: Duration): List<PublishedArtifact> {
+  override fun getVersionsWithMissingMetadata(limit: Int, maxAge: Duration): List<PublishedArtifact> {
     val cutoff = clock.instant().minus(maxAge)
 
     return sqlRetry.withRetry(READ) {
@@ -276,7 +275,8 @@ class SqlArtifactRepository(
         .where(ARTIFACT_VERSIONS.GIT_METADATA.isNull.or(ARTIFACT_VERSIONS.BUILD_METADATA.isNull))
         .and(ARTIFACT_VERSIONS.CREATED_AT.greaterOrEqual(cutoff))
         .limit(limit)
-        .fetchArtifactVersions()
+        // TODO: is filling in the reference important here? if so, we can join on DELIVERY_ARTIFACT
+        .fetchArtifactVersions(null)
     }
   }
 
@@ -316,7 +316,7 @@ class SqlArtifactRepository(
         .and(ARTIFACT_VERSIONS.TYPE.eq(artifact.type))
         .and(ARTIFACT_VERSIONS.VERSION.eq(version))
         .apply { if (status != null) and(ARTIFACT_VERSIONS.RELEASE_STATUS.eq(status)) }
-        .fetchArtifactVersions()
+        .fetchArtifactVersions(artifact.reference)
         .firstOrNull()
     }
   }
@@ -398,7 +398,7 @@ class SqlArtifactRepository(
         .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.notIn(excludeStatuses))
         .orderBy(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT.desc())
         .limit(20)
-        .fetchArtifactVersions()
+        .fetchArtifactVersions(artifact.reference)
         .sortedWith(artifact.sortingStrategy.comparator)
         .firstOrNull()
     }
@@ -1334,7 +1334,7 @@ class SqlArtifactRepository(
             .and(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(ACTIVE_ENVIRONMENT.UID))
             .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(DELIVERY_ARTIFACT.UID))
         )
-        .fetchArtifactVersions()
+        .fetchArtifactVersions(artifactReference)
         .filter {
           artifact.hasMatchingSource(it.gitMetadata)
         }
