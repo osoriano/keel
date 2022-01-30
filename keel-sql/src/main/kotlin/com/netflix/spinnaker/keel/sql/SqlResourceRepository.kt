@@ -355,7 +355,8 @@ open class SqlResourceRepository(
         .select(RESOURCE.STATUS, RESOURCE.STATUS_UPDATED_AT)
         .from(RESOURCE)
         .where(RESOURCE.ID.eq(resourceId))
-        .fetchOne { (status, updatedAt) ->
+        .fetchOne()
+        ?.let { (status, updatedAt) ->
           ResourceStatusSnapshot(status, updatedAt)
         }
     }

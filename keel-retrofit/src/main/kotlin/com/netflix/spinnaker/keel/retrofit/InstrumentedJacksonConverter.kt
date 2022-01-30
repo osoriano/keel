@@ -54,7 +54,7 @@ class UnparseableResponseException(
   val body: String,
   cause: JsonMappingException
 ) :
-  SystemException("Cannot parse response from $remoteName to ${targetType.simpleSignature}, response body: $body", cause) {
+  SystemException("Cannot parse response from $remoteName to ${targetType.simpleSignature} due to: $cause.\nResponse body: $body", cause) {
     val targetSimpleSignature: String
       get() = targetType.simpleSignature
   }

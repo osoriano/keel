@@ -177,7 +177,12 @@ class BuildLifecycleMonitor(
   }
 
   fun chooseLink(task: MonitoredTask): String? {
-    val buildData = parseBuildData(task)
+    val buildData = try {
+      parseBuildData(task)
+    } catch(e: IllegalArgumentException) {
+      log.debug("Failed to parse build data while choosing build link: $e")
+      return null
+    }
     val app = runBlocking {
       try {
         front50Service?.applicationByName(buildData.application)
