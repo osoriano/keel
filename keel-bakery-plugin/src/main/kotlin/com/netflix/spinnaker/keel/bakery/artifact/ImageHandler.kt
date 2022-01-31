@@ -9,6 +9,7 @@ import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.events.ArtifactRegisteredEvent
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.bakery.BaseImageCache
+import com.netflix.spinnaker.keel.bakery.UnknownBaseImage
 import com.netflix.spinnaker.keel.clouddriver.ImageService
 import com.netflix.spinnaker.keel.clouddriver.getLatestNamedImages
 import com.netflix.spinnaker.keel.clouddriver.model.baseImageName
@@ -55,7 +56,13 @@ class ImageHandler(
         return
       }
 
-      val desiredBaseAmiName = artifact.findLatestBaseAmiName()
+      val desiredBaseAmiName = try {
+        artifact.findLatestBaseAmiName()
+      } catch (e: UnknownBaseImage) {
+        log.error("Unable to find the right base image for $appVersions for ${artifact.name}. " +
+          "Is the base label '${artifact.vmOptions.baseLabel}' an actual valid base label?")
+        return
+      }
 
 <<<<<<< 6d85bb7e6884ca89ff98194a542e311218f00811
         val images = artifact.findLatestAmi(desiredAppVersion)
