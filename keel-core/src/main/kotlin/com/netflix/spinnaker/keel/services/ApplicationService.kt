@@ -807,7 +807,7 @@ class ApplicationService(
           JiraFields(
             summary = "Managed Delivery migration started for application $application",
             description = "This is an automated ticket. A PR was created to migrate application $application to Managed Delivery.\n Check out the PR: $prLink",
-            components = listOf(JiraComponent(id= "migration"))
+            components = listOf(JiraComponent(name = "migration"))
           )
         )
       )

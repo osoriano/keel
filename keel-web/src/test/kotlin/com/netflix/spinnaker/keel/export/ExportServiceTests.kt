@@ -33,11 +33,9 @@ import io.mockk.runs
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import strikt.api.expectCatching
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo
 import strikt.assertions.isFalse
-import strikt.assertions.isSuccess
 import strikt.assertions.isTrue
 import io.mockk.coEvery as every
 import io.mockk.coVerify as verify
@@ -60,9 +58,7 @@ internal class ExportServiceTests {
     yamlMapper = yamlMapper,
     validator = DeliveryConfigValidator(),
     deliveryConfigRepository = deliveryConfigRepository,
-    jobService = jobService,
     springEnv = mockEnvironment(),
-    scmConfig = ScmConfig(),
     cloudDriverCache = cloudDriverCache
   )
 
@@ -151,35 +147,7 @@ internal class ExportServiceTests {
     objectMapper.registerSubtypes(NamedType(TitusClusterSpec::class.java, TITUS_CLUSTER_V1.kind.toString()))
   }
 
-  @Test
-  fun `store application as scm-powered`() {
-    every {
-      jobService.hasJobs(any(), any(), any(), any())
-    } returns true
 
-    expectCatching {
-      subject.updateApplicationScmStatus("fnord")
-    }.isSuccess()
-
-    verify(exactly = 1) {
-      deliveryConfigRepository.updateMigratingAppScmStatus("fnord", true)
-    }
-  }
-
-  @Test
-  fun `store application as non scm-powered`() {
-    every {
-      jobService.hasJobs(any(), any(), any(), any())
-    } returns false
-
-    expectCatching {
-      subject.updateApplicationScmStatus("fnord")
-    }.isSuccess()
-
-    verify(exactly = 1) {
-      deliveryConfigRepository.updateMigratingAppScmStatus("fnord", false)
-    }
-  }
 
   @Test
   fun `export is successful`() {

@@ -1,13 +1,16 @@
 package com.netflix.spinnaker.keel.titus.resource
 
+import com.netflix.spinnaker.keel.api.ArtifactBridge
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.Exportable
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.RedBlack
 import com.netflix.spinnaker.keel.api.SimpleLocations
 import com.netflix.spinnaker.keel.api.SimpleRegionSpec
+import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactOriginFilter
 import com.netflix.spinnaker.keel.api.artifacts.BranchFilter
+import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.BRANCH_JOB_COMMIT_BY_JOB
 import com.netflix.spinnaker.keel.api.ec2.ClusterDependencies
@@ -25,6 +28,7 @@ import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.clouddriver.model.Credential
 import com.netflix.spinnaker.keel.clouddriver.model.CustomizedMetricSpecificationModel
 import com.netflix.spinnaker.keel.api.artifacts.DockerImage
+import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.clouddriver.model.MetricDimensionModel
 import com.netflix.spinnaker.keel.clouddriver.model.Resources
 import com.netflix.spinnaker.keel.clouddriver.model.SecurityGroupSummary
@@ -89,6 +93,7 @@ internal class TitusClusterExportTests : JUnit5Minutests {
   val repository = mockk<KeelRepository>()
   val publisher: EventPublisher = mockk(relaxUnitFun = true)
   val springEnv: ConfigurableEnvironment = mockk(relaxUnitFun = true)
+  val artifactBridge: ArtifactBridge = mockk()
   val titusRegistryService = mockk<TitusRegistryService>()
 
   val taskLauncher = OrcaTaskLauncher(
@@ -152,7 +157,8 @@ internal class TitusClusterExportTests : JUnit5Minutests {
     account = "testregistry",
     repository = "emburns/spin-titus-demo",
     tag = "1",
-    digest = "sha:1111"
+    digest = "sha:1111",
+    commitId = "commit123", buildNumber = "10"
   )
 
   val images = listOf(
@@ -162,7 +168,7 @@ internal class TitusClusterExportTests : JUnit5Minutests {
 
   val branchJobShaImages = listOf(
     image.copy(tag = "master-h10.62bbbd6"),
-    image.copy(tag = "master-h11.4e26fbd", digest = "sha:2222")
+    image.copy(tag = "master-h11.4e26fbd", digest = "sha:2222",  commitId = "commit123", buildNumber = "10")
   )
 
   val weirdImages = listOf(
@@ -173,8 +179,8 @@ internal class TitusClusterExportTests : JUnit5Minutests {
     image.copy(tag = "latest")
   )
 
-  val imagesWithBranchName = branchJobShaImages
-    .map { it.copy(branch = "main") }
+  val imagesWithArtifactInfo = branchJobShaImages
+    .map { it.copy(branch = "main", commitId = "commit123", buildNumber = "10") }
 
   fun tests() = rootContext<TitusClusterHandler> {
     fixture {
@@ -188,7 +194,8 @@ internal class TitusClusterExportTests : JUnit5Minutests {
         resolvers,
         clusterExportHelper,
         DefaultResourceDiffFactory(),
-        titusRegistryService
+        titusRegistryService,
+        artifactBridge
       )
     }
 
@@ -322,7 +329,11 @@ internal class TitusClusterExportTests : JUnit5Minutests {
       context("exported artifact") {
         context("tags are just increasing numbers") {
           before {
-            coEvery { cloudDriverService.findDockerImages("testregistry", (spec.container as DigestProvider).repository()) } returns images
+            every { titusRegistryService.findImages(any(), any(), any(), any(), any()) } returns images
+
+            coEvery {
+              artifactBridge.getArtifactMetadata(any(), any())
+            } returns ArtifactMetadata(BuildMetadata(id = 10), GitMetadata(commit = " commit"))
           }
           test("tag strategy is chosen as INCREASING_TAG") {
             val artifact = runBlocking {
@@ -336,7 +347,13 @@ internal class TitusClusterExportTests : JUnit5Minutests {
 
         context("tags are branch-job.sha") {
           before {
-            coEvery { cloudDriverService.findDockerImages("testregistry", (spec.container as DigestProvider).repository()) } returns branchJobShaImages
+            every {
+              titusRegistryService.findImages(any(), any(), any(), any(), any())
+            } returns branchJobShaImages
+
+            coEvery {
+              artifactBridge.getArtifactMetadata(any(), any())
+            } returns ArtifactMetadata(BuildMetadata(id = 10), GitMetadata(commit = " commit"))
           }
 
           test("tag strategy is chosen as BRANCH_JOB_COMMIT_BY_JOB") {
@@ -349,35 +366,15 @@ internal class TitusClusterExportTests : JUnit5Minutests {
           }
         }
 
-        context("the only tag available is 'latest'") {
-          before {
-            coEvery { cloudDriverService.findDockerImages("testregistry", (spec.container as DigestProvider).repository()) } returns imageWithLatestTag
-          }
-
-          test("exception is throw") {
-            expectThrows<DockerArtifactExportError> {
-              exportArtifact(exportable)
-            }
-          }
-        }
-
-        context("tags are just string garbage") {
-          before {
-            coEvery { cloudDriverService.findDockerImages("testregistry", (spec.container as DigestProvider).repository()) } returns weirdImages
-          }
-
-          test("exception is throw") {
-            expectThrows<DockerArtifactExportError> {
-              exportArtifact(exportable)
-            }
-          }
-        }
-
         context("images have branch information") {
           before {
+            every {
+              titusRegistryService.findImages(any(), any(), any(), any(), any())
+            } returns imagesWithArtifactInfo
+
             coEvery {
-              cloudDriverService.findDockerImages("testregistry", (spec.container as DigestProvider).repository())
-            } returns imagesWithBranchName
+              artifactBridge.getArtifactMetadata(any(), any())
+            } returns ArtifactMetadata(BuildMetadata(id = 10), GitMetadata(commit = " commit"))
           }
 
           test("artifact includes `from` spec with corresponding branch") {
@@ -403,7 +400,7 @@ internal class TitusClusterExportTests : JUnit5Minutests {
           activeServerGroupResponseWest
             .withDoubleCapacity()
 
-        coEvery { cloudDriverService.findDockerImages("testregistry", container.repository()) } returns images
+        coEvery {  titusRegistryService.findImages("testregistry", container.repository()) } returns images
         every { cloudDriverCache.credentialBy(titusAccount) } returns titusAccountCredential
       }
 

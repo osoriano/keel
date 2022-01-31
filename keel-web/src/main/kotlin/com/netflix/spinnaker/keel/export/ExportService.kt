@@ -42,6 +42,7 @@ import com.netflix.spinnaker.keel.core.api.TimeWindow
 import com.netflix.spinnaker.keel.core.api.TimeWindowConstraint
 import com.netflix.spinnaker.keel.core.api.id
 import com.netflix.spinnaker.keel.core.parseMoniker
+import com.netflix.spinnaker.keel.exceptions.ArtifactNotSupportedException
 import com.netflix.spinnaker.keel.filterNotNullValues
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.model.DeployStage
@@ -68,7 +69,6 @@ import java.time.Instant
  * Encapsulates logic to export delivery configs from pipelines.
  */
 @Component
-@EnableConfigurationProperties(ScmConfig::class)
 class ExportService(
   private val handlers: List<ResourceHandler<*, *>>,
   private val front50Cache: Front50Cache,
@@ -77,9 +77,7 @@ class ExportService(
   private val yamlMapper: YAMLMapper,
   private val validator: DeliveryConfigValidator,
   private val deliveryConfigRepository: DeliveryConfigRepository,
-  private val jobService: JobService,
   private val springEnv: Environment,
-  private val scmConfig: ScmConfig,
   private val cloudDriverCache: CloudDriverCache
 ) {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
@@ -250,21 +248,8 @@ class ExportService(
             result.projectKey
           )
         }
-        updateApplicationScmStatus(app)
       }
     }
-  }
-
-  suspend fun updateApplicationScmStatus(applicationName: String) {
-    val application = front50Cache.applicationByName(applicationName)
-    val repoProjectKey = application.repoProjectKey
-    val repoSlug = application.repoSlug
-    if (repoProjectKey.isNullOrEmpty() || repoSlug.isNullOrEmpty()) {
-      log.info("Application $applicationName is missing scm details")
-      return
-    }
-    val isScmPowered = jobService.hasJobs(projectKey = repoProjectKey, repoSlug = repoSlug, type = application.repoType, scmType = scmConfig.jobType)
-    deliveryConfigRepository.updateMigratingAppScmStatus(applicationName, isScmPowered)
   }
 
   /**
@@ -302,7 +287,7 @@ class ExportService(
 
     val environments = mutableSetOf<SubmittedEnvironment>()
     val artifacts = mutableSetOf<DeliveryArtifact>()
-    var configValidationExecption: Exception? = null
+    var configValidationException: Exception? = null
 
     //3. iterate over the deploy pipelines, and map resources to the environments they represent
     val pipelinesToEnvironments = pipelinesToDeploysAndClusters.mapValues { (pipeline, deploysAndClusters) ->
@@ -320,7 +305,12 @@ class ExportService(
         val allowedTimes = createAllowedTimeConstraint(deploy.restrictedExecutionWindow)
 
         //5. infer from the cluster all dependent resources, including artifacts
-        val resourcesAndArtifacts = createResourcesBasedOnCluster(cluster, environments, applicationName)
+        val resourcesAndArtifacts = try {
+           createResourcesBasedOnCluster(cluster, environments, applicationName)
+        } catch (e: ArtifactNotSupportedException) {
+          log.debug("could not export artifacts from cluster ${cluster.moniker.toName()}")
+          return@mapNotNull null
+        }
 
         if (resourcesAndArtifacts.resources.isEmpty()) {
           log.debug("could not create resources from cluster ${cluster.moniker.toName()}")
@@ -379,7 +369,7 @@ class ExportService(
       validator.validate(deliveryConfig)
     } catch (ex: Exception) {
       log.debug("Delivery config for application ${application.name} didn't passed validation; caught exception", ex)
-      configValidationExecption = ex
+      configValidationException = ex
     }
 
     val result = PipelineExportResult(
@@ -387,7 +377,7 @@ class ExportService(
       exported = pipelinesToEnvironments,
       skipped = nonExportablePipelines,
       baseUrl = baseUrlConfig.baseUrl,
-      configValidationException = configValidationExecption?.message,
+      configValidationException = configValidationException?.message,
       repoSlug = application.repoSlug,
       projectKey = application.repoProjectKey
     )
@@ -478,9 +468,16 @@ class ExportService(
     }
 
     // Export the artifact matching the cluster while we're at it
-    val artifact = handlers.supporting(cluster.clusterKind).exportArtifact(cluster)
-    log.debug("Exported artifact $artifact from cluster ${cluster.moniker}")
+    val artifact = try {
+       handlers.supporting(cluster.clusterKind).exportArtifact(cluster)
+    } catch (e: ArtifactNotSupportedException) {
+      deliveryConfigRepository.updateMigratingAppScmStatus(applicationName, false)
+      log.error("artifact for application $applicationName is not supported")
+      return Pair(emptySet(), null)
+    }
 
+    deliveryConfigRepository.updateMigratingAppScmStatus(applicationName, true)
+    log.debug("Exported artifact $artifact from cluster ${cluster.moniker}")
     // get the cluster dependencies
     val dependencies = spec as Dependent
 

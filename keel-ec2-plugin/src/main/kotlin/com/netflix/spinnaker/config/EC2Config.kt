@@ -29,6 +29,7 @@ import com.netflix.spinnaker.keel.ec2.resource.ClassicLoadBalancerHandler
 import com.netflix.spinnaker.keel.ec2.resource.ClusterHandler
 import com.netflix.spinnaker.keel.ec2.resource.SecurityGroupHandler
 import com.netflix.spinnaker.keel.environments.DependentEnvironmentFinder
+import com.netflix.spinnaker.keel.igor.JobService
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactService
 import com.netflix.spinnaker.keel.orca.ClusterExportHelper
 import com.netflix.spinnaker.keel.orca.OrcaService
@@ -56,6 +57,7 @@ class EC2Config {
     clusterExportHelper: ClusterExportHelper,
     blockDeviceConfig: BlockDeviceConfig,
     artifactService: ArtifactService,
+    jobService: JobService,
     diffFactory: ResourceDiffFactory
   ): ClusterHandler =
     ClusterHandler(
@@ -69,6 +71,7 @@ class EC2Config {
       clusterExportHelper,
       blockDeviceConfig,
       artifactService,
+      jobService,
       diffFactory
     )
 

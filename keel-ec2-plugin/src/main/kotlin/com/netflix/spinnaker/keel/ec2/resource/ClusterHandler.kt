@@ -89,8 +89,10 @@ import com.netflix.spinnaker.keel.ec2.MissingAppVersionException
 import com.netflix.spinnaker.keel.ec2.toEc2Api
 import com.netflix.spinnaker.keel.events.ResourceHealthEvent
 import com.netflix.spinnaker.keel.exceptions.ActiveServerGroupsException
+import com.netflix.spinnaker.keel.exceptions.ArtifactNotSupportedException
 import com.netflix.spinnaker.keel.exceptions.ExportError
 import com.netflix.spinnaker.keel.filterNotNullValues
+import com.netflix.spinnaker.keel.igor.JobService
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactService
 import com.netflix.spinnaker.keel.orca.ClusterExportHelper
 import com.netflix.spinnaker.keel.orca.OrcaService
@@ -126,6 +128,7 @@ class ClusterHandler(
   private val clusterExportHelper: ClusterExportHelper,
   private val blockDeviceConfig: BlockDeviceConfig,
   private val artifactService: ArtifactService,
+  private val jobService: JobService,
   diffFactory: ResourceDiffFactory
 ) : BaseClusterHandler<ClusterSpec, ServerGroup>(resolvers, taskLauncher, diffFactory) {
 
@@ -180,7 +183,7 @@ class ClusterHandler(
         if (images.size > 1) {
           log.error("More than one image with ami id ${serverGroup.launchConfiguration.imageId}, using first...")
         }
-        ImageInRegion(region, images.first().imageName , serverGroup.location.account)
+        ImageInRegion(region, images.first().imageName, serverGroup.location.account)
       }
       .let { images ->
         CurrentImages(supportedKind.kind, images, resource.id)
@@ -334,11 +337,25 @@ class ClusterHandler(
     val artifact = try {
       artifactService.getArtifact(artifactName, artifactVersion, DEBIAN)
     } catch (e: HttpException) {
-      if (e.isNotFound) null else throw e
+      if (e.isNotFound)
+        throw ArtifactNotSupportedException("Failed to fetch information for artifact $artifactName. Is your build Rocket-enabled?")
+      else throw ExportError("Error fetching information for artifact $artifactName: ${e.message}")
+    }
+
+    // we need to make sure the artifact is coming from a rocket job, otherwise it is not supported
+    val jobName = artifact.provenance?.substringBeforeLast("/")?.substringAfterLast("/")
+      ?: throw ArtifactNotSupportedException("Missing build job information for artifact $artifactName")
+
+    try {
+      if (jobService.getJobByName(jobName).scmType != SUPPORTED_JOB_TYPE) {
+        throw ArtifactNotSupportedException("Build job $jobName for artifact $artifactName is not a rocket job.")
+      }
+    } catch (e: HttpException) {
+      throw ExportError("Error retrieving information for build job $jobName: ${e.message}")
     }
 
     // prefer branch-based artifact spec, fallback to release statuses
-    if (artifact?.branch != null) {
+    if (artifact.branch != null && artifact.branch != artifact.commitHash) {
       log.debug("Found branch name '{}' for artifact {}:{} from metadata. Returning source-driven artifact.",
         artifact.branch, artifactName, artifactVersion)
 
@@ -350,6 +367,10 @@ class ClusterHandler(
         reference = "$artifactName:${artifact.branch}"
       )
     } else {
+      if (artifact.branch == artifact.commitHash) {
+        log.debug("artifact $artifactName branch is set to commit hash. It can happen because it was tag-to-release" +
+          "or was build with a non-rocket build plugin")
+      }
       // fall back to exporting the artifact in the old format if we can't retrieve metadata
       log.debug("Unable to retrieve branch name for artifact {}:{} from metadata. Returning legacy artifact.",
         appVersion.packageName, appVersion.version)
@@ -392,10 +413,10 @@ class ClusterHandler(
 
   override suspend fun actuationInProgress(resource: Resource<ClusterSpec>) =
     generateCorrelationIds(resource).any { correlationId ->
-        orcaService
-          .getCorrelatedExecutions(correlationId)
-          .isNotEmpty()
-      }
+      orcaService
+        .getCorrelatedExecutions(correlationId)
+        .isNotEmpty()
+    }
 
   private fun ClusterSpec.generateOverrides(account: String, application: String, serverGroups: Map<String, ServerGroup>) =
     serverGroups.forEach { (region, serverGroup) ->
@@ -432,7 +453,7 @@ class ClusterHandler(
     current: Scaling?,
     desired: Scaling
   ): Boolean {
-    if (current == null){
+    if (current == null) {
       return false
     }
 
@@ -489,8 +510,8 @@ class ClusterHandler(
         regionalList.value
           .filter { it.disabled }
           .map { serverGroup: ClouddriverServerGroup ->
-          serverGroup.toActive(resource.spec.locations.account).toServerGroup()
-        }
+            serverGroup.toActive(resource.spec.locations.account).toServerGroup()
+          }
       }
 
   override fun ResourceDiff<ServerGroup>.disableOtherServerGroupJob(resource: Resource<ClusterSpec>, desiredVersion: String): Job {
@@ -609,7 +630,7 @@ class ClusterHandler(
             "asgName" to moniker.serverGroup
           )
           job["copySourceCustomBlockDeviceMappings"] = true
-          }
+        }
 
         // pass block device info so that keel can specify the volume type
         blockDeviceConfig.getBlockDevicesFor(
@@ -680,7 +701,7 @@ class ClusterHandler(
   ): Job =
     mutableMapOf(
       "rollbackType" to "EXPLICIT",
-      "rollbackContext" to  mapOf(
+      "rollbackContext" to mapOf(
         "rollbackServerGroupName" to current?.moniker?.serverGroup,
         "restoreServerGroupName" to rollbackServerGroup.moniker.serverGroup,
         "targetHealthyRollbackPercentage" to 100,
@@ -704,7 +725,8 @@ class ClusterHandler(
     val capacityForScalingOverrides = generateCapacityOverridesIfAutoscaling(diffs)
     diffs.forEach { diff ->
       val region = getDesiredRegion(diff)
-      val existingOverride: MutableMap<String, Any?> = mapper.convertValue(overrides[region] ?: mutableMapOf<String, Any?>())
+      val existingOverride: MutableMap<String, Any?> = mapper.convertValue(overrides[region]
+        ?: mutableMapOf<String, Any?>())
       existingOverride["dependencies"]?.let { dependencyOverrides ->
         // need to remove nesting of these keys, plus change the name of some of them
         val dependencies: ClusterDependencies = mapper.convertValue(dependencyOverrides)
@@ -714,14 +736,16 @@ class ClusterHandler(
         if (dependencies.securityGroupNames.isNotEmpty()) {
           existingOverride["securityGroups"] = dependencies.securityGroupNames
         }
-        if(dependencies.targetGroups.isNotEmpty()) {
+        if (dependencies.targetGroups.isNotEmpty()) {
           existingOverride["targetGroups"] = dependencies.targetGroups
         }
       }
 
       val availabilityZones = mutableMapOf("availabilityZones" to mutableMapOf(region to diff.desired.location.availabilityZones))
-      val regionalLaunchConfig: MutableMap<String, Any?> = mapper.convertValue(launchConfigOverrides[region] ?: mutableMapOf<String, Any?>())
-      val capacity: MutableMap<String, Any?> = mapper.convertValue(capacityForScalingOverrides[region] ?: mutableMapOf<String, Any?>())
+      val regionalLaunchConfig: MutableMap<String, Any?> = mapper.convertValue(launchConfigOverrides[region]
+        ?: mutableMapOf<String, Any?>())
+      val capacity: MutableMap<String, Any?> = mapper.convertValue(capacityForScalingOverrides[region]
+        ?: mutableMapOf<String, Any?>())
       overrides[region] = existingOverride + availabilityZones + regionalLaunchConfig + capacity
     }
     return overrides
@@ -784,9 +808,9 @@ class ClusterHandler(
   ): Map<String, Any> {
     val defaultCapacity = spec.resolveCapacity()
     return diffs.associate { diff ->
-      val capacity: Map<String, Any>? = when(diff.desired.capacity) {
+      val capacity: Map<String, Any>? = when (diff.desired.capacity) {
         is DefaultCapacity -> null
-        is AutoScalingCapacity -> mapOf (
+        is AutoScalingCapacity -> mapOf(
           "capacity" to DefaultCapacity(
             min = defaultCapacity.min,
             max = defaultCapacity.max,
@@ -1343,6 +1367,8 @@ class ClusterHandler(
     )
 
     private const val REGION_PLACEHOLDER = "{{region}}"
+
+    private const val SUPPORTED_JOB_TYPE = "ROCKET"
   }
 }
 

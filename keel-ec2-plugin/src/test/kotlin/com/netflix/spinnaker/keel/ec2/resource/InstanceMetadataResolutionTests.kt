@@ -50,6 +50,7 @@ internal class InstanceMetadataResolutionTests {
     clusterExportHelper = mockk(),
     blockDeviceConfig = mockk(),
     artifactService = mockk(),
+    jobService = mockk(),
     diffFactory = DefaultResourceDiffFactory()
   )
 

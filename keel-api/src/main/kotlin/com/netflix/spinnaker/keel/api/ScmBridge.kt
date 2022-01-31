@@ -3,11 +3,11 @@ package com.netflix.spinnaker.keel.api
 import com.netflix.spinnaker.keel.api.migration.MigrationCommitData
 import com.netflix.spinnaker.keel.api.migration.PrLink
 
+/**
+ * This is a bridge to calling Igor for scm related endpoints.
+ */
 interface ScmBridge{
 
-  /**
-   * This is a bridge to calling Igor in order to get all configured SCM base URLs.
-   */
   suspend fun getScmInfo():
     Map<String, String?>
 

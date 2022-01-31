@@ -22,7 +22,7 @@ data class JiraFields(
 )
 
 data class JiraComponent(
-  val id: String
+  val name: String
 )
 
 data class JiraProject(

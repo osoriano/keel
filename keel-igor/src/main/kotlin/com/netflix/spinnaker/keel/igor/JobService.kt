@@ -1,6 +1,8 @@
 package com.netflix.spinnaker.keel.igor
+import com.netflix.spinnaker.keel.igor.model.Job
 import retrofit2.http.GET
 import retrofit2.http.Headers
+import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface JobService {
@@ -12,8 +14,6 @@ interface JobService {
    * @param repoSlug the repository name
    * @param type the scm service (e.g. Stash)
    * @param scmType the sub type of the scm service
-   * @param size number of results to return
-   * @param page page number to return
    * @return a list of jobs
    */
   @GET("/ci/hasJobs")
@@ -24,4 +24,14 @@ interface JobService {
     @Query("type") type: String? = null,
     @Query("scmType") scmType: List<String>? = null
   ): Boolean
+
+
+  /**
+   * Get a CI job by job name
+   */
+  @GET("/ci/jobs/{jobName}")
+  @Headers("Accept: application/json")
+  suspend fun getJobByName(
+    @Path("jobName") jobName: String
+  ): Job
 }

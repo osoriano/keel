@@ -238,7 +238,8 @@ class TitusClusterScalingPolicyTests {
     resolvers = emptyList(),
     clusterExportHelper = mockk(),
     diffFactory = DefaultResourceDiffFactory(),
-    titusRegistryService = titusRegistryService
+    titusRegistryService = titusRegistryService,
+    artifactBridge = mockk()
   )
 
   val resource = resource(

@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.titus.resource
 
 import com.netflix.spinnaker.keel.api.Alphabetical
+import com.netflix.spinnaker.keel.api.ArtifactBridge
 import com.netflix.spinnaker.keel.api.Highlander
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.Resource
@@ -58,6 +59,7 @@ class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, T
   }
   private val orcaService: OrcaService = mockk()
   private val clusterExportHelper: ClusterExportHelper = mockk()
+  private val artifactBridge: ArtifactBridge = mockk()
   private val titusRegistryService: TitusRegistryService = mockk {
     every {
       findImages(any(), any(), any(), any())
@@ -106,7 +108,8 @@ class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, T
       resolvers = resolvers,
       clusterExportHelper = clusterExportHelper,
       diffFactory = DefaultResourceDiffFactory(),
-      titusRegistryService = titusRegistryService
+      titusRegistryService = titusRegistryService,
+      artifactBridge
     ))
 
   override fun getSingleRegionCluster(): Resource<TitusClusterSpec> {

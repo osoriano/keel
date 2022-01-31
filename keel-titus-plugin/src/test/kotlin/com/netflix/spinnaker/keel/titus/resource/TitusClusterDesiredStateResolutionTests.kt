@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.titus.resource
 
+import com.netflix.spinnaker.keel.api.ArtifactBridge
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.SimpleLocations
 import com.netflix.spinnaker.keel.api.SimpleRegionSpec
@@ -148,6 +149,7 @@ class TitusClusterDesiredStateResolutionTests : JUnit5Minutests {
     val orcaService = mockk<OrcaService>()
     val taskLauncher = mockk<TaskLauncher>()
     val publisher = mockk<EventPublisher>()
+    val artifactBridge = mockk<ArtifactBridge>()
     val titusRegistryService = mockk<TitusRegistryService>()
     val handler = TitusClusterHandler(
       cloudDriverService,
@@ -159,7 +161,8 @@ class TitusClusterDesiredStateResolutionTests : JUnit5Minutests {
       emptyList(),
       ClusterExportHelper(cloudDriverService, orcaService),
       DefaultResourceDiffFactory(),
-      titusRegistryService
+      titusRegistryService,
+      artifactBridge
     )
 
     val desired: Map<String, TitusServerGroup> by lazy {

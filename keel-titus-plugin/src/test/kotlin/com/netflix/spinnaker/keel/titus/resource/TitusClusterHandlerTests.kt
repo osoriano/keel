@@ -17,6 +17,7 @@
  */
 package com.netflix.spinnaker.keel.titus.resource
 
+import com.netflix.spinnaker.keel.api.ArtifactBridge
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.Exportable
 import com.netflix.spinnaker.keel.api.Highlander
@@ -118,6 +119,7 @@ class TitusClusterHandlerTests : JUnit5Minutests {
   val repository = mockk<KeelRepository>()
   val publisher: EventPublisher = mockk(relaxUnitFun = true)
   val springEnv: ConfigurableEnvironment = mockk(relaxUnitFun = true)
+  val artifactBridge: ArtifactBridge = mockk()
 
   val taskLauncher = OrcaTaskLauncher(
     orcaService,
@@ -237,7 +239,8 @@ class TitusClusterHandlerTests : JUnit5Minutests {
         resolvers,
         clusterExportHelper,
         DefaultResourceDiffFactory(),
-        titusRegistryService
+        titusRegistryService,
+        artifactBridge
       )
     }
 

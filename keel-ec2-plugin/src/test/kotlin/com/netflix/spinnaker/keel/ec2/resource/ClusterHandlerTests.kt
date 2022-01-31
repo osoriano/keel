@@ -41,6 +41,7 @@ import com.netflix.spinnaker.keel.clouddriver.model.ServerGroupCollection
 import com.netflix.spinnaker.keel.clouddriver.model.Subnet
 import com.netflix.spinnaker.keel.core.orcaClusterMoniker
 import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
+import com.netflix.spinnaker.keel.igor.JobService
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactService
 import com.netflix.spinnaker.keel.model.OrchestrationRequest
 import com.netflix.spinnaker.keel.orca.ClusterExportHelper
@@ -93,6 +94,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
   val clusterExportHelper = mockk<ClusterExportHelper>(relaxed = true)
   val blockDeviceConfig = BlockDeviceConfig(springEnv, VolumeDefaultConfiguration())
   val artifactService = mockk<ArtifactService>()
+  val jobService = mockk<JobService>()
 
   val vpcWest = Network(EC2_CLOUD_PROVIDER, "vpc-1452353", "vpc0", "test", "us-west-2")
   val vpcEast = Network(EC2_CLOUD_PROVIDER, "vpc-4342589", "vpc0", "test", "us-east-1")
@@ -212,6 +214,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
         clusterExportHelper,
         blockDeviceConfig,
         artifactService,
+        jobService,
         DefaultResourceDiffFactory()
       )
     }

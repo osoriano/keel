@@ -3,6 +3,7 @@ package com.netflix.spinnaker.keel.titus
 import com.fasterxml.jackson.module.kotlin.convertValue
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.netflix.buoy.sdk.model.RolloutTarget
+import com.netflix.spinnaker.keel.api.ArtifactBridge
 import com.netflix.spinnaker.keel.api.ClusterDeployStrategy
 import com.netflix.spinnaker.keel.api.Exportable
 import com.netflix.spinnaker.keel.api.Moniker
@@ -76,6 +77,7 @@ import com.netflix.spinnaker.keel.docker.DigestProvider
 import com.netflix.spinnaker.keel.docker.ReferenceProvider
 import com.netflix.spinnaker.keel.events.ResourceHealthEvent
 import com.netflix.spinnaker.keel.exceptions.ActiveServerGroupsException
+import com.netflix.spinnaker.keel.exceptions.ArtifactNotSupportedException
 import com.netflix.spinnaker.keel.exceptions.DockerArtifactExportError
 import com.netflix.spinnaker.keel.exceptions.ExportError
 import com.netflix.spinnaker.keel.orca.ClusterExportHelper
@@ -112,7 +114,8 @@ class TitusClusterHandler(
   resolvers: List<Resolver<*>>,
   private val clusterExportHelper: ClusterExportHelper,
   diffFactory: ResourceDiffFactory,
-  private val titusRegistryService: TitusRegistryService
+  private val titusRegistryService: TitusRegistryService,
+  private val artifactBridge: ArtifactBridge
 ) : BaseClusterHandler<TitusClusterSpec, TitusServerGroup>(resolvers, taskLauncher, diffFactory) {
 
   private val mapper = configuredObjectMapper()
@@ -316,14 +319,25 @@ class TitusClusterHandler(
 
     val registry = cloudDriverCache.getRegistryForTitusAccount(exportable.account)
 
-    val images = cloudDriverService.findDockerImages(
-      registry = registry,
-      repository = container.repository(),
-      user = DEFAULT_SERVICE_ACCOUNT
+    val images = titusRegistryService.findImages(
+      image = container.repository(),
+      digest = container.digest
     )
 
     val matchingImage = images.firstOrNull { it.digest == container.digest }
       ?: throw ExportError("Unable to find matching image (searching by digest) in registry ($registry) for $container")
+
+    // check this image was produced by a rocket job
+    val commitId = matchingImage.commitId
+    val buildNumber = matchingImage.buildNumber
+    if (buildNumber != null && commitId != null) {
+      if (artifactBridge.getArtifactMetadata(buildNumber, commitId) == null) {
+        throw ArtifactNotSupportedException("Failed to fetch information for artifact ${matchingImage.repository}. Is your build Rocket-enabled?")
+      }
+    } else {
+      throw ArtifactNotSupportedException("Artifact ${matchingImage.repository} is missing commit $commitId and/or build $buildNumber details")
+    }
+
 
     // prefer branch-based artifact spec, fallback to tag version strategy
     return if (matchingImage.branch != null) {

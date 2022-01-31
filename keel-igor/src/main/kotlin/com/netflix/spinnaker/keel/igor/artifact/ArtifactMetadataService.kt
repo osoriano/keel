@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.igor.artifact
 
+import com.netflix.spinnaker.keel.api.ArtifactBridge
 import com.netflix.spinnaker.keel.igor.BuildService
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
 import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
@@ -25,9 +26,15 @@ import java.time.Duration
 @Component
 class ArtifactMetadataService(
   private val buildService: BuildService
-) {
+): ArtifactBridge {
   companion object {
     private const val DEFAULT_MAX_ATTEMPTS = 20
+  }
+
+  override suspend fun getArtifactMetadata(
+    buildNumber: String,
+    commitHash: String) : ArtifactMetadata? {
+    return getArtifactMetadata(buildNumber, commitHash, DEFAULT_MAX_ATTEMPTS)
   }
 
   /**
@@ -60,7 +67,7 @@ class ArtifactMetadataService(
   }
 
   /**
-   * Attempts to retrieve the [ArtifactMetadata] for the specified [commitHash] and [buildNumber] from the 
+   * Attempts to retrieve the [ArtifactMetadata] for the specified [commitHash] and [buildNumber] from the
    * [buildService]. This function will retry up to [maxAttempts] before returning a null result.
    */
   private suspend fun getArtifactMetadataWithRetries(

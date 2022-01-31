@@ -10,6 +10,7 @@ import com.netflix.spinnaker.keel.api.artifacts.ArtifactOriginFilter
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus.RELEASE
 import com.netflix.spinnaker.keel.api.artifacts.BranchFilter
 import com.netflix.spinnaker.keel.api.artifacts.DEBIAN
+import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
 import com.netflix.spinnaker.keel.api.ec2.ClusterDependencies
@@ -40,7 +41,10 @@ import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.ec2.resource.BlockDeviceConfig
 import com.netflix.spinnaker.keel.ec2.resource.ClusterHandler
 import com.netflix.spinnaker.keel.ec2.resource.toCloudDriverResponse
+import com.netflix.spinnaker.keel.exceptions.ArtifactNotSupportedException
+import com.netflix.spinnaker.keel.igor.JobService
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactService
+import com.netflix.spinnaker.keel.igor.model.Job
 import com.netflix.spinnaker.keel.orca.ClusterExportHelper
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.orca.OrcaTaskLauncher
@@ -55,6 +59,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
 import strikt.api.expect
 import strikt.api.expectThat
+import strikt.api.expectThrows
 import strikt.assertions.hasSize
 import strikt.assertions.isA
 import strikt.assertions.isEmpty
@@ -63,7 +68,6 @@ import strikt.assertions.isNotEmpty
 import strikt.assertions.isNotNull
 import strikt.assertions.isNull
 import java.time.Clock
-import java.time.Duration
 import java.util.UUID
 import com.netflix.spinnaker.keel.clouddriver.model.Capacity as ClouddriverCapacity
 import io.mockk.coEvery as every
@@ -88,6 +92,7 @@ internal class ClusterExportTests : JUnit5Minutests {
   val clusterExportHelper = mockk<ClusterExportHelper>(relaxed = true)
   val blockDeviceConfig = mockk<BlockDeviceConfig>()
   val artifactService = mockk<ArtifactService>()
+  val jobService = mockk<JobService>()
 
   val vpcWest = Network(EC2_CLOUD_PROVIDER, "vpc-1452353", "vpc0", "test", "us-west-2")
   val vpcEast = Network(EC2_CLOUD_PROVIDER, "vpc-4342589", "vpc0", "test", "us-east-1")
@@ -196,6 +201,7 @@ internal class ClusterExportTests : JUnit5Minutests {
         clusterExportHelper,
         blockDeviceConfig,
         artifactService,
+        jobService,
         DefaultResourceDiffFactory()
       )
     }
@@ -255,8 +261,10 @@ internal class ClusterExportTests : JUnit5Minutests {
             reference = "keel",
             type = DEBIAN,
             version = "0.0.1",
-            metadata = mapOf("branch" to "main")
+            metadata = mapOf("branch" to "main"),
+            provenance = "https://blablabla.net/job/users-my-app-build/"
           )
+          every { jobService.getJobByName(any()) } returns Job(name = "users-my-app-build", scmType = "ROCKET", createdAt = "now", updatedAt = "now")
         }
 
         test("deb is exported correctly and includes `from` spec with branch") {
@@ -283,15 +291,25 @@ internal class ClusterExportTests : JUnit5Minutests {
         }
       }
 
-      context("with branch metadata unavailable") {
+      context("with invalid branch metadata - branch name is set to be commit hash") {
         before {
           every { cloudDriverService.activeServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast
           every {
             artifactService.getArtifact("keel", any(), DEBIAN)
-          } throws RETROFIT_NOT_FOUND
+          } returns PublishedArtifact(
+            name = "keel",
+            reference = "keel",
+            type = DEBIAN,
+            version = "0.0.1",
+            metadata = mapOf("branch" to "main"),
+            provenance = "https://blablabla.net/job/users-my-app-build/",
+            // the branch has a commit hash instead of a branch name, which is not allowed in the export
+            gitMetadata = GitMetadata(commit = "b84af827736", branch = "b84af827736")
+          )
+          every { jobService.getJobByName(any()) } returns Job(name = "users-my-app-build", scmType = "ROCKET", createdAt = "now", updatedAt = "now")
         }
 
-        test("deb is exported correctly") {
+        test("deb is exported correctly using status and not branch") {
           val artifact = runBlocking {
             exportArtifact(exportable.copy(regions = setOf("us-east-1")))
           }
@@ -309,6 +327,20 @@ internal class ClusterExportTests : JUnit5Minutests {
                 get { statuses }.isEqualTo(setOf(RELEASE))
                 get { from }.isNull()
               }
+          }
+        }
+      }
+
+      context("with artifact is not on rocket") {
+        before {
+          every { cloudDriverService.activeServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast
+          every {
+            artifactService.getArtifact("keel", any(), DEBIAN)
+          } throws RETROFIT_NOT_FOUND
+        }
+        test("artifact is not being exported and exception is thrown") {
+          expectThrows<ArtifactNotSupportedException> {
+            exportArtifact(exportable.copy(regions = setOf("us-east-1")))
           }
         }
       }

@@ -25,6 +25,7 @@ import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.core.serverGroup
 import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
+import com.netflix.spinnaker.keel.igor.JobService
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactService
 import com.netflix.spinnaker.keel.orca.ClusterExportHelper
 import com.netflix.spinnaker.keel.orca.OrcaService
@@ -41,6 +42,7 @@ class Ec2BaseClusterHandlerTests : BaseClusterHandlerTests<ClusterSpec, ServerGr
   private val springEnv: Environment = mockk(relaxed = true)
   private val blockDeviceConfig : BlockDeviceConfig = BlockDeviceConfig(springEnv, VolumeDefaultConfiguration())
   val artifactService = mockk<ArtifactService>()
+  val jobService = mockk<JobService>()
   val diffFactory = DefaultResourceDiffFactory()
 
   val metadata = mapOf("id" to "1234", "application" to "waffles", "serviceAccount" to "me@you.com" )
@@ -86,6 +88,7 @@ class Ec2BaseClusterHandlerTests : BaseClusterHandlerTests<ClusterSpec, ServerGr
       clusterExportHelper = clusterExportHelper,
       blockDeviceConfig = blockDeviceConfig,
       artifactService = artifactService,
+      jobService = jobService,
       diffFactory = diffFactory
     ))
 
