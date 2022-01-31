@@ -133,7 +133,6 @@ class ApplicationService(
     val privateConstraintAttrs = listOf("manual-judgement")
 
     const val COMMIT_MESSAGE = "Your first delivery config [skip ci]"
-    const val PR_DESCRIPTION = "Your first delivery config"
     const val PR_TITLE = "Upgrade to Managed Delivery"
     const val BRANCH_NAME = "md-migration"
     const val CONFIG_PATH = ".netflix/spinnaker.yml"
@@ -784,7 +783,7 @@ class ApplicationService(
       prTitle = PR_TITLE,
       prDescription = getPrDescription(user),
       filePath = CONFIG_PATH,
-      reviewers = emptySet()
+      reviewers = setOf(user)
     )
 
     //get the newly created PR link
