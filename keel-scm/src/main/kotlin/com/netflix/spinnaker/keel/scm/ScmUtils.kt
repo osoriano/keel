@@ -1,9 +1,13 @@
 package com.netflix.spinnaker.keel.scm
 
+import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.caffeine.CacheFactory
+import com.netflix.spinnaker.keel.core.ResourceCurrentlyUnresolvable
 import com.netflix.spinnaker.keel.front50.model.Application
 import com.netflix.spinnaker.keel.igor.ScmService
 import com.netflix.spinnaker.keel.igor.getDefaultBranch
+import com.netflix.spinnaker.keel.retrofit.isNotFound
+import com.netflix.spinnaker.kork.exceptions.SystemException
 import kotlinx.coroutines.future.await
 import kotlinx.coroutines.runBlocking
 import org.springframework.stereotype.Component
@@ -72,4 +76,30 @@ class ScmUtils(
     return application.getDefaultBranch(scmService)
   }
 
+  /**
+   * Fetch a GraphQL schema
+   *
+   * Throws NoSchemaFile on a 404 response
+   */
+  suspend fun fetchSchema(application: Application, gitMetadata: GitMetadata, schemaPath: String) : String {
+    val repoType =
+      application.repoType ?: error("Repository type missing from application config for ${application.name}")
+    val projectKey = gitMetadata.project ?: error("Project name missing in git metadata")
+    val repoSlug = gitMetadata.repo?.name ?: error("Repository name missing in git metadata")
+    val ref = gitMetadata.commitInfo?.sha ?: error("Long commit hash missing in git metadata")
+    try {
+      return scmService.getGraphqlSchema(repoType, projectKey, repoSlug, ref, schemaPath).schema
+    } catch(e: Exception) {
+      when(e.isNotFound) {
+        true -> throw NoSchemaFile(repoType, projectKey, repoSlug, ref, schemaPath)
+        else -> throw e
+      }
+    }
+  }
 }
+
+class NoSchemaFile(repoType: String, projectKey: String, repoSlug: String, ref: String, schemaPath: String) :
+  SystemException(
+      "GraphQL schema file(s) not found in path $schemaPath of repository $repoType/$projectKey/$repoSlug (commit $ref)"
+  )
+
