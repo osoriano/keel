@@ -63,7 +63,7 @@ class DependsOnConstraintEvaluator(
     )
     val verificationsPassed = actionRepository.allPassed(context, VERIFICATION)
     val postDeployActionsStarted = actionRepository.allStarted(context, POST_DEPLOY)
-    log.debug("Evaluating depends on for $version in environment ${requiredEnvironment.name} for app ${deliveryConfig.application}: " +
+    log.debug("Evaluating depends on for $version in environment ${targetEnvironment.name} for app ${deliveryConfig.application}: " +
       "deployed: $successfullyDeployed, verificationsPassed: $verificationsPassed, postDeployActionsStarted: $postDeployActionsStarted")
     return successfullyDeployed && verificationsPassed && postDeployActionsStarted
   }
