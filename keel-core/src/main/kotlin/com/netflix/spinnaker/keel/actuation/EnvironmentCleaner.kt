@@ -131,6 +131,7 @@ class EnvironmentCleaner(
       val tasks = plugin.delete(resource)
       eventPublisher.publishEvent(ResourceDeletionLaunched(resource, plugin.name, tasks, clock))
     } catch (e: Exception) {
+      log.debug("Error deleting resource ${resource.id}: $e", e)
       try {
         resourceRepository.incrementDeletionAttempts(resource)
       } catch (e: Exception) {

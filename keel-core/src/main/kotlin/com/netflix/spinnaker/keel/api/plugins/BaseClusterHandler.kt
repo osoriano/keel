@@ -137,6 +137,7 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Simple
           "asgName" to serverGroup.name,
           "moniker" to serverGroup.moniker.orcaClusterMoniker,
           "serverGroupName" to serverGroup.name,
+          "application" to resource.application,
           "region" to region,
           "credentials" to resource.spec.locations.account,
           "cloudProvider" to cloudProvider,
@@ -145,6 +146,9 @@ abstract class BaseClusterHandler<SPEC: ComputeResourceSpec<*>, RESOLVED: Simple
           "completeOtherBranchesThenFail" to true,
           "continuePipeline" to false,
           "failPipeline" to false,
+          "metadata" to mapOf(
+            "resource" to resource.id
+          )
         )
       }
     }

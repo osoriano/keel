@@ -1067,6 +1067,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
             "asgName" to it.name,
             "moniker" to it.moniker.orcaClusterMoniker,
             "serverGroupName" to it.name,
+            "application" to resource.application,
             "region" to it.region,
             "credentials" to allServerGroups.accountName,
             "cloudProvider" to "aws",
@@ -1074,6 +1075,7 @@ internal class ClusterHandlerTests : JUnit5Minutests {
             "completeOtherBranchesThenFail" to true,
             "continuePipeline" to false,
             "failPipeline" to false,
+            "metadata" to mapOf("resource" to resource.id)
           )
         }
 
