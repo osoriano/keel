@@ -712,6 +712,8 @@ class SqlDeliveryConfigRepository(
               txn
             )
             if (allStates.allPass && allStates.size >= environment.constraints.statefulCount) {
+              log.debug("Queueing version ${state.artifactVersion} of artifact reference ${state.artifactReference} in " +
+                "environment ${state.environmentName} and config ${state.deliveryConfigName} for approval")
               txn.insertInto(ENVIRONMENT_ARTIFACT_QUEUED_APPROVAL)
                 .set(ENVIRONMENT_ARTIFACT_QUEUED_APPROVAL.ENVIRONMENT_UID, envUid)
                 .set(ENVIRONMENT_ARTIFACT_QUEUED_APPROVAL.ARTIFACT_VERSION, state.artifactVersion)
@@ -722,6 +724,11 @@ class SqlDeliveryConfigRepository(
                 )
                 .onDuplicateKeyIgnore()
                 .execute()
+            } else {
+              log.debug("Not queueing version ${state.artifactVersion} of artifact reference ${state.artifactReference} in " +
+                "environment ${state.environmentName} and config ${state.deliveryConfigName} for approval: " +
+                "allStatefulPass=${allStates.allPass}, allStates.size=${allStates.size}, " +
+                "envStatefulCount=${environment.constraints.statefulCount}, states=$allStates")
             }
           }
           // Store generated UID in constraint state object so it can be used by caller
