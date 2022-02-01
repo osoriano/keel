@@ -518,8 +518,6 @@ class SqlArtifactRepository(
         )
     }
 
-    log.debug("wasSuccessfullyDeployedTo=$result : artifact_version=$version environment_uid=${deliveryConfig.getUidFor(environment)} artifact_uid=${artifact.uid}")
-
     return result
   }
 
