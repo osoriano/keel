@@ -26,7 +26,7 @@ class ConfigFetcher(
       updatedAt = config.updatedAt,
       rawConfig = config.rawConfig,
       previewEnvironmentsConfigured = config.previewEnvironments.isNotEmpty(),
-      isMigrating = config.metadata["migrating"] == true
+      isMigrating = config.isMigrating()
     )
   }
 

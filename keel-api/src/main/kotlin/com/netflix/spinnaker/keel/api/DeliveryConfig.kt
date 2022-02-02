@@ -23,6 +23,10 @@ data class DeliveryConfig(
   @get:ExcludedFromDiff
   val updatedAt: Instant? = null,
 ) {
+  companion object {
+    const val MIGRATING_KEY = "migrating"
+  }
+
   @get:ExcludedFromDiff
   val resources: Set<Resource<*>>
     get() = environments.flatMapTo(mutableSetOf()) { it.resources }
@@ -74,5 +78,9 @@ data class DeliveryConfig(
       artifacts = artifacts.filterNot { it.isPreview }.toSet(),
       environments = environments.filterNot { it.isPreview }.toSet()
     )
+  }
+
+  fun isMigrating(): Boolean {
+    return metadata[MIGRATING_KEY] == true
   }
 }

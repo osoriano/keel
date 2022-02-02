@@ -53,19 +53,20 @@ class DeliveryConfigUpserter(
     val config = persistenceRetry.withRetry(RetryCategory.WRITE) {
         repository.upsertDeliveryConfig(deliveryConfig)
       }.withoutPreview()
+    val isNew = existing == null || existing.isMigrating()
     if (shouldNotifyOfConfigChange(existing, config)) {
       log.debug("Publish deliveryConfigChange event for app ${deliveryConfig.application}")
       publisher.publishEvent(
         DeliveryConfigChangedNotification(
           config = config,
           gitMetadata = gitMetadata ?: getGitMetadata(deliveryConfig),
-          new = existing == null
+          new = isNew
         )
       )
     } else {
       log.debug("No config changes for app ${deliveryConfig.application}. Skipping notification")
     }
-    return Pair(config.copy(rawConfig = null), existing == null)
+    return Pair(config.copy(rawConfig = null), isNew)
   }
 
   private fun getGitMetadata(deliveryConfig: SubmittedDeliveryConfig): GitMetadata? {

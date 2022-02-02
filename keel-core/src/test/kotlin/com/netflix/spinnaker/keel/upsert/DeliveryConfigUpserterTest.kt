@@ -2,6 +2,7 @@ package com.netflix.spinnaker.keel.upsert
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.config.PersistenceRetryConfig
+import com.netflix.spinnaker.keel.api.DeliveryConfig.Companion.MIGRATING_KEY
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.artifacts.branchStartsWith
 import com.netflix.spinnaker.keel.api.artifacts.from
@@ -11,6 +12,7 @@ import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.events.DeliveryConfigChangedNotification
 import com.netflix.spinnaker.keel.exceptions.ValidationException
 import com.netflix.spinnaker.keel.persistence.KeelRepository
+import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.persistence.PersistenceRetry
 import com.netflix.spinnaker.keel.test.deliveryArtifact
 import com.netflix.spinnaker.keel.test.submittedDeliveryConfig
@@ -24,7 +26,11 @@ import io.mockk.verify
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.context.ApplicationEventPublisher
+import strikt.api.expectThat
 import strikt.api.expectThrows
+import strikt.assertions.isFalse
+import strikt.assertions.isTrue
+import strikt.assertions.second
 import org.springframework.core.env.Environment as SpringEnv
 
 internal class DeliveryConfigUpserterTest {
@@ -85,7 +91,7 @@ internal class DeliveryConfigUpserterTest {
 
   @Test
   fun `can upsert a valid delivery config`() {
-    subject.upsertConfig(submittedDeliveryConfig)
+    expectThat(subject.upsertConfig(submittedDeliveryConfig)).second.isFalse()
     verify { repository.upsertDeliveryConfig(submittedDeliveryConfig) }
     verify(exactly = 0) { publisher.publishEvent(any<Object>()) } // No diff
   }
@@ -132,5 +138,27 @@ internal class DeliveryConfigUpserterTest {
     subject.upsertConfig(submittedDeliveryConfig)
 
     verify { publisher wasNot called }
+  }
+
+  @Test
+  fun `mark config as new if there is no existing config`() {
+    every {
+      repository.getDeliveryConfigForApplication(any())
+    }.throws(NoDeliveryConfigForApplication(deliveryConfig.application))
+
+    expectThat(subject.upsertConfig(submittedDeliveryConfig)).second.isTrue()
+  }
+
+  @Test
+  fun `mark config as new if the app is migrating`() {
+    every {
+      repository.getDeliveryConfigForApplication(any())
+    } returns deliveryConfig.run {
+      copy(
+        metadata = metadata + (MIGRATING_KEY to true),
+      )
+    }
+
+    expectThat(subject.upsertConfig(submittedDeliveryConfig)).second.isTrue()
   }
 }

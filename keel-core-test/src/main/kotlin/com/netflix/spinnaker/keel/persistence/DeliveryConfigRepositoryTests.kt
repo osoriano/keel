@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.persistence
 
 import com.netflix.spinnaker.keel.api.DeliveryConfig
+import com.netflix.spinnaker.keel.api.DeliveryConfig.Companion.MIGRATING_KEY
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.NotificationConfig
 import com.netflix.spinnaker.keel.api.NotificationFrequency
@@ -1057,7 +1058,7 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
           deriveFixture {
             copy(
               deliveryConfig = deliveryConfig.copy(
-                metadata = mapOf("migrating" to true)
+                metadata = mapOf(MIGRATING_KEY to true)
               )
             )
           }
@@ -1157,7 +1158,7 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
           deriveFixture {
             copy(
               deliveryConfig = deliveryConfig.copy(
-                metadata = mapOf("migrating" to true)
+                metadata = mapOf(MIGRATING_KEY to true)
               )
             )
           }
