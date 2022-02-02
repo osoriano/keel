@@ -1,0 +1,21 @@
+mutation initiateMigration($payload: MD_InitiateApplicationMigrationPayload!) {
+  md_initiateApplicationMigration(payload: $payload) {
+    id
+    deliveryConfig
+    prLink
+    status
+    actuationPlan {
+      id
+      status
+      environmentPlans {
+        id
+        environment
+        resourcePlans {
+          id
+          action
+          diff
+        }
+      }
+    }
+  }
+}

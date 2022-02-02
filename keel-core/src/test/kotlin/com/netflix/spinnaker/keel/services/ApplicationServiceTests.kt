@@ -73,8 +73,6 @@ import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import io.mockk.Runs
-import io.mockk.coEvery as every
-import io.mockk.coVerify as verify
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
@@ -103,6 +101,8 @@ import strikt.assertions.second
 import strikt.assertions.withFirst
 import java.time.Instant
 import java.time.ZoneId
+import io.mockk.coEvery as every
+import io.mockk.coVerify as verify
 
 class ApplicationServiceTests : JUnit5Minutests {
   class Fixture {

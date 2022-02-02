@@ -42,8 +42,15 @@ type MD_Migration {
   actuationPlan: MD_ActuationPlan
 }
 
+enum MD_ActuationPlanStatus {
+  PENDING,
+  COMPLETED,
+  FAILED
+}
+
 type MD_ActuationPlan {
   id: ID!
+  status: MD_ActuationPlanStatus
   environmentPlans: [MD_EnvironmentPlan!]
 }
 

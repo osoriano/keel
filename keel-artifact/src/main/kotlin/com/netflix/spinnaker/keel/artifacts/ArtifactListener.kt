@@ -37,14 +37,18 @@ class ArtifactListener(
     val artifact = event.artifact
     val artifactSupplier = artifactSuppliers.supporting(artifact.type)
 
-    val latestArtifact = runBlocking {
-      log.debug("Retrieving latest version of registered artifact {}", artifact)
-      artifactSupplier.getLatestArtifact(artifact.deliveryConfig, artifact)
+    val latestVersions = runBlocking {
+      log.debug("Retrieving latest versions of registered artifact {}", artifact)
+      artifactSupplier.getLatestArtifacts(artifact.deliveryConfig, artifact, artifactRefreshConfig.limit)
     }
 
-    if (latestArtifact != null) {
-      log.debug("Storing latest version {} (status={}) for registered artifact {}", latestArtifact.version, latestArtifact.status, artifact)
-      workQueueProcessor.enrichAndStore(latestArtifact, artifactSupplier)
+    if (latestVersions.isNotEmpty()) {
+      // We are storing multiple versions in case that one of the environments is using an older version than latest
+      log.debug("Storing latest {} versions of artifact {}", latestVersions.size, artifact)
+      latestVersions.forEach {
+        log.debug("Storing version {} (status={}) for registered artifact {}", it.version, it.status, artifact)
+        workQueueProcessor.enrichAndStore(it, artifactSupplier)
+      }
     } else {
       log.warn("No artifact versions found for ${artifact.type}:${artifact.name}")
     }

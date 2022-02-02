@@ -49,6 +49,8 @@ import strikt.assertions.isEmpty
 import strikt.assertions.isEqualTo
 import strikt.assertions.isFalse
 import strikt.assertions.isNotEmpty
+import strikt.assertions.isNotEqualTo
+import strikt.assertions.isNotNull
 import strikt.assertions.isNull
 import strikt.assertions.isTrue
 import java.time.Clock
@@ -899,15 +901,34 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
         subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(version1, RELEASE))
         subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(version2, RELEASE))
         subject.approveVersionFor(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        clock.tickMinutes(1)
         subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
       }
       test("get the current version by default") {
         expectThat(subject.getApprovedInEnvArtifactVersion(manifest, versionedReleaseDebian, testEnvironment.name)?.version).isEqualTo(version1)
       }
 
+      test("we are not updating the approval time") {
+        val deployedAt = subject.getArtifactSummariesInEnvironment(manifest, testEnvironment.name, versionedReleaseDebian.reference, listOf(version1)).firstOrNull()?.deployedAt
+        expectThat(subject.getApprovedAt(manifest, versionedReleaseDebian, version1, testEnvironment.name)).isNotNull().isNotEqualTo(deployedAt)
+      }
+
       test("when exclude current is true, get the latest approved version which is not current") {
         subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version2, testEnvironment.name)
         expectThat(subject.getApprovedInEnvArtifactVersion(manifest, versionedReleaseDebian, testEnvironment.name, true)?.version).isEqualTo(version1)
+      }
+    }
+
+    context("set approvedAt") {
+      before {
+        persist(manifest)
+        subject.register(versionedReleaseDebian)
+        subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(version1, RELEASE))
+        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+      }
+      test("we are setting the approvedAt") {
+        val deployedAt = subject.getArtifactSummariesInEnvironment(manifest, testEnvironment.name, versionedReleaseDebian.reference, listOf(version1)).firstOrNull()?.deployedAt
+        expectThat(subject.getApprovedAt(manifest, versionedReleaseDebian, version1, testEnvironment.name)).isNotNull().isEqualTo(deployedAt)
       }
     }
 

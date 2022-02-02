@@ -1,0 +1,19 @@
+query fetchMigrationStatus($appName: String!) {
+  md_migration(appName: $appName) {
+    id
+    status
+    actuationPlan {
+      id
+      status
+      environmentPlans {
+        id
+        environment
+        resourcePlans {
+          id
+          action
+          diff
+        }
+      }
+    }
+  }
+}

@@ -4,6 +4,7 @@ import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
+import com.netflix.spinnaker.keel.api.artifacts.CurrentlyDeployedVersion
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.core.api.ArtifactSummaryInEnvironment
@@ -201,6 +202,16 @@ interface ArtifactRepository : PeriodicallyCheckedRepository<DeliveryArtifact> {
     artifact: DeliveryArtifact,
     environmentName: String
   ): PublishedArtifact?
+
+  /**
+   * @return the version string of the currently deployed artifact in the specified environment,
+   * and the time it was deployed
+   */
+  fun getCurrentlyDeployedArtifactVersionId(
+    deliveryConfig: DeliveryConfig,
+    artifact: DeliveryArtifact,
+    environmentName: String
+  ): CurrentlyDeployedVersion?
 
   /**
    * @return list of [EnvironmentArtifactVetoes] for all environments and artifacts defined

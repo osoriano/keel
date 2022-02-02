@@ -4,5 +4,5 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 
 @ConfigurationProperties(prefix = "keel.artifact-refresh")
 class ArtifactRefreshConfig {
-  var limit: Int = 1
+  var limit: Int = 10
 }

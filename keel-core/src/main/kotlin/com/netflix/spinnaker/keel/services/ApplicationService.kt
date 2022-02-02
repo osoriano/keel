@@ -75,6 +75,7 @@ import com.netflix.spinnaker.keel.logging.blankMDC
 import com.netflix.spinnaker.keel.logging.withThreadTracingContext
 import com.netflix.spinnaker.keel.migrations.ApplicationPrData
 import com.netflix.spinnaker.keel.persistence.ArtifactNotFoundException
+import com.netflix.spinnaker.keel.persistence.ArtifactRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.persistence.NoSuchDeliveryConfigException
@@ -124,7 +125,7 @@ class ApplicationService(
   private val jiraBridge: JiraBridge,
   private val pausedRepository: PausedRepository,
   private val handlers: List<ResourceHandler<*, *>>,
-  private val diffFactory: ResourceDiffFactory
+  private val diffFactory: ResourceDiffFactory,
 ) : CoroutineScope {
   override val coroutineContext: CoroutineContext = Dispatchers.Default
 
@@ -148,6 +149,7 @@ class ApplicationService(
     get() = clock.instant()
 
   private val RESOURCE_SUMMARY_CONSTRUCT_DURATION_ID = "keel.api.resource.summary.duration"
+  private val APPLICATION_ACTUATION_PLAN_DURATION_ID = "keel.api.application.actuation.plan.duration"
   private val ENV_SUMMARY_CONSTRUCT_DURATION_ID = "keel.api.environment.summary.duration"
   private val ARTIFACT_SUMMARY_CONSTRUCT_DURATION_ID = "keel.api.artifact.summary.duration"
   private val ARTIFACT_IN_ENV_SUMMARY_CONSTRUCT_DURATION = "keel.api.artifact.in.environment.summary.duration"
@@ -836,40 +838,67 @@ class ApplicationService(
    */
   suspend fun getActuationPlan(application: String): ActuationPlan {
     val deliveryConfig = repository.getDeliveryConfigForApplication(application)
+    return getActuationPlan(deliveryConfig)
+  }
+
+  /**
+   * Returns the current point-in-time [ActuationPlan] for the specified [deliveryConfig].
+   */
+  suspend fun getActuationPlan(deliveryConfig: DeliveryConfig): ActuationPlan {
+    val startTime = now
     val plan = ActuationPlan(
-      application = application,
+      application = deliveryConfig.application,
       timestamp = clock.instant(),
       environmentPlans = deliveryConfig.environments.map { env ->
         EnvironmentPlan(
           environment = env.name,
-          resourcePlans = env.resources.map { resource ->
-            val diff = getResourceDiff(resource)
-            ResourcePlan(
-              resourceId = resource.id,
-              diff = diff.toDeltaJson(),
-              action = getActuationAction(resource, diff)
-            )
+          resourcePlans = env.resources.mapNotNull { resource ->
+            getResourceDiff(resource)?.let {
+              ResourcePlan(
+                resourceId = resource.id,
+                diff = it.toDeltaJson(),
+                action = getActuationAction(resource, it)
+              )
+            }
           }
         )
       }
     )
+    spectator.timer(
+      APPLICATION_ACTUATION_PLAN_DURATION_ID,
+      listOf(BasicTag("application", deliveryConfig.application))
+    ).record(Duration.between(startTime, now))
+
     return plan
   }
 
   /**
    * @return The [ResourceDiff] for the specified [resource], by comparing its desired and current states.
    */
-  private suspend fun <SPEC: ResourceSpec> getResourceDiff(resource: Resource<SPEC>): ResourceDiff<Any> {
+  private suspend fun <SPEC: ResourceSpec> getResourceDiff(resource: Resource<SPEC>): ResourceDiff<Any>? {
     val handler = handlers.supporting(resource.kind) as ResourceHandler<SPEC, *>
-    val diff = coroutineScope {
+    return coroutineScope {
       val tasks = listOf(
-        async { handler.desired(resource) },
-        async { handler.current(resource) }
+        async {
+          try {
+            handler.desired(resource)
+          } catch (e: Exception) {
+            log.info("Failed to calculate the desired state", e)
+          }
+        },
+        async {
+          try {
+            handler.current(resource)
+          } catch (e: Exception) {
+            log.info("failed to calculate the current state", e)
+          }
+        }
       )
       val (desired, current) = tasks.awaitAll()
-      diffFactory.compare(desired!!, current)
+      desired?.let {
+        diffFactory.compare(it, current)
+      }
     }
-    return diff
   }
 
   /**

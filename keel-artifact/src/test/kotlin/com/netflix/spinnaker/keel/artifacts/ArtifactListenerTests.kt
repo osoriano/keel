@@ -118,8 +118,8 @@ internal class ArtifactListenerTests : JUnit5Minutests {
       before {
         every { repository.artifactVersions(event.artifact, any()) } returns listOf(publishedDeb)
         every {
-          debianArtifactSupplier.getLatestArtifact(any(), any())
-        } returns publishedDeb
+          debianArtifactSupplier.getLatestArtifacts(any(), any(), any())
+        } returns listOf(publishedDeb)
         listener.onArtifactRegisteredEvent(event)
       }
 
@@ -137,8 +137,8 @@ internal class ArtifactListenerTests : JUnit5Minutests {
         before {
           every { repository.storeArtifactVersion(any()) } returns false
           every {
-            debianArtifactSupplier.getLatestArtifact(deliveryConfig, artifact)
-          } returns publishedDeb
+            debianArtifactSupplier.getLatestArtifacts(any(), any(), any())
+          } returns listOf(publishedDeb)
 
           every { repository.getAllArtifacts(DEBIAN, any()) } returns listOf(debianArtifact)
 
@@ -155,8 +155,8 @@ internal class ArtifactListenerTests : JUnit5Minutests {
       context("there are no versions of the artifact available") {
         before {
           every {
-            debianArtifactSupplier.getLatestArtifact(deliveryConfig, artifact)
-          } returns null
+            debianArtifactSupplier.getLatestArtifacts(deliveryConfig, artifact, any())
+          } returns emptyList()
 
           listener.onArtifactRegisteredEvent(event)
         }
@@ -201,11 +201,11 @@ internal class ArtifactListenerTests : JUnit5Minutests {
       context("versions are available") {
         before {
           every {
-            debianArtifactSupplier.getLatestArtifacts(deliveryConfig, debArtifact, 1)
+            debianArtifactSupplier.getLatestArtifacts(deliveryConfig, debArtifact, any())
           } returns listOf(publishedDeb)
 
           every {
-            dockerArtifactSupplier.getLatestArtifacts(deliveryConfig, dockerArtifact, 1)
+            dockerArtifactSupplier.getLatestArtifacts(deliveryConfig, dockerArtifact, any())
           } returns listOf(publishedDocker)
 
           every { repository.getAllArtifacts(DEBIAN, any()) } returns listOf(debianArtifact)
@@ -234,11 +234,11 @@ internal class ArtifactListenerTests : JUnit5Minutests {
       context("no newer versions are available") {
         before {
           every {
-            debianArtifactSupplier.getLatestArtifacts(deliveryConfig, debArtifact, 1)
+            debianArtifactSupplier.getLatestArtifacts(deliveryConfig, debArtifact, any())
           } returns listOf(publishedDeb)
 
           every {
-            dockerArtifactSupplier.getLatestArtifacts(deliveryConfig, dockerArtifact, 1)
+            dockerArtifactSupplier.getLatestArtifacts(deliveryConfig, dockerArtifact, any())
           } returns listOf(publishedDocker)
         }
 
@@ -251,11 +251,11 @@ internal class ArtifactListenerTests : JUnit5Minutests {
       context("newer versions are available") {
         before {
           every {
-            debianArtifactSupplier.getLatestArtifacts(deliveryConfig, debArtifact, 1)
+            debianArtifactSupplier.getLatestArtifacts(deliveryConfig, debArtifact, any())
           } returns listOf(newerPublishedDeb)
 
           every {
-            dockerArtifactSupplier.getLatestArtifacts(deliveryConfig, dockerArtifact, 1)
+            dockerArtifactSupplier.getLatestArtifacts(deliveryConfig, dockerArtifact, any())
           } returns listOf(newerPublishedDocker)
 
           every { repository.getAllArtifacts(DEBIAN, any()) } returns listOf(debianArtifact)

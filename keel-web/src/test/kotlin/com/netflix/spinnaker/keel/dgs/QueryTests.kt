@@ -9,42 +9,55 @@ import com.netflix.spinnaker.keel.api.SubnetAwareLocations
 import com.netflix.spinnaker.keel.api.SubnetAwareRegionSpec
 import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
 import com.netflix.spinnaker.keel.api.artifacts.Commit
+import com.netflix.spinnaker.keel.api.artifacts.CurrentlyDeployedVersion
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.Repo
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec
 import com.netflix.spinnaker.keel.api.ec2.EC2_CLUSTER_V1_1
+import com.netflix.spinnaker.keel.api.migration.ApplicationMigrationStatus
 import com.netflix.spinnaker.keel.artifacts.ArtifactVersionLinks
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport
+import com.netflix.spinnaker.keel.core.api.ActuationPlan
 import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactPin
 import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactVeto
 import com.netflix.spinnaker.keel.core.api.PinType
 import com.netflix.spinnaker.keel.core.api.PromotionStatus
 import com.netflix.spinnaker.keel.core.api.PublishedArtifactInEnvironment
+import com.netflix.spinnaker.keel.core.api.normalize
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.Front50Service
 import com.netflix.spinnaker.keel.front50.model.ServiceAccount
+import com.netflix.spinnaker.keel.graphql.types.MD_ActuationPlanStatus
+import com.netflix.spinnaker.keel.graphql.types.MD_Migration
+import com.netflix.spinnaker.keel.graphql.types.MD_MigrationStatus
 import com.netflix.spinnaker.keel.graphql.types.MD_UserPermissions
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventRepository
+import com.netflix.spinnaker.keel.migrations.ApplicationPrData
 import com.netflix.spinnaker.keel.pause.ActuationPauser
+import com.netflix.spinnaker.keel.persistence.ArtifactRepository
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
 import com.netflix.spinnaker.keel.persistence.EnvironmentDeletionRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.TaskTrackingRepository
 import com.netflix.spinnaker.keel.scm.ScmUtils
+import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
 import com.netflix.spinnaker.keel.services.ApplicationService
 import com.netflix.spinnaker.keel.services.ResourceStatusService
 import com.netflix.spinnaker.keel.test.deliveryConfig
-import com.netflix.spinnaker.keel.test.resource
+import com.netflix.spinnaker.keel.test.submittedDeliveryConfig
+import com.netflix.spinnaker.keel.test.submittedResource
 import com.netflix.spinnaker.keel.upsert.DeliveryConfigUpserter
 import com.netflix.spinnaker.keel.veto.unhappy.UnhappyVeto
+import com.netflix.spinnaker.time.MutableClock
 import com.ninjasquad.springmockk.MockkBean
 import io.mockk.Runs
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.just
 import io.mockk.slot
@@ -61,11 +74,12 @@ import strikt.assertions.isEqualTo
 import strikt.assertions.isNotNull
 import strikt.assertions.isNull
 import strikt.assertions.isSuccess
+import java.time.Instant
 
 @SpringBootTest(
   classes = [DgsAutoConfiguration::class, DgsTestConfig::class],
 )
-class BasicQueryTests {
+class QueryTests {
 
   @Autowired
   lateinit var dgsQueryExecutor: DgsQueryExecutor
@@ -75,6 +89,9 @@ class BasicQueryTests {
 
   @MockkBean
   lateinit var keelRepository: KeelRepository
+
+  @MockkBean
+  lateinit var artifactRepository: ArtifactRepository
 
   @MockkBean
   lateinit var actuationPauser: ActuationPauser
@@ -93,6 +110,8 @@ class BasicQueryTests {
 
   @MockkBean
   lateinit var yamlMapper: YAMLMapper
+
+  val mapper = configuredObjectMapper()
 
   @MockkBean
   lateinit var deliveryConfigImporter: DeliveryConfigImporter
@@ -127,13 +146,15 @@ class BasicQueryTests {
   @MockkBean
   lateinit var taskTrackingRepository: TaskTrackingRepository
 
+  val clock = MutableClock()
+
   private val artifact = DebianArtifact(
     name = "fnord",
     deliveryConfigName = "fnord",
     vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2"))
   )
 
-  private val resource = resource(
+  private val resource = submittedResource(
     kind = EC2_CLUSTER_V1_1.kind,
     spec = ClusterSpec(
       moniker = Moniker("fnord"),
@@ -152,6 +173,10 @@ class BasicQueryTests {
     )
   )
 
+  private val repoSlug = "keel"
+  private val projectKey = "spkr"
+  private val user = "user"
+
   private val artifactVersion = PublishedArtifact(
     name = artifact.name,
     reference = artifact.reference,
@@ -160,9 +185,9 @@ class BasicQueryTests {
     gitMetadata = GitMetadata(
       commit = "abc123",
       author = "emburns",
-      project = "spkr",
+      project = projectKey,
       branch = "main",
-      repo = Repo(name = "keel"),
+      repo = Repo(name = repoSlug),
       commitInfo = Commit(
         sha = "abc123",
         message = "I committed this"
@@ -174,12 +199,17 @@ class BasicQueryTests {
     )
   )
 
-  private val deliveryConfig = deliveryConfig(artifact = artifact, resources = setOf(resource))
+  private val submittedDeliveryConfig = submittedDeliveryConfig(artifact = artifact, resource = resource)
+  private val deliveryConfig = deliveryConfig(artifact = artifact, resources = setOf(resource.normalize()))
 
   @BeforeEach
   fun setup() {
     every {
       keelRepository.getDeliveryConfigForApplication(any())
+    } returns deliveryConfig
+
+    every {
+      deliveryConfigRepository.getByApplication(any())
     } returns deliveryConfig
 
     every {
@@ -211,13 +241,36 @@ class BasicQueryTests {
     every {
       authorizationSupport.hasServiceAccountAccess(any())
     } returns true
+
+    coEvery {
+      applicationService.openMigrationPr(any(), any())
+    } returns Pair(
+      ApplicationPrData(
+        deliveryConfig = submittedDeliveryConfig,
+        repoSlug = repoSlug,
+        projectKey = projectKey
+      ), "http://link-to-pr"
+    )
+
+    coEvery {
+      applicationService.storePausedMigrationConfig(any(), any())
+    } returns deliveryConfig
+
+    coEvery {
+      applicationService.getActuationPlan(deliveryConfig)
+    } returns ActuationPlan(
+      application = deliveryConfig.application,
+      timestamp = Instant.now(),
+      environmentPlans = emptyList()
+    )
+
   }
 
   fun getQuery(path: String) = javaClass.getResource(path).readText().trimIndent()
 
   fun getHeaders(): HttpHeaders {
     val headers = HttpHeaders()
-    headers.add("X-SPINNAKER-USER", "userName")
+    headers.add("X-SPINNAKER-USER", user)
     return headers
   }
 
@@ -347,4 +400,60 @@ class BasicQueryTests {
     expectThat(pinSlot.captured.type).isEqualTo(PinType.ROLLBACK)
     expectThat(markAsBadSlot.captured.version).isEqualTo("v2")
   }
+
+  @Test
+  fun initiateMigration() {
+    coEvery {
+      artifactRepository.getCurrentlyDeployedArtifactVersionId(any(), any(), any())
+    } returns null
+
+    expectCatching {
+      dgsQueryExecutor.executeAndExtractJsonPathAsObject(
+        getQuery("/dgs/initiateMigration.graphql"),
+        "data.md_initiateApplicationMigration",
+        mapOf("payload" to mapOf("application" to deliveryConfig.application)),
+        MD_Migration::class.java,
+        getHeaders()
+      )
+    }.isSuccess().and {
+      get { status }.isEqualTo(MD_MigrationStatus.PR_CREATED)
+      get { actuationPlan }.isNotNull()
+        .get { status }.isEqualTo(MD_ActuationPlanStatus.PENDING)
+    }
+
+    coVerify { applicationService.openMigrationPr(deliveryConfig.application, user) }
+    coVerify { applicationService.storePausedMigrationConfig(deliveryConfig.application, user) }
+  }
+
+  @Test
+  fun checkMigrationStatus() {
+    coEvery {
+      artifactRepository.getCurrentlyDeployedArtifactVersionId(any(), any(), any())
+    } returns CurrentlyDeployedVersion("version", clock.instant())
+
+    coEvery {
+      deliveryConfigRepository.getApplicationMigrationStatus(any())
+    } returns ApplicationMigrationStatus(
+      exportSucceeded = true,
+      inAllowList = true,
+      isScmPowered = true,
+      deliveryConfig = mapper.convertValue(deliveryConfig, Map::class.java) as Map<String, Any?>,
+      prLink = "https://link-to-pr"
+    )
+
+    expectCatching {
+      dgsQueryExecutor.executeAndExtractJsonPathAsObject(
+        getQuery("/dgs/migrationStatus.graphql"),
+        "data.md_migration",
+        mapOf("appName" to deliveryConfig.application),
+        MD_Migration::class.java,
+        getHeaders()
+      )
+    }.isSuccess().and {
+      get { status }.isEqualTo(MD_MigrationStatus.PR_CREATED)
+      get { actuationPlan }.isNotNull()
+        .get { status }.isEqualTo(MD_ActuationPlanStatus.COMPLETED)
+    }
+  }
 }
+

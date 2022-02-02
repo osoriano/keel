@@ -538,7 +538,12 @@ class KeelRepository(
   override fun getReleaseStatus(artifact: DeliveryArtifact, version: String): ArtifactStatus? =
     artifactRepository.getReleaseStatus(artifact, version)
 
-  fun markAsSuccessfullyDeployedTo(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact, version: String, targetEnvironment: String) =
+  fun markAsSuccessfullyDeployedTo(
+    deliveryConfig: DeliveryConfig,
+    artifact: DeliveryArtifact,
+    version: String,
+    targetEnvironment: String
+  ) =
     artifactRepository.markAsSuccessfullyDeployedTo(deliveryConfig, artifact, version, targetEnvironment)
 
   fun getArtifactVersionsByStatus(

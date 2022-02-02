@@ -21,6 +21,7 @@ import com.netflix.spinnaker.keel.core.api.ResourceAction.CREATE
 import com.netflix.spinnaker.keel.core.api.ResourceAction.NONE
 import com.netflix.spinnaker.keel.core.api.ResourceAction.UPDATE
 import com.netflix.spinnaker.keel.graphql.types.MD_ActuationPlan
+import com.netflix.spinnaker.keel.graphql.types.MD_ActuationPlanStatus
 import com.netflix.spinnaker.keel.graphql.types.MD_Artifact
 import com.netflix.spinnaker.keel.graphql.types.MD_ArtifactVersionInEnvironment
 import com.netflix.spinnaker.keel.graphql.types.MD_CommitInfo
@@ -266,6 +267,7 @@ fun ApplicationMigrationStatus.toDgs(appName: String) = MD_Migration(
 fun ActuationPlan.toDgs() =
   MD_ActuationPlan(
     id = "$application-actuationPlan",
+    status = MD_ActuationPlanStatus.COMPLETED,
     environmentPlans = environmentPlans.map { envPlan ->
       MD_EnvironmentPlan(
         id = "$application-${envPlan.environment}-plan",
@@ -277,7 +279,8 @@ fun ActuationPlan.toDgs() =
               NONE -> MD_ResourceAction.NONE
               CREATE -> MD_ResourceAction.CREATE
               UPDATE -> MD_ResourceAction.UPDATE
-            }
+            },
+            diff = resourcePlan.diff
           )
         }
       )

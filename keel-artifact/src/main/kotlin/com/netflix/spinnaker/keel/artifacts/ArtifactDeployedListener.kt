@@ -41,7 +41,7 @@ class ArtifactDeployedListener(
         repository.storeConstraintState(
           it.copy(
             status = ConstraintStatus.OVERRIDE_PASS,
-            judgedBy = "keel@spinnaker.io",
+            judgedBy = "Managed Delivery",
             judgedAt = Instant.now()
           )
         )
@@ -85,7 +85,7 @@ class ArtifactDeployedListener(
         if (approvedForEnv || hasNoApprovedVersions()) {
           if (!approvedForEnv) {
             log.info(
-              "This is the first and already deployed of artifact {} - {} in env {} of app {}",
+              "approving all constraints of artifact {} - {} in env {} of app {}",
               artifact.reference,
               event.artifactVersion,
               env.name,

@@ -7,6 +7,7 @@ import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
+import com.netflix.spinnaker.keel.api.artifacts.CurrentlyDeployedVersion
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
@@ -527,7 +528,7 @@ class SqlArtifactRepository(
     version: String,
     targetEnvironment: String
   ): Boolean =
-    getCurrentDeployedVersion(deliveryConfig, artifact, targetEnvironment)?.version == version
+    getCurrentlyDeployedArtifactVersionId(deliveryConfig, artifact, targetEnvironment)?.version == version
 
   /**
    * @return the most recent version to be marked as current, or null if none exist
@@ -539,7 +540,7 @@ class SqlArtifactRepository(
     artifact: DeliveryArtifact,
     environmentName: String
   ): PublishedArtifact? =
-    getCurrentDeployedVersion(deliveryConfig, artifact, environmentName)
+    getCurrentlyDeployedArtifactVersionId(deliveryConfig, artifact, environmentName)
       ?.let { (version, deployedAt) ->
         val publishedArtifact = getArtifactVersion(artifact, version, null)
         val originalMetadata = publishedArtifact?.metadata ?: emptyMap()
@@ -547,20 +548,15 @@ class SqlArtifactRepository(
         return publishedArtifact?.copy(metadata = originalMetadata + deployedAtMetadata, reference = artifact.reference)
       }
 
-  data class CurrentlyDeployed(
-    val version: String,
-    val deployedAt: Instant
-  )
-
   /**
    * @return the version string of the currently deployed artifact in the specified environment,
    * and the time it was deployed
    */
-  private fun getCurrentDeployedVersion(
+  override fun getCurrentlyDeployedArtifactVersionId(
     deliveryConfig: DeliveryConfig,
     artifact: DeliveryArtifact,
     environmentName: String
-  ): CurrentlyDeployed? {
+  ): CurrentlyDeployedVersion? {
     val environment = deliveryConfig.environmentNamed(environmentName)
     return sqlRetry.withRetry(READ) {
       jooq.select(
@@ -573,11 +569,10 @@ class SqlArtifactRepository(
         .orderBy(CURRENT_ENVIRONMENT_ARTIFACT_VERSIONS.DEPLOYED_AT.desc())
         .limit(1)
         .fetch { (version, deployedAt) ->
-          CurrentlyDeployed(version, deployedAt)
+          CurrentlyDeployedVersion(version, deployedAt)
         }
     }.firstOrNull()
   }
-
 
   override fun markAsDeployingTo(
     deliveryConfig: DeliveryConfig,
@@ -664,6 +659,14 @@ class SqlArtifactRepository(
 
         val deployedAt = previouslyDeployedTime ?: clock.instant()
 
+        val previouslyApprovedAt = getApprovedAt(deliveryConfig, artifact, version, targetEnvironment)
+        val hasApprovedAtTime = previouslyApprovedAt != null
+        val approvedAt = previouslyApprovedAt ?: deployedAt // Identical to deployedAt if missing
+
+        if (!hasApprovedAtTime) {
+          log.debug("setting approvedAt of version $version of artifact ${artifact.name} while marking it as deployed")
+        }
+
         val currentUpdates = txn
           .insertInto(ENVIRONMENT_ARTIFACT_VERSIONS)
           .set(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID, environmentUid)
@@ -671,9 +674,19 @@ class SqlArtifactRepository(
           .set(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION, version)
           .set(ENVIRONMENT_ARTIFACT_VERSIONS.DEPLOYED_AT, deployedAt)
           .set(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS, CURRENT)
+          .apply {
+            if (!hasApprovedAtTime) {
+              set(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT, approvedAt)
+            }
+          }
           .onDuplicateKeyUpdate()
           .set(ENVIRONMENT_ARTIFACT_VERSIONS.DEPLOYED_AT, deployedAt)
           .set(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS, CURRENT)
+          .apply {
+            if (!hasApprovedAtTime) {
+              set(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT, approvedAt)
+            }
+          }
           .execute()
 
         // also insert into this table so the record for current doesn't get lost on a redeploy or a veto
