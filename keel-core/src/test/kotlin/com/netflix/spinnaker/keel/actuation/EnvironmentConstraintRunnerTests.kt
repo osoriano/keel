@@ -9,6 +9,7 @@ import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.SEMVER_TAG
 import com.netflix.spinnaker.keel.api.constraints.ConstraintState
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
 import com.netflix.spinnaker.keel.api.constraints.StatefulConstraintEvaluator
+import com.netflix.spinnaker.keel.api.constraints.StatelessConstraintEvaluator
 import com.netflix.spinnaker.keel.api.constraints.SupportedConstraintType
 import com.netflix.spinnaker.keel.api.plugins.ConstraintEvaluator
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
@@ -38,20 +39,24 @@ internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
     val statelessEvaluator = mockk<ConstraintEvaluator<*>> {
       every { supportedType } returns SupportedConstraintType<DependsOnConstraint>("depends-on")
       every { isImplicit() } returns false
+      every { isStateful() } returns false
     }
-    val mjEvaluator = mockk<StatefulConstraintEvaluator<*, *>> {
+    val mjEvaluator = mockk<ConstraintEvaluator<*>> {
       every { supportedType } returns SupportedConstraintType<ManualJudgementConstraint>("manual-judegment")
       every { isImplicit() } returns false
+      every { isStateful() } returns true
     }
 
-    val allowedTimesEvaluator = mockk<StatefulConstraintEvaluator<*, *>> {
+    val allowedTimesEvaluator = mockk<ConstraintEvaluator<*>> {
       every { supportedType } returns SupportedConstraintType<TimeWindowConstraint>("allowed-times")
       every { isImplicit() } returns false
+      every { isStateful() } returns true
     }
     val implicitStatelessEvaluator = mockk<ConstraintEvaluator<*>> {
       every { supportedType } returns SupportedConstraintType<DummyImplicitConstraint>("implicit")
       every { isImplicit() } returns true
       every { constraintPasses(any(), any(), any(), any()) } returns true
+      every { isStateful() } returns false
     }
     val subject = EnvironmentConstraintRunner(
       repository,

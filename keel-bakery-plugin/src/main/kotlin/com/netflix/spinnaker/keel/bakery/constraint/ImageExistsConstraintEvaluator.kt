@@ -4,6 +4,9 @@ import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
+import com.netflix.spinnaker.keel.api.constraints.DefaultConstraintAttributes
+import com.netflix.spinnaker.keel.api.constraints.StatelessConstraintEvaluator
+import com.netflix.spinnaker.keel.api.constraints.SupportedConstraintAttributesType
 import com.netflix.spinnaker.keel.api.constraints.SupportedConstraintType
 import com.netflix.spinnaker.keel.api.plugins.ConstraintEvaluator
 import com.netflix.spinnaker.keel.api.support.EventPublisher
@@ -30,11 +33,12 @@ class ImageExistsConstraintEvaluator(
   private val dynamicConfigService: DynamicConfigService,
   override val eventPublisher: EventPublisher,
   private val bakedImageRepository: BakedImageRepository
-) : ConstraintEvaluator<ImageExistsConstraint> {
+) : StatelessConstraintEvaluator<ImageExistsConstraint, DefaultConstraintAttributes> {
 
   override fun isImplicit(): Boolean = true
 
   override val supportedType = SupportedConstraintType<ImageExistsConstraint>("bake")
+  override val attributeType = SupportedConstraintAttributesType<DefaultConstraintAttributes>("bake")
 
   override suspend fun constraintPasses(
     artifact: DeliveryArtifact,

@@ -21,6 +21,11 @@ interface StatelessConstraintEvaluator<T: Constraint, A : ConstraintStateAttribu
   val attributeType: SupportedConstraintAttributesType<A>
 
   /**
+   * This is the interface for stateless constraint evaluators, so this is set to false.
+   */
+  override fun isStateful(): Boolean = false
+
+  /**
    * @return a constraint state object that captures the current state of the constraint.
    * This will be used for stateless constraints to construct and save a summary of the state
    * when they are passing.

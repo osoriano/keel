@@ -33,13 +33,15 @@ class EnvironmentConstraintRunner(
 
   // constraints that are only run if they are defined in a delivery config
   private val statefulEvaluators: List<ConstraintEvaluator<*>> = explicitConstraints
-    .filterIsInstance<StatefulConstraintEvaluator<*, *>>()
-  private val statelessEvaluators = explicitConstraints - statefulEvaluators
+    .filter { it.isStateful() }
+  private val statelessEvaluators = explicitConstraints
+    .filterNot { it.isStateful() }
 
   // constraints that run for every environment in a delivery config but aren't shown to the user.
   private val implicitStatefulEvaluators: List<ConstraintEvaluator<*>> = implicitConstraints
-    .filterIsInstance<StatefulConstraintEvaluator<*, *>>()
-  private val implicitStatelessEvaluators: List<ConstraintEvaluator<*>> = implicitConstraints - implicitStatefulEvaluators
+    .filter { it.isStateful() }
+  private val implicitStatelessEvaluators: List<ConstraintEvaluator<*>> = implicitConstraints
+    .filterNot { it.isStateful() }
 
   /**
    * Checks the environment and determines the version that should be approved,

@@ -64,6 +64,11 @@ interface ConstraintEvaluator<CONSTRAINT : Constraint> :
   val eventPublisher: EventPublisher
 
   /**
+   * @return true if this is a stateful plugin, false if it's a stateless plugin
+   */
+  fun isStateful(): Boolean
+
+  /**
    * @return true if a constraint should be run for every environment in every delivery config, without being
    * exposed to delivery config author.
    */

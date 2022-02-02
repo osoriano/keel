@@ -79,6 +79,7 @@ abstract class ApproveOldVersionTests<T : KeelRepository> : JUnit5Minutests {
     val statelessEvaluator = mockk<ConstraintEvaluator<*>> {
       every { supportedType } returns SupportedConstraintType<DependsOnConstraint>("depends-on")
       every { isImplicit() } returns false
+      every { isStateful() } returns false
     }
     val statefulEvaluator = ManualJudgementConstraintEvaluator(
       ConstraintRepositoryBridge(repository),
@@ -90,6 +91,7 @@ abstract class ApproveOldVersionTests<T : KeelRepository> : JUnit5Minutests {
       every { supportedType } returns SupportedConstraintType("implicit")
       every { isImplicit() } returns true
       every { constraintPasses(any(), any(), any(), any()) } returns true
+      every { isStateful() } returns false
     }
     val environmentConstraintRunner = EnvironmentConstraintRunner(
       repository,

@@ -39,6 +39,8 @@ interface StatefulConstraintEvaluator<CONSTRAINT : Constraint, ATTRIBUTES : Cons
 
   val repository: ConstraintRepository
 
+  override fun isStateful(): Boolean = true
+
   override suspend fun constraintPasses(
     artifact: DeliveryArtifact,
     version: String,
