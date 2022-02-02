@@ -17,6 +17,7 @@
  */
 package com.netflix.spinnaker.keel.docker
 
+import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.Resource
@@ -24,6 +25,7 @@ import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.SEMVER_TAG
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
 import com.netflix.spinnaker.keel.exceptions.NoDockerImageSatisfiesConstraints
 import com.netflix.spinnaker.keel.persistence.KeelRepository
+import com.netflix.spinnaker.keel.resolvers.NoApprovedVersionForEnvironment
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import io.mockk.every
@@ -40,6 +42,9 @@ import strikt.assertions.isEqualTo
  */
 class SampleDockerImageResolverTests : JUnit5Minutests {
   val repository: KeelRepository = mockk()
+  private val featureToggles: FeatureToggles = mockk() {
+    io.mockk.coEvery { isEnabled(any(), any()) } returns false
+  }
 
   private val artifacts = setOf(
     DockerArtifact(name = "spkr/keeldemo", reference = "spkr/keeldemo", tagVersionStrategy = SEMVER_TAG, deliveryConfigName = "mydeliveryconfig"),
@@ -112,7 +117,7 @@ class SampleDockerImageResolverTests : JUnit5Minutests {
 
   fun tests() = rootContext<SampleDockerImageResolver> {
     fixture {
-      SampleDockerImageResolver(repository)
+      SampleDockerImageResolver(repository, featureToggles)
     }
 
     context("resolving from versioned tag provider") {
@@ -127,7 +132,7 @@ class SampleDockerImageResolverTests : JUnit5Minutests {
         }
 
         test("the resolver throws an exception") {
-          expectThrows<NoDockerImageSatisfiesConstraints> { this.invoke(versionedContainerResource) }
+          expectThrows<NoApprovedVersionForEnvironment> { this.invoke(versionedContainerResource) }
         }
       }
 
@@ -158,7 +163,7 @@ class SampleDockerImageResolverTests : JUnit5Minutests {
         }
 
         test("the resolver throws an exception") {
-          expectThrows<NoDockerImageSatisfiesConstraints> { this.invoke(referenceResource) }
+          expectThrows<NoApprovedVersionForEnvironment> { this.invoke(referenceResource) }
         }
       }
 
@@ -190,7 +195,7 @@ class SampleDockerImageResolverTests : JUnit5Minutests {
         }
 
         test("the resolver throws an exception") {
-          expectThrows<NoDockerImageSatisfiesConstraints> { this.invoke(multiReferenceResource) }
+          expectThrows<NoApprovedVersionForEnvironment> { this.invoke(multiReferenceResource) }
         }
       }
 

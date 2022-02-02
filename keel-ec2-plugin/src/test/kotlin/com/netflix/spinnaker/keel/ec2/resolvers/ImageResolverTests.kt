@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.ec2.resolvers
 
 import com.netflix.frigga.ami.AppVersion
+import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.Moniker
@@ -21,8 +22,10 @@ import com.netflix.spinnaker.keel.clouddriver.model.NamedImage
 import com.netflix.spinnaker.keel.clouddriver.model.appVersion
 import com.netflix.spinnaker.keel.ec2.NoArtifactVersionHasBeenApproved
 import com.netflix.spinnaker.keel.ec2.NoImageFoundForRegions
+import com.netflix.spinnaker.keel.ec2.NoImageSatisfiesConstraints
 import com.netflix.spinnaker.keel.persistence.BakedImageRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
+import com.netflix.spinnaker.keel.resolvers.NoApprovedVersionForEnvironment
 import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import dev.minutest.junit.JUnit5Minutests
@@ -70,11 +73,17 @@ internal class ImageResolverTests : JUnit5Minutests {
     val bakedImageRepository: BakedImageRepository = mockk(relaxUnitFun = true) {
       every { getByArtifactVersion(any(), any()) } returns null
     }
+
+    val featureToggles: FeatureToggles = mockk() {
+      every { isEnabled(any(), any()) } returns false
+    }
+
     private val subject = ImageResolver(
       dynamicConfigService,
       repository,
       imageService,
-      bakedImageRepository
+      bakedImageRepository,
+      featureToggles
     )
     val images = listOf(
       NamedImage(
@@ -223,7 +232,7 @@ internal class ImageResolverTests : JUnit5Minutests {
           test("throws an exception") {
             expectCatching { resolve() }
               .isFailure()
-              .isA<NoArtifactVersionHasBeenApproved>()
+              .isA<NoApprovedVersionForEnvironment>()
           }
         }
 

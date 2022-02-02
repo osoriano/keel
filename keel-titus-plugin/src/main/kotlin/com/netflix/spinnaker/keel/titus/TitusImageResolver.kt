@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.titus
 
+import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.titus.TITUS_CLUSTER_V1
 import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
@@ -26,8 +27,10 @@ class TitusImageResolver(
   private val clock: Clock,
   private val cloudDriverService: CloudDriverService,
   private val titusRegistryService: TitusRegistryService,
+  override val featureToggles: FeatureToggles
 ) : DockerImageResolver<TitusClusterSpec>(
-  repository
+  repository,
+  featureToggles
 ) {
   override val supportedKind = TITUS_CLUSTER_V1
 

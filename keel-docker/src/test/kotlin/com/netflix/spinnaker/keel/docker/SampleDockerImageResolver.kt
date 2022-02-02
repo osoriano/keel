@@ -18,6 +18,7 @@
 package com.netflix.spinnaker.keel.docker
 
 import com.fasterxml.jackson.annotation.JsonIgnore
+import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.keel.api.ApiVersion
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceSpec
@@ -26,9 +27,11 @@ import com.netflix.spinnaker.keel.artifacts.DockerArtifact
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 
 class SampleDockerImageResolver(
-  repository: KeelRepository
+  repository: KeelRepository,
+  featureToggles: FeatureToggles
 ) : DockerImageResolver<SampleSpecWithContainer>(
-  repository
+  repository,
+  featureToggles
 ) {
   override val supportedKind = kind<SampleSpecWithContainer>("sample.resource/sample@v1")
 

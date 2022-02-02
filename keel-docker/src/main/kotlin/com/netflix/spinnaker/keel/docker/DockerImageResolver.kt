@@ -17,18 +17,16 @@
  */
 package com.netflix.spinnaker.keel.docker
 
+import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.keel.api.DeliveryConfig
-import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceSpec
 import com.netflix.spinnaker.keel.api.artifacts.DOCKER
-import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
-import com.netflix.spinnaker.keel.api.plugins.Resolver
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
 import com.netflix.spinnaker.keel.artifacts.TagComparator
-import com.netflix.spinnaker.keel.exceptions.NoDockerImageSatisfiesConstraints
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.NoMatchingArtifactException
+import com.netflix.spinnaker.keel.resolvers.AbstractImageResolver
 import com.netflix.spinnaker.kork.exceptions.ConfigurationException
 
 /**
@@ -37,8 +35,9 @@ import com.netflix.spinnaker.kork.exceptions.ConfigurationException
  * Implement the methods in this interface for each cloud provider.
  */
 abstract class DockerImageResolver<T : ResourceSpec>(
-  open val repository: KeelRepository
-) : Resolver<T> {
+  override val repository: KeelRepository,
+  override val featureToggles: FeatureToggles
+) : AbstractImageResolver<T>(repository, featureToggles) {
 
   /**
    * Pull the container provider out of the resource spec
@@ -92,7 +91,7 @@ abstract class DockerImageResolver<T : ResourceSpec>(
     var updatedResource = resource
     containers.forEach {
       val artifact = getArtifact(it, deliveryConfig)
-      val tag: String = findTagGivenDeliveryConfig(deliveryConfig, environment, artifact)
+      val tag: String = getLatestVersion(deliveryConfig, environment, artifact)
 
       val newContainer = getContainer(account, artifact, tag)
       updatedResource = updateContainerInSpec(updatedResource, newContainer, artifact, tag)
@@ -113,13 +112,6 @@ abstract class DockerImageResolver<T : ResourceSpec>(
       }
       else -> throw ConfigurationException("Unsupported container provider ${container.javaClass}")
     }
-
-  fun findTagGivenDeliveryConfig(deliveryConfig: DeliveryConfig, environment: Environment, artifact: DeliveryArtifact) =
-    repository.latestVersionApprovedIn(
-      deliveryConfig,
-      artifact,
-      environment.name
-    ) ?: throw NoDockerImageSatisfiesConstraints(artifact.name, environment.name)
 
   fun findTagGivenStrategy(
     account: String,

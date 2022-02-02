@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.titus
 
+import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.keel.api.artifacts.DockerImage
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.persistence.KeelRepository
@@ -23,7 +24,10 @@ class TitusImageResolverTests {
   private val cloudDriverService: CloudDriverService = mockk()
   private val titusRegistryService: TitusRegistryService = mockk()
   private val clock = MutableClock()
-  private val subject = TitusImageResolver(repository, clock, cloudDriverService, titusRegistryService)
+  private val featureToggles: FeatureToggles = mockk() {
+    io.mockk.coEvery { isEnabled(any(), any()) } returns false
+  }
+  private val subject = TitusImageResolver(repository, clock, cloudDriverService, titusRegistryService, featureToggles)
   private val dockerArtifact = dockerArtifact()
 
   @BeforeEach

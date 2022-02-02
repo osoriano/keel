@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.ec2.resolvers
 
+import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.artifacts.DEBIAN
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
@@ -8,13 +9,11 @@ import com.netflix.spinnaker.keel.api.ec2.ClusterSpec.ServerGroupSpec
 import com.netflix.spinnaker.keel.api.ec2.EC2_CLUSTER_V1_1
 import com.netflix.spinnaker.keel.api.ec2.LaunchConfigurationSpec
 import com.netflix.spinnaker.keel.api.ec2.VirtualMachineImage
-import com.netflix.spinnaker.keel.api.plugins.Resolver
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.clouddriver.ImageService
 import com.netflix.spinnaker.keel.clouddriver.getLatestNamedImages
 import com.netflix.spinnaker.keel.clouddriver.model.appVersion
 import com.netflix.spinnaker.keel.clouddriver.model.baseImageName
-import com.netflix.spinnaker.keel.ec2.NoArtifactVersionHasBeenApproved
 import com.netflix.spinnaker.keel.ec2.NoImageFoundForRegions
 import com.netflix.spinnaker.keel.filterNotNullValues
 import com.netflix.spinnaker.keel.getConfig
@@ -22,6 +21,7 @@ import com.netflix.spinnaker.keel.parseAppVersion
 import com.netflix.spinnaker.keel.persistence.BakedImageRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.NoMatchingArtifactException
+import com.netflix.spinnaker.keel.resolvers.AbstractImageResolver
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
@@ -30,10 +30,13 @@ import org.springframework.stereotype.Component
 @Component
 class ImageResolver(
   private val dynamicConfigService: DynamicConfigService,
-  private val repository: KeelRepository,
+  override val repository: KeelRepository,
   private val imageService: ImageService,
-  private val bakedImageRepository: BakedImageRepository
-) : Resolver<ClusterSpec> {
+  private val bakedImageRepository: BakedImageRepository,
+  override val featureToggles: FeatureToggles
+) : AbstractImageResolver<ClusterSpec>(
+  repository, featureToggles
+) {
 
   override val supportedKind = EC2_CLUSTER_V1_1
 
@@ -76,11 +79,7 @@ class ImageResolver(
     val account = defaultImageAccount
     val regions = spec.locations.regions.map { it.name }
 
-    val artifactVersion = repository.latestVersionApprovedIn(
-      deliveryConfig,
-      artifact,
-      environment.name
-    ) ?: throw NoArtifactVersionHasBeenApproved(artifact.name, environment.name)
+    val artifactVersion = getLatestVersion(deliveryConfig, environment, artifact)
 
     val images = imageService.getLatestNamedImages(
       appVersion = artifactVersion.parseAppVersion(),
