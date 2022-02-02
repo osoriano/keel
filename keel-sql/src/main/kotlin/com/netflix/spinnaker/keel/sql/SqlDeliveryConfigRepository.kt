@@ -504,6 +504,18 @@ class SqlDeliveryConfigRepository(
   override fun get(name: String): DeliveryConfig =
     deliveryConfigByName(name)
 
+  override fun count(): Int {
+    return sqlRetry.withRetry(READ) {
+      jooq.fetchCount(DELIVERY_CONFIG)
+    }
+  }
+
+  override fun environmentCount(): Int {
+    return sqlRetry.withRetry(READ) {
+      jooq.fetchCount(ENVIRONMENT)
+    }
+  }
+
   override fun all(vararg dependentAttachFilter: DependentAttachFilter): Set<DeliveryConfig> =
     sqlRetry.withRetry(READ) {
       jooq.select(

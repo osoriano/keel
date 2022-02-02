@@ -47,6 +47,11 @@ interface ResourceRepository : PeriodicallyCheckedRepository<Resource<ResourceSp
   fun allResources(callback: (ResourceHeader) -> Unit)
 
   /**
+   * @return the current count of unique resources in the database.
+   */
+  fun count(): Int
+
+  /**
    * Retrieves a single resource by its unique [id]. If the resource is of an obsolete kind, the
    * result is automatically migrated to the latest version of that kind.
    *

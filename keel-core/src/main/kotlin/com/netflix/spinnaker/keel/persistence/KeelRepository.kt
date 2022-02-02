@@ -318,8 +318,14 @@ class KeelRepository(
   fun storeDeliveryConfig(deliveryConfig: DeliveryConfig) =
     deliveryConfigRepository.store(deliveryConfig)
 
+  fun getDeliveryConfigCount(): Int =
+    deliveryConfigRepository.count()
+
   override fun getDeliveryConfig(name: String): DeliveryConfig =
     deliveryConfigRepository.get(name)
+
+  fun getEnvironmentCount(): Int =
+    deliveryConfigRepository.environmentCount()
 
   override fun environmentFor(resourceId: String): Environment =
     deliveryConfigRepository.environmentFor(resourceId)
@@ -409,6 +415,9 @@ class KeelRepository(
   // START ResourceRepository methods
   fun allResources(callback: (ResourceHeader) -> Unit) =
     resourceRepository.allResources(callback)
+
+  fun getResourceCount() =
+    resourceRepository.count()
 
   override fun getResource(id: String): Resource<ResourceSpec> =
     resourceRepository.get(id)

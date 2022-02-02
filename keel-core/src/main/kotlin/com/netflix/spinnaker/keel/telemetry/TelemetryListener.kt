@@ -49,6 +49,30 @@ class TelemetryListener(
     createDriftGauge(POST_DEPLOY_CHECK_DRIFT_GAUGE)
 
   init {
+    // monitor the overall count of delivery configs in the system
+    PolledMeter
+      .using(spectator)
+      .withName(DELIVERY_CONFIG_COUNTER_ID)
+      .monitorValue(repository) {
+        repository.getDeliveryConfigCount().toDouble()
+      }
+
+    // monitor the overall count of environments in the system
+    PolledMeter
+      .using(spectator)
+      .withName(ENVIRONMENT_COUNTER_ID)
+      .monitorValue(repository) {
+        repository.getEnvironmentCount().toDouble()
+      }
+
+    // monitor the overall count of resources in the system
+    PolledMeter
+      .using(spectator)
+      .withName(RESOURCE_COUNTER_ID)
+      .monitorValue(repository) {
+        repository.getResourceCount().toDouble()
+      }
+
     // attach monitors for all the thread pools we have
     threadPoolTaskSchedulers.forEach { executor ->
       ThreadPoolMonitor.attach(spectator, executor.scheduledThreadPoolExecutor, executor.threadNamePrefix + "spring")
@@ -432,6 +456,7 @@ class TelemetryListener(
 
   companion object {
     private const val TIME_SINCE_LAST_CHECK = "keel.periodically.checked.age"
+    private const val RESOURCE_COUNTER_ID = "keel.resource.count"
     private const val RESOURCE_CHECKED_COUNTER_ID = "keel.resource.checked"
     private const val RESOURCE_CHECK_STARTED_COUNTER_ID = "keel.resource.check.started"
     private const val RESOURCE_CHECK_SKIPPED_COUNTER_ID = "keel.resource.check.skipped"
@@ -443,6 +468,7 @@ class TelemetryListener(
     private const val ARTIFACT_APPROVED_COUNTER_ID = "keel.artifact.approved"
     private const val ARTIFACT_CHECK_DURATION_ID = "keel.artifact.check.duration"
     private const val RESOURCE_CHECK_DRIFT_GAUGE = "keel.resource.check.drift"
+    private const val ENVIRONMENT_COUNTER_ID = "keel.environment.count"
     private const val ENVIRONMENT_CHECK_STARTED_COUNTER_ID = "keel.environment.check.started"
     private const val ENVIRONMENT_CHECK_DRIFT_GAUGE = "keel.environment.check.drift"
     private const val ENVIRONMENT_CHECK_TIMED_OUT_ID = "keel.environment.check.timeout"
@@ -459,6 +485,7 @@ class TelemetryListener(
     private const val POST_DEPLOY_CHECK_DURATION_ID = "keel.post-deploy.check.duration"
     private const val FEATURE_ROLLOUT_ATTEMPTED_ID = "keel.feature-rollout.attempted"
     private const val FEATURE_ROLLOUT_FAILED_ID = "keel.feature-rollout.failed"
+    private const val DELIVERY_CONFIG_COUNTER_ID = "keel.config.count"
     const val ARTIFACT_DELAY = "artifact.delay"
   }
 }

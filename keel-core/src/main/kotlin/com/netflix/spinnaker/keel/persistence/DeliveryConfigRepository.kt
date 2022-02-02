@@ -36,6 +36,16 @@ interface DeliveryConfigRepository : PeriodicallyCheckedRepository<DeliveryConfi
   fun get(name: String): DeliveryConfig
 
   /**
+   * @return The current count of unique delivery configs in the database.
+   */
+  fun count(): Int
+
+  /**
+   * @return The current count of unique environments in the database.
+   */
+  fun environmentCount(): Int
+
+  /**
    * Retrieves all available [DeliveryConfig] entries in the database.
    *
    * Because this is a potentially expensive set of queries, this method allows you to specify

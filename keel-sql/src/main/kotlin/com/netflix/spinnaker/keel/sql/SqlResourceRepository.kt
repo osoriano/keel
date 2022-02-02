@@ -88,6 +88,12 @@ open class SqlResourceRepository(
     }
   }
 
+  override fun count(): Int {
+    return sqlRetry.withRetry(READ) {
+      jooq.fetchCount(RESOURCE)
+    }
+  }
+
   override fun get(id: String): Resource<ResourceSpec> =
     readResource(id) { kind, metadata, spec ->
       resourceFactory.create(kind, metadata, spec)
