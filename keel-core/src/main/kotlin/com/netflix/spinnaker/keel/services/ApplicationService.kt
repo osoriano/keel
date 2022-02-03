@@ -777,6 +777,10 @@ class ApplicationService(
     val applicationPrData = repository.getMigratableApplicationData(application)
     //sending the exported config in a yml format, as string
     val configAsString = yamlMapper.writeValueAsString(applicationPrData.deliveryConfig)
+    val reviewer = if (user.contains('@')) {
+      user.substringBefore('@')
+      //we don't want to fail the request or throw an exception if the user is invalid
+    } else ""
 
     val commitMigrationData = MigrationCommitData(
       fileContents = configAsString,
@@ -785,7 +789,7 @@ class ApplicationService(
       prTitle = PR_TITLE,
       prDescription = getPrDescription(user),
       filePath = CONFIG_PATH,
-      reviewers = setOf(user)
+      reviewers = setOf(reviewer)
     )
 
     //get the newly created PR link
