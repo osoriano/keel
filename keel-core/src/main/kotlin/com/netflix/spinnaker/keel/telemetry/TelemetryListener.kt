@@ -93,13 +93,15 @@ class TelemetryListener(
       return
     }
 
-    spectator.timer(
+    spectator.recordDurationPercentile(
       TIME_SINCE_LAST_CHECK,
-      listOf(
+      startTime = event.lastCheckedAt,
+      endTime = clock.instant(),
+      setOf(
         BasicTag("identifier", event.identifier),
         BasicTag("type", event.type)
       )
-    ).record(Duration.between(event.lastCheckedAt, clock.instant()).toSeconds(), TimeUnit.SECONDS)
+    )
   }
 
   @EventListener(ResourceCheckResult::class)
