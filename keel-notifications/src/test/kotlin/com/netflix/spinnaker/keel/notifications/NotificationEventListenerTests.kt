@@ -9,6 +9,7 @@ import com.netflix.spinnaker.keel.api.NotificationType
 import com.netflix.spinnaker.keel.api.actuation.Task
 import com.netflix.spinnaker.keel.api.artifacts.DEBIAN
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
+import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
 import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactPin
@@ -259,7 +260,15 @@ class NotificationEventListenerTests : JUnit5Minutests {
 
 
     fun Collection<String>.toArtifactVersions(artifact: DeliveryArtifact) =
-      map { PublishedArtifact(artifact.name, artifact.type, it) }
+      map {
+        PublishedArtifact(
+          name = artifact.name,
+          type = artifact.type,
+          version = it,
+          reference = artifact.reference,
+          gitMetadata = GitMetadata("a0b1c3d")
+        )
+      }
   }
 
   fun tests() = rootContext<Fixture> {
@@ -446,6 +455,7 @@ class NotificationEventListenerTests : JUnit5Minutests {
               scmNotifier.commentOnPullRequest(configUnderTest, targetEnvironment, capture(comment))
             }
             expectThat(comment.captured).contains("fake.acme.net")
+            println("PR comment: ${comment.captured}")
           }
         }
 
@@ -462,10 +472,12 @@ class NotificationEventListenerTests : JUnit5Minutests {
         test("posts a comment to the associated PR on artifact deployment failed") {
           val configUnderTest = singleArtifactDeliveryConfig.withPreviewEnvironment()
           val previewEnv = configUnderTest.environments.first { it.name == "test" }
+          val comment = slot<String>()
           subject.onArtifactVersionDeployFailed(artifactDeploymentFailedNotification)
           verify(exactly = 1) {
-            scmNotifier.commentOnPullRequest(configUnderTest, previewEnv, any())
+            scmNotifier.commentOnPullRequest(configUnderTest, previewEnv, capture(comment))
           }
+          println("PR comment: ${comment.captured}")
         }
 
         test("posts failed deployment status to SCM on artifact deployment failure") {

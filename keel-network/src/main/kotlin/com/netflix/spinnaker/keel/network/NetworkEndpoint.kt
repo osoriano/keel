@@ -11,6 +11,12 @@ data class NetworkEndpoint(
   val address: String
 )
 
-enum class NetworkEndpointType {
-  EUREKA_VIP_DNS, EUREKA_CLUSTER_DNS, DNS, IPV4, IPV6;
+enum class NetworkEndpointType(
+  val friendlyName: String
+) {
+  EUREKA_VIP_DNS("Eureka DNS VIP"),
+  EUREKA_CLUSTER_DNS("Eureka DNS name"),
+  DNS("Hostname"),
+  IPV4("IPv4 address"),
+  IPV6("IPv6 address");
 }

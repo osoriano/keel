@@ -352,7 +352,7 @@ class NotificationEventListener(
     )
 
     if (environment.isPreview) {
-      reportDeploymentResultToScm(config, environment, latestArtifact, FAILED)
+      reportDeploymentResultToScm(config, environment, latestArtifact, FAILED, notification)
     }
   }
 
@@ -656,28 +656,32 @@ class NotificationEventListener(
     config: DeliveryConfig,
     environment: Environment,
     publishedArtifact: PublishedArtifact,
-    status: DeploymentStatus
+    status: DeploymentStatus,
+    failureDetails: ResourceTaskFailed? = null
   ) {
     val environmentsLink = "${baseUrlConfig.baseUrl}/#/applications/${config.application}/environments/overview"
-
-    val markdownComment = if (status == SUCCEEDED) {
+    val version = publishedArtifact.commitHash ?: publishedArtifact.version
+    val markdownComment =
       config.resourcesUsing(publishedArtifact.reference, environment.name)
         .joinToString("\n\n") { resource ->
-          val endpoints = runBlocking {
-            networkEndpointProvider.getNetworkEndpoints(resource)
-          }.groupBy { it.region }
+          if (status == SUCCEEDED) {
+            val endpoints = runBlocking {
+              networkEndpointProvider.getNetworkEndpoints(resource)
+            }.groupBy { it.region }
 
-          "✅ &nbsp;[${resource.kind.friendlyName} ${resource.name} deployed to preview environment]($environmentsLink)" +
-            "\n\nEndpoints:\n" + endpoints.map { (region, endpoints) ->
-              endpoints.joinToString("\n") { endpoint ->
-                // TODO: determine the proper protocol and port for these links
-                "  - [$region] [${endpoint.address}](https://${endpoint.address})"
-              }
-          }.joinToString("\n")
+            "✅ &nbsp; Deployed `$version` to [${resource.name}]($environmentsLink)\n" +
+              endpoints.map { (region, regionEndpoints) ->
+                "  - [$region] " +
+                regionEndpoints.joinToString { endpoint ->
+                  // TODO: determine the proper protocol and port for these links
+                  "[${endpoint.type.friendlyName}](https://${endpoint.address})"
+                }
+            }.joinToString("\n")
+          } else {
+            "❌ &nbsp; Failed to deploy `$version` to [${resource.name}]($environmentsLink)" +
+              (failureDetails?.reason?.let { ": $it" } ?: "")
+          }
         }
-    } else {
-      "❌ &nbsp;[Preview environment deployment failed]($environmentsLink)"
-    }
 
     scmNotifier.commentOnPullRequest(config, environment, markdownComment)
     scmNotifier.postDeploymentStatusToCommit(config, environment, publishedArtifact, status)

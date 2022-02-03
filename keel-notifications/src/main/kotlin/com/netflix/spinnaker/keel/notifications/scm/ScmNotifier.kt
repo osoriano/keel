@@ -31,7 +31,7 @@ class ScmNotifier(
   }
 
   /**
-   * Posts a comment to the PR associated with the (preview) [Environment].
+   * Posts a comment to the PR associated with the preview [Environment].
    */
   fun commentOnPullRequest(config: DeliveryConfig, environment: Environment, comment: String) {
     if (!environment.isPreview) return
