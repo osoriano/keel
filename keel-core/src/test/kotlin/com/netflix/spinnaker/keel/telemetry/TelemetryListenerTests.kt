@@ -125,6 +125,7 @@ internal class TelemetryListenerTests : JUnit5Minutests {
           clearMocks(registry, timer, answers = false)
           every { repository.getApprovedAt(any(), any(), any(), any()) } returns clock.instant()
           every { repository.getPinnedAt(any(), any(), any(), any()) } returns null
+          every { repository.constraintStateFor(any(), any(), any(), any()) } returns emptyList()
 
           onArtifactVersionMarkedDeploying(
             ArtifactVersionMarkedDeploying(deliveryConfig, artifact, "version", environment, clock.instant())

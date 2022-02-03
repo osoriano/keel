@@ -403,6 +403,21 @@ class TelemetryListener(
           )
         }
       }
+
+      // calculate delay from meeting the last constraint to starting the deployment
+      // this will not include bake time for debians because of the implicit ImageExistsConstraint.
+      val constraintStates = repository.constraintStateFor(deliveryConfig.name, environment.name, version, artifact.reference)
+      val finalApprovalTime = constraintStates.mapNotNull { it.judgedAt }.maxOrNull() ?: startTime
+      if (finalApprovalTime != null) {
+        log.debug("Recording deployment delay since last constraint approval for $artifact: ${Duration.between(finalApprovalTime, timestamp)}")
+        spectator.recordDuration(
+          ARTIFACT_DELAY, finalApprovalTime, timestamp,
+          "delayType" to "deployment",
+          "artifactType" to artifact.type,
+          "artifactName" to artifact.name,
+          "action" to "constraints-met"
+        )
+      }
     }
   }
 
