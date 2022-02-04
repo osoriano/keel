@@ -97,7 +97,8 @@ class TelemetryListener(
       TIME_SINCE_LAST_CHECK,
       startTime = event.lastCheckedAt,
       endTime = clock.instant(),
-      setOf(
+      range = Duration.ofSeconds(1) to Duration.ofHours(3),
+      tags = setOf(
         BasicTag("identifier", event.identifier),
         BasicTag("type", event.type)
       )

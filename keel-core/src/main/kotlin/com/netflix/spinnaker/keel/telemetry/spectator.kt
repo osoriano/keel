@@ -24,11 +24,24 @@ fun Counter.safeIncrement() =
     logger.error("Exception incrementing {} counter: {}", id().name(), ex.message)
   }
 
-fun Registry.recordDurationPercentile(metricName: String, startTime: Instant, endTime: Instant, tags: Set<BasicTag> = emptySet()) =
+fun Registry.recordDurationPercentile(
+  metricName: String,
+  startTime: Instant,
+  endTime: Instant,
+  tags: Set<BasicTag> = emptySet(),
+  range: Pair<Duration, Duration>? = null
+) =
   PercentileTimer
     .builder(this)
     .withName(metricName)
     .withTags(tags)
+    .apply {
+      if (range != null) {
+        withRange(range.first, range.second)
+      } else {
+        withRange(Duration.ofSeconds(1), Duration.ofHours(1))
+      }
+    }
     .build()
     .record(Duration.between(startTime, endTime))
 
