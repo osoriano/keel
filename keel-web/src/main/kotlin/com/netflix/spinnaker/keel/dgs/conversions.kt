@@ -264,10 +264,13 @@ fun ApplicationMigrationStatus.toDgs(appName: String) = MD_Migration(
   prLink = prLink
 )
 
-fun ActuationPlan.toDgs() =
+fun ActuationPlan.toDgs(completed: Boolean) =
   MD_ActuationPlan(
     id = "$application-actuationPlan",
-    status = MD_ActuationPlanStatus.COMPLETED,
+    status = when (completed) {
+      true -> MD_ActuationPlanStatus.COMPLETED
+      false -> MD_ActuationPlanStatus.PENDING
+    },
     environmentPlans = environmentPlans.map { envPlan ->
       MD_EnvironmentPlan(
         id = "$application-${envPlan.environment}-plan",

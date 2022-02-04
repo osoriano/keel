@@ -53,12 +53,7 @@ class Migration(
     val appName = dfe.getLocalContext<String>()
     val deliveryConfig = deliveryConfigRepository.getByApplication(appName)
 
-    if (!deliveryConfig.allArtifactsDeployed()) {
-      return MD_ActuationPlan(
-        id = "$appName-actuationPlan",
-        status = MD_ActuationPlanStatus.PENDING
-      )
-    }
+    val completed = deliveryConfig.allArtifactsDeployed()
 
     val actuationPlan = runBlocking {
       try {
@@ -68,7 +63,7 @@ class Migration(
         null
       }
     }
-    return actuationPlan?.toDgs() ?: MD_ActuationPlan(
+    return actuationPlan?.toDgs(completed) ?: MD_ActuationPlan(
       id = "$appName-actuationPlan",
       status = MD_ActuationPlanStatus.FAILED
     )
