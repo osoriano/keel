@@ -24,7 +24,6 @@ import org.springframework.stereotype.Component
 class ArtifactListener(
   private val repository: KeelRepository,
   private val artifactSuppliers: List<ArtifactSupplier<*, *>>,
-  private val artifactConfig: ArtifactConfig,
   private val artifactRefreshConfig: ArtifactRefreshConfig,
   private val workQueueProcessor: WorkQueueProcessor
 ): DiscoveryActivated() {
@@ -39,7 +38,7 @@ class ArtifactListener(
 
     val latestVersions = runBlocking {
       log.debug("Retrieving latest versions of registered artifact {}", artifact)
-      artifactSupplier.getLatestArtifacts(artifact.deliveryConfig, artifact, artifactRefreshConfig.limit)
+      artifactSupplier.getLatestArtifacts(artifact.deliveryConfig, artifact, artifactRefreshConfig.firstLoadLimit)
     }
 
     if (latestVersions.isNotEmpty()) {
@@ -57,27 +56,27 @@ class ArtifactListener(
   @EventListener(ArtifactSyncEvent::class)
   fun triggerArtifactSync(event: ArtifactSyncEvent) {
      if (event.controllerTriggered) {
-      log.info("Fetching latest ${artifactRefreshConfig.limit} version(s) of all registered artifacts...")
+      log.info("Fetching latest ${artifactRefreshConfig.scheduledSyncLimit} version(s) of all registered artifacts...")
     }
     syncLastLimitArtifactVersions()
   }
 
   /**
-   * For each registered artifact, get the last [ArtifactRefreshConfig.limit] versions, and persist if it's newer than what we have.
+   * For each registered artifact, get the last [ArtifactRefreshConfig.scheduledSyncLimit] versions, and persist if it's newer than what we have.
    */
   @Scheduled(fixedDelayString = "\${keel.artifact-refresh.frequency:PT6H}")
   fun syncLastLimitArtifactVersions() {
     if (enabled.get()) {
       runBlocking {
-        log.debug("Syncing last ${artifactRefreshConfig.limit} artifact version(s)...")
+        log.debug("Syncing last ${artifactRefreshConfig.scheduledSyncLimit} artifact version(s)...")
         repository.getAllArtifacts().forEach { artifact ->
           launch {
-            val lastStoredVersions = repository.artifactVersions(artifact, artifactRefreshConfig.limit)
+            val lastStoredVersions = repository.artifactVersions(artifact, artifactRefreshConfig.scheduledSyncLimit)
             val currentVersions = lastStoredVersions.map { it.version }
             log.debug("Last recorded versions of $artifact: $currentVersions")
 
             val artifactSupplier = artifactSuppliers.supporting(artifact.type)
-            val latestAvailableVersions = artifactSupplier.getLatestArtifacts(artifact.deliveryConfig, artifact, artifactRefreshConfig.limit)
+            val latestAvailableVersions = artifactSupplier.getLatestArtifacts(artifact.deliveryConfig, artifact, artifactRefreshConfig.scheduledSyncLimit)
             log.debug("Latest available versions of $artifact: ${latestAvailableVersions.map { it.version }}")
 
             val newVersions = latestAvailableVersions

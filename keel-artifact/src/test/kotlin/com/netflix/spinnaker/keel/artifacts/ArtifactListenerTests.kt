@@ -75,7 +75,6 @@ internal class ArtifactListenerTests : JUnit5Minutests {
     val debianArtifactSupplier: DebianArtifactSupplier = mockk(relaxUnitFun = true) {
       every { shouldProcessArtifact(any()) } returns true
     }
-    val artifactConfig = ArtifactConfig()
     val refreshConfig = ArtifactRefreshConfig()
     val workQueueProcessor: WorkQueueProcessor = mockk {
       every { enrichAndStore(any(), any()) } returns false
@@ -83,7 +82,6 @@ internal class ArtifactListenerTests : JUnit5Minutests {
     val listener: ArtifactListener = ArtifactListener(
       repository,
       listOf(debianArtifactSupplier, dockerArtifactSupplier),
-      artifactConfig,
       refreshConfig,
       workQueueProcessor
     )
