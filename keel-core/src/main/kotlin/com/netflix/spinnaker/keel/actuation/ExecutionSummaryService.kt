@@ -19,7 +19,8 @@ data class ExecutionSummary(
   val currentStage: Stage?, // null if finished
   val stages: List<Stage>,
   val deployTargets: List<RolloutTargetWithStatus>,
-  val error: String? = null
+  val error: String? = null,
+  val rolloutWorkflowId: String? = null // non-null if [deployTargets] is not empty
 )
 
 // simplified representation of a stage from orca,

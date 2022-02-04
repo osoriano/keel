@@ -10,11 +10,7 @@ import com.netflix.spinnaker.keel.test.configuredTestObjectMapper
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
-import okhttp3.ResponseBody
-import okhttp3.internal.http.RealResponseBody
 import org.junit.jupiter.api.Test
-import retrofit2.HttpException
-import retrofit2.Response
 import strikt.api.expect
 import strikt.api.expectThat
 import strikt.assertions.containsExactly
@@ -47,35 +43,43 @@ class OrcaExecutionSummaryServiceTests {
   fun `can read managed rollout stage`() {
     val summary = testSetup("/managed-rollout-execution.json")
 
-    expectThat(summary.deployTargets).isNotEmpty().hasSize(2)
-    expectThat(summary.deployTargets.map { it.status }.toSet()).containsExactly(SUCCEEDED)
-    expectThat(summary.currentStage).isNull()
-    expectThat(summary.status).isEqualTo(TaskStatus.SUCCEEDED)
-    expectThat(summary.stages).isNotEmpty()
-    expectThat(summary.stages[0].startTime).isNotNull().isEqualTo(Instant.parse("2021-10-05T19:46:48Z"))
-    expectThat(summary.stages[0].endTime).isNotNull().isEqualTo(Instant.parse("2021-10-05T19:50:46Z"))
+    expect {
+      that(summary.deployTargets).isNotEmpty().hasSize(2)
+      that(summary.deployTargets.map { it.status }.toSet()).containsExactly(SUCCEEDED)
+      that(summary.currentStage).isNull()
+      that(summary.status).isEqualTo(TaskStatus.SUCCEEDED)
+      that(summary.stages).isNotEmpty()
+      that(summary.stages[0].startTime).isNotNull().isEqualTo(Instant.parse("2021-10-05T19:46:48Z"))
+      that(summary.stages[0].endTime).isNotNull().isEqualTo(Instant.parse("2021-10-05T19:50:46Z"))
+    }
   }
 
   @Test
   fun `can read running managed rollout stage`() {
     val summary = testSetup("/running-managed-rollout.json")
 
-    expectThat(summary.deployTargets).isNotEmpty().hasSize(2)
-    expectThat(summary.deployTargets.map { it.status }.toSet()).containsExactlyInAnyOrder(SUCCEEDED, NOT_STARTED)
-    expectThat(summary.currentStage).isNotNull().get { type }.isEqualTo("waitForNextRolloutStep")
-    expectThat(summary.currentStage?.startTime).isNotNull()
-    expectThat(summary.currentStage?.startTime).isEqualTo(Instant.parse("2021-10-05T19:40:18Z"))
-    expectThat(summary.status).isEqualTo(TaskStatus.RUNNING)
+    expect {
+      that(summary.deployTargets).isNotEmpty().hasSize(2)
+      that(summary.deployTargets.map { it.status }.toSet()).containsExactlyInAnyOrder(SUCCEEDED, NOT_STARTED)
+      that(summary.currentStage).isNotNull().get { type }.isEqualTo("waitForNextRolloutStep")
+      that(summary.currentStage?.startTime).isNotNull()
+      that(summary.currentStage?.startTime).isEqualTo(Instant.parse("2021-10-05T19:40:18Z"))
+      that(summary.status).isEqualTo(TaskStatus.RUNNING)
+      that(summary.rolloutWorkflowId) isEqualTo "rollout:01FH8ZD7107CZN3V5YKE15RRVA:01FH8ZD710VC49HBF8G9VF7V28"
+    }
   }
 
   @Test
   fun `can read failed managed rollout stage`() {
     val summary = testSetup("/failed-managed-rollout.json")
 
-    expectThat(summary.deployTargets).isNotEmpty().hasSize(2)
-    expectThat(summary.deployTargets.map { it.status }.toSet()).containsExactlyInAnyOrder(SUCCEEDED, NOT_STARTED)
-    expectThat(summary.currentStage).isNull()
-    expectThat(summary.status).isEqualTo(TaskStatus.TERMINAL)
+    expect {
+      that(summary.deployTargets).isNotEmpty().hasSize(2)
+      that(summary.deployTargets.map { it.status }.toSet()).containsExactlyInAnyOrder(SUCCEEDED, NOT_STARTED)
+      that(summary.currentStage).isNull()
+      that(summary.status).isEqualTo(TaskStatus.TERMINAL)
+      that(summary.rolloutWorkflowId) isEqualTo "rollout:01FH8TGGA62Q8GMWV2149MGW2C:01FH8TGGA6MCFQ1AK3G9F7MZBS"
+    }
   }
 
 
@@ -83,22 +87,26 @@ class OrcaExecutionSummaryServiceTests {
   fun `can read a single region deploy stage`() {
     val summary = testSetup("/single-region-deploy.json")
 
-    expectThat(summary.deployTargets).isNotEmpty().hasSize(1)
-    expectThat(summary.deployTargets.map { it.status }.toSet()).containsExactly(SUCCEEDED)
-    expectThat(summary.currentStage).isNull()
-    expectThat(summary.stages).isNotEmpty().hasSize(5)
-    expectThat(summary.status).isEqualTo(TaskStatus.SUCCEEDED)
+    expect {
+      that(summary.deployTargets).isNotEmpty().hasSize(1)
+      that(summary.deployTargets.map { it.status }.toSet()).containsExactly(SUCCEEDED)
+      that(summary.currentStage).isNull()
+      that(summary.stages).isNotEmpty().hasSize(5)
+      that(summary.status).isEqualTo(TaskStatus.SUCCEEDED)
+    }
   }
 
   @Test
   fun `can read a running single region deploy stage`() {
     val summary = testSetup("/running-single-region-deploy.json")
 
-    expectThat(summary.deployTargets).isNotEmpty().hasSize(1)
-    expectThat(summary.deployTargets.map { it.status }.toSet()).containsExactly(RUNNING)
-    expectThat(summary.currentStage).isNotNull().get { type }.isEqualTo("createServerGroup")
-    expectThat(summary.stages).isNotEmpty().hasSize(1)
-    expectThat(summary.status).isEqualTo(TaskStatus.RUNNING)
+    expect {
+      that(summary.deployTargets).isNotEmpty().hasSize(1)
+      that(summary.deployTargets.map { it.status }.toSet()).containsExactly(RUNNING)
+      that(summary.currentStage).isNotNull().get { type }.isEqualTo("createServerGroup")
+      that(summary.stages).isNotEmpty().hasSize(1)
+      that(summary.status).isEqualTo(TaskStatus.RUNNING)
+    }
   }
 
   @Test

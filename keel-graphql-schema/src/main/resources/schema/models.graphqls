@@ -283,6 +283,7 @@ type MD_ExecutionSummary {
   stages: [MD_StageDetail!]
   deployTargets: [MD_DeployTarget!]
   error: String
+  rolloutWorkflowId: String
 }
 
 type MD_DeployTarget {
@@ -518,4 +519,3 @@ input MD_DismissNotificationPayload {
 input MD_InitiateApplicationMigrationPayload {
   application: String!
 }
-

@@ -2,7 +2,6 @@ package com.netflix.spinnaker.keel.orca
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.convertValue
-import com.netflix.buoy.sdk.model.Location as BuoyLocation
 import com.netflix.buoy.sdk.model.RolloutStep
 import com.netflix.buoy.sdk.model.RolloutTarget
 import com.netflix.spinnaker.keel.actuation.ExecutionSummary
@@ -20,7 +19,7 @@ import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import retrofit2.HttpException
-import java.lang.Exception
+import com.netflix.buoy.sdk.model.Location as BuoyLocation
 
 /**
  * Service for translating a task into a nice summary
@@ -86,7 +85,8 @@ class OrcaExecutionSummaryService(
       currentStage = currentStage?.toStage(),
       stages = typedStages.map { it.toStage() },
       deployTargets = targets,
-      error = if (taskDetails.status.isFailure()) taskDetails.execution?.stages.getFailureMessage(mapper) else null
+      error = if (taskDetails.status.isFailure()) taskDetails.execution?.stages.getFailureMessage(mapper) else null,
+      rolloutWorkflowId = getRolloutWorkflowId(taskDetails, typedStages)
     )
   }
 
@@ -114,6 +114,13 @@ class OrcaExecutionSummaryService(
 
     return targetsWithStatus
   }
+
+  fun getRolloutWorkflowId(execution: ExecutionDetailResponse, typedStages: List<OrcaStage>) : String? =
+    if(execution.isManagedRollout()) {
+      typedStages.firstNotNullOfOrNull { it.context["rolloutWorkflowId"] }?.toString()
+    } else {
+      null
+    }
 
   fun ExecutionDetailResponse.isManagedRollout(): Boolean =
     containsStageType(MANAGED_ROLLOUT_STAGE)
