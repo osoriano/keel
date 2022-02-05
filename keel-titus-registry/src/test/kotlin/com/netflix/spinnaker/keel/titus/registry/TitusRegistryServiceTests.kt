@@ -46,7 +46,8 @@ internal class TitusRegistryServiceTests {
   private val elasticSearchClient: RestHighLevelClient = mockk()
   private val searchResponse: SearchResponse = mockk()
   private val searchHits: SearchHits = mockk()
-  private val imageHit: SearchHit = mockk()
+  private val imageHit1: SearchHit = mockk()
+  private val imageHit2: SearchHit = mockk()
   private val subject = TitusRegistryService(config, elasticSearchClient, cloudDriverCache, cloudDriverService, featureToggles, objectMapper)
 
   @BeforeEach
@@ -77,11 +78,15 @@ internal class TitusRegistryServiceTests {
 
     every {
       searchHits.hits
-    } returns arrayOf(imageHit)
+    } returns arrayOf(imageHit1, imageHit2)
 
     every {
-      imageHit.sourceAsMap
-    } returns imageAsMap
+      imageHit1.sourceAsMap
+    } returns imageAsMap1
+
+    every {
+      imageHit2.sourceAsMap
+    } returns imageAsMap2
   }
 
   @Test
@@ -135,7 +140,6 @@ internal class TitusRegistryServiceTests {
   fun `correctly parses ElasticSearch results`() {
     val images = subject.findImages(image, titusAccount, tag, digest)
     expectThat(images)
-      .hasSize(1)
       .first().isEqualTo(
         DockerImage(
           account = titusAccount,
@@ -146,9 +150,17 @@ internal class TitusRegistryServiceTests {
           commitId = commitId,
           prCommitId = commitId,
           branch = branch,
-          date = date
+          date = date,
+          region = region
         )
       )
+  }
+
+  @Test
+  fun `dedupes images from ElasticSearch results`() {
+    val images = subject.findImages(image, titusAccount, tag, digest)
+    expectThat(searchHits.hits.size).isEqualTo(2)
+    expectThat(images).hasSize(1)
   }
 
   @ParameterizedTest(name = "titusAccount: {0}, tag: {1}, digest: {2}")
@@ -195,6 +207,7 @@ internal class TitusRegistryServiceTests {
     private const val titusAccount = "titustest"
     private const val awsAccount = "awstest"
     private const val registry = "testregistry"
+    private const val region = "us-east-1"
     private const val image = "lpollo/lpollo-md-prestaging"
     private const val tag = "master-h2.44021ac"
     private const val digest = "sha256:41af286dc0b172ed2f1ca934fd2278de4a1192302ffa07087cea2682e7d372e3"
@@ -202,12 +215,13 @@ internal class TitusRegistryServiceTests {
     private const val commitId = "259fc39c0e19a448305c57a17d939115ec28aafe"
     private const val branch = "main"
     private val date = Instant.now().toEpochMilli().toString()
-    private val imageAsMap = mapOf(
+    private val imageAsMap1 = mapOf(
       "account" to titusAccount,
       "repository" to image,
       "tag" to tag,
       "digest" to digest,
       "date" to date,
+      "region" to region,
       "newt_labels" to mapOf(
         "jenkins-build" to buildNumber,
         "git-commit" to commitId,
@@ -215,6 +229,7 @@ internal class TitusRegistryServiceTests {
         "git-branch" to branch
       )
     )
+    private val imageAsMap2 = imageAsMap1.toMutableMap().apply { put("region", "us-west-2") }
 
     @JvmStatic
     private fun testParameters(): Stream<Arguments> = Stream.of(

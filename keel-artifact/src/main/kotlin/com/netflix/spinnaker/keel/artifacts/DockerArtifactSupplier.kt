@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.artifacts
 
 import com.netflix.spinnaker.keel.api.DeliveryConfig
+import com.netflix.spinnaker.keel.api.Locatable
 import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
 import com.netflix.spinnaker.keel.api.artifacts.DOCKER
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
@@ -13,6 +14,7 @@ import com.netflix.spinnaker.keel.api.artifacts.SortingStrategy
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
 import com.netflix.spinnaker.keel.api.support.EventPublisher
+import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
 import com.netflix.spinnaker.keel.titus.registry.TitusRegistryService
 import org.springframework.stereotype.Component
@@ -29,6 +31,7 @@ class DockerArtifactSupplier(
 ) : BaseArtifactSupplier<DockerArtifact, DockerVersionSortingStrategy>(artifactMetadataService) {
   override val supportedArtifact = SupportedArtifact("docker", DockerArtifact::class.java)
 
+<<<<<<< 4c76b4ad2323773a3a73e2741e3695005f0c66c0
 <<<<<<< 9a74071d2401ab3654fed604310d90eb11dd94ff
   private fun findArtifactVersions(artifact: DeliveryArtifact, version: String? = null): List<PublishedArtifact> {
     return runWithIoContext {
@@ -93,6 +96,11 @@ class DockerArtifactSupplier(
             }
 =======
     //  so we search by image name only, i.e. we look in all accounts/registries.
+=======
+  private fun findArtifactVersions(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact, limit: Int): List<PublishedArtifact> {
+    // TODO: We currently search by image name only, i.e. we look in all accounts/registries and regions, but
+    //  we could use the info about clusters using the artifacts to narrow down.
+>>>>>>> c449b3aefa1ace8696be7eab7682911f67e3ad94
     val images = titusRegistryService.findImages(artifact.name)
     return images.map { dockerImage ->
       PublishedArtifact(
@@ -130,7 +138,7 @@ class DockerArtifactSupplier(
       throw IllegalArgumentException("Only Docker artifacts are supported by this implementation.")
     }
 
-    return findArtifactVersions(artifact, limit)
+    return findArtifactVersions(deliveryConfig, artifact, limit)
       .filter { shouldProcessArtifact(it) }
       .sortedWith(artifact.sortingStrategy.comparator)
       .take(limit) // unfortunately we can only limit here because we need to sort with the comparator above

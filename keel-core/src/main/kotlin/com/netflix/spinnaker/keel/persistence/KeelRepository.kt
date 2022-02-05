@@ -470,8 +470,9 @@ class KeelRepository(
 
   // START ArtifactRepository methods
   fun register(artifact: DeliveryArtifact) {
-    artifactRepository.register(artifact)
-    publisher.publishEvent(ArtifactRegisteredEvent(artifact))
+    if (artifactRepository.register(artifact)) {
+      publisher.publishEvent(ArtifactRegisteredEvent(artifact))
+    }
   }
 
   fun artifactsDueForCheck(minTimeSinceLastCheck: Duration, limit: Int): Collection<DeliveryArtifact> =

@@ -57,6 +57,11 @@ data class DeliveryConfig(
         resource.findAssociatedArtifact(this)?.reference == artifactReference
       } ?: emptyList()
 
+  fun resourcesUsing(artifact: DeliveryArtifact): List<Resource<*>> =
+    resources.filter { resource ->
+      resource.findAssociatedArtifact(this)?.reference == artifact.reference
+    }
+
   fun constraintInEnvironment(environmentName: String, constraintType: String): Constraint {
     val target = environments.firstOrNull { it.name == environmentName }
     requireNotNull(target) {

@@ -82,21 +82,20 @@ class SqlArtifactRepository(
   private val publisher: ApplicationEventPublisher
 ) : ArtifactRepository {
 
-  override fun register(artifact: DeliveryArtifact) {
-    val id: String = (
-      sqlRetry.withRetry(READ) {
-        jooq
-          .select(DELIVERY_ARTIFACT.UID)
-          .from(DELIVERY_ARTIFACT)
-          .where(
-            DELIVERY_ARTIFACT.TYPE.eq(artifact.type)
-              .and(DELIVERY_ARTIFACT.DELIVERY_CONFIG_NAME.eq(artifact.deliveryConfigName))
-              .and(DELIVERY_ARTIFACT.REFERENCE.eq(artifact.reference))
-          )
-          .fetchOne(DELIVERY_ARTIFACT.UID)
-      }
-        ?: randomUID().toString()
-      )
+  override fun register(artifact: DeliveryArtifact): Boolean {
+    val (isNew, id) = sqlRetry.withRetry(READ) {
+      jooq
+        .select(DELIVERY_ARTIFACT.UID)
+        .from(DELIVERY_ARTIFACT)
+        .where(
+          DELIVERY_ARTIFACT.TYPE.eq(artifact.type)
+            .and(DELIVERY_ARTIFACT.DELIVERY_CONFIG_NAME.eq(artifact.deliveryConfigName))
+            .and(DELIVERY_ARTIFACT.REFERENCE.eq(artifact.reference))
+        )
+        .fetchOne(DELIVERY_ARTIFACT.UID)
+    }
+      ?.let { false to it }
+      ?: true to randomUID().toString()
 
     sqlRetry.withRetry(WRITE) {
       jooq.insertInto(DELIVERY_ARTIFACT)
@@ -119,6 +118,7 @@ class SqlArtifactRepository(
         .set(ARTIFACT_LAST_CHECKED.AT, EPOCH.plusSeconds(1))
         .execute()
     }
+    return isNew
   }
 
   private fun DeliveryArtifact.detailsAsJson(): String {

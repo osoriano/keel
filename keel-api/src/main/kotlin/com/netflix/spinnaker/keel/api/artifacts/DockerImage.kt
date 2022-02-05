@@ -10,4 +10,5 @@ data class DockerImage(
   val prCommitId: String? = null,
   val branch: String? = null,
   val date: String? = null,
+  val region: String? = null,
 )

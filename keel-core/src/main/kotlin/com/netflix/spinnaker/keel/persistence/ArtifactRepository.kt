@@ -24,8 +24,10 @@ interface ArtifactRepository : PeriodicallyCheckedRepository<DeliveryArtifact> {
 
   /**
    * Creates or updates a registered artifact
+   *
+   * @return true if the artifact was newly registered, false otherwise.
    */
-  fun register(artifact: DeliveryArtifact)
+  fun register(artifact: DeliveryArtifact): Boolean
 
   fun get(name: String, type: ArtifactType, deliveryConfigName: String): List<DeliveryArtifact>
 

@@ -101,6 +101,7 @@ internal class DockerArtifactSupplierTests : JUnit5Minutests {
 
     val latestDockerImage = DockerImage(
       account = "test",
+      region = "us-east-1",
       repository = latestArtifact.name,
       tag = latestArtifact.version,
       digest = "sha123",
@@ -110,6 +111,7 @@ internal class DockerArtifactSupplierTests : JUnit5Minutests {
 
     val dockerImageWithMetaData = DockerImage(
       account = "test",
+      region = "us-east-1",
       repository = latestArtifact.name,
       tag = latestArtifact.version,
       digest = "sha123",

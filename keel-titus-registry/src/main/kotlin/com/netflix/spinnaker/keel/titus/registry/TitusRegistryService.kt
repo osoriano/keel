@@ -37,7 +37,7 @@ class TitusRegistryService(
 ) {
   companion object {
     private val log: Logger by lazy { LoggerFactory.getLogger(TitusRegistryService::class.java) }
-    const val DEFAULT_MAX_RESULTS = 50
+    const val DEFAULT_MAX_RESULTS = 60 // (10 versions back * 3 regions * 2 registries)
   }
 
   /**
@@ -62,6 +62,7 @@ class TitusRegistryService(
     }.ifEmpty {
       // fallback to CloudDriver if the optimized flow is off or ElasticSearch returns no results
       val registry = titusAccount?.let { cloudDriverCache.getRegistryForTitusAccount(it) } ?: "*"
+      log.debug("Searching CloudDriver image cache (repository: $image, tag: $tag, registry: $registry")
       runWithIoContext {
         cloudDriverService.findDockerImages(
           registry = registry,
@@ -129,7 +130,9 @@ class TitusRegistryService(
             }
         }
       }
-      return images
+      val filteredImages = images.groupBy { "${it.account}/${it.region.orEmpty()}" }.values.firstOrNull() ?: emptyList()
+      log.debug("Parsed ${images.size} total Docker images. Returning ${filteredImages.size} from first account and region.")
+      return filteredImages
     } catch (e: Exception) {
       log.debug("Error retrieving details for Docker image $repository:$tag from account $awsAccount: $e", e)
       throw IntegrationException("Unable to retrieve details for Docker image $repository:$tag from Titus registry cache.", e)

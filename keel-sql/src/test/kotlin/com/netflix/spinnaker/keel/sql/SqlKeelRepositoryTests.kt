@@ -663,5 +663,24 @@ class SqlKeelRepositoryTests : JUnit5Minutests {
         }
       }
     }
+
+    context("re-registering an artifact does not publish an event") {
+      before {
+        subject.upsertDeliveryConfig(deliveryConfig)
+      }
+
+      test("first upsert triggers an event") {
+        verify(exactly = 1) {
+          publisher.publishEvent(ofType<ArtifactRegisteredEvent>())
+        }
+      }
+
+      test("second upsert does not trigger an event") {
+        subject.upsertDeliveryConfig(deliveryConfig)
+        verify(exactly = 1) { // still at 1
+          publisher.publishEvent(ofType<ArtifactRegisteredEvent>())
+        }
+      }
+    }
   }
 }
