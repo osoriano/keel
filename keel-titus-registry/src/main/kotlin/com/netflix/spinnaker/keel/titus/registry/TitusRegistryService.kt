@@ -62,7 +62,7 @@ class TitusRegistryService(
     }.ifEmpty {
       // fallback to CloudDriver if the optimized flow is off or ElasticSearch returns no results
       val registry = titusAccount?.let { cloudDriverCache.getRegistryForTitusAccount(it) } ?: "*"
-      log.debug("Searching CloudDriver image cache (repository: $image, tag: $tag, registry: $registry")
+      log.debug("Searching CloudDriver image cache (repository: $image, tag: $tag, registry: $registry)")
       runWithIoContext {
         cloudDriverService.findDockerImages(
           registry = registry,
@@ -85,7 +85,8 @@ class TitusRegistryService(
     digest: String? = null,
     limit: Int = DEFAULT_MAX_RESULTS
   ): List<DockerImage> {
-    log.debug("Searching ElasticSearch Titus registry cache (repository: $repository, tag: $tag, account: $awsAccount, digest: $digest")
+    val imageCoordinates = DockerImageCoordinates(repository, awsAccount, tag, digest)
+    log.debug("Searching ElasticSearch Titus registry cache for $imageCoordinates")
     try {
       val sourceBuilder = SearchSourceBuilder()
       sourceBuilder
@@ -114,11 +115,11 @@ class TitusRegistryService(
 
       val searchRequest = SearchRequest(config.index).source(sourceBuilder)
       val searchResponse = elasticSearchClient.search(searchRequest)
-      log.debug("Got response from ElasticSearch: returning ${searchResponse.hits.hits.size}/${searchResponse.hits.totalHits} hits" +
-        " for repository: $repository, tag: $tag, account: $awsAccount, digest: $digest")
+      log.debug("Got response from ElasticSearch: returning ${searchResponse.hits.hits.size}/" +
+        "${searchResponse.hits.totalHits} hits for $imageCoordinates")
 
       val images = searchResponse.hits.hits.mapNotNull {
-        it.sourceAsMap.let { imageAsMap ->
+        val parsedImage = it.sourceAsMap.let { imageAsMap ->
           (imageAsMap["newt_labels"] as? Map<String, String>)
             ?.let { labels ->
               objectMapper.convertValue<DockerImage>(imageAsMap).copy(
@@ -129,13 +130,26 @@ class TitusRegistryService(
               )
             }
         }
+        if (parsedImage == null) {
+          log.debug("Newt labels missing for $imageCoordinates. Ignoring.")
+        }
+        parsedImage
       }
       val filteredImages = images.groupBy { "${it.account}/${it.region.orEmpty()}" }.values.firstOrNull() ?: emptyList()
-      log.debug("Parsed ${images.size} total Docker images. Returning ${filteredImages.size} from first account and region.")
+      log.debug("Parsed ${images.size} total images for $imageCoordinates. Returning ${filteredImages.size} from first account and region.")
       return filteredImages
     } catch (e: Exception) {
-      log.debug("Error retrieving details for Docker image $repository:$tag from account $awsAccount: $e", e)
-      throw IntegrationException("Unable to retrieve details for Docker image $repository:$tag from Titus registry cache.", e)
+      log.debug("Error searching for Docker image at $imageCoordinates: $e", e)
+      throw IntegrationException("Unable to retrieve information for Docker image $repository:${tag ?: "*"} from Titus registry cache.", e)
     }
+  }
+
+  private class DockerImageCoordinates(
+    val repository: String,
+    val awsAccount: String?,
+    val tag: String?,
+    val digest: String?
+  ) {
+    override fun toString() = "$repository:${tag ?: "*"} (account: ${awsAccount ?: "*"}, digest: ${digest ?: "*"})"
   }
 }
