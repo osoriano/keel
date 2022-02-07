@@ -77,46 +77,14 @@ interface StatefulConstraintEvaluator<CONSTRAINT : Constraint, ATTRIBUTES : Cons
       state.judgedByUser() &&  state.failed() -> false
       state.judgedByUser() &&  state.passed() -> true
       !state.judgedByUser() &&  shouldAlwaysReevaluate() -> {
-        checkConstraintPasses(artifact, version, deliveryConfig, targetEnvironment, constraint, state)
+        constraintPasses(artifact, version, deliveryConfig, targetEnvironment, constraint, state)
       }
       !state.judgedByUser() && !shouldAlwaysReevaluate() && state.failed() -> false
       !state.judgedByUser() && !shouldAlwaysReevaluate() && state.passed() -> false
       else -> {
-        checkConstraintPasses(artifact, version, deliveryConfig, targetEnvironment, constraint, state)
+        constraintPasses(artifact, version, deliveryConfig, targetEnvironment, constraint, state)
       }
     }
-  }
-
-  /**
-   * Helper function for checking both the [constraintPasses] and the deprecated [canPromote] methods.
-   *
-   * This should be deleted and replaced with [constraintPasses] once nobody is using the deprecated [canPromote]
-   * method.
-   */
-  suspend fun checkConstraintPasses(
-    artifact: DeliveryArtifact,
-    version: String,
-    deliveryConfig: DeliveryConfig,
-    targetEnvironment: Environment,
-    constraint: CONSTRAINT,
-    state: ConstraintState
-  ) =
-    constraintPasses(artifact, version, deliveryConfig, targetEnvironment, constraint, state) ||
-      canPromote(artifact, version, deliveryConfig, targetEnvironment, constraint, state)
-
-  @Deprecated(
-    "Deprecated due to potential coroutine/thread interaction problems",
-    ReplaceWith("constraintPasses(artifact, version, deliveryConfig, targetEnvironment, state)")
-  )
-  fun canPromote(
-    artifact: DeliveryArtifact,
-    version: String,
-    deliveryConfig: DeliveryConfig,
-    targetEnvironment: Environment,
-    constraint: CONSTRAINT,
-    state: ConstraintState
-  ): Boolean {
-    return false
   }
 
   /**

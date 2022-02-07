@@ -117,10 +117,6 @@ internal class StatefulConstraintEvaluatorTests : JUnit5Minutests {
       } returns pendingConstraintState
 
       every {
-        fakeStatefulConstraintEvaluatorDelegate.canPromote(artifact, "v1.0.0", manifest, environment, constraint, any())
-      } returns true
-
-      every {
         fakeStatefulConstraintEvaluatorDelegate.constraintPasses(artifact, "v1.0.0", manifest, environment, constraint, any())
       } returns true
 
