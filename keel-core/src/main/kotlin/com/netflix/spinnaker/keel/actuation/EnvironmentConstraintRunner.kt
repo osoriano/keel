@@ -242,8 +242,8 @@ class EnvironmentConstraintRunner(
     version: String,
     environment: Environment
   ): Boolean =
-    checkConstraintForEveryEnvironment(implicitStatelessEvaluators, artifact, deliveryConfig, version, environment, "stateless") &&
-      checkConstraintWhenSpecified(statelessEvaluators, artifact, deliveryConfig, version, environment, "stateless")
+    checkConstraintForEveryEnvironment(implicitStatelessEvaluators, artifact, deliveryConfig, version, environment) &&
+      checkConstraintWhenSpecified(statelessEvaluators, artifact, deliveryConfig, version, environment)
 
   suspend fun checkStatefulConstraints(
     artifact: DeliveryArtifact,
@@ -251,8 +251,8 @@ class EnvironmentConstraintRunner(
     version: String,
     environment: Environment
   ): Boolean =
-    checkConstraintForEveryEnvironment(implicitStatefulEvaluators, artifact, deliveryConfig, version, environment, "stateFUL") &&
-      checkConstraintWhenSpecified(statefulEvaluators, artifact, deliveryConfig, version, environment, "stateFUL")
+    checkConstraintForEveryEnvironment(implicitStatefulEvaluators, artifact, deliveryConfig, version, environment) &&
+      checkConstraintWhenSpecified(statefulEvaluators, artifact, deliveryConfig, version, environment)
 
   /**
    * Checks constraints for a list of evaluators.
@@ -264,14 +264,10 @@ class EnvironmentConstraintRunner(
     artifact: DeliveryArtifact,
     deliveryConfig: DeliveryConfig,
     version: String,
-    environment: Environment,
-    evaluatorType: String
+    environment: Environment
   ): Boolean =
     evaluators.all { evaluator ->
-      val result = evaluator.constraintPasses(artifact, version, deliveryConfig, environment)
-      log.debug("Evaluating constraint ($evaluatorType) using ${evaluator.javaClass.simpleName} for application ${deliveryConfig.application}, " +
-        "environment ${environment.name} artifact ${artifact.reference} version $version: canPromote=$result")
-      result
+      evaluator.constraintPasses(artifact, version, deliveryConfig, environment)
     }
 
   /**
@@ -284,19 +280,13 @@ class EnvironmentConstraintRunner(
     artifact: DeliveryArtifact,
     deliveryConfig: DeliveryConfig,
     version: String,
-    environment: Environment,
-    evaluatorType: String
+    environment: Environment
   ): Boolean {
     var allPass = true
     // we want to run all stateful evaluators even if some fail
     evaluators.forEach { evaluator ->
       val canPromote = !environment.hasSupportedConstraint(evaluator) ||
         evaluator.constraintPasses(artifact, version, deliveryConfig, environment)
-
-      if (environment.hasSupportedConstraint(evaluator)) {
-        log.debug("Evaluating constraint ($evaluatorType)(user-specified) using ${evaluator.javaClass.simpleName} for application ${deliveryConfig.application}, " +
-          "environment ${environment.name} artifact ${artifact.reference} version $version: canPromote=$canPromote")
-      }
 
       if (!canPromote) {
         allPass = false
