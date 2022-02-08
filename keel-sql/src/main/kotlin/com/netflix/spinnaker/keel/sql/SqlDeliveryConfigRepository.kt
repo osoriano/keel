@@ -1592,11 +1592,12 @@ class SqlDeliveryConfigRepository(
               MIGRATION_STATUS.IN_ALLOW_LIST,
               MIGRATION_STATUS.ASSISTANCE_NEEDED,
               MIGRATION_STATUS.DELIVERY_CONFIG,
-              MIGRATION_STATUS.PR_LINK
+              MIGRATION_STATUS.PR_LINK,
+              MIGRATION_STATUS.JIRA_LINK
             )
             .from(MIGRATION_STATUS)
             .where(MIGRATION_STATUS.APPLICATION.eq(application))
-            .fetchOne { (exportSucceeded, scmEnabled, inAllowList, assistanceNeeded, deliveryConfig, prLink) ->
+            .fetchOne { (exportSucceeded, scmEnabled, inAllowList, assistanceNeeded, deliveryConfig, prLink, jiraLink) ->
               // TODO: add scmEnabled to the condition below once we support it
               ApplicationMigrationStatus(
                 exportSucceeded = exportSucceeded ?: false,
@@ -1604,7 +1605,8 @@ class SqlDeliveryConfigRepository(
                 assistanceNeeded = assistanceNeeded ?: false,
                 isScmPowered = scmEnabled ?: false,
                 deliveryConfig = deliveryConfig?.let { objectMapper.readValue(deliveryConfig) },
-                prLink = prLink
+                prLink = prLink,
+                jiraLink = jiraLink
               )
             }
             ?: ApplicationMigrationStatus()

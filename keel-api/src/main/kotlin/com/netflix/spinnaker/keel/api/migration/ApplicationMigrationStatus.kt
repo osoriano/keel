@@ -9,6 +9,7 @@ data class ApplicationMigrationStatus(
   val isScmPowered: Boolean = false,
   val deliveryConfig: Map<String, Any?>? = null,
   val prLink: String? = null,
+  val jiraLink: String? = null
 ) {
   val isMigratable: Boolean
     get() = exportSucceeded && isScmPowered && inAllowList

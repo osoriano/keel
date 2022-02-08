@@ -28,6 +28,7 @@ import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PASS
 import com.netflix.spinnaker.keel.api.constraints.StatefulConstraintEvaluator
 import com.netflix.spinnaker.keel.api.constraints.StatelessConstraintEvaluator
 import com.netflix.spinnaker.keel.api.constraints.UpdatedConstraintStatus
+import com.netflix.spinnaker.keel.api.jira.JiraComment
 import com.netflix.spinnaker.keel.api.jira.JiraComponent
 import com.netflix.spinnaker.keel.api.jira.JiraFields
 import com.netflix.spinnaker.keel.api.jira.JiraIssue
@@ -823,6 +824,21 @@ class ApplicationService(
     }
 
     return Pair(applicationPrData, prLink)
+  }
+
+  suspend fun addCommentToJira(application: String, issue: String) {
+    val jiraLink = repository.getApplicationMigrationStatus(application = application).jiraLink
+    if (jiraLink != null) {
+      try {
+        runBlocking {
+          jiraBridge.addComment(jiraLink.substringAfterLast('/'), JiraComment(body = issue))
+        }
+      } catch (ex: Exception) {
+        log.debug("failed to add a jira comment for application $application with jira link $jiraLink", ex)
+      }
+    } else {
+      log.debug("no jira link found for application $application; Can't add comment with issue $issue")
+    }
   }
 
   /**

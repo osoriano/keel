@@ -36,3 +36,7 @@ data class JiraIssueType(
 data class JiraAssignee(
   val name: String
 )
+
+data class JiraComment(
+  val body: String
+)

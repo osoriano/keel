@@ -80,8 +80,11 @@ class Migration(
     @InputArgument payload: MD_MigrationReportIssuePayload,
     @RequestHeader("X-SPINNAKER-USER") user: String
   ): Boolean {
-    // TODO: open a JIRA ticket
-    return deliveryConfigRepository.markApplicationMigrationAsBlocked(payload.application, payload.issue, user)
+    val application = payload.application
+    runBlocking {
+      applicationService.addCommentToJira(application, payload.issue)
+    }
+    return deliveryConfigRepository.markApplicationMigrationAsBlocked(application, payload.issue, user)
   }
 
   @DgsMutation

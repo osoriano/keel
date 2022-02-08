@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.jira
 
 import com.netflix.spinnaker.keel.api.JiraBridge
+import com.netflix.spinnaker.keel.api.jira.JiraComment
 import com.netflix.spinnaker.keel.api.jira.JiraIssue
 import com.netflix.spinnaker.keel.api.jira.JiraIssueResponse
 import retrofit2.http.Body
@@ -22,4 +23,10 @@ interface JiraService: JiraBridge {
   override suspend fun createIssue(
     @Body jiraIssue: JiraIssue
   ): JiraIssueResponse
+
+  @POST("/rest/api/2/issue/{issueId}/comment")
+  override suspend fun addComment(
+    @Path("issueId") issueId: String,
+    @Body jiraComment: JiraComment
+  ): Map<String, Any?>
 }

@@ -763,6 +763,12 @@ class KeelRepository(
   fun storeJiraLinkForMigratedApplication(application: String, jiraLink: String) =
     deliveryConfigRepository.storeJiraLinkForMigratedApplication(application, jiraLink)
 
+  /**
+   * Return migration data fro an application
+   */
+  fun getApplicationMigrationStatus(application: String) =
+    deliveryConfigRepository.getApplicationMigrationStatus(application)
+
   override fun versionsInUse(artifact: DeliveryArtifact): Set<String> =
     artifactRepository.versionsInUse(artifact)
 }
