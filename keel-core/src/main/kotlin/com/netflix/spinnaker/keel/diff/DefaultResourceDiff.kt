@@ -58,6 +58,11 @@ class DefaultResourceDiff<T : Any> internal constructor(
       .also { diff.visit(it) }
       .messages
 
+  override fun toConciseDeltaJson(): Map<String, Any?> =
+    ConciseJsonVisitor(desired, current, "desired", "current")
+      .also { diff.visit(it) }
+      .messages
+
   override fun toUpdateJson(): Map<String, Any?> =
     JsonVisitor(desired, current, "updated", "previous")
       .also { diff.visit(it) }

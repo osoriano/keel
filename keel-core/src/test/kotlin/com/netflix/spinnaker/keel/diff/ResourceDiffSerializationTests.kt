@@ -35,6 +35,12 @@ internal class ResourceDiffSerializationTests : JUnit5Minutests {
 
         expectThat(json).isEqualTo(emptyMap())
       }
+
+      test("concise serialized output is empty") {
+        val json = diff.toConciseDeltaJson()
+
+        expectThat(json).isEqualTo(emptyMap())
+      }
     }
 
     context("delta in simple field") {
@@ -118,6 +124,27 @@ internal class ResourceDiffSerializationTests : JUnit5Minutests {
 
         expectThat(json).isEqualTo(expected)
       }
+
+      test("concise serialized output contains only the bottom leaves of nested property details") {
+        val json = diff.toConciseDeltaJson()
+        val expected = mapper.readValue<Map<String, Any?>>(
+          """
+          |{
+          |  "/ANestedValue/ANullableString": {
+          |    "state": "ADDED",
+          |    "desired": "fnord",
+          |    "current": null
+          |  },
+          |  "/ANestedValue/AString": {
+          |    "state": "CHANGED",
+          |    "desired": "FNORD",
+          |    "current": "fnord"
+          |  }
+          |}""".trimMargin()
+        )
+
+        expectThat(json).isEqualTo(expected)
+      }
     }
 
     context("delta in a list") {
@@ -137,6 +164,27 @@ internal class ResourceDiffSerializationTests : JUnit5Minutests {
             |  "/AList": {
             |    "state": "CHANGED"
             |  },
+            |  "/AList[foo]": {
+            |    "state": "ADDED",
+            |    "desired": "foo",
+            |    "current": null
+            |  },
+            |  "/AList[bar]": {
+            |    "state": "ADDED",
+            |    "desired": "bar",
+            |    "current": null
+            |  }
+            |}""".trimMargin()
+          )
+
+          expectThat(json).isEqualTo(expected)
+        }
+
+        test("concise serialized output contains nested property details") {
+          val json = diff.toConciseDeltaJson()
+          val expected = mapper.readValue<Map<String, Any?>>(
+            """
+            |{
             |  "/AList[foo]": {
             |    "state": "ADDED",
             |    "desired": "foo",

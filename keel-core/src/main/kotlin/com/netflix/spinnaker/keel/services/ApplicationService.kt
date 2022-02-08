@@ -876,7 +876,7 @@ class ApplicationService(
             getResourceDiff(resource)?.let {
               ResourcePlan(
                 resourceId = resource.id,
-                diff = it.toDeltaJson(),
+                diff = it.toConciseDeltaJson(),
                 action = getActuationAction(resource, it)
               )
             }

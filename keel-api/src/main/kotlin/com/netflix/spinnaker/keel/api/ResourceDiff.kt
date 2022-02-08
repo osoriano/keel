@@ -10,6 +10,7 @@ interface ResourceDiff<T : Any> {
   val affectedRootPropertyNames: Set<String>
   fun hasChanges(): Boolean
   fun toDeltaJson(): Map<String, Any?>
+  fun toConciseDeltaJson(): Map<String, Any?>
   fun toUpdateJson(): Map<String, Any?>
   fun toDebug(): String
   fun T?.toMap(): Map<String, Any?>?
