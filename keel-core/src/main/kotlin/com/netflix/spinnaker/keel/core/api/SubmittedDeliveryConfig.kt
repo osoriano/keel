@@ -35,6 +35,13 @@ data class SubmittedDeliveryConfig(
   val safeName: String
     @JsonIgnore get() = name ?: "$application-manifest"
 
+  val artifactWithStatuses: Boolean
+    @JsonIgnore get() = artifacts.any {
+      //find an artifact with some status
+      it.statuses.isNotEmpty()
+    } //return true if an artifact with a status exists
+
+
   fun toDeliveryConfig(): DeliveryConfig = DeliveryConfig(
     name = safeName,
     application = application,

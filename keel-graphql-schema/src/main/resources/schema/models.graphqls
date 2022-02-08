@@ -40,6 +40,17 @@ type MD_Migration {
   deliveryConfig: JSON
   prLink: String
   actuationPlan: MD_ActuationPlan
+  warnings: [MD_Warning]
+}
+
+enum MD_Warning_type{
+  TAG_TO_RELEASE_ARTIFACT
+}
+
+type MD_Warning {
+  id: ID!
+  type: MD_Warning_type!
+  message: String
 }
 
 enum MD_ActuationPlanStatus {

@@ -14,6 +14,8 @@ import com.netflix.spinnaker.keel.graphql.types.MD_InitiateApplicationMigrationP
 import com.netflix.spinnaker.keel.graphql.types.MD_Migration
 import com.netflix.spinnaker.keel.graphql.types.MD_MigrationReportIssuePayload
 import com.netflix.spinnaker.keel.graphql.types.MD_MigrationStatus
+import com.netflix.spinnaker.keel.graphql.types.MD_Warning
+import com.netflix.spinnaker.keel.graphql.types.MD_Warning_type
 import com.netflix.spinnaker.keel.persistence.ArtifactRepository
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
 import com.netflix.spinnaker.keel.services.ApplicationService
@@ -102,12 +104,22 @@ class Migration(
     // even before the app is officially onboarded
     applicationService.storePausedMigrationConfig(payload.application, user)
 
+    val warning = if (prData.deliveryConfig.artifactWithStatuses) {
+      listOf(
+        MD_Warning(
+          type = MD_Warning_type.TAG_TO_RELEASE_ARTIFACT,
+          id = "${payload.application}-tagToReleaseWarning")
+      )
+    } else null
+
+
     return DataFetcherResult.newResult<MD_Migration>().data(
       MD_Migration(
         id = "migration-${payload.application}",
         status = MD_MigrationStatus.PR_CREATED,
         deliveryConfig = mapper.convertValue(prData.deliveryConfig, Map::class.java),
         prLink = prLink,
+        warnings = warning
       )
     ).localContext(payload.application).build()
   }
