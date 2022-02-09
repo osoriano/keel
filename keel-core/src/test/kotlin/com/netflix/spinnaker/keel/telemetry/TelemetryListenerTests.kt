@@ -5,6 +5,7 @@ import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.Tag
 import com.netflix.spectator.api.Timer
+import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.keel.api.ResourceStatus.HAPPY
 import com.netflix.spinnaker.keel.api.ResourceStatusSnapshot
 import com.netflix.spinnaker.keel.api.events.ArtifactVersionMarkedDeploying
@@ -45,10 +46,11 @@ internal class TelemetryListenerTests : JUnit5Minutests {
   private val resource = environment.resources.first()
   private val artifact = deliveryConfig.artifacts.first()
   private val resourceValidEvent = ResourceValid(resource, clock)
+  private val featureToggles = mockk<FeatureToggles> { every { isEnabled(any(), any()) } returns false }
 
   fun tests() = rootContext<TelemetryListener> {
     fixture {
-      TelemetryListener(registry, clock, repository, emptyList(), emptyList())
+      TelemetryListener(registry, clock, repository, featureToggles, emptyList(), emptyList())
     }
 
     before {

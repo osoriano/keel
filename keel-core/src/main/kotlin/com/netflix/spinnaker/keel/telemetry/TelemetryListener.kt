@@ -4,6 +4,8 @@ import com.netflix.spectator.api.BasicTag
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.patterns.PolledMeter
 import com.netflix.spectator.api.patterns.ThreadPoolMonitor
+import com.netflix.spinnaker.config.FeatureToggles
+import com.netflix.spinnaker.config.FeatureToggles.Companion.COROUTINE_MONITORING
 import com.netflix.spinnaker.keel.activation.DiscoveryActivated
 import com.netflix.spinnaker.keel.actuation.ScheduledArtifactCheckStarting
 import com.netflix.spinnaker.keel.actuation.ScheduledEnvironmentCheckStarting
@@ -19,6 +21,10 @@ import com.netflix.spinnaker.keel.events.VerificationBlockedActuation
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.rollout.FeatureRolloutAttempted
 import com.netflix.spinnaker.keel.rollout.FeatureRolloutFailed
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExecutorCoroutineDispatcher
+import kotlinx.coroutines.scheduling.CoroutineDispatcherMonitor
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler
@@ -34,6 +40,7 @@ class TelemetryListener(
   private val spectator: Registry,
   private val clock: Clock,
   private val repository: KeelRepository,
+  private val featureToggles: FeatureToggles,
   threadPoolTaskSchedulers: List<ThreadPoolTaskScheduler>,
   threadPoolTaskExecutors: List<ThreadPoolTaskExecutor>,
 ): DiscoveryActivated() {
@@ -53,6 +60,7 @@ class TelemetryListener(
     PolledMeter
       .using(spectator)
       .withName(DELIVERY_CONFIG_COUNTER_ID)
+      .withDelay(Duration.ofMinutes(1))
       .monitorValue(repository) {
         repository.getDeliveryConfigCount().toDouble()
       }
@@ -61,6 +69,7 @@ class TelemetryListener(
     PolledMeter
       .using(spectator)
       .withName(ENVIRONMENT_COUNTER_ID)
+      .withDelay(Duration.ofMinutes(1))
       .monitorValue(repository) {
         repository.getEnvironmentCount().toDouble()
       }
@@ -69,6 +78,7 @@ class TelemetryListener(
     PolledMeter
       .using(spectator)
       .withName(RESOURCE_COUNTER_ID)
+      .withDelay(Duration.ofMinutes(1))
       .monitorValue(repository) {
         repository.getResourceCount().toDouble()
       }
@@ -82,8 +92,10 @@ class TelemetryListener(
       ThreadPoolMonitor.attach(spectator, executor.threadPoolExecutor, executor.threadNamePrefix + "spring")
     }
 
-    // todo: add coroutines once you can actually monitor them as described here: https://github.com/Kotlin/kotlinx.coroutines/issues/1360
-    // need to monitor Dispatchers.Default, Dispatchers.IO, and Dispatchers.Unconfined
+    if (featureToggles.isEnabled(COROUTINE_MONITORING, true)) {
+      CoroutineDispatcherMonitor.attach(spectator, Dispatchers.Default, "Default")
+      // TODO: monitor Dispatchers.IO
+    }
   }
 
   @EventListener(AboutToBeChecked::class)
