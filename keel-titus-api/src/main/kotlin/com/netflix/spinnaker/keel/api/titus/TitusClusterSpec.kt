@@ -180,7 +180,7 @@ data class TitusServerGroupSpec(
   val tags: Map<String, String>? = null,
   val scaling: TitusScalingSpec? = null,
   val efs: ElasticFileSystem? = null,
-  val platformSidecars: List<TitusServerGroup.PlatformSidecar> = emptyList()
+  val platformSidecars: List<TitusServerGroup.PlatformSidecar>? = null
 )
 
 data class ResourcesSpec(

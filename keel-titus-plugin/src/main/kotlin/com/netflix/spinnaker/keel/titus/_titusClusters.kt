@@ -120,7 +120,7 @@ fun TitusClusterSpec.resolveEfs(region: String? = null) =
   (region?.let { overrides[it] })?.efs ?: defaults.efs
 
 fun TitusClusterSpec.resolvePlatformSidecars(region: String? = null) =
-    this.overrides[region]?.platformSidecars ?: defaults.platformSidecars
+    this.overrides[region]?.platformSidecars ?: defaults.platformSidecars ?: emptyList()
 
 fun TitusClusterSpec.resolveTags(region: String? = null) =
   defaults.tags + (region?.let { overrides[it] }?.tags ?: emptyMap())

@@ -5,13 +5,16 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import com.netflix.spinnaker.keel.api.titus.ResourcesSpec
 import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroup
+import com.netflix.spinnaker.keel.api.titus.TitusServerGroupSpec
 import com.netflix.spinnaker.keel.api.toSimpleLocations
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.test.configuredTestYamlMapper
+import com.netflix.spinnaker.keel.titus.resolve
 import com.netflix.spinnaker.keel.titus.resolvePlatformSidecars
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import strikt.api.expectThat
+import strikt.assertions.hasSize
 import strikt.assertions.isA
 import strikt.assertions.isEqualTo
 
@@ -109,10 +112,40 @@ class TitusClusterSpecDeserializationTests : JUnit5Minutests {
           TitusServerGroup.PlatformSidecar("ps2noargs", "ps2channel")
         )
 
-        expectThat(deliveryConfig.environments.first().resources.first().spec)
+        val spec = deliveryConfig.environments.first().resources.first().spec
+
+        expectThat(spec)
           .isA<TitusClusterSpec>()
-          .get { resolvePlatformSidecars() }
+
+        val resolvedSpecSet = (spec as TitusClusterSpec).resolve()
+        expectThat(resolvedSpecSet)
+          .hasSize(1)
+
+        val resolvedSpec = resolvedSpecSet.first()
+        expectThat(resolvedSpec.platformSidecars)
           .isEqualTo(expectedPlatformSidecars)
+      }
+
+      test("platform sidecars work when overrides are present") {
+        val deliveryConfig = mapper.readValue<SubmittedDeliveryConfig>(manifest)
+
+        val expectedPlatformSidecars: List<TitusServerGroup.PlatformSidecar> = listOf(
+          TitusServerGroup.PlatformSidecar("ps1", "ps1channel", arguments = mapOf("foo" to "bar")),
+          TitusServerGroup.PlatformSidecar("ps2noargs", "ps2channel")
+        )
+
+        val spec = deliveryConfig.environments.first().resources.first().spec as TitusClusterSpec
+        val specWithOverrides = spec.copy(overrides = mapOf("us-west-2" to TitusServerGroupSpec(containerAttributes= mapOf("foo" to "bar"))))
+
+        val resolvedSpecSet = specWithOverrides.resolve()
+        expectThat(resolvedSpecSet)
+          .hasSize(1)
+
+        val resolvedSpec = resolvedSpecSet.first()
+
+        expectThat(resolvedSpec.platformSidecars)
+          .isEqualTo(expectedPlatformSidecars)
+
       }
     }
   }
