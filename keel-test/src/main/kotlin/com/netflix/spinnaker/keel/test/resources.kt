@@ -270,7 +270,7 @@ object DummyResourceHandlerV1 : SimpleResourceHandler<DummyResourceSpec>(emptyLi
   override val eventPublisher: EventPublisher = mockk(relaxed = true)
 
   override suspend fun current(resource: Resource<DummyResourceSpec>): DummyResourceSpec? {
-    TODO("not implemented")
+    return DummyResourceSpec()
   }
 }
 
@@ -284,6 +284,7 @@ object DummyResourceHandlerV2 : SimpleResourceHandler<DummyResourceSpec>(emptyLi
     TODO("not implemented")
   }
 }
+
 
 object DummyLocatableResourceHandler : SimpleResourceHandler<DummyLocatableResourceSpec>(emptyList()) {
   override val supportedKind =

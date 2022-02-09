@@ -316,6 +316,7 @@ internal class DeliveryConfigControllerTests
                   .accept(contentType)
                   .contentType(contentType)
                   .content(configPayload)
+                  .param("force", "true")
                   .header("X-SPINNAKER-USER", "user")
 
                 mvc.perform(request)
@@ -345,6 +346,7 @@ internal class DeliveryConfigControllerTests
                   .accept(contentType)
                   .contentType(contentType)
                   .content(configPayload)
+                  .param("force", "true")
                   .header("X-SPINNAKER-USER", "user")
 
                 mvc.perform(request)
@@ -357,6 +359,32 @@ internal class DeliveryConfigControllerTests
               test("initializing front50 properly") {
                 coVerify(exactly = 1) {
                   front50Cache.updateManagedDeliveryConfig(any<String>(), any(), ManagedDeliveryConfig(importDeliveryConfig = true))
+                }
+              }
+
+            }
+
+            derivedContext<ResultActions>("new apps - without force") {
+              fixture {
+                every { repository.getDeliveryConfigForApplication(deliveryConfig.application) } throws NoDeliveryConfigForApplication(
+                  "no config"
+                )
+                val request = post(endpoint)
+                  .accept(contentType)
+                  .contentType(contentType)
+                  .content(configPayload)
+                  .header("X-SPINNAKER-USER", "user")
+
+                mvc.perform(request)
+              }
+
+              test("the request failed") {
+                andExpect(status().is4xxClientError)
+              }
+
+              test("delivery config is not upserted") {
+                coVerify(exactly = 0) {
+                  repository.upsertDeliveryConfig(ofType<SubmittedDeliveryConfig>())
                 }
               }
 
@@ -385,6 +413,7 @@ internal class DeliveryConfigControllerTests
               .accept(contentType)
               .contentType(contentType)
               .content(invalidPayload)
+              .param("force", "true")
               .header("X-SPINNAKER-USER", "user")
 
             mvc.perform(request)
@@ -410,6 +439,7 @@ internal class DeliveryConfigControllerTests
                  ̟̺̜̙͉Z̤̲̙̙͎̥̝A͎̣͔̙͘L̥̻̗̳̻̳̳͢G͉̖̯͓̞̩̦O̹̹̺!̙͈͎̞̬
                 """.trimIndent()
               )
+              .param("force", "true")
               .header("X-SPINNAKER-USER", "user")
 
             mvc.perform(request)

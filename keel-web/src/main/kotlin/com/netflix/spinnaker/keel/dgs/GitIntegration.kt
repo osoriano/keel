@@ -86,7 +86,7 @@ class GitIntegration(
         front50App.managedDelivery?.manifestPath,
         "refs/heads/$defaultBranch"
       )
-    deliveryConfigUpserter.upsertConfig(deliveryConfig)
+    deliveryConfigUpserter.upsertConfig(deliveryConfig, allowResourceOverwriting = true)
     return true
   }
 

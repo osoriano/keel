@@ -129,7 +129,7 @@ class DeliveryConfigCodeEventListener(
           )
         }
         log.debug("Creating/updating delivery config for application ${app.name} from branch ${event.targetBranch}")
-        val isNew = deliveryConfigUpserter.upsertConfig(deliveryConfig, gitMetadata).second
+        val isNew = deliveryConfigUpserter.upsertConfig(deliveryConfig, gitMetadata, allowResourceOverwriting = true).second
         log.debug("Delivery config for application ${app.name} updated successfully from branch ${event.targetBranch}")
         event.emitCounterMetric(CODE_EVENT_COUNTER, DELIVERY_CONFIG_RETRIEVAL_SUCCESS, app.name)
         if (isNew) {

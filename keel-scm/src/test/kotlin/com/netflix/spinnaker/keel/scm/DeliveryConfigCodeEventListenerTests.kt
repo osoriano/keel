@@ -135,7 +135,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
       } returns deliveryConfig
 
       every {
-        deliveryConfigUpserter.upsertConfig(deliveryConfig, any())
+        deliveryConfigUpserter.upsertConfig(deliveryConfig, any(), any())
       } returns Pair(deliveryConfig.toDeliveryConfig(), false)
 
       every {
@@ -236,7 +236,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
 
           test("the delivery config is created/updated") {
             verify {
-              deliveryConfigUpserter.upsertConfig(deliveryConfig, any())
+              deliveryConfigUpserter.upsertConfig(deliveryConfig, any(), any())
             }
           }
 
@@ -307,7 +307,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
           } returns listOf(migratingApp)
 
           every {
-            deliveryConfigUpserter.upsertConfig(deliveryConfig, any())
+            deliveryConfigUpserter.upsertConfig(deliveryConfig, any(), any())
           } returns Pair(deliveryConfig.toDeliveryConfig(), true)
         }
 
@@ -315,7 +315,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
           subject.handleCodeEvent(prMergedEvent)
 
           verify {
-            deliveryConfigUpserter.upsertConfig(deliveryConfig, any())
+            deliveryConfigUpserter.upsertConfig(deliveryConfig, any(), any())
           }
 
           verify {

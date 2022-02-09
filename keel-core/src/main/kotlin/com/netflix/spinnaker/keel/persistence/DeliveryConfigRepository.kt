@@ -359,3 +359,6 @@ class ConflictingDeliveryConfigsException(application: String) :
 
 class OrphanedResourceException(id: String) :
   SystemException("Resource $id exists without being a part of a delivery config")
+
+class OverwritingExistingResourcesDisallowed(application: String, resource: String) :
+  ConfigurationException("Cannot manage application $application. At least one resource already exists and would be overwritten: $resource")

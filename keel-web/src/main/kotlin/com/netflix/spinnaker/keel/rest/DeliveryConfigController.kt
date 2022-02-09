@@ -72,10 +72,11 @@ class DeliveryConfigController(
   )
   fun upsert(
     stream: InputStream,
-    @RequestHeader("X-SPINNAKER-USER") user: String
+    @RequestHeader("X-SPINNAKER-USER") user: String,
+    @RequestParam(required = false) force: Boolean = false,
   ): DeliveryConfig {
     val rawDeliveryConfig = readRawConfigFromStream(stream)
-    return upsertConfigIfAuthorized(rawDeliveryConfig, user)
+    return upsertConfigIfAuthorized(rawDeliveryConfig, user, force)
   }
 
   @Operation(
@@ -87,16 +88,16 @@ class DeliveryConfigController(
     produces = [APPLICATION_JSON_VALUE, APPLICATION_YAML_VALUE]
   )
   // We had to handle requests from gate separately, because gate was serializing the raw string incorrectly. Therefore, it's wrapped in a simple object
-  fun upsertFromGate(@RequestBody rawConfig: GateRawConfig,  @RequestHeader("X-SPINNAKER-USER") user: String): DeliveryConfig {
-    return upsertConfigIfAuthorized(rawConfig.content, user)
+  fun upsertFromGate(@RequestBody rawConfig: GateRawConfig,  @RequestHeader("X-SPINNAKER-USER") user: String, @RequestParam(required = false) force: Boolean = false): DeliveryConfig {
+    return upsertConfigIfAuthorized(rawConfig.content, user, force)
   }
 
-  private fun upsertConfigIfAuthorized(rawDeliveryConfig: String, user: String): DeliveryConfig {
+  private fun upsertConfigIfAuthorized(rawDeliveryConfig: String, user: String, force: Boolean): DeliveryConfig {
     val submittedDeliveryConfig = yamlMapper.parseDeliveryConfig(rawDeliveryConfig)
     submittedDeliveryConfig.checkPermissions()
     deliveryConfigProcessors.applyAll(submittedDeliveryConfig).let {
       log.debug("Upserting config of app ${submittedDeliveryConfig.application}")
-      val (deliveryConfig, isNew) = deliveryConfigUpserter.upsertConfig(it)
+      val (deliveryConfig, isNew) = deliveryConfigUpserter.upsertConfig(it, allowResourceOverwriting = force)
       if (isNew) {
         // We need to update front50 to enable the git integration to import future delivery config changes
         runBlocking {
@@ -206,7 +207,7 @@ class DeliveryConfigController(
     val deliveryConfig =
       importer.import(repoType, projectKey, repoSlug, manifestPath, ref ?: "refs/heads/master")
     deliveryConfig.checkPermissions()
-    return deliveryConfigUpserter.upsertConfig(deliveryConfig).first
+    return deliveryConfigUpserter.upsertConfig(deliveryConfig, allowResourceOverwriting = true).first
   }
 
   private fun SubmittedDeliveryConfig.checkPermissions() {

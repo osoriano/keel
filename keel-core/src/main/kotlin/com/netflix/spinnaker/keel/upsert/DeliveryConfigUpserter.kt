@@ -4,14 +4,19 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.convertValue
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.ResourceDiffFactory
+import com.netflix.spinnaker.keel.api.ResourceSpec
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
+import com.netflix.spinnaker.keel.api.plugins.ResourceHandler
+import com.netflix.spinnaker.keel.api.plugins.supporting
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.events.DeliveryConfigChangedNotification
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
+import com.netflix.spinnaker.keel.persistence.OverwritingExistingResourcesDisallowed
 import com.netflix.spinnaker.keel.persistence.PersistenceRetry
 import com.netflix.spinnaker.keel.persistence.RetryCategory
 import com.netflix.spinnaker.keel.validators.DeliveryConfigValidator
+import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
@@ -29,7 +34,8 @@ class DeliveryConfigUpserter(
   private val publisher: ApplicationEventPublisher,
   private val springEnv: SpringEnvironment,
   private val persistenceRetry: PersistenceRetry,
-  private val diffFactory: ResourceDiffFactory
+  private val diffFactory: ResourceDiffFactory,
+  private val resourceHandlers: List<ResourceHandler<*, *>>,
 ) {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
@@ -41,12 +47,19 @@ class DeliveryConfigUpserter(
    * This function returns the [DeliveryConfig] as stored in the database, and a boolean indicating if the config was
    * just inserted for the first time.
    */
-  fun upsertConfig(deliveryConfig: SubmittedDeliveryConfig, gitMetadata: GitMetadata? = null): Pair<DeliveryConfig, Boolean>  {
+  fun upsertConfig(deliveryConfig: SubmittedDeliveryConfig, gitMetadata: GitMetadata? = null, allowResourceOverwriting: Boolean): Pair<DeliveryConfig, Boolean>  {
     val existing: DeliveryConfig? = try {
       repository.getDeliveryConfigForApplication(deliveryConfig.application).withoutPreview()
     } catch (e: NoDeliveryConfigForApplication) {
       null
     }
+    if (existing == null && !allowResourceOverwriting) { // We are creating a new app, let's validate that we're not overwriting previously unmanaged resources
+      log.debug("Upserting the config of ${deliveryConfig.application} for the first time. Ensuring that its resources do not exist")
+      runBlocking {
+        ensureResourcesDoNotExist(deliveryConfig)
+      }
+    }
+
     log.info("Validating config for app ${deliveryConfig.application}")
     validator.validate(deliveryConfig)
     log.debug("Upserting delivery config '${deliveryConfig.name}' for app '${deliveryConfig.application}'")
@@ -67,6 +80,18 @@ class DeliveryConfigUpserter(
       log.debug("No config changes for app ${deliveryConfig.application}. Skipping notification")
     }
     return Pair(config.copy(rawConfig = null), isNew)
+  }
+
+  private suspend fun ensureResourcesDoNotExist(deliveryConfig: SubmittedDeliveryConfig) {
+    deliveryConfig.toDeliveryConfig().environments.forEach { env ->
+      env.resources.forEach { resource ->
+        val handler = resourceHandlers.supporting(resource.kind) as? ResourceHandler<ResourceSpec, *>
+        val current = handler?.current(resource)
+        if (current != null) {
+          throw OverwritingExistingResourcesDisallowed(deliveryConfig.application, resource.id)
+        }
+      }
+    }
   }
 
   private fun getGitMetadata(deliveryConfig: SubmittedDeliveryConfig): GitMetadata? {
