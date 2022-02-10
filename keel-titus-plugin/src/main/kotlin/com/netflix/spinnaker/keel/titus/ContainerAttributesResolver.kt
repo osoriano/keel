@@ -48,9 +48,9 @@ class ContainerAttributesResolver(
       regions.forEach { region ->
         var override = overrides[region] ?: TitusServerGroupSpec()
         val subnet = defaults.getSubnetValue(account, region)
-        if (subnet != null) {
-          // only add subnet pair if we have an entry for the subnet
-          val subnetDefault = mapOf(defaults.getSubnetKey() to subnet)
+        if (subnet != null) { // only add subnet pair if we have an entry for the subnet
+          val sortedSubnet = subnet.split(",").sorted().joinToString(",") // We sort to keep the diff stable
+          val subnetDefault = mapOf(defaults.getSubnetKey() to sortedSubnet)
           val containerAttributes = override.containerAttributes ?: mutableMapOf()
           override = if (!containerAttributes.containsKey(defaults.getSubnetKey())) {
             override.copy(containerAttributes = containerAttributes + subnetDefault)

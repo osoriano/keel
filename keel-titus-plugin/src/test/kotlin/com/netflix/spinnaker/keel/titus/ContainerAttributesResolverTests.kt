@@ -28,8 +28,9 @@ internal class ContainerAttributesResolverTests : JUnit5Minutests {
 
   val accountKey = "titus.account"
   val subnetKey = "titus.subnet"
-  val eastSubnets = "subnet-east-1, subnet-east-2"
-  val westSubnets = "subnet-west-3, subnet-west-4"
+  val westSubnets = "subnet-west-4,subnet-west-3"
+  val sortedWestSubnets = "subnet-west-3,subnet-west-4"
+  val eastSubnets = "subnet-east-1,subnet-east-2"
   val account = "titus"
   val awsAccountId = "1234"
   val ipv6key = "titus.ipv6"
@@ -155,7 +156,7 @@ internal class ContainerAttributesResolverTests : JUnit5Minutests {
       that(resolvedEast[accountKey]).isEqualTo(awsAccountId)
       that(resolvedEast[subnetKey]).isEqualTo(eastSubnets)
       that(resolvedWest[accountKey]).isEqualTo(awsAccountId)
-      that(resolvedWest[subnetKey]).isEqualTo(westSubnets)
+      that(resolvedWest[subnetKey]).isEqualTo(sortedWestSubnets)
     }
   }
 }
