@@ -21,9 +21,7 @@ import com.netflix.spinnaker.keel.events.VerificationBlockedActuation
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.rollout.FeatureRolloutAttempted
 import com.netflix.spinnaker.keel.rollout.FeatureRolloutFailed
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExecutorCoroutineDispatcher
 import kotlinx.coroutines.scheduling.CoroutineDispatcherMonitor
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
@@ -32,7 +30,8 @@ import org.springframework.stereotype.Component
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.atomic.AtomicReference
 
 @Component
@@ -43,6 +42,7 @@ class TelemetryListener(
   private val featureToggles: FeatureToggles,
   threadPoolTaskSchedulers: List<ThreadPoolTaskScheduler>,
   threadPoolTaskExecutors: List<ThreadPoolTaskExecutor>,
+  coroutineExecutor: ExecutorService
 ): DiscoveryActivated() {
   private val lastResourceCheck: AtomicReference<Instant> =
     createDriftGauge(RESOURCE_CHECK_DRIFT_GAUGE)
@@ -92,9 +92,14 @@ class TelemetryListener(
       ThreadPoolMonitor.attach(spectator, executor.threadPoolExecutor, executor.threadNamePrefix + "spring")
     }
 
+    if (coroutineExecutor is ThreadPoolExecutor) {
+      ThreadPoolMonitor.attach(spectator, coroutineExecutor, "coroutines-thread-pool")
+    }
+
     if (featureToggles.isEnabled(COROUTINE_MONITORING, true)) {
       CoroutineDispatcherMonitor.attach(spectator, Dispatchers.Default, "Default")
-      // TODO: monitor Dispatchers.IO
+      // Note: Dispatchers.IO is indirectly monitored via the above as it shares the same singleton instance
+      // of the default coroutine scheduler under the covers.
     }
   }
 

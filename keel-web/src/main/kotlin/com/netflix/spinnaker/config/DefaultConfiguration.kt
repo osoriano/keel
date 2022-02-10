@@ -98,7 +98,7 @@ class DefaultConfiguration(
       .apply { order = HIGHEST_PRECEDENCE }
 
   @Bean
-  fun taskSchedulerCustomizer(@Value("\${keel.scheduler.pool-size:10}") poolSize: Int): TaskSchedulerCustomizer =
+  fun taskSchedulerCustomizer(@Value("\${keel.scheduler.thread-pool-size:10}") poolSize: Int): TaskSchedulerCustomizer =
     TaskSchedulerCustomizer { scheduler ->
       scheduler.poolSize = poolSize
       scheduler.threadNamePrefix = "scheduler-"

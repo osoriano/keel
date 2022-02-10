@@ -3,6 +3,7 @@ package com.netflix.spinnaker.keel.actuation
 import com.netflix.spectator.api.BasicTag
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.config.ArtifactCheckConfig
+import com.netflix.spinnaker.config.CheckSchedulerProperties
 import com.netflix.spinnaker.config.EnvironmentCheckConfig
 import com.netflix.spinnaker.config.EnvironmentDeletionConfig
 import com.netflix.spinnaker.config.EnvironmentVerificationConfig
@@ -31,8 +32,9 @@ import com.netflix.spinnaker.keel.telemetry.VerificationTimedOut
 import com.netflix.spinnaker.keel.telemetry.recordDurationPercentile
 import com.netflix.spinnaker.keel.verification.VerificationRunner
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.supervisorScope
@@ -45,6 +47,7 @@ import org.springframework.stereotype.Component
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
+import java.util.concurrent.ExecutorService
 import kotlin.coroutines.CoroutineContext
 import kotlin.math.max
 
@@ -54,7 +57,8 @@ import kotlin.math.max
   EnvironmentVerificationConfig::class,
   PostDeployActionsConfig::class,
   EnvironmentCheckConfig::class,
-  ArtifactCheckConfig::class
+  ArtifactCheckConfig::class,
+  CheckSchedulerProperties::class
 )
 @Component
 class CheckScheduler(
@@ -76,9 +80,15 @@ class CheckScheduler(
   private val agentLockRepository: AgentLockRepository,
   private val clock: Clock,
   private val springEnv: Environment,
-  private val spectator: Registry
+  private val spectator: Registry,
+  coroutineExecutor: ExecutorService,
+  config: CheckSchedulerProperties
   ) : DiscoveryActivated(), CoroutineScope {
-  override val coroutineContext: CoroutineContext = Dispatchers.IO
+
+  @OptIn(ExperimentalCoroutinesApi::class)
+  override val coroutineContext: CoroutineContext = coroutineExecutor
+    .asCoroutineDispatcher()
+    .limitedParallelism(config.coroutineMaxParallelism)
 
   // Used for resources, environments, and artifacts.
   private val checkMinAge: Duration

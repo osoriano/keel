@@ -2,6 +2,7 @@ package com.netflix.spinnaker.keel.actuation
 
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.config.ArtifactCheckConfig
+import com.netflix.spinnaker.config.CheckSchedulerProperties
 import com.netflix.spinnaker.config.EnvironmentCheckConfig
 import com.netflix.spinnaker.config.EnvironmentDeletionConfig
 import com.netflix.spinnaker.config.EnvironmentVerificationConfig
@@ -37,6 +38,7 @@ import io.mockk.runs
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.core.env.Environment as SpringEnvironment
 import java.time.Duration
+import java.util.concurrent.Executors
 
 internal class CheckSchedulerTests : JUnit5Minutests {
 
@@ -69,6 +71,7 @@ internal class CheckSchedulerTests : JUnit5Minutests {
     it.minAgeDuration = checkMinAge
     it.batchSize = 2
   }
+  private val config = CheckSchedulerProperties()
 
   private val springEnv: SpringEnvironment = mockk(relaxed = true) {
     every {
@@ -160,7 +163,9 @@ internal class CheckSchedulerTests : JUnit5Minutests {
         verificationRunner = verificationRunner,
         clock = MutableClock(),
         springEnv = springEnv,
-        spectator = registry
+        spectator = registry,
+        coroutineExecutor = Executors.newFixedThreadPool(5),
+        config = config
       )
     }
 

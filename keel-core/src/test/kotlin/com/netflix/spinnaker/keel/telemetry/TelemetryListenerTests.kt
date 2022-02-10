@@ -34,6 +34,7 @@ import strikt.assertions.any
 import strikt.assertions.isEqualTo
 import strikt.assertions.one
 import java.time.Duration
+import java.util.concurrent.Executors
 
 internal class TelemetryListenerTests : JUnit5Minutests {
   private val repository = mockk<KeelRepository>()
@@ -50,7 +51,7 @@ internal class TelemetryListenerTests : JUnit5Minutests {
 
   fun tests() = rootContext<TelemetryListener> {
     fixture {
-      TelemetryListener(registry, clock, repository, featureToggles, emptyList(), emptyList())
+      TelemetryListener(registry, clock, repository, featureToggles, emptyList(), emptyList(), Executors.newSingleThreadExecutor())
     }
 
     before {
