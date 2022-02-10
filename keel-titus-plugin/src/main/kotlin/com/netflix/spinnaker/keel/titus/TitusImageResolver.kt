@@ -5,6 +5,7 @@ import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.titus.TITUS_CLUSTER_V1
 import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
+import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.docker.ContainerProvider
 import com.netflix.spinnaker.keel.docker.DockerImageResolver
@@ -26,6 +27,7 @@ class TitusImageResolver(
   override val repository: KeelRepository,
   private val clock: Clock,
   private val cloudDriverService: CloudDriverService,
+  private val cloudDriverCache: CloudDriverCache,
   private val titusRegistryService: TitusRegistryService,
   override val featureToggles: FeatureToggles
 ) : DockerImageResolver<TitusClusterSpec>(
@@ -72,7 +74,8 @@ class TitusImageResolver(
         if (publishedArtifact?.createdAt?.isBefore(clock.instant() - TITUS_REGISTRY_IMAGE_TTL) == true) {
           throw ImageTooOld(artifact.name, tag, publishedArtifact.createdAt!!)
         } else {
-          throw NoDigestFound(artifact.name, tag) // sha should be the same in all accounts for titus
+          val registry = cloudDriverCache.getRegistryForTitusAccount(titusAccount)
+          throw NoDigestFound(artifact.name, tag, registry) // sha should be the same in all accounts for titus
         }
       }
 

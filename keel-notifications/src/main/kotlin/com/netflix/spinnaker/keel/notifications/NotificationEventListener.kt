@@ -660,7 +660,7 @@ class NotificationEventListener(
     failureDetails: ResourceTaskFailed? = null
   ) {
     val environmentsLink = "${baseUrlConfig.baseUrl}/#/applications/${config.application}/environments/overview"
-    val version = publishedArtifact.commitHash ?: publishedArtifact.version
+    val version = publishedArtifact.shortCommitHash ?: publishedArtifact.version
     val markdownComment =
       config.resourcesUsing(publishedArtifact.reference, environment.name)
         .joinToString("\n\n") { resource ->
