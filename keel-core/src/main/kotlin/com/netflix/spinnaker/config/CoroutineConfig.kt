@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.config
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.asCoroutineDispatcher
 import org.springframework.boot.context.properties.ConfigurationProperties
@@ -24,8 +25,11 @@ class CoroutineConfig {
 
   @Bean
   fun coroutineDispatcher(config: CoroutineProperties, coroutineExecutor: ExecutorService) =
-    @OptIn(ExperimentalCoroutinesApi::class)
-    coroutineExecutor
-      .asCoroutineDispatcher()
-      .limitedParallelism(config.maxParallelism)
+    Dispatchers.IO
+    // Example of using a custom thread pool as a dispatcher. In an experiment with threadPoolSize = 32 and
+    // maxParallelism = 128, performance was slightly worse than with Dispatchers.IO
+    // @OptIn(ExperimentalCoroutinesApi::class)
+    // coroutineExecutor
+    //  .asCoroutineDispatcher()
+    //  .limitedParallelism(config.maxParallelism)
 }
