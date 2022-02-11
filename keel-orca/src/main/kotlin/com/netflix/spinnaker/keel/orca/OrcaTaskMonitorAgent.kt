@@ -13,7 +13,8 @@ import com.netflix.spinnaker.keel.persistence.TaskTrackingRepository
 import com.netflix.spinnaker.keel.retrofit.isNotFound
 import com.netflix.spinnaker.keel.scheduled.ScheduledAgent
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
-import kotlinx.coroutines.Dispatchers.IO
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
@@ -36,7 +37,8 @@ class OrcaTaskMonitorAgent(
   private val resourceRepository: ResourceRepository,
   private val orcaService: OrcaService,
   private val publisher: ApplicationEventPublisher,
-  private val clock: Clock
+  private val clock: Clock,
+  private val coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ScheduledAgent {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
@@ -57,7 +59,7 @@ class OrcaTaskMonitorAgent(
     coroutineScope {
       taskTrackingRepository.getIncompleteTasks().associateWith {
         // when we get not found exception from orca, we shouldn't try to get the status anymore
-        withContext(IO) {
+        withContext(coroutineDispatcher) {
           try {
             orcaService.getOrchestrationExecution(it.id, DEFAULT_SERVICE_ACCOUNT)
           } catch (e: HttpException) {

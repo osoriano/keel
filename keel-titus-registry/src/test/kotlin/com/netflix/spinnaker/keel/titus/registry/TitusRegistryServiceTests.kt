@@ -12,6 +12,7 @@ import io.mockk.coEvery as every
 import io.mockk.coVerify as verify
 import io.mockk.mockk
 import io.mockk.slot
+import kotlinx.coroutines.runBlocking
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.RestHighLevelClient
@@ -91,7 +92,7 @@ internal class TitusRegistryServiceTests {
 
   @Test
   fun `uses ElasticSearch when optimized Docker flow is enabled`() {
-    subject.findImages(image, titusAccount, tag, digest)
+    runBlocking { subject.findImages(image, titusAccount, tag, digest) }
 
     verify {
       elasticSearchClient.search(any())
@@ -108,7 +109,7 @@ internal class TitusRegistryServiceTests {
       searchHits.hits
     } returns emptyArray()
 
-    subject.findImages(image, titusAccount, tag, digest)
+    runBlocking { subject.findImages(image, titusAccount, tag, digest) }
 
     verify {
       elasticSearchClient.search(any())
@@ -125,7 +126,7 @@ internal class TitusRegistryServiceTests {
       featureToggles.isEnabled(OPTIMIZED_DOCKER_FLOW)
     } returns false
 
-    subject.findImages(image, titusAccount, tag, digest)
+    runBlocking { subject.findImages(image, titusAccount, tag, digest) }
 
     verify {
       cloudDriverService.findDockerImages(registry, image, tag, includeDetails = true)
@@ -138,7 +139,7 @@ internal class TitusRegistryServiceTests {
 
   @Test
   fun `correctly parses ElasticSearch results`() {
-    val images = subject.findImages(image, titusAccount, tag, digest)
+    val images = runBlocking { subject.findImages(image, titusAccount, tag, digest) }
     expectThat(images)
       .first().isEqualTo(
         DockerImage(
@@ -158,7 +159,7 @@ internal class TitusRegistryServiceTests {
 
   @Test
   fun `dedupes images from ElasticSearch results`() {
-    val images = subject.findImages(image, titusAccount, tag, digest)
+    val images = runBlocking { subject.findImages(image, titusAccount, tag, digest) }
     expectThat(searchHits.hits.size).isEqualTo(2)
     expectThat(images).hasSize(1)
   }
@@ -166,7 +167,7 @@ internal class TitusRegistryServiceTests {
   @ParameterizedTest(name = "titusAccount: {0}, tag: {1}, digest: {2}")
   @MethodSource("testParameters")
   fun `includes non-null parameters in the ElasticSearch query`(titusAccount: String?, tag: String?, digest: String?) {
-    subject.findImages(image, titusAccount, tag, digest)
+    runBlocking { subject.findImages(image, titusAccount, tag, digest) }
 
     val searchRequest = slot<SearchRequest>()
     verify {
@@ -189,7 +190,7 @@ internal class TitusRegistryServiceTests {
 
   @Test
   fun `sorts ElasticSearch results by descending order of date`() {
-    subject.findImages(image, titusAccount, tag, digest)
+    runBlocking { subject.findImages(image, titusAccount, tag, digest) }
 
     val searchRequest = slot<SearchRequest>()
     verify {

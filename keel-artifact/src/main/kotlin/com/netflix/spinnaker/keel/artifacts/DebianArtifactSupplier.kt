@@ -10,10 +10,12 @@ import com.netflix.spinnaker.keel.api.artifacts.SortingStrategy
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
 import com.netflix.spinnaker.keel.api.support.EventPublisher
-import com.netflix.spinnaker.keel.coroutines.runWithIoContext
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactService
 import com.netflix.spinnaker.keel.parseAppVersionOrNull
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.springframework.core.env.Environment
 import org.springframework.stereotype.Component
 
@@ -28,22 +30,23 @@ class DebianArtifactSupplier(
   override val eventPublisher: EventPublisher,
   private val artifactService: ArtifactService,
   override val artifactMetadataService: ArtifactMetadataService,
-  private val springEnv: Environment
+  private val springEnv: Environment,
+  private val coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : BaseArtifactSupplier<DebianArtifact, DebianVersionSortingStrategy>(artifactMetadataService) {
   override val supportedArtifact = SupportedArtifact("deb", DebianArtifact::class.java)
 
   private val forceSortByVersion: Boolean
     get() = springEnv.getProperty("keel.artifacts.debian.forceSortByVersion", Boolean::class.java, false)
 
-  override fun getLatestArtifact(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact): PublishedArtifact? =
+  override suspend fun getLatestArtifact(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact): PublishedArtifact? =
     getLatestArtifacts(deliveryConfig, artifact, 1).firstOrNull()
 
-  override fun getLatestArtifacts(
+  override suspend fun getLatestArtifacts(
     deliveryConfig: DeliveryConfig,
     artifact: DeliveryArtifact,
     limit: Int
   ): List<PublishedArtifact> =
-    runWithIoContext {
+    withContext(coroutineDispatcher) {
       log.info("Fetching latest $limit debian versions for $artifact")
       val versions = artifactService.getVersions(artifact.name, artifact.statusesForQuery, DEBIAN)
 

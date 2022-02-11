@@ -52,15 +52,13 @@ import com.netflix.spinnaker.keel.titus.resolve
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import io.mockk.clearAllMocks
-import io.mockk.coEvery
+import io.mockk.coEvery as every
 import io.mockk.confirmVerified
-import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
 import org.springframework.core.env.ConfigurableEnvironment
 import strikt.api.expect
 import strikt.api.expectThat
-import strikt.api.expectThrows
 import strikt.assertions.all
 import strikt.assertions.containsExactly
 import strikt.assertions.containsKey
@@ -214,9 +212,9 @@ internal class TitusClusterExportTests : JUnit5Minutests {
         every { cloudDriverCache.credentialBy(titusAccount) } returns titusAccountCredential
         every { cloudDriverCache.getRegistryForTitusAccount(any()) } returns "testregistry"
       }
-      coEvery { orcaService.orchestrate(resource.serviceAccount, any(), any()) } returns TaskRefResponse("/tasks/${UUID.randomUUID()}")
+      every { orcaService.orchestrate(resource.serviceAccount, any(), any()) } returns TaskRefResponse("/tasks/${UUID.randomUUID()}")
       every { repository.environmentFor(any()) } returns Environment("test")
-      coEvery {
+      every {
         clusterExportHelper.discoverDeploymentStrategy("titus", "titustest", "keel", any())
       } returns RedBlack()
 
@@ -232,7 +230,7 @@ internal class TitusClusterExportTests : JUnit5Minutests {
 
     context("scaling policies are exported") {
       before {
-        coEvery { cloudDriverService.titusActiveServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast.copy(
+        every { cloudDriverService.titusActiveServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast.copy(
           scalingPolicies = listOf(
             TitusScaling(
             id = "123-445",
@@ -256,7 +254,7 @@ internal class TitusClusterExportTests : JUnit5Minutests {
           )
           )
         )
-        coEvery { cloudDriverService.titusActiveServerGroup(any(), "us-west-2") } returns activeServerGroupResponseWest.copy(
+        every { cloudDriverService.titusActiveServerGroup(any(), "us-west-2") } returns activeServerGroupResponseWest.copy(
           scalingPolicies = listOf(
             TitusScaling(
               id = "123-445",
@@ -280,7 +278,7 @@ internal class TitusClusterExportTests : JUnit5Minutests {
             )
           )
         )
-        coEvery { cloudDriverService.findDockerImages("testregistry", (spec.container as DigestProvider).repository()) } returns images
+        every { cloudDriverService.findDockerImages("testregistry", (spec.container as DigestProvider).repository()) } returns images
         every { cloudDriverCache.credentialBy(titusAccount) } returns titusAccountCredential
       }
 
@@ -294,9 +292,9 @@ internal class TitusClusterExportTests : JUnit5Minutests {
 
     context("export without overrides") {
       before {
-        coEvery { cloudDriverService.titusActiveServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast
-        coEvery { cloudDriverService.titusActiveServerGroup(any(), "us-west-2") } returns activeServerGroupResponseWest
-        coEvery { cloudDriverService.findDockerImages("testregistry", (spec.container as DigestProvider).repository()) } returns images
+        every { cloudDriverService.titusActiveServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast
+        every { cloudDriverService.titusActiveServerGroup(any(), "us-west-2") } returns activeServerGroupResponseWest
+        every { cloudDriverService.findDockerImages("testregistry", (spec.container as DigestProvider).repository()) } returns images
         every { cloudDriverCache.credentialBy(titusAccount) } returns titusAccountCredential
       }
 
@@ -331,7 +329,7 @@ internal class TitusClusterExportTests : JUnit5Minutests {
           before {
             every { titusRegistryService.findImages(any(), any(), any(), any(), any()) } returns images
 
-            coEvery {
+            every {
               artifactBridge.getArtifactMetadata(any(), any())
             } returns ArtifactMetadata(BuildMetadata(id = 10), GitMetadata(commit = " commit"))
           }
@@ -351,7 +349,7 @@ internal class TitusClusterExportTests : JUnit5Minutests {
               titusRegistryService.findImages(any(), any(), any(), any(), any())
             } returns branchJobShaImages
 
-            coEvery {
+            every {
               artifactBridge.getArtifactMetadata(any(), any())
             } returns ArtifactMetadata(BuildMetadata(id = 10), GitMetadata(commit = " commit"))
           }
@@ -372,7 +370,7 @@ internal class TitusClusterExportTests : JUnit5Minutests {
               titusRegistryService.findImages(any(), any(), any(), any(), any())
             } returns imagesWithArtifactInfo
 
-            coEvery {
+            every {
               artifactBridge.getArtifactMetadata(any(), any())
             } returns ArtifactMetadata(BuildMetadata(id = 10), GitMetadata(commit = " commit"))
           }
@@ -391,16 +389,16 @@ internal class TitusClusterExportTests : JUnit5Minutests {
 
     context("export with overrides") {
       before {
-        coEvery { cloudDriverService.titusActiveServerGroup(any(), "us-east-1") } returns
+        every { cloudDriverService.titusActiveServerGroup(any(), "us-east-1") } returns
           activeServerGroupResponseEast
             .withDifferentEnv()
             .withDifferentEntryPoint()
             .withDifferentResources()
-        coEvery { cloudDriverService.titusActiveServerGroup(any(), "us-west-2") } returns
+        every { cloudDriverService.titusActiveServerGroup(any(), "us-west-2") } returns
           activeServerGroupResponseWest
             .withDoubleCapacity()
 
-        coEvery {  titusRegistryService.findImages("testregistry", container.repository()) } returns images
+        every {  titusRegistryService.findImages("testregistry", container.repository()) } returns images
         every { cloudDriverCache.credentialBy(titusAccount) } returns titusAccountCredential
       }
 

@@ -13,7 +13,8 @@ import com.netflix.spinnaker.keel.rollout.RolloutStatus.IN_PROGRESS
 import com.netflix.spinnaker.keel.rollout.RolloutStatus.NOT_STARTED
 import com.netflix.spinnaker.keel.rollout.RolloutStatus.SKIPPED
 import com.netflix.spinnaker.keel.rollout.RolloutStatus.SUCCESSFUL
-import kotlinx.coroutines.Dispatchers.IO
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
@@ -34,7 +35,8 @@ abstract class RolloutAwareResolver<SPEC : ResourceSpec, RESOLVED : Any>(
   private val dependentEnvironmentFinder: DependentEnvironmentFinder,
   private val resourceToCurrentState: suspend (Resource<SPEC>) -> RESOLVED,
   private val featureRolloutRepository: FeatureRolloutRepository,
-  private val eventPublisher: EventPublisher
+  private val eventPublisher: EventPublisher,
+  private val coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : Resolver<SPEC> {
 
   /**
@@ -71,7 +73,7 @@ abstract class RolloutAwareResolver<SPEC : ResourceSpec, RESOLVED : Any>(
 
   override fun invoke(resource: Resource<SPEC>): Resource<SPEC> {
     val currentState by lazy {
-      runBlocking(IO) {
+      runBlocking(coroutineDispatcher) {
         resourceToCurrentState(resource)
       }
     }
@@ -135,7 +137,7 @@ abstract class RolloutAwareResolver<SPEC : ResourceSpec, RESOLVED : Any>(
     !currentState.exists
 
   private fun isRolledOutToPreviousEnvironments(resource: Resource<SPEC>): Boolean =
-    runBlocking(IO) {
+    runBlocking(coroutineDispatcher) {
       dependentEnvironmentFinder.resourcesOfSameKindInDependentEnvironments(resource)
         .map { async { resourceToCurrentState(it) } }
         .awaitAll()

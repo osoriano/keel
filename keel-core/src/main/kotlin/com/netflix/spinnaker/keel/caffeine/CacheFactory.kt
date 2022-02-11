@@ -9,7 +9,7 @@ import io.micrometer.core.instrument.binder.cache.CaffeineCacheMetrics
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers.IO
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.future.future
@@ -26,7 +26,8 @@ import java.util.function.Function
 @EnableConfigurationProperties(CacheProperties::class)
 class CacheFactory(
   private val meterRegistry: MeterRegistry,
-  private val cacheProperties: CacheProperties
+  private val cacheProperties: CacheProperties,
+  private val coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) {
   /**
    * Builds an instrumented cache configured with values from [cacheProperties] or the supplied
@@ -36,7 +37,7 @@ class CacheFactory(
     cacheName: String,
     defaultMaximumSize: Long = 1000,
     defaultExpireAfterWrite: Duration = Duration.ofHours(1),
-    dispatcher: CoroutineDispatcher = IO
+    dispatcher: CoroutineDispatcher = coroutineDispatcher
   ): AsyncCache<K, V> =
     builder(cacheName, defaultMaximumSize, defaultExpireAfterWrite, dispatcher)
       .buildAsync<K, V>()
@@ -50,7 +51,7 @@ class CacheFactory(
     cacheName: String,
     defaultMaximumSize: Long = 1000,
     defaultExpireAfterWrite: Duration = Duration.ofHours(1),
-    dispatcher: CoroutineDispatcher = IO,
+    dispatcher: CoroutineDispatcher = coroutineDispatcher,
     loader: suspend (K) -> V?
   ): AsyncLoadingCache<K, V> =
     builder(cacheName, defaultMaximumSize, defaultExpireAfterWrite, dispatcher)
@@ -67,7 +68,7 @@ class CacheFactory(
     cacheName: String,
     defaultMaximumSize: Long = 1000,
     defaultExpireAfterWrite: Duration = Duration.ofHours(1),
-    dispatcher: CoroutineDispatcher = IO,
+    dispatcher: CoroutineDispatcher = coroutineDispatcher,
     loader: suspend () -> Map<K, V>
   ): AsyncLoadingCache<K, V> =
     builder(cacheName, defaultMaximumSize, defaultExpireAfterWrite, dispatcher)

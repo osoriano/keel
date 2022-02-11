@@ -10,9 +10,11 @@ import com.netflix.spinnaker.keel.api.artifacts.SortingStrategy
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
 import com.netflix.spinnaker.keel.api.support.EventPublisher
-import com.netflix.spinnaker.keel.coroutines.runWithIoContext
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactService
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.springframework.stereotype.Component
 
 /**
@@ -25,20 +27,21 @@ import org.springframework.stereotype.Component
 class NpmArtifactSupplier(
   override val eventPublisher: EventPublisher,
   private val artifactService: ArtifactService,
-  override val artifactMetadataService: ArtifactMetadataService
+  override val artifactMetadataService: ArtifactMetadataService,
+  private val coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : BaseArtifactSupplier<NpmArtifact, NpmVersionSortingStrategy>(artifactMetadataService) {
 
   override val supportedArtifact = SupportedArtifact(NPM, NpmArtifact::class.java)
 
-  override fun getLatestArtifact(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact): PublishedArtifact? =
+  override suspend fun getLatestArtifact(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact): PublishedArtifact? =
     getLatestArtifacts(deliveryConfig, artifact, 1).firstOrNull()
 
-  override fun getLatestArtifacts(
+  override suspend fun getLatestArtifacts(
     deliveryConfig: DeliveryConfig,
     artifact: DeliveryArtifact,
     limit: Int
   ): List<PublishedArtifact> =
-    runWithIoContext {
+    withContext(coroutineDispatcher) {
       artifactService
         .getVersions(artifact.nameForQuery, artifact.statusesForQuery, NPM)
         // FIXME: this is making N calls to fill in data for each version so we can sort.

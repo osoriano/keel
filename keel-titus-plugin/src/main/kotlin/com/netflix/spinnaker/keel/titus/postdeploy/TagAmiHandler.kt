@@ -20,6 +20,7 @@ import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.titus.verification.OrcaLinkStrategy
 import com.netflix.spinnaker.keel.titus.verification.TASKS
 import com.netflix.spinnaker.keel.verification.ImageFinder
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -44,7 +45,8 @@ class TagAmiHandler(
   private val orca: OrcaService,
   private val spectator: Registry,
   private val baseUrlConfig: BaseUrlConfig,
-  private val imageFinder: ImageFinder
+  private val imageFinder: ImageFinder,
+  private val coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : PostDeployActionHandler<TagAmiPostDeployAction> {
 
   private val TAG_AMI_JOB_LAUNCHED = "keel.image.tag"
@@ -114,7 +116,7 @@ class TagAmiHandler(
       return oldState.copy(status = FAIL, endedAt = Instant.now())
     }
 
-    val response = withContext(Dispatchers.IO) {
+    val response = withContext(coroutineDispatcher) {
       orca.getOrchestrationExecution(taskId)
     }
 

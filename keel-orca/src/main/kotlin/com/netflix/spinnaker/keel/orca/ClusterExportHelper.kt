@@ -5,7 +5,8 @@ import com.netflix.spinnaker.keel.api.Highlander
 import com.netflix.spinnaker.keel.api.RedBlack
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.retrofit.isNotFound
-import kotlinx.coroutines.Dispatchers.IO
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -19,7 +20,8 @@ import java.time.Duration
 @Component
 class ClusterExportHelper(
   private val cloudDriverService: CloudDriverService,
-  private val orcaService: OrcaService
+  private val orcaService: OrcaService,
+  private val coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) {
   val log: Logger by lazy { LoggerFactory.getLogger(javaClass) }
 
@@ -35,7 +37,7 @@ class ClusterExportHelper(
     serverGroupName: String
   ): ClusterDeployStrategy? {
     return kotlinx.coroutines.coroutineScope {
-      val entityTags = withContext(IO) {
+      val entityTags = withContext(coroutineDispatcher) {
         log.debug(
           "Looking for entity tags on server group $serverGroupName in application $application, " +
             "account $account in search of pipeline/task correlation."
@@ -74,7 +76,7 @@ class ClusterExportHelper(
 
       val executionType = spinnakerMetadata["executionType"].toString()
       val executionId = spinnakerMetadata["executionId"].toString()
-      val execution = withContext(IO) {
+      val execution = withContext(coroutineDispatcher) {
         try {
           when (executionType) {
             "orchestration" -> orcaService.getOrchestrationExecution(executionId)

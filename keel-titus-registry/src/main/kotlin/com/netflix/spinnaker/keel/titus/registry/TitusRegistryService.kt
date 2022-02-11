@@ -8,8 +8,10 @@ import com.netflix.spinnaker.config.RegistryCacheProperties
 import com.netflix.spinnaker.keel.api.artifacts.DockerImage
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
-import com.netflix.spinnaker.keel.coroutines.runWithIoContext
 import com.netflix.spinnaker.kork.exceptions.IntegrationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.client.RestHighLevelClient
 import org.elasticsearch.index.query.QueryBuilders
@@ -33,7 +35,8 @@ class TitusRegistryService(
   private val cloudDriverCache: CloudDriverCache,
   private val cloudDriverService: CloudDriverService,
   private val featureToggles: FeatureToggles,
-  private val objectMapper: ObjectMapper
+  private val objectMapper: ObjectMapper,
+  private val coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) {
   companion object {
     private val log: Logger by lazy { LoggerFactory.getLogger(TitusRegistryService::class.java) }
@@ -47,7 +50,7 @@ class TitusRegistryService(
    * toggle is enabled, and fallback to calling [cloudDriverService] if the results from ElasticSearch are empty,
    * or if the toggle is disabled.
    */
-  fun findImages(
+  suspend fun findImages(
     image: String,
     titusAccount: String? = null,
     tag: String? = null,
@@ -63,7 +66,7 @@ class TitusRegistryService(
       // fallback to CloudDriver if the optimized flow is off or ElasticSearch returns no results
       val registry = titusAccount?.let { cloudDriverCache.getRegistryForTitusAccount(it) } ?: "*"
       log.debug("Searching CloudDriver image cache (repository: $image, tag: $tag, registry: $registry)")
-      runWithIoContext {
+      withContext(coroutineDispatcher) {
         cloudDriverService.findDockerImages(
           registry = registry,
           repository = image,

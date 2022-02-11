@@ -34,6 +34,7 @@ import com.netflix.spinnaker.keel.igor.artifact.ArtifactService
 import com.netflix.spinnaker.keel.orca.ClusterExportHelper
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.persistence.FeatureRolloutRepository
+import kotlinx.coroutines.CoroutineDispatcher
 import org.springframework.beans.factory.getBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -135,7 +136,8 @@ class EC2Config {
     dependentEnvironmentFinder: DependentEnvironmentFinder,
     applicationContext: ApplicationContext,
     featureRolloutRepository: FeatureRolloutRepository,
-    eventPublisher: EventPublisher
+    eventPublisher: EventPublisher,
+    coroutineDispatcher: CoroutineDispatcher
   ): InstanceMetadataServiceResolver {
     // This is necessary to avoid a circular bean dependency as Resolver instances (like we're creating here)
     // get wired into ResourceHandlers, but here the Resolver needs a capability provided by the ResourceHandler.
@@ -147,7 +149,8 @@ class EC2Config {
       // created right away, which will blow up with a circular dependency
       { clusterHandler.current(it) },
       featureRolloutRepository,
-      eventPublisher
+      eventPublisher,
+      coroutineDispatcher
     )
   }
 }

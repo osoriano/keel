@@ -31,6 +31,7 @@ class DockerArtifactSupplier(
 ) : BaseArtifactSupplier<DockerArtifact, DockerVersionSortingStrategy>(artifactMetadataService) {
   override val supportedArtifact = SupportedArtifact("docker", DockerArtifact::class.java)
 
+<<<<<<< 9ac83e61819e44a21ac7b7d1e2c5b00e4250a8b0
 <<<<<<< 4c76b4ad2323773a3a73e2741e3695005f0c66c0
 <<<<<<< 9a74071d2401ab3654fed604310d90eb11dd94ff
   private fun findArtifactVersions(artifact: DeliveryArtifact, version: String? = null): List<PublishedArtifact> {
@@ -98,6 +99,9 @@ class DockerArtifactSupplier(
     //  so we search by image name only, i.e. we look in all accounts/registries.
 =======
   private fun findArtifactVersions(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact, limit: Int): List<PublishedArtifact> {
+=======
+  private suspend fun findArtifactVersions(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact, limit: Int): List<PublishedArtifact> {
+>>>>>>> 77a38e89aaf841a05240af60a0db0d0ad1aa3c91
     // TODO: We currently search by image name only, i.e. we look in all accounts/registries and regions, but
     //  we could use the info about clusters using the artifacts to narrow down.
 >>>>>>> c449b3aefa1ace8696be7eab7682911f67e3ad94
@@ -126,10 +130,10 @@ class DockerArtifactSupplier(
     }
   }
 
-  override fun getLatestArtifact(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact): PublishedArtifact? =
+  override suspend fun getLatestArtifact(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact): PublishedArtifact? =
     getLatestArtifacts(deliveryConfig, artifact, 1).firstOrNull()
 
-  override fun getLatestArtifacts(
+  override suspend fun getLatestArtifacts(
     deliveryConfig: DeliveryConfig,
     artifact: DeliveryArtifact,
     limit: Int

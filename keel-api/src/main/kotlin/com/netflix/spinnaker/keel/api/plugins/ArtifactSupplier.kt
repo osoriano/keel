@@ -34,7 +34,7 @@ interface ArtifactSupplier<A : DeliveryArtifact, V : SortingStrategy> : Spinnake
    *
    * This function may interact with external systems to retrieve artifact information as needed.
    */
-  fun getLatestArtifact(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact): PublishedArtifact?
+  suspend fun getLatestArtifact(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact): PublishedArtifact?
 
   /**
    * Returns the latest [limit] available versions for the given [DeliveryArtifact], represented
@@ -42,7 +42,7 @@ interface ArtifactSupplier<A : DeliveryArtifact, V : SortingStrategy> : Spinnake
    *
    * This function may interact with external systems to retrieve artifact information as needed.
    */
-  fun getLatestArtifacts(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact, limit: Int): List<PublishedArtifact>
+  suspend fun getLatestArtifacts(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact, limit: Int): List<PublishedArtifact>
 
   /**
    * Given a [PublishedArtifact] supported by this [ArtifactSupplier], return the display name for the

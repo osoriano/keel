@@ -8,7 +8,8 @@ import com.netflix.spinnaker.keel.api.action.ActionRepository
 import com.netflix.spinnaker.keel.exceptions.EnvironmentCurrentlyBeingActedOn
 import com.netflix.spinnaker.keel.persistence.ArtifactRepository
 import com.netflix.spinnaker.keel.persistence.EnvironmentLeaseRepository
-import kotlinx.coroutines.Dispatchers.IO
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.springframework.stereotype.Component
 import org.springframework.core.env.Environment as SpringEnvironment
@@ -45,7 +46,8 @@ class EnvironmentExclusionEnforcer(
   private val springEnv: SpringEnvironment,
   private val verificationRepository: ActionRepository,
   private val artifactRepository: ArtifactRepository,
-  private val environmentLeaseRepository: EnvironmentLeaseRepository
+  private val environmentLeaseRepository: EnvironmentLeaseRepository,
+  private val coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) {
 
   private val enforcementEnabled: Boolean
@@ -90,7 +92,7 @@ class EnvironmentExclusionEnforcer(
     }
 
     // use IO context since the checks call the database, which will block the coroutine's thread
-    return withContext(IO) {
+    return withContext(coroutineDispatcher) {
       environmentLeaseRepository.tryAcquireLease(deliveryConfig, environment, "actuation").use {
 
         // This will throw an exception if the check fails

@@ -1,6 +1,5 @@
 package com.netflix.spinnaker.keel.artifacts
 
-import com.netflix.spinnaker.config.ArtifactConfig
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus.FINAL
 import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
@@ -16,8 +15,8 @@ import com.netflix.spinnaker.keel.config.ArtifactRefreshConfig
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
-import io.mockk.coVerify
-import io.mockk.every
+import io.mockk.coEvery as every
+import io.mockk.coVerify as verify
 import io.mockk.mockk
 
 internal class ArtifactListenerTests : JUnit5Minutests {
@@ -122,7 +121,7 @@ internal class ArtifactListenerTests : JUnit5Minutests {
       }
 
       test("we fetch the latest versions just in case our data is old") {
-        coVerify(exactly = 1) { workQueueProcessor.enrichAndStore(any(), any()) }
+        verify(exactly = 1) { workQueueProcessor.enrichAndStore(any(), any()) }
       }
     }
 
@@ -144,7 +143,7 @@ internal class ArtifactListenerTests : JUnit5Minutests {
         }
 
         test("the newest version is saved") {
-          coVerify(exactly = 1) {
+          verify(exactly = 1) {
             workQueueProcessor.enrichAndStore(publishedDeb, any())
           }
         }
@@ -160,7 +159,7 @@ internal class ArtifactListenerTests : JUnit5Minutests {
         }
 
         test("no versions are persisted") {
-          coVerify(exactly = 0) {
+          verify(exactly = 0) {
             repository.storeArtifactVersion(any())
           }
         }
@@ -215,7 +214,7 @@ internal class ArtifactListenerTests : JUnit5Minutests {
 
           val artifactVersions = mutableListOf<PublishedArtifact>()
 
-          coVerify(exactly = 2) {
+          verify(exactly = 2) {
             workQueueProcessor.enrichAndStore(any(), any())
           }
         }
@@ -242,7 +241,7 @@ internal class ArtifactListenerTests : JUnit5Minutests {
 
         test("store not called") {
           listener.syncLastLimitArtifactVersions()
-          coVerify(exactly = 0) { workQueueProcessor.enrichAndStore(any(), any()) }
+          verify(exactly = 0) { workQueueProcessor.enrichAndStore(any(), any()) }
         }
       }
 
@@ -263,7 +262,7 @@ internal class ArtifactListenerTests : JUnit5Minutests {
         test("new versions are stored") {
           listener.syncLastLimitArtifactVersions()
 
-          coVerify(exactly = 2) {
+          verify(exactly = 2) {
             workQueueProcessor.enrichAndStore(any(), any())
           }
         }

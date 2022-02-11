@@ -14,6 +14,7 @@ import com.netflix.spinnaker.keel.titus.batch.createRunJobStage
 import com.netflix.spinnaker.keel.titus.verification.LinkStrategy
 import com.netflix.spinnaker.keel.titus.verification.TASKS
 import com.netflix.spinnaker.keel.titus.verification.getLink
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
@@ -23,7 +24,8 @@ import org.springframework.stereotype.Component
 class ContainerRunner(
   private val taskLauncher: TaskLauncher,
   private val orca: OrcaService,
-  private val spectator: Registry
+  private val spectator: Registry,
+  private val coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
@@ -42,7 +44,7 @@ class ContainerRunner(
       "No task id found in previous container state"
     }
 
-    val response = withContext(Dispatchers.IO) {
+    val response = withContext(coroutineDispatcher) {
         orca.getOrchestrationExecution(taskId)
       }
 
@@ -71,7 +73,7 @@ class ContainerRunner(
     containerApplication: String = application,
     entrypoint: String = ""
   ): Map<String, Any?> {
-      return withContext(Dispatchers.IO) {
+      return withContext(coroutineDispatcher) {
         taskLauncher.submitJob(
           type = VERIFICATION,
           environmentName = environmentName,

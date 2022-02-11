@@ -18,6 +18,7 @@ import com.netflix.spinnaker.keel.pause.ActuationPauser
 import com.netflix.spinnaker.keel.persistence.DiffFingerprintRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.kork.exceptions.UserException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -31,6 +32,7 @@ import org.springframework.stereotype.Component
 import java.time.Clock
 import java.time.Duration
 import kotlin.coroutines.CoroutineContext
+
 @Component
 class AdminService(
   private val repository: KeelRepository,
@@ -41,9 +43,10 @@ class AdminService(
   private val front50Service: Front50Service,
   private val executionSummaryService: ExecutionSummaryService,
   private val publisher: ApplicationEventPublisher,
-  private val clock: Clock
+  private val clock: Clock,
+  coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : CoroutineScope {
-  override val coroutineContext: CoroutineContext = Dispatchers.IO
+  override val coroutineContext: CoroutineContext = coroutineDispatcher
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 

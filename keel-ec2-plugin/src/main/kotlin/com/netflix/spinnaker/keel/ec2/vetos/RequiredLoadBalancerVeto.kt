@@ -14,7 +14,8 @@ import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.api.ResourceStatus.MISSING_DEPENDENCY
 import com.netflix.spinnaker.keel.veto.Veto
 import com.netflix.spinnaker.keel.veto.VetoResponse
-import kotlinx.coroutines.Dispatchers.IO
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -22,7 +23,8 @@ import org.springframework.stereotype.Component
 @Component
 class RequiredLoadBalancerVeto(
   private val cloudDriver: CloudDriverService,
-  private val cloudDriverCache: CloudDriverCache
+  private val cloudDriverCache: CloudDriverCache,
+  private val coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : Veto {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
@@ -50,7 +52,7 @@ class RequiredLoadBalancerVeto(
   }
 
   private suspend fun loadBalancers(spec: OverrideableClusterDependencyContainer<*>) =
-    withContext(IO) {
+    withContext(coroutineDispatcher) {
       runCatching {
         cloudDriver.loadBalancersForApplication(DEFAULT_SERVICE_ACCOUNT, spec.application)
       }

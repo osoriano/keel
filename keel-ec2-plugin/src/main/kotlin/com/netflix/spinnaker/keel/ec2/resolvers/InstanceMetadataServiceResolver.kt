@@ -16,6 +16,8 @@ import com.netflix.spinnaker.keel.environments.DependentEnvironmentFinder
 import com.netflix.spinnaker.keel.optics.resourceSpecLens
 import com.netflix.spinnaker.keel.persistence.FeatureRolloutRepository
 import com.netflix.spinnaker.keel.rollout.RolloutAwareResolver
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 
 /**
  * Resolves the [LaunchConfigurationSpec.instanceMetadataServiceVersion] value if it is not explicitly specified.
@@ -27,12 +29,14 @@ class InstanceMetadataServiceResolver(
   dependentEnvironmentFinder: DependentEnvironmentFinder,
   resourceToCurrentState: suspend (Resource<ClusterSpec>) -> Map<String, ServerGroup>,
   featureRolloutRepository: FeatureRolloutRepository,
-  eventPublisher: EventPublisher
+  eventPublisher: EventPublisher,
+  coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : RolloutAwareResolver<ClusterSpec, Map<String, ServerGroup>>(
   dependentEnvironmentFinder,
   resourceToCurrentState,
   featureRolloutRepository,
-  eventPublisher
+  eventPublisher,
+  coroutineDispatcher
 ) {
   override val supportedKind = EC2_CLUSTER_V1_1
   override val featureName = "imdsv2"
