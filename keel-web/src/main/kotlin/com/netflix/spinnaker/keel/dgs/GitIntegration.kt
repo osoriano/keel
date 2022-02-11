@@ -3,6 +3,7 @@ package com.netflix.spinnaker.keel.dgs
 import com.netflix.graphql.dgs.DgsComponent
 import com.netflix.graphql.dgs.DgsData
 import com.netflix.graphql.dgs.DgsDataFetchingEnvironment
+import com.netflix.graphql.dgs.DgsMutation
 import com.netflix.graphql.dgs.InputArgument
 import com.netflix.graphql.dgs.exceptions.DgsEntityNotFoundException
 import com.netflix.spinnaker.keel.front50.Front50Cache
@@ -18,6 +19,7 @@ import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter.Companion.DEFAULT_
 import com.netflix.spinnaker.keel.scm.ScmUtils
 import com.netflix.spinnaker.keel.upsert.DeliveryConfigUpserter
 import kotlinx.coroutines.runBlocking
+import org.slf4j.LoggerFactory
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.RequestHeader
 
@@ -33,7 +35,11 @@ class GitIntegration(
   private val importer: DeliveryConfigImporter,
 ) {
 
-  @DgsData(parentType = DgsConstants.MD_APPLICATION.TYPE_NAME, field = DgsConstants.MD_APPLICATION.GitIntegration)
+  companion object {
+    private val log by lazy { LoggerFactory.getLogger(Front50Cache::class.java) }
+  }
+
+  @DgsData(parentType = DgsConstants.MD_APPLICATION.TYPE_NAME)
   fun gitIntegration(dfe: DgsDataFetchingEnvironment): MD_GitIntegration {
     val app: MD_Application = dfe.getSource()
     return runBlocking {
@@ -41,7 +47,7 @@ class GitIntegration(
     }.toGitIntegration()
   }
 
-  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_updateGitIntegration)
+  @DgsMutation(field = DgsConstants.MUTATION.Md_updateGitIntegration)
   @PreAuthorize(
     """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
     and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
@@ -53,6 +59,7 @@ class GitIntegration(
     val front50Application = runBlocking {
       front50Cache.applicationByName(payload.application)
     }
+    log.debug("Updating git integration settings of application ${payload.application} by $user. Current: ${front50Application.managedDelivery}, New: $payload")
     val updatedFront50App = runBlocking {
       front50Cache.updateManagedDeliveryConfig(
         front50Application,
@@ -66,7 +73,7 @@ class GitIntegration(
     return updatedFront50App.toGitIntegration()
   }
 
-  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_importDeliveryConfig)
+  @DgsMutation(field = DgsConstants.MUTATION.Md_importDeliveryConfig)
   @PreAuthorize(
     """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #application)
     and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #application)"""
