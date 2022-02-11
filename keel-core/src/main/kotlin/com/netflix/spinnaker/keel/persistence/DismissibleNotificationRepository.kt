@@ -3,6 +3,7 @@ package com.netflix.spinnaker.keel.persistence
 import com.netflix.spinnaker.keel.api.UID
 import com.netflix.spinnaker.keel.events.EventLevel
 import com.netflix.spinnaker.keel.notifications.DismissibleNotification
+import kotlin.reflect.KClass
 
 /**
  * Repository for [DismissibleNotification].
@@ -42,5 +43,5 @@ interface DismissibleNotificationRepository {
   /**
    * Sets [DismissibleNotification.isActive] of a given [type] of [DismissibleNotification] to false for a given [application].
    */
-  fun <T: DismissibleNotification> dismissNotification(type: Class<T>, application: String, branch: String, user: String? = null): Boolean
+  fun <T: DismissibleNotification> dismissNotification(type: KClass<T>, application: String, branch: String, user: String? = null): Boolean
 }

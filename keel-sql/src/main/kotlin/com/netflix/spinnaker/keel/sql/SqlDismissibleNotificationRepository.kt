@@ -15,6 +15,7 @@ import org.jooq.Field
 import org.slf4j.LoggerFactory
 import org.springframework.context.event.EventListener
 import java.time.Clock
+import kotlin.reflect.KClass
 
 /**
  * SQL implementation of [DismissibleNotificationRepository].
@@ -95,7 +96,7 @@ class SqlDismissibleNotificationRepository(
     } > 0
   }
 
-  override fun <T: DismissibleNotification> dismissNotification(type: Class<T>, application: String, branch: String, user: String?): Boolean {
+  override fun <T: DismissibleNotification> dismissNotification(type: KClass<T>, application: String, branch: String, user: String?): Boolean {
     val updatedJson = generateDismissalJson(user)
     return sqlRetry.withRetry(WRITE) {
       jooq

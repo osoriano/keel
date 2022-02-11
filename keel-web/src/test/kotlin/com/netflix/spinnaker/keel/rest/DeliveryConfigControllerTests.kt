@@ -59,6 +59,7 @@ import retrofit.client.Response
 import strikt.api.expectThat
 import strikt.jackson.at
 import strikt.jackson.isMissing
+import kotlin.reflect.KClass
 
 
 @SpringBootTest(
@@ -294,7 +295,7 @@ internal class DeliveryConfigControllerTests
           context("persisting a delivery config as $contentType") {
             before {
               every {
-                notificationRepository.dismissNotification(any<Class<DismissibleNotification>>(), any(), any(), any())
+                notificationRepository.dismissNotification(any<KClass<DismissibleNotification>>(), any(), any(), any())
               } returns true
 
               coEvery {

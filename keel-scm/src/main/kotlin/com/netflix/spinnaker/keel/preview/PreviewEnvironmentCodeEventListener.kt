@@ -41,6 +41,7 @@ import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.event.EventListener
 import org.springframework.core.env.Environment
 import org.springframework.stereotype.Component
+import retrofit2.HttpException
 import java.time.Clock
 import java.time.Instant
 
@@ -126,10 +127,10 @@ class PreviewEnvironmentCodeEventListener(
    * Handles [PrUpdatedEvent] and [PrOpenedEvent] events that match the branch filter
    * associated with any [PreviewEnvironmentSpec] definitions across all delivery configs.
    *
-   * When a match is found, retrieves the delivery config from the pull request branch, and generate
+   * When a match is found, retrieves the delivery config from the pull request branch, and generates
    * preview [Environment] definitions matching the spec (including the appropriate name
-   * overrides), then store/update the environments in the database, which should cause Keel
-   * to start checking/actuating on them.
+   * overrides), then stores/updates the environments in the database, which should cause Keel
+   * to start checking/actuating on the associated resources.
    */
   @EventListener(PrUpdatedEvent::class, PrOpenedEvent::class)
   fun handlePrEvent(event: PrEvent) {
@@ -149,49 +150,83 @@ class PreviewEnvironmentCodeEventListener(
     val branchName = event.pullRequestBranch
 
     event.matchingPreviewEnvironmentSpecs().forEach { (deliveryConfig, previewEnvSpecs) ->
-      log.debug("Importing delivery config for app ${deliveryConfig.application} " +
-        "from branch $branchName")
+      val application = deliveryConfig.application
+      log.debug("Importing delivery config for app $application from branch $branchName")
 
       // We always want to dismiss the previous notifications, and if needed to create a new one
-      notificationRepository.dismissNotification(DeliveryConfigImportFailed::class.java, deliveryConfig.application, event.pullRequestBranch)
+      notificationRepository.dismissNotification(DeliveryConfigImportFailed::class, application, branchName)
 
-      val manifestPath = runBlocking {
-        front50Cache.applicationByName(deliveryConfig.application).managedDelivery?.manifestPath
+      // Get a copy of the delivery config from the PR branch (with a fallback to the main config for MEME).
+      // We retrieve the one from the branch so that any changes made by the user as part of their PR are reflected
+      // in the resources of the preview environment.
+      val previewDeliveryConfig = getPreviewDeliveryConfig(event, deliveryConfig) ?: return@forEach
+
+      log.info("Creating/updating preview environments for application $application from branch $branchName")
+      createPreviewEnvironments(event, previewDeliveryConfig, previewEnvSpecs)
+      event.emitDurationMetric(COMMIT_HANDLING_DURATION, startTime, application)
+    }
+  }
+
+  /**
+   * Retrieves and returns a [DeliveryConfig] from the source control branch associated with the [PrEvent].
+   * If a delivery config file is not found in the branch, falls back to returning a copy of the original config,
+   * fully hydrated from the database.
+   *
+   * This method handles exceptions thrown in the process, emitting the appropriate metrics and events, and returns
+   * null in that case.
+   */
+  private fun getPreviewDeliveryConfig(
+    event: PrEvent,
+    deliveryConfig: DeliveryConfig
+  ): DeliveryConfig? {
+    return try {
+      getPreviewDeliveryConfigFromBranch(event, deliveryConfig)
+    } catch (e: Exception) {
+      if (e.isNotFound) {
+        log.debug("Falling back to main delivery config for preview environment of ${deliveryConfig.application}, branch ${event.pullRequestBranch}")
+        // We get a fully-hydrated delivery config here because the one we receive above doesn't include environments
+        // for the sake of performance.
+        repository.getDeliveryConfig(deliveryConfig.name)
+      } else {
+        eventPublisher.publishDeliveryConfigImportFailed(
+          deliveryConfig.application,
+          event,
+          event.pullRequestBranch,
+          clock.instant(),
+          e.message ?: "Unknown",
+          scmUtils.getPullRequestLink(event)
+        )
+        null
       }
+    }
+  }
 
-      val commitEvent = event.toCommitEvent()
+  /**
+   * Retrieves and returns a [DeliveryConfig] from source control at the branch associated with the [PrEvent].
+   */
+  private fun getPreviewDeliveryConfigFromBranch(
+    event: PrEvent,
+    deliveryConfig: DeliveryConfig
+  ): DeliveryConfig {
+    val commitEvent = event.toCommitEvent()
+    val branchName = event.pullRequestBranch
+    val manifestPath = runBlocking {
+      front50Cache.applicationByName(deliveryConfig.application).managedDelivery?.manifestPath
+    }
 
-      val deliveryConfigFromBranch = try {
-        deliveryConfigImporter.import(
-          codeEvent = commitEvent,
-          manifestPath = manifestPath
-        ).also {
-          event.emitCounterMetric(CODE_EVENT_COUNTER, DELIVERY_CONFIG_RETRIEVAL_SUCCESS, deliveryConfig.application)
-          log.info("Validating config for application ${deliveryConfig.application} from branch $branchName")
-          deliveryConfigValidator.validate(it)
-        }.toDeliveryConfig()
-      } catch (e: Exception) {
-        log.error("Error retrieving delivery config for branch $branchName: $e", e)
-        event.emitCounterMetric(CODE_EVENT_COUNTER, DELIVERY_CONFIG_RETRIEVAL_ERROR, deliveryConfig.application)
-        if (e.isNotFound) {
-          log.debug("Skipping publishing an event for http errors as we assume that the file does not exist for branch $branchName- $e")
-        } else {
-          eventPublisher.publishDeliveryConfigImportFailed(
-            deliveryConfig.application,
-            event,
-            event.pullRequestBranch,
-            clock.instant(),
-            e.message ?: "Unknown",
-            scmUtils.getPullRequestLink(event)
-          )
-        }
-        return@forEach
-      }
-
-      log.info("Creating/updating preview environments for application ${deliveryConfig.application} " +
-        "from branch $branchName")
-      createPreviewEnvironments(event, deliveryConfigFromBranch, previewEnvSpecs)
-      event.emitDurationMetric(COMMIT_HANDLING_DURATION, startTime, deliveryConfig.application)
+    return try {
+      deliveryConfigImporter.import(
+        codeEvent = commitEvent,
+        manifestPath = manifestPath
+      ).also {
+        event.emitCounterMetric(CODE_EVENT_COUNTER, DELIVERY_CONFIG_RETRIEVAL_SUCCESS, deliveryConfig.application)
+        log.info("Validating config for application ${deliveryConfig.application} from branch $branchName")
+        deliveryConfigValidator.validate(it)
+      }.toDeliveryConfig()
+    } catch (e: Exception) {
+      log.error("Error retrieving delivery config for branch $branchName of repository ${event.repoKey}: $e", e)
+      event.emitCounterMetric(CODE_EVENT_COUNTER, DELIVERY_CONFIG_RETRIEVAL_ERROR, deliveryConfig.application)
+      throw e
     }
   }
 

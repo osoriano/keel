@@ -133,8 +133,8 @@ class SqlDismissibleNotificationRepositoryTests {
       notificationRepository.storeNotification(it)
     }
 
-    expectThat(notificationRepository.dismissNotification(DeliveryConfigImportFailed::class.java, deliveryConfig.application, notification.branch)).isTrue()
-    expectThat(notificationRepository.dismissNotification(DeliveryConfigImportFailed::class.java, deliveryConfig.application, notifications[0].branch)).isTrue()
+    expectThat(notificationRepository.dismissNotification(DeliveryConfigImportFailed::class, deliveryConfig.application, notification.branch)).isTrue()
+    expectThat(notificationRepository.dismissNotification(DeliveryConfigImportFailed::class, deliveryConfig.application, notifications[0].branch)).isTrue()
 
     val updatedNotifications = notificationRepository.notificationHistory(deliveryConfig.application)
     // We dismissed the main branch notification

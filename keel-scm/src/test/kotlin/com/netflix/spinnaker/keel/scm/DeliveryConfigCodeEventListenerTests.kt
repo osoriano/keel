@@ -38,6 +38,7 @@ import strikt.api.expectThat
 import strikt.assertions.contains
 import strikt.assertions.isEqualTo
 import strikt.assertions.one
+import kotlin.reflect.KClass
 import io.mockk.coEvery as every
 import io.mockk.coVerify as verify
 
@@ -143,7 +144,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
       } returns "main"
 
       every {
-        notificationRepository.dismissNotification(any<Class<DeliveryConfigImportFailed>>(), any(), any(), any())
+        notificationRepository.dismissNotification(any<KClass<DeliveryConfigImportFailed>>(), any(), any(), any())
       } returns true
 
       every {
@@ -243,7 +244,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
           test("notification was dismissed on successful import") {
             verify {
               notificationRepository.dismissNotification(
-                any<Class<DeliveryConfigImportFailed>>(),
+                any<KClass<DeliveryConfigImportFailed>>(),
                 deliveryConfig.application,
                 event.targetBranch,
                 any()

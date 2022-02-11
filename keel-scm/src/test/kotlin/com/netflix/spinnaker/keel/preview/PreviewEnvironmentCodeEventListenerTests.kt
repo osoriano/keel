@@ -51,6 +51,7 @@ import com.netflix.spinnaker.keel.preview.PreviewEnvironmentCodeEventListener.Co
 import com.netflix.spinnaker.keel.preview.PreviewEnvironmentCodeEventListener.Companion.PREVIEW_ENVIRONMENT_MARK_FOR_DELETION_SUCCESS
 import com.netflix.spinnaker.keel.preview.PreviewEnvironmentCodeEventListener.Companion.PREVIEW_ENVIRONMENT_UPSERT_ERROR
 import com.netflix.spinnaker.keel.preview.PreviewEnvironmentCodeEventListener.Companion.PREVIEW_ENVIRONMENT_UPSERT_SUCCESS
+import com.netflix.spinnaker.keel.retrofit.RETROFIT_NOT_FOUND
 import com.netflix.spinnaker.keel.scm.DELIVERY_CONFIG_RETRIEVAL_ERROR
 import com.netflix.spinnaker.keel.scm.DELIVERY_CONFIG_RETRIEVAL_SUCCESS
 import com.netflix.spinnaker.keel.scm.PrDeclinedEvent
@@ -97,6 +98,7 @@ import strikt.assertions.none
 import strikt.assertions.one
 import java.time.Clock
 import java.time.Duration
+import kotlin.reflect.KClass
 import io.mockk.coEvery as every
 import io.mockk.coVerify as verify
 
@@ -342,7 +344,7 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
       every { environmentDeletionRepository.markForDeletion(any()) } just runs
 
       every {
-        notificationRepository.dismissNotification(any<Class<DismissibleNotification>>(), any(), any())
+        notificationRepository.dismissNotification(any<KClass<DismissibleNotification>>(), any(), any())
       } returns true
 
       every {
@@ -423,7 +425,7 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
           test("delivery config import failure notification is dismissed on successful import") {
             verify {
               notificationRepository.dismissNotification(
-                any<Class<DismissibleNotification>>(),
+                any<KClass<DismissibleNotification>>(),
                 deliveryConfig.application,
                 prEvent.pullRequestBranch,
                 any()
@@ -479,6 +481,7 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
               }
             }
           }
+
           test("the preview environment has no constraints or post-deploy actions") {
             expectThat(previewEnv.constraints).isEmpty()
             expectThat(previewEnv.postDeploy).isEmpty()
@@ -684,33 +687,60 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
         setupMocks()
       }
 
-      context("failure to retrieve delivery config") {
-        modifyFixture {
-          every {
-            importer.import(any(), manifestPath = any())
-          } throws SystemException("oh noes!")
+      context("failure to retrieve delivery config from branch") {
+        context("when file is not found") {
+          modifyFixture {
+            every {
+              importer.import(any(), manifestPath = any())
+            } throws RETROFIT_NOT_FOUND
+          }
+
+          before {
+            subject.handlePrEvent(prOpenedEvent)
+          }
+
+          test("we fall back to the delivery config in the database") {
+            verify {
+              repository.getDeliveryConfig(deliveryConfig.name)
+            }
+          }
+
+          test("the preview environment is stored in the database") {
+            verify {
+              repository.upsertPreviewEnvironment(any(), any(), any())
+            }
+            expectThat(previewEnv.isPreview).isTrue()
+          }
         }
 
-        before {
-          subject.handlePrEvent(prOpenedEvent)
-        }
+        context("with other exceptions") {
+          modifyFixture {
+            every {
+              importer.import(any(), manifestPath = any())
+            } throws SystemException("oh noes!")
+          }
 
-        test("a delivery config retrieval error is counted") {
-          val tags = mutableListOf<Iterable<Tag>>()
-          verify {
-            spectator.counter(CODE_EVENT_COUNTER, capture(tags))
+          before {
+            subject.handlePrEvent(prOpenedEvent)
           }
-          expectThat(tags).one {
-            contains(DELIVERY_CONFIG_RETRIEVAL_ERROR.toTags())
-          }
-        }
 
-        test("an event is published") {
-          val failureEvent = slot<DeliveryConfigImportFailed>()
-          verify {
-            eventPublisher.publishEvent(capture(failureEvent))
+          test("a delivery config retrieval error is counted") {
+            val tags = mutableListOf<Iterable<Tag>>()
+            verify {
+              spectator.counter(CODE_EVENT_COUNTER, capture(tags))
+            }
+            expectThat(tags).one {
+              contains(DELIVERY_CONFIG_RETRIEVAL_ERROR.toTags())
+            }
           }
-          expectThat(failureEvent.captured.branch).isEqualTo(prOpenedEvent.pullRequestBranch)
+
+          test("an event is published") {
+            val failureEvent = slot<DeliveryConfigImportFailed>()
+            verify {
+              eventPublisher.publishEvent(capture(failureEvent))
+            }
+            expectThat(failureEvent.captured.branch).isEqualTo(prOpenedEvent.pullRequestBranch)
+          }
         }
       }
 

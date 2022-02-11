@@ -99,7 +99,7 @@ class DeliveryConfigCodeEventListener(
       log.debug("Importing delivery config for app ${app.name} from branch ${event.targetBranch}, commit ${event.commitHash}")
 
       // We always want to dismiss the previous notifications, and if needed to create a new one
-      notificationRepository.dismissNotification(DeliveryConfigImportFailed::class.java, app.name, event.targetBranch)
+      notificationRepository.dismissNotification(DeliveryConfigImportFailed::class, app.name, event.targetBranch)
 
       try {
         val user = event.causeByEmail ?: event.authorEmail ?: error("Can't authorize import due to missing author e-mail in code event: $event")
