@@ -15,21 +15,26 @@ import com.netflix.spinnaker.keel.auth.AuthorizationSupport
 import com.netflix.spinnaker.keel.graphql.DgsConstants
 import com.netflix.spinnaker.keel.graphql.types.MD_Artifact
 import com.netflix.spinnaker.keel.graphql.types.MD_ExecutionSummary
+import com.netflix.spinnaker.keel.graphql.types.MD_PausedInfo
 import com.netflix.spinnaker.keel.graphql.types.MD_RecheckResourcePayload
 import com.netflix.spinnaker.keel.graphql.types.MD_RedeployResourcePayload
 import com.netflix.spinnaker.keel.graphql.types.MD_Resource
 import com.netflix.spinnaker.keel.graphql.types.MD_ResourceActuationState
 import com.netflix.spinnaker.keel.graphql.types.MD_ResourceTask
+import com.netflix.spinnaker.keel.pause.ActuationPauser
+import com.netflix.spinnaker.keel.pause.PauseScope
 import com.netflix.spinnaker.keel.persistence.DiffFingerprintRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.TaskTrackingRepository
 import com.netflix.spinnaker.keel.services.ResourceStatusService
 import graphql.schema.DataFetchingEnvironment
 import kotlinx.coroutines.runBlocking
+import org.dataloader.DataLoader
 import org.slf4j.LoggerFactory
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.RequestHeader
 import retrofit2.HttpException
+import java.util.concurrent.CompletableFuture
 
 /**
  * Fetches details about resources, as defined in [schema.graphql]
@@ -60,8 +65,7 @@ class Resources(
   @DgsData(parentType = DgsConstants.MD_RESOURCE.TYPE_NAME, field = DgsConstants.MD_RESOURCE.State)
   fun resourceStatus(dfe: DgsDataFetchingEnvironment): MD_ResourceActuationState {
     val resource: MD_Resource = dfe.getSource()
-    val state = resourceStatusService.getActuationState(resource.id)
-    return state.toDgs()
+    return resourceStatusService.getActuationState(resource.id).toDgs()
   }
 
   @DgsData(parentType = DgsConstants.MD_RESOURCEACTUATIONSTATE.TYPE_NAME, field = DgsConstants.MD_RESOURCEACTUATIONSTATE.Tasks)
@@ -69,6 +73,13 @@ class Resources(
     val resourceState: MD_ResourceActuationState = dfe.getSource()
     val tasks = taskTrackingRepository.getLatestBatchOfTasks(resourceId = resourceState.resourceId)
     return tasks.map { it.toDgs() }
+  }
+
+  @DgsData(parentType = DgsConstants.MD_RESOURCEACTUATIONSTATE.TYPE_NAME, field = DgsConstants.MD_RESOURCEACTUATIONSTATE.PausedInfo)
+  fun pausedInfoResource(dfe: DgsDataFetchingEnvironment): CompletableFuture<MD_PausedInfo>? {
+    val dataLoader: DataLoader<PausedKey, MD_PausedInfo> = dfe.getDataLoader(PausedDataLoader.Descriptor.name)
+    val resourceState: MD_ResourceActuationState = dfe.getSource()
+    return dataLoader.load(PausedKey(PauseScope.RESOURCE, resourceState.resourceId))
   }
 
   @DgsData(parentType = DgsConstants.MD_RESOURCETASK.TYPE_NAME, field = DgsConstants.MD_RESOURCETASK.Summary)
@@ -115,5 +126,4 @@ class Resources(
     diffFingerprintRepository.clear(payload.resourceId)
     return true
   }
-
 }

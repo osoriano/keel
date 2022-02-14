@@ -32,8 +32,12 @@ import com.netflix.spinnaker.keel.graphql.types.MD_PackageDiff
 import com.netflix.spinnaker.keel.graphql.types.MD_PausedInfo
 import com.netflix.spinnaker.keel.graphql.types.MD_PinnedVersion
 import com.netflix.spinnaker.keel.graphql.types.MD_PullRequest
+import com.netflix.spinnaker.keel.graphql.types.MD_ResourceActuationState
 import com.netflix.spinnaker.keel.graphql.types.MD_VersionVeto
 import com.netflix.spinnaker.keel.pause.ActuationPauser
+import com.netflix.spinnaker.keel.pause.PauseScope
+import com.netflix.spinnaker.keel.pause.PauseScope.APPLICATION
+import com.netflix.spinnaker.keel.pause.PauseScope.RESOURCE
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
@@ -145,9 +149,10 @@ class ApplicationFetcher(
   }
 
   @DgsData(parentType = DgsConstants.MD_APPLICATION.TYPE_NAME, field = DgsConstants.MD_APPLICATION.PausedInfo)
-  fun pausedInfo(dfe: DgsDataFetchingEnvironment): MD_PausedInfo? {
+  fun pausedInfo(dfe: DgsDataFetchingEnvironment): CompletableFuture<MD_PausedInfo>? {
+    val dataLoader: DataLoader<PausedKey, MD_PausedInfo> = dfe.getDataLoader(PausedDataLoader.Descriptor.name)
     val app: MD_Application = dfe.getSource()
-    return actuationPauser.getApplicationPauseInfo(app.name)?.toDgsPaused()
+    return dataLoader.load(PausedKey(APPLICATION, app.name))
   }
 
   @DgsData(parentType = DgsConstants.MD_ARTIFACT.TYPE_NAME, field = DgsConstants.MD_ARTIFACT.Versions)

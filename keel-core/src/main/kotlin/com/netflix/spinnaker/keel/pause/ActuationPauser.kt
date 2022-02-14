@@ -66,6 +66,12 @@ class ActuationPauser(
   fun resourceIsPaused(id: String): Boolean =
     pausedRepository.resourcePaused(id)
 
+  fun getResourcePauseInfo(id: String): Pause? =
+    pausedRepository.getPause(RESOURCE, id)
+
+  fun bulkPauseInfo(scope: PauseScope, names: List<String>): List<Pause> =
+    pausedRepository.getPauses(scope, names)
+
   fun pauseApplication(application: String, user: String, comment: String? = null, cancelTasks: Boolean = false) {
     log.info("Pausing application $application ${logReason(comment)}")
     pausedRepository.pauseApplication(application, user, comment)

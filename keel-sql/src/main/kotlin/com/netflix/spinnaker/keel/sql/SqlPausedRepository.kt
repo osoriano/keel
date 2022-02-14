@@ -47,6 +47,19 @@ class SqlPausedRepository(
     }
   }
 
+  override fun getPauses(scope: PauseScope, names: List<String>): List<Pause> {
+    return sqlRetry.withRetry(READ) {
+      jooq
+        .select(PAUSED.NAME, PAUSED.PAUSED_AT, PAUSED.PAUSED_BY, PAUSED.COMMENT)
+        .from(PAUSED)
+        .where(PAUSED.SCOPE.eq(scope))
+        .and(PAUSED.NAME.`in`(names))
+        .fetch { (name, timestamp, user, comment) ->
+          Pause(scope, name, user, timestamp, comment)
+        }
+    }
+  }
+
   override fun pauseApplication(application: String, user: String, comment: String?) {
     insert(APPLICATION, application, user, comment)
   }

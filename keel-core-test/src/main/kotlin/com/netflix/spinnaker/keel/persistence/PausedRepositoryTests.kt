@@ -17,10 +17,15 @@
  */
 package com.netflix.spinnaker.keel.persistence
 
+import com.netflix.spinnaker.keel.pause.PauseScope
+import com.netflix.spinnaker.keel.pause.PauseScope.APPLICATION
+import com.netflix.spinnaker.keel.pause.PauseScope.RESOURCE
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
+import strikt.api.expect
 import strikt.api.expectThat
 import strikt.assertions.containsExactlyInAnyOrder
+import strikt.assertions.hasSize
 import strikt.assertions.isEmpty
 import strikt.assertions.isFalse
 import strikt.assertions.isTrue
@@ -73,6 +78,22 @@ abstract class PausedRepositoryTests<T : PausedRepository> : JUnit5Minutests {
       }
     }
 
+    context("several applications paused") {
+      before {
+        subject.pauseApplication("app1", "keel@keel.io")
+        subject.pauseApplication("app2", "keel@keel.io")
+        subject.pauseApplication("app3", "keel@keel.io")
+      }
+
+      test("app appears in list of paused apps") {
+        val pauses = subject.getPauses(APPLICATION, listOf("app1", "app2", "app3", "app4", "app5"))
+        expect {
+          that(pauses).hasSize(3)
+          that(pauses.map { it.name }).containsExactlyInAnyOrder("app1", "app2", "app3")
+        }
+      }
+    }
+
     context("resource paused") {
       before {
         subject.pauseResource(resource, "keel@keel.io")
@@ -86,6 +107,22 @@ abstract class PausedRepositoryTests<T : PausedRepository> : JUnit5Minutests {
       test("resume doesn't work with different user") {
         subject.resumeResourceIfSameUser(resource, "me@hi.org")
         expectThat(subject.resourcePaused(resource)).isTrue()
+      }
+    }
+
+    context("several resources paused") {
+      before {
+        subject.pauseResource("resource1", "keel@keel.io")
+        subject.pauseResource("resource2", "keel@keel.io")
+        subject.pauseResource("resource3", "keel@keel.io")
+      }
+
+      test("resources appears in list of paused resources") {
+        val pauses = subject.getPauses(RESOURCE, listOf("resource1", "resource2", "resource3", "resource4", "resource5"))
+        expect {
+          that(pauses).hasSize(3)
+          that(pauses.map { it.name }).containsExactlyInAnyOrder("resource1", "resource2", "resource3")
+        }
       }
     }
   }

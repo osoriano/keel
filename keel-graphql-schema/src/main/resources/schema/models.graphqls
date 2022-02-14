@@ -277,6 +277,7 @@ type MD_ResourceActuationState {
   event: String
   tasks: [MD_ResourceTask!]
   errors: [String!]
+  pausedInfo: MD_PausedInfo
 }
 
 type MD_ResourceTask {

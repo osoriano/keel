@@ -29,6 +29,7 @@ interface PausedRepository {
     get() = Clock.systemUTC()
 
   fun getPause(scope: PauseScope, name: String): Pause?
+  fun getPauses(scope: PauseScope, names: List<String>): List<Pause>
 
   fun pauseApplication(application: String, user: String, comment: String? = null)
   fun resumeApplication(application: String)

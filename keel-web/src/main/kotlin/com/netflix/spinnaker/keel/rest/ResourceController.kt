@@ -23,6 +23,7 @@ import com.netflix.spinnaker.keel.core.api.SubmittedResource
 import com.netflix.spinnaker.keel.core.api.id
 import com.netflix.spinnaker.keel.export.ExportService
 import com.netflix.spinnaker.keel.pause.ActuationPauser
+import com.netflix.spinnaker.keel.pause.Pause
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.api.ResourceStatus
 import com.netflix.spinnaker.keel.services.ResourceStatusService
@@ -76,6 +77,17 @@ class ResourceController(
   )
   fun getStatus(@PathVariable("id") id: String): ResourceStatus =
     resourceStatusService.getStatus(id)
+
+  @GetMapping(
+    path = ["/{id}/pause"],
+    produces = [APPLICATION_JSON_VALUE, APPLICATION_YAML_VALUE]
+  )
+  @PreAuthorize(
+    """@authorizationSupport.hasApplicationPermission('READ', 'RESOURCE', #id)
+    and @authorizationSupport.hasCloudAccountPermission('READ', 'RESOURCE', #id)"""
+  )
+  fun getPauseInfo(@PathVariable("id") id: String): Pause? =
+    actuationPauser.getResourcePauseInfo(id)
 
   @PostMapping(
     path = ["/{id}/pause"],
