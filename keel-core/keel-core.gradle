@@ -14,7 +14,7 @@ dependencies {
   api("org.jetbrains.kotlinx:kotlinx-coroutines-slf4j:$kotlinCoroutinesVersion")
   api("org.apache.commons:commons-lang3")
   api("com.github.ben-manes.caffeine:caffeine")
-  api("com.netflix.buoy:buoy-client:0.6.0")
+  api("com.netflix.buoy:buoy-client:0.7.0")
 
   implementation("org.springframework:spring-tx")
   implementation("org.springframework:spring-web")

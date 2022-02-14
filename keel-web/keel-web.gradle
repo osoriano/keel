@@ -30,6 +30,7 @@ dependencies {
   implementation(project(":keel-scm"))
   implementation(project(":keel-retrofit"))
   implementation(project(":keel-graphql-schema"))
+  implementation(project(":keel-buoy"))
 
   implementation("com.netflix.spinnaker.kork.internal:kork-web")
   implementation("com.netflix.spinnaker.kork.internal:kork-artifacts")

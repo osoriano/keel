@@ -1,0 +1,6 @@
+dependencies {
+  implementation("com.netflix.buoy:buoy-client:0.7.0")
+  implementation("netflix:temporal-java-spring")
+  implementation("netflix.io.temporal:temporal-sdk")
+  implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8")
+}

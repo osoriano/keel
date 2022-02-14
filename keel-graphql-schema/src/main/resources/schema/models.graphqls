@@ -294,7 +294,6 @@ type MD_ExecutionSummary {
   stages: [MD_StageDetail!]
   deployTargets: [MD_DeployTarget!]
   error: String
-  rolloutWorkflowId: String
 }
 
 type MD_DeployTarget {
@@ -416,6 +415,7 @@ type Mutation @extends {
   md_rollbackToArtifactVersion(payload: MD_RollbackToVersionPayload!): Boolean
   md_lockEnvironmentArtifact(payload: MD_ArtifactVersionActionPayload!): Boolean
   md_redeployResource(payload: MD_RedeployResourcePayload!): Boolean
+  md_deployImmediately(payload: MD_DeployImmediatelyPayload!): Boolean
   md_initiateApplicationMigration(payload: MD_InitiateApplicationMigrationPayload!): MD_Migration
   md_migrationReportIssue(payload: MD_MigrationReportIssuePayload!): Boolean
   md_recheckResource(payload: MD_RecheckResourcePayload!): Boolean
@@ -435,6 +435,12 @@ input MD_RedeployResourcePayload {
   application: ID!
   resource: ID!
   environment: String!
+}
+
+input MD_DeployImmediatelyPayload {
+  application: ID!
+  taskId: ID!
+  region: String!
 }
 
 input MD_RollbackToVersionPayload {

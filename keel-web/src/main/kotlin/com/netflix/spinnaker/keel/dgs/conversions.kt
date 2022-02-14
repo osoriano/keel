@@ -159,7 +159,6 @@ fun ExecutionSummary.toDgs() =
     currentStage = currentStage?.toDgs(),
     stages = stages.map { it.toDgs() },
     deployTargets = deployTargets.map { it.toDgs() },
-    rolloutWorkflowId = rolloutWorkflowId,
     error = error
   )
 

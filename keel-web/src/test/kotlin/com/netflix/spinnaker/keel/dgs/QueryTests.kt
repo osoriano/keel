@@ -20,6 +20,7 @@ import com.netflix.spinnaker.keel.api.migration.ApplicationMigrationStatus
 import com.netflix.spinnaker.keel.artifacts.ArtifactVersionLinks
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport
+import com.netflix.spinnaker.keel.buoy.BuoyClient
 import com.netflix.spinnaker.keel.core.api.ActuationPlan
 import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactPin
 import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactVeto
@@ -149,6 +150,9 @@ class QueryTests {
 
   @MockkBean
   lateinit var diffFingerprintRepository: DiffFingerprintRepository
+
+  @MockkBean
+  lateinit var buoyClient: BuoyClient
 
   val clock = MutableClock()
 
@@ -460,4 +464,3 @@ class QueryTests {
     }
   }
 }
-
