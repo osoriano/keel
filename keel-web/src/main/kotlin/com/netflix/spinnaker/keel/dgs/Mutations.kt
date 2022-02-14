@@ -5,27 +5,21 @@ import com.netflix.graphql.dgs.DgsData
 import com.netflix.graphql.dgs.InputArgument
 import com.netflix.graphql.dgs.exceptions.DgsEntityNotFoundException
 import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
-import com.netflix.spinnaker.keel.api.DeployableResourceSpec
-import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.action.ActionType
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
 import com.netflix.spinnaker.keel.api.constraints.UpdatedConstraintStatus
-import com.netflix.spinnaker.keel.api.plugins.DeployableResourceHandler
-import com.netflix.spinnaker.keel.api.plugins.ResourceHandler
-import com.netflix.spinnaker.keel.api.plugins.supporting
 import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactPin
 import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactVeto
 import com.netflix.spinnaker.keel.core.api.PinType
 import com.netflix.spinnaker.keel.exceptions.InvalidConstraintException
 import com.netflix.spinnaker.keel.graphql.DgsConstants
-import com.netflix.spinnaker.keel.graphql.types.MD_ConstraintStatusPayload
 import com.netflix.spinnaker.keel.graphql.types.MD_Action
 import com.netflix.spinnaker.keel.graphql.types.MD_ArtifactVersionActionPayload
 import com.netflix.spinnaker.keel.graphql.types.MD_ConstraintStatus
+import com.netflix.spinnaker.keel.graphql.types.MD_ConstraintStatusPayload
 import com.netflix.spinnaker.keel.graphql.types.MD_DismissNotificationPayload
 import com.netflix.spinnaker.keel.graphql.types.MD_MarkArtifactVersionAsGoodPayload
 import com.netflix.spinnaker.keel.graphql.types.MD_PausePayload
-import com.netflix.spinnaker.keel.graphql.types.MD_RedeployResourcePayload
 import com.netflix.spinnaker.keel.graphql.types.MD_RestartConstraintEvaluationPayload
 import com.netflix.spinnaker.keel.graphql.types.MD_RetryArtifactActionPayload
 import com.netflix.spinnaker.keel.graphql.types.MD_RollbackToVersionPayload
@@ -35,9 +29,7 @@ import com.netflix.spinnaker.keel.pause.ActuationPauser
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.services.ApplicationService
-import com.netflix.spinnaker.keel.services.ResourceStatusService
 import de.huxhorn.sulky.ulid.ULID
-import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.RequestHeader
@@ -51,8 +43,6 @@ class Mutations(
   private val actuationPauser: ActuationPauser,
   private val repository: KeelRepository,
   private val notificationRepository: DismissibleNotificationRepository,
-  private val resourceStatusService: ResourceStatusService,
-  private val resourceHandlers: List<ResourceHandler<*, *>>
 ) {
 
   companion object {
@@ -289,27 +279,6 @@ class Mutations(
     } else {
       actuationPauser.resumeResource(payload.id, user)
     }
-    return true
-  }
-
-  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_redeployResource)
-  @PreAuthorize("@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)")
-  fun redeploy(
-    @InputArgument payload: MD_RedeployResourcePayload,
-    @RequestHeader("X-SPINNAKER-USER") user: String
-  ): Boolean {
-    val deliveryConfig = repository.deliveryConfigFor(payload.resource)
-    val resource = deliveryConfig.resources.find { it.id == payload.resource } as? Resource<DeployableResourceSpec>
-      ?: error("Resource ${payload.resource} not found in delivery config for application ${deliveryConfig.application}")
-    val environment = deliveryConfig.environmentOfResource(resource)
-      ?: error("Environment ${payload.environment} not found in delivery config for application ${deliveryConfig.application}")
-    val handler = resourceHandlers.supporting(resource.kind) as? DeployableResourceHandler<DeployableResourceSpec, *>
-      ?: error("Compatible resource handler not found for resource ${payload.resource}")
-
-    runBlocking {
-      handler.redeploy(deliveryConfig, environment, resource)
-    }
-
     return true
   }
 }

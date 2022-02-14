@@ -40,6 +40,7 @@ import com.netflix.spinnaker.keel.migrations.ApplicationPrData
 import com.netflix.spinnaker.keel.pause.ActuationPauser
 import com.netflix.spinnaker.keel.persistence.ArtifactRepository
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
+import com.netflix.spinnaker.keel.persistence.DiffFingerprintRepository
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
 import com.netflix.spinnaker.keel.persistence.EnvironmentDeletionRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
@@ -145,6 +146,9 @@ class QueryTests {
 
   @MockkBean
   lateinit var taskTrackingRepository: TaskTrackingRepository
+
+  @MockkBean
+  lateinit var diffFingerprintRepository: DiffFingerprintRepository
 
   val clock = MutableClock()
 
