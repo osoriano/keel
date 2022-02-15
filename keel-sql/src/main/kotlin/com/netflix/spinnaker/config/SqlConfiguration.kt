@@ -8,6 +8,7 @@ import com.netflix.spinnaker.keel.resources.ResourceFactory
 import com.netflix.spinnaker.keel.scheduled.ScheduledAgent
 import com.netflix.spinnaker.keel.sql.SqlActionRepository
 import com.netflix.spinnaker.keel.sql.SqlAgentLockRepository
+import com.netflix.spinnaker.keel.sql.SqlApplicationRepository
 import com.netflix.spinnaker.keel.sql.SqlArtifactRepository
 import com.netflix.spinnaker.keel.sql.SqlBakedImageRepository
 import com.netflix.spinnaker.keel.sql.SqlDeliveryConfigRepository
@@ -67,6 +68,13 @@ class SqlConfiguration
   fun tweakJooqConfiguration() {
     jooqConfiguration.settings().isRenderSchema = false
   }
+
+  @Bean
+  fun applicationRepository(
+    jooq: DSLContext,
+    clock: Clock,
+    objectMapper: ObjectMapper
+  ) = SqlApplicationRepository(jooq,  clock, SqlRetry(sqlRetryProperties))
 
   @Bean
   fun resourceRepository(

@@ -425,3 +425,6 @@ databaseChangeLog:
 - include:
     file: changelog/20220128-add-artifact-stored-at.yml
     relativeToChangelogFile: true
+- include:
+    file: changelog/20220214-app-config.yml
+    relativeToChangelogFile: true

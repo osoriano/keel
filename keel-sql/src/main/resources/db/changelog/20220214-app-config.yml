@@ -1,0 +1,29 @@
+databaseChangeLog:
+  - changeSet:
+      id: app-config
+      author: rhorev
+      changes:
+        - createTable:
+            tableName: application_config
+            columns:
+              - column:
+                  name: application
+                  type: varchar(255)
+                  constraints:
+                    - primaryKey: true
+                    - nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamp(3)
+              - column:
+                  name: auto_import
+                  type: boolean
+                  defaultValue: false
+              - column:
+                  name: updated_by
+                  type: varchar(255)
+              - column:
+                  name: delivery_config_path
+                  type: varchar(255)
+
+
