@@ -54,6 +54,7 @@ import com.netflix.spinnaker.keel.api.titus.TitusServerGroup
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroup.Constraints
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroup.Location
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroup.MigrationPolicy
+import com.netflix.spinnaker.keel.api.titus.TitusServerGroup.NetworkMode
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroup.Resources
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroupSpec
 import com.netflix.spinnaker.keel.api.withDefaultsOmitted
@@ -722,7 +723,7 @@ class TitusClusterHandler(
         "targetGroups" to dependencies.targetGroups,
         "account" to location.account,
         "efs" to efs,
-        "platformSidecars" to platformSidecars?.map {
+        "platformSidecars" to platformSidecars.map {
           mapOf(
             "name" to it.name,
             "channel" to it.channel,
@@ -730,6 +731,7 @@ class TitusClusterHandler(
             "arguments" to jsonStringify(it.arguments)
           )
         },
+        "networkMode" to networkMode?.name
         // scaling is not set here because the deploy stage does not accept scaling policies.
         // They're copied on a clone if they exist, or created in a modify job by us if they don't.
       ) + image
@@ -1135,9 +1137,10 @@ private fun jsonStringify(arguments: Map<String, Any>?) =
           efsRelativeMountPoint = it.efsRelativeMountPoint,
         )
       },
-      platformSidecars = platformSidecars?.map {
+      platformSidecars = platformSidecars.map {
         TitusServerGroup.PlatformSidecar(it.name, it.channel, it.arguments)
-      }
+      },
+      networkMode = networkMode?.runCatching(NetworkMode::valueOf)?.getOrNull()
     )
 
   private fun TitusServerGroup.securityGroupIds(): Collection<String> =

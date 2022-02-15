@@ -57,6 +57,7 @@ data class TitusServerGroup(
   val scaling: Scaling = Scaling(),
   val efs: ElasticFileSystem?,
   val platformSidecars: List<PlatformSidecar> = emptyList(),
+  val networkMode: NetworkMode? = null
 ) : VersionedArtifactProvider, SimpleLocationProvider by location {
 
   // todo eb: should this be more general?
@@ -87,4 +88,8 @@ data class TitusServerGroup(
     val channel: String,
     val arguments: Map<String, Any>? = null,
   )
+
+  enum class NetworkMode {
+    Ipv4Only, Ipv6AndIpv4, Ipv6AndIpv4Fallback, Ipv6Only, HighScale
+  }
 }

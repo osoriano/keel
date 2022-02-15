@@ -25,9 +25,9 @@ import com.netflix.spinnaker.keel.api.DependencyType.SECURITY_GROUP
 import com.netflix.spinnaker.keel.api.DependencyType.TARGET_GROUP
 import com.netflix.spinnaker.keel.api.Dependent
 import com.netflix.spinnaker.keel.api.ExcludedFromDiff
-import com.netflix.spinnaker.keel.api.RolloutConfig
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.RedBlack
+import com.netflix.spinnaker.keel.api.RolloutConfig
 import com.netflix.spinnaker.keel.api.SimpleLocations
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 import com.netflix.spinnaker.keel.api.artifacts.DOCKER
@@ -180,7 +180,8 @@ data class TitusServerGroupSpec(
   val tags: Map<String, String>? = null,
   val scaling: TitusScalingSpec? = null,
   val efs: ElasticFileSystem? = null,
-  val platformSidecars: List<TitusServerGroup.PlatformSidecar>? = null
+  val platformSidecars: List<TitusServerGroup.PlatformSidecar>? = null,
+  val networkMode: TitusServerGroup.NetworkMode? = null
 )
 
 data class ResourcesSpec(

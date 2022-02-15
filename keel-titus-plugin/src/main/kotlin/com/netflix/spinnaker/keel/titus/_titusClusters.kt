@@ -125,6 +125,9 @@ fun TitusClusterSpec.resolvePlatformSidecars(region: String? = null) =
 fun TitusClusterSpec.resolveTags(region: String? = null) =
   defaults.tags + (region?.let { overrides[it] }?.tags ?: emptyMap())
 
+fun TitusClusterSpec.resolveNetworkMode(region: String? = null) =
+  overrides[region]?.networkMode ?: defaults.networkMode
+
 internal fun TitusClusterSpec.resolve(): Set<TitusServerGroup> =
   locations.regions.map {
     TitusServerGroup(
@@ -150,6 +153,7 @@ internal fun TitusClusterSpec.resolve(): Set<TitusServerGroup> =
       scaling = resolveScaling(it.name),
       efs = resolveEfs(it.name),
       platformSidecars = resolvePlatformSidecars(it.name),
+      networkMode = resolveNetworkMode(it.name)
     )
   }
     .toSet()
