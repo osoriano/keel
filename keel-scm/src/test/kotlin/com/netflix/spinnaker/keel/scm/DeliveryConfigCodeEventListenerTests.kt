@@ -4,6 +4,7 @@ import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.Tag
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactOriginFilter
 import com.netflix.spinnaker.keel.api.artifacts.branchName
+import com.netflix.spinnaker.keel.application.ApplicationConfig
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
 import com.netflix.spinnaker.keel.auth.AuthorizationResourceType.SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport
@@ -15,6 +16,7 @@ import com.netflix.spinnaker.keel.front50.model.DataSources
 import com.netflix.spinnaker.keel.front50.model.ManagedDeliveryConfig
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 import com.netflix.spinnaker.keel.notifications.DeliveryConfigImportFailed
+import com.netflix.spinnaker.keel.persistence.ApplicationRepository
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.PausedRepository
@@ -56,6 +58,8 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
     val eventPublisher: ApplicationEventPublisher = mockk(relaxUnitFun = true)
     val authorizationSupport: AuthorizationSupport = mockk(relaxUnitFun = true)
     val pausedRepository: PausedRepository = mockk()
+    val applicationRepository: ApplicationRepository = mockk()
+
     val subject = DeliveryConfigCodeEventListener(
       keelRepository = keelRepository,
       deliveryConfigUpserter = deliveryConfigUpserter,
@@ -68,7 +72,8 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
       eventPublisher = eventPublisher,
       authorizationSupport = authorizationSupport,
       clock = clock,
-      pausedRepository = pausedRepository
+      pausedRepository = pausedRepository,
+      applicationRepository = applicationRepository
     )
 
     val configuredApp = Application(
@@ -176,6 +181,10 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
       every {
         pausedRepository.resumeApplication(any())
       } just runs
+
+      every {
+        applicationRepository.store(any())
+      } just runs
     }
   }
 
@@ -258,6 +267,10 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
             }
 
             verify(exactly = 0) {
+              applicationRepository.store(any())
+            }
+
+            verify(exactly = 0) {
               front50Cache.disableAllPipelines(any())
             }
 
@@ -321,6 +334,16 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
 
           verify {
             front50Cache.updateManagedDeliveryConfig(migratingApp, any(), any())
+          }
+
+          verify {
+            applicationRepository.store(
+              ApplicationConfig(
+                application = migratingApp.name,
+                autoImport = true,
+                updatedBy = prMergedEvent.causeByEmail
+              )
+            )
           }
 
           verify {

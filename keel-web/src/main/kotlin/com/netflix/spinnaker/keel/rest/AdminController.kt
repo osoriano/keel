@@ -173,13 +173,6 @@ class AdminController(
     adminService.refreshApplicationCache()
   }
 
-  @PostMapping(
-    path = ["/git/migrate-pipelines"]
-  )
-  fun runGitIntegrationMigration() {
-    GlobalScope.launch { adminService.migrateImportPipelinesToGitIntegration() }
-  }
-
   data class AddAppsToMigrationPayload(
     val apps: List<String>,
     val inAllowedList: Boolean,
@@ -248,6 +241,14 @@ class AdminController(
   )
   fun getActuationPlan(@PathVariable application: String) =
     runBlocking { applicationService.getActuationPlan(application) }
+
+  @PostMapping(
+    path = ["/sync-front50-config"]
+  )
+  fun syncFront50Config() {
+    adminService.syncFront50Config()
+  }
+
 }
 
 data class CheckPermissionBody(

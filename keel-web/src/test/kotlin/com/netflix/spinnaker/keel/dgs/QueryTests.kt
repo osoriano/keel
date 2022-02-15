@@ -39,6 +39,7 @@ import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventRepository
 import com.netflix.spinnaker.keel.migrations.ApplicationPrData
 import com.netflix.spinnaker.keel.pause.ActuationPauser
+import com.netflix.spinnaker.keel.persistence.ApplicationRepository
 import com.netflix.spinnaker.keel.persistence.ArtifactRepository
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
 import com.netflix.spinnaker.keel.persistence.DiffFingerprintRepository
@@ -153,6 +154,9 @@ class QueryTests {
 
   @MockkBean
   lateinit var buoyClient: BuoyClient
+
+  @MockkBean
+  lateinit var applicationRepository: ApplicationRepository
 
   val clock = MutableClock()
 

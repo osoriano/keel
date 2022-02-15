@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.igor
 
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
+import com.netflix.spinnaker.keel.application.ApplicationConfig.Companion.DEFAULT_MANIFEST_PATH
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.parseDeliveryConfig
@@ -20,7 +21,6 @@ class DeliveryConfigImporter(
   ) {
   companion object {
     private val log by lazy { LoggerFactory.getLogger(DeliveryConfigImporter::class.java) }
-    const val DEFAULT_MANIFEST_PATH = "spinnaker.yml"
   }
 
   /**

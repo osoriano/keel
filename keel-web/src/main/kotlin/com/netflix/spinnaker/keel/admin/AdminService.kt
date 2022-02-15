@@ -7,14 +7,15 @@ import com.netflix.spinnaker.keel.actuation.ExecutionSummaryService
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.OVERRIDE_FAIL
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.api.plugins.supporting
+import com.netflix.spinnaker.keel.application.ApplicationConfig
 import com.netflix.spinnaker.keel.core.api.ApplicationSummary
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.CURRENT
 import com.netflix.spinnaker.keel.exceptions.NoSuchEnvironmentException
 import com.netflix.spinnaker.keel.front50.Front50Cache
-import com.netflix.spinnaker.keel.front50.Front50Service
-import com.netflix.spinnaker.keel.front50.model.ManagedDeliveryConfig
 import com.netflix.spinnaker.keel.logging.blankMDC
 import com.netflix.spinnaker.keel.pause.ActuationPauser
+import com.netflix.spinnaker.keel.persistence.ApplicationRepository
+import com.netflix.spinnaker.keel.persistence.DependentAttachFilter
 import com.netflix.spinnaker.keel.persistence.DiffFingerprintRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.kork.exceptions.UserException
@@ -26,7 +27,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.supervisorScope
 import org.slf4j.LoggerFactory
-import org.springframework.context.ApplicationEventPublisher
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.time.Clock
@@ -40,10 +40,9 @@ class AdminService(
   private val diffFingerprintRepository: DiffFingerprintRepository,
   private val artifactSuppliers: List<ArtifactSupplier<*, *>>,
   private val front50Cache: Front50Cache,
-  private val front50Service: Front50Service,
   private val executionSummaryService: ExecutionSummaryService,
-  private val publisher: ApplicationEventPublisher,
   private val clock: Clock,
+  private val applicationRepository: ApplicationRepository,
   coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : CoroutineScope {
   override val coroutineContext: CoroutineContext = coroutineDispatcher
@@ -70,7 +69,13 @@ class AdminService(
    * Removes the stored state we have for any stateful constraints for an environment
    * so they will evaluate again
    */
-  fun forceConstraintReevaluation(application: String, environment: String, reference: String, version: String, type: String? = null) {
+  fun forceConstraintReevaluation(
+    application: String,
+    environment: String,
+    reference: String,
+    version: String,
+    type: String? = null
+  ) {
     log.info("[app=$application, env=$environment] Forcing reevaluation of stateful constraints.")
     if (type != null) {
       log.info("[app=$application, env=$environment] Forcing only type $type")
@@ -158,8 +163,9 @@ class AdminService(
       ?: throw UserException("application $application contains no artifact ref $artifactReference. Artifact references are: ${deliveryConfig.artifacts.map { it.reference }}")
 
     // Identify the current version in the environment
-    val currentVersion = repository.getArtifactVersionsByStatus(deliveryConfig, environment, artifactReference, listOf(CURRENT))
-      .firstOrNull()
+    val currentVersion =
+      repository.getArtifactVersionsByStatus(deliveryConfig, environment, artifactReference, listOf(CURRENT))
+        .firstOrNull()
 
     if (currentVersion == null) {
       log.warn("forcing application $application artifact $artifactReference version $version to SKIPPED even though there is no version in CURRENT state")
@@ -202,76 +208,6 @@ class AdminService(
     front50Cache.primeCaches()
   }
 
-  /**
-   * Migrates all currently known managed applications from an import pipeline to the native git integration.
-   */
-  suspend fun migrateImportPipelinesToGitIntegration() {
-    val configs = repository.allDeliveryConfigs()
-    var migrated = 0
-    val startTime = clock.instant()
-    log.debug("Retrieved ${configs.size} delivery configs for git integration migration")
-
-    configs.forEach { config ->
-      val app = try {
-        front50Cache.applicationByName(config.application)
-      } catch (e: Exception) {
-        null
-      }
-
-      if (app == null) {
-        log.debug("App ${config.application} not found. Skipping git integration migration.")
-        return@forEach
-      }
-
-      if (app.managedDelivery?.importDeliveryConfig == true) {
-        log.debug("App ${app.name} already configured for git integration. Skipping migration.")
-        return@forEach
-      }
-
-      val importPipeline = try {
-        front50Cache.pipelinesByApplication(app.name).find {
-          it.stages.any { stage -> stage.type == "importDeliveryConfig" }
-        }
-      } catch (e: Exception) {
-        log.error("Failed to retrieve pipelines for app ${config.application}. Skipping migration.")
-        return@forEach
-      }
-
-      if (importPipeline == null) {
-        log.debug("No import pipeline found for app ${app.name}. Skipping migration.")
-        return@forEach
-      }
-
-      val disabled = importPipeline.disabled || importPipeline.triggers.none { trigger -> trigger.enabled }
-      if (disabled) {
-        log.debug("Import pipeline [${importPipeline.name}] found for app ${app.name} (${config.serviceAccount}), but already disabled. Skipping migration.")
-        return@forEach
-      }
-
-      log.debug("Enabling git integration for app ${config.application} in Front50.")
-      try {
-        val updatedApp = app.copy(managedDelivery = ManagedDeliveryConfig(importDeliveryConfig = true))
-        front50Service.updateApplication(app.name, config.serviceAccount, updatedApp)
-      } catch (e: Exception) {
-        log.error("Failed to enable git integration for app ${config.application} in Front50. Skipping disabling pipeline.")
-        return@forEach
-      }
-
-      log.debug("Disabling import pipeline [${importPipeline.name}] for app ${config.application} in Front50.")
-      try {
-        val updatedPipeline = importPipeline.copy(disabled = true)
-        front50Service.updatePipeline(importPipeline.id, updatedPipeline, config.serviceAccount)
-      } catch (e: Exception) {
-        log.error("Failed to disable import pipeline [${importPipeline.name}] for app ${config.application} in Front50")
-        return@forEach
-      }
-
-      migrated++
-    }
-    val duration = Duration.between(startTime, clock.instant())
-    log.debug("Migrated $migrated/${configs.size} apps (${configs.size - migrated} skipped) in ${duration.toSeconds()} seconds")
-  }
-
   fun storeAppForPotentialMigration(apps: List<String>, inAllowList: Boolean) {
     apps.forEach {
       repository.storeAppForPotentialMigration(it, inAllowList)
@@ -279,5 +215,25 @@ class AdminService(
   }
 
   fun getTaskSummary(id: String): ExecutionSummary? =
-      executionSummaryService.getSummary(id)
+    executionSummaryService.getSummary(id)
+
+  fun syncFront50Config() {
+    val configs = repository.allDeliveryConfigs(DependentAttachFilter.ATTACH_NONE)
+    runBlocking {
+      configs.forEach {
+        try {
+          val application = front50Cache.applicationByName(it.application)
+          applicationRepository.store(
+            ApplicationConfig(
+              application = it.application,
+              autoImport = application.managedDelivery?.importDeliveryConfig ?: false, // Defaulting to false
+              deliveryConfigPath = application.managedDelivery?.manifestPath
+            )
+          )
+        } catch (e: Exception) {
+          log.error("Failed to sync front50 config of application ${it.application}")
+        }
+      }
+    }
+  }
 }

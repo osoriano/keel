@@ -4,6 +4,7 @@ import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.keel.api.artifacts.Commit
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.Repo
+import com.netflix.spinnaker.keel.application.ApplicationConfig
 import com.netflix.spinnaker.keel.auth.AuthorizationResourceType.SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
@@ -13,6 +14,7 @@ import com.netflix.spinnaker.keel.front50.model.GitRepository
 import com.netflix.spinnaker.keel.front50.model.ManagedDeliveryConfig
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 import com.netflix.spinnaker.keel.notifications.DeliveryConfigImportFailed
+import com.netflix.spinnaker.keel.persistence.ApplicationRepository
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.PausedRepository
@@ -45,6 +47,7 @@ class DeliveryConfigCodeEventListener(
   private val authorizationSupport: AuthorizationSupport,
   private val clock: Clock,
   private val pausedRepository: PausedRepository,
+  private val applicationRepository: ApplicationRepository,
 ) {
   companion object {
     private val log by lazy { LoggerFactory.getLogger(DeliveryConfigCodeEventListener::class.java) }
@@ -182,6 +185,7 @@ class DeliveryConfigCodeEventListener(
   private fun onboardNewApplication(application: Application, user: String, event: CodeEvent) {
     runBlocking {
       front50Cache.updateManagedDeliveryConfig(application, user, ManagedDeliveryConfig(importDeliveryConfig = true))
+      applicationRepository.store(ApplicationConfig(application.name, autoImport = true, updatedBy = user))
       if (isMigrationPr(event, application)) {
         front50Cache.disableAllPipelines(application.name)
         pausedRepository.resumeApplication(application.name)

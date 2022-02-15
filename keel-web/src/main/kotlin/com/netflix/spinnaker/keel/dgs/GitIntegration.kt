@@ -6,6 +6,8 @@ import com.netflix.graphql.dgs.DgsDataFetchingEnvironment
 import com.netflix.graphql.dgs.DgsMutation
 import com.netflix.graphql.dgs.InputArgument
 import com.netflix.graphql.dgs.exceptions.DgsEntityNotFoundException
+import com.netflix.spinnaker.keel.application.ApplicationConfig
+import com.netflix.spinnaker.keel.application.ApplicationConfig.Companion.DEFAULT_MANIFEST_PATH
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.Front50Service
 import com.netflix.spinnaker.keel.front50.model.Application
@@ -15,7 +17,7 @@ import com.netflix.spinnaker.keel.graphql.types.MD_Application
 import com.netflix.spinnaker.keel.graphql.types.MD_GitIntegration
 import com.netflix.spinnaker.keel.graphql.types.MD_UpdateGitIntegrationPayload
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
-import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter.Companion.DEFAULT_MANIFEST_PATH
+import com.netflix.spinnaker.keel.persistence.ApplicationRepository
 import com.netflix.spinnaker.keel.scm.ScmUtils
 import com.netflix.spinnaker.keel.upsert.DeliveryConfigUpserter
 import kotlinx.coroutines.runBlocking
@@ -33,6 +35,7 @@ class GitIntegration(
   private val scmUtils: ScmUtils,
   private val deliveryConfigUpserter: DeliveryConfigUpserter,
   private val importer: DeliveryConfigImporter,
+  private val applicationRepository: ApplicationRepository,
 ) {
 
   companion object {
@@ -70,6 +73,12 @@ class GitIntegration(
         )
       )
     }
+    applicationRepository.store(ApplicationConfig(
+      application = payload.application,
+      autoImport = payload.isEnabled == true,
+      deliveryConfigPath = payload.manifestPath,
+      updatedBy = user
+    ))
     return updatedFront50App.toGitIntegration()
   }
 
