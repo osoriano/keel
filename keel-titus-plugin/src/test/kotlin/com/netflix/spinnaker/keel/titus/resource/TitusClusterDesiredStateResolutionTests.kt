@@ -11,6 +11,7 @@ import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.api.titus.TITUS_CLUSTER_V1
 import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroup
+import com.netflix.spinnaker.keel.api.titus.TitusServerGroup.NetworkMode.Ipv6AndIpv4
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroupSpec
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
@@ -24,7 +25,6 @@ import com.netflix.spinnaker.keel.titus.TitusClusterHandler
 import com.netflix.spinnaker.keel.titus.registry.TitusRegistryService
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
-import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
 import strikt.api.expectThat
@@ -94,6 +94,22 @@ class TitusClusterDesiredStateResolutionTests : JUnit5Minutests {
           .isEqualTo(spec.overrides.getValue("af-south-1").capacity?.run { Capacity.DefaultCapacity(min, max, desired!!)})
       }
     }
+
+    context("the `networkMode` property") {
+      test("default value applies in non-overridden region") {
+        expectThat(desired)
+          .getValue("ca-central-1")
+          .get(TitusServerGroup::networkMode)
+          .isEqualTo(spec.defaults.networkMode)
+      }
+
+      test("override value applies in overridden region") {
+        expectThat(desired)
+          .getValue("af-south-1")
+          .get(TitusServerGroup::networkMode)
+          .isEqualTo(spec.overrides.getValue("af-south-1").networkMode)
+      }
+    }
   }
 
   class Fixture(
@@ -116,7 +132,8 @@ class TitusClusterDesiredStateResolutionTests : JUnit5Minutests {
         ),
         tags = mapOf(
           "key" to "default value"
-        )
+        ),
+        networkMode = null
       ),
       container = DigestProvider(
         organization = "fnord",
@@ -134,7 +151,8 @@ class TitusClusterDesiredStateResolutionTests : JUnit5Minutests {
           ),
           tags = mapOf(
             "key" to "override value"
-          )
+          ),
+          networkMode = Ipv6AndIpv4
         )
       )
     )

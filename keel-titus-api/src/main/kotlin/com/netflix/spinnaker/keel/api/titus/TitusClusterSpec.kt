@@ -79,7 +79,8 @@ data class TitusClusterSpec(
     tags: Map<String, String> = emptyMap(),
     scaling: TitusScalingSpec? = null,
     overrides: Map<String, TitusServerGroupSpec> = emptyMap(),
-    rolloutWith: RolloutConfig? = null
+    rolloutWith: RolloutConfig? = null,
+    networkMode: TitusServerGroup.NetworkMode? = null
   ) : this(
     moniker = moniker,
     deployWith = deployWith,
@@ -97,7 +98,8 @@ data class TitusClusterSpec(
       resources = resources,
       platformSidecars = platformSidecars,
       tags = tags,
-      scaling = scaling
+      scaling = scaling,
+      networkMode = networkMode
     ),
     overrides = overrides,
     container = container,
