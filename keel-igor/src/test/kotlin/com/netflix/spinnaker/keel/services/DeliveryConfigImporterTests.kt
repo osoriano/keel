@@ -11,7 +11,7 @@ import com.netflix.spinnaker.keel.front50.model.Application
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 import com.netflix.spinnaker.keel.igor.RawDeliveryConfigResult
 import com.netflix.spinnaker.keel.igor.ScmService
-import com.netflix.spinnaker.keel.igor.model.Branch
+import com.netflix.spinnaker.keel.api.stash.Branch
 import com.netflix.spinnaker.keel.test.DummyResourceSpec
 import com.netflix.spinnaker.keel.test.configuredTestYamlMapper
 import com.netflix.spinnaker.keel.test.deliveryConfig

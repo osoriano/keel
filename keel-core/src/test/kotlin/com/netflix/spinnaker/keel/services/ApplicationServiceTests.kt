@@ -1252,8 +1252,8 @@ class ApplicationServiceTests : JUnit5Minutests {
         } just Runs
 
         every {
-          scmBridge.createPr("stash", any(), any(), any())
-        } returns expectedPrResponse
+          scmBridge.createCommitAndPrFromConfig(any())
+        } returns expectedPrResponse.link
       }
 
       test("successfully created a PR in stash with the config; not failed when jira integration is returning error") {
@@ -1296,7 +1296,7 @@ class ApplicationServiceTests : JUnit5Minutests {
 
       before {
         every {
-          scmBridge.createPr(any(), any(), any(), any())
+          scmBridge.createCommitAndPrFromConfig(any())
         } throws retrofitError
 
         every { repository.getMigratableApplicationData(application1) } returns ApplicationPrData(

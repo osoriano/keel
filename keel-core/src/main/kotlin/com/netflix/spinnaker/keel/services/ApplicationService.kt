@@ -70,13 +70,11 @@ import com.netflix.spinnaker.keel.events.UnpinnedNotification
 import com.netflix.spinnaker.keel.exceptions.InvalidConstraintException
 import com.netflix.spinnaker.keel.exceptions.InvalidSystemStateException
 import com.netflix.spinnaker.keel.exceptions.InvalidVetoException
-import com.netflix.spinnaker.keel.getPrDescription
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventRepository
 import com.netflix.spinnaker.keel.logging.blankMDC
 import com.netflix.spinnaker.keel.logging.withThreadTracingContext
 import com.netflix.spinnaker.keel.migrations.ApplicationPrData
 import com.netflix.spinnaker.keel.persistence.ArtifactNotFoundException
-import com.netflix.spinnaker.keel.persistence.ArtifactRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.persistence.NoSuchDeliveryConfigException
@@ -90,6 +88,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.http.HttpStatus
@@ -122,6 +121,7 @@ class ApplicationService(
   private val artifactVersionLinks: ArtifactVersionLinks,
   private val environmentTaskCanceler: EnvironmentTaskCanceler,
   private var yamlMapper: YAMLMapper,
+  @Qualifier("migrationScmService")
   private val scmBridge: ScmBridge,
   private val jiraBridge: JiraBridge,
   private val pausedRepository: PausedRepository,
@@ -133,12 +133,6 @@ class ApplicationService(
   companion object {
     //attributes that should be stripped before being returned through the api
     val privateConstraintAttrs = listOf("manual-judgement")
-
-    const val COMMIT_MESSAGE = "Your first delivery config [skip ci]"
-    const val PR_TITLE = "Upgrade to Managed Delivery"
-    const val BRANCH_NAME = "md-migration"
-    const val CONFIG_PATH = ".netflix/spinnaker.yml"
-    const val STASH_SCM_TYPE = "stash"
   }
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
@@ -778,49 +772,43 @@ class ApplicationService(
     val applicationPrData = repository.getMigratableApplicationData(application)
     //sending the exported config in a yml format, as string
     val configAsString = yamlMapper.writeValueAsString(applicationPrData.deliveryConfig)
-    val reviewer = if (user.contains('@')) {
-      user.substringBefore('@')
-      //we don't want to fail the request or throw an exception if the user is invalid
-    } else ""
 
-    val commitMigrationData = MigrationCommitData(
+    val migrationCommitData = MigrationCommitData(
       fileContents = configAsString,
-      commitMessage = COMMIT_MESSAGE,
-      branchName = BRANCH_NAME,
-      prTitle = PR_TITLE,
-      prDescription = getPrDescription(user),
-      filePath = CONFIG_PATH,
-      reviewers = setOf(reviewer)
+      user = user,
+      repoSlug = applicationPrData.repoSlug,
+      projectKey = applicationPrData.projectKey
     )
 
     //get the newly created PR link
-    //todo: should we wrap it in try/catch?
-    val prLink = scmBridge.createPr(
-      STASH_SCM_TYPE,
-      applicationPrData.projectKey,
-      applicationPrData.repoSlug,
-      commitMigrationData).link
+    val prLink =
+      try {
+        scmBridge.createCommitAndPrFromConfig(migrationCommitData)
+      } catch (ex: Exception) {
+        log.debug("failed to created pull request for application $application.", ex)
+        throw ex
+      }
 
     log.debug("Migration PR created for application $application: $prLink")
 
     //storing the pr link
-    repository.storePrLinkForMigratedApplication(application, prLink)
+    repository.storePrLinkForMigratedApplication(application, prLink!!)
 
     //create a jira issue
     try {
-      val jiraIssue = jiraBridge.createIssue(
-        JiraIssue(
-          JiraFields(
-            summary = "Managed Delivery migration started for application $application",
-            description = "This is an automated ticket. A PR was created to migrate application $application to Managed Delivery.\n Check out the PR: $prLink",
-            components = listOf(JiraComponent(name = "migration"))
-          )
+      val jiraRequest =  JiraIssue(
+        JiraFields(
+          summary = "Managed Delivery migration started for application $application",
+          description = "This is an automated ticket. A PR was created to migrate application $application to Managed Delivery.\n Check out the PR: $prLink",
+          components = listOf(JiraComponent(name = "migration"))
         )
       )
+      log.debug("trying to create a jira issue with request $jiraRequest for application $application")
+      val jiraIssue = jiraBridge.createIssue(jiraRequest)
       log.debug("jira issue ${jiraIssue.key} was created for application $application migration PR")
       repository.storeJiraLinkForMigratedApplication(application, jiraIssue.self)
     } catch (ex: Exception) {
-      log.debug("tried to create a new jira issue for a migration PR for application $application, but caught an exception", ex)
+      log.debug("tried to create a new jira issue for a migration PR for application $application, but caught an exception", ex.message?:ex)
     }
 
     return Pair(applicationPrData, prLink)

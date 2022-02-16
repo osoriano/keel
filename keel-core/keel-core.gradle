@@ -27,6 +27,7 @@ dependencies {
   implementation("com.netflix.spinnaker.fiat.internal:fiat-api")
   implementation("com.netflix.spinnaker.fiat.internal:fiat-core")
   implementation(project(":keel-ec2-api"))  // needed for resource dependency logic
+  implementation(project(":keel-retrofit"))
 
   testImplementation(project(":keel-test"))
   testImplementation(project(":keel-core-test"))

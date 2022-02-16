@@ -41,6 +41,7 @@ include(
   "keel-front50",
   "keel-igor",
   "keel-jira",
+  "keel-stash",
   "keel-lemur",
   "keel-network",
   "keel-notifications",

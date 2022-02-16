@@ -38,7 +38,7 @@ class PluginNotificationHandlerTests {
     )
   }
   val artifactVersionLinks: ArtifactVersionLinks = mockk()
-  val gitDataGenerator: GitDataGenerator = GitDataGenerator(scmInfo, BaseUrlConfig(), slackService, artifactVersionLinks)
+  val gitDataGenerator: GitDataGenerator = GitDataGenerator(BaseUrlConfig(), slackService, artifactVersionLinks)
   val clock = MutableClock()
   val springEnv = mockk<Environment>(relaxUnitFun = true) {
     every {getProperty("keel.plugins.notifications.enabled", Boolean::class.java, true) } returns true

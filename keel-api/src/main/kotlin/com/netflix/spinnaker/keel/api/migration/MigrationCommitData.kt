@@ -5,10 +5,7 @@ package com.netflix.spinnaker.keel.api.migration
  */
 data class MigrationCommitData (
   val fileContents: String,
-  val commitMessage: String,
-  val branchName: String,
-  val prTitle: String,
-  val prDescription: String,
-  val filePath: String,
-  val reviewers: Set<String>
+  val user: String,
+  val projectKey: String,
+  val repoSlug: String
   )
