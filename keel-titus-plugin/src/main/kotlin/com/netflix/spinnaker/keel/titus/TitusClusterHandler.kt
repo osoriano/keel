@@ -1184,7 +1184,7 @@ private fun jsonStringify(arguments: Map<String, Any>?) =
       env = emptyMap(),
       containerAttributes = emptyMap(),
       tags = emptyMap(),
-      scaling = TitusScalingSpec()
+      scaling = TitusScalingSpec(),
     )
 
     val thisSpec = TitusServerGroupSpec(
@@ -1203,7 +1203,8 @@ private fun jsonStringify(arguments: Map<String, Any>?) =
       migrationPolicy = migrationPolicy,
       resources = resources.toSpec(),
       tags = tags,
-      scaling = if (scaling.hasScalingPolicies()) scaling.toTitusScalingSpec() else null
+      scaling = if (scaling.hasScalingPolicies()) scaling.toTitusScalingSpec() else null,
+      networkMode = networkMode
     )
 
     return checkNotNull(buildSpecFromDiff(defaults, thisSpec))

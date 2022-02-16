@@ -48,7 +48,8 @@ fun TitusServerGroup.toClouddriverResponse(
       resources = resources.run { Resources(cpu, disk, gpu, memory, networkMbps) },
       capacityGroup = moniker.app,
       instanceCounts = instanceCounts.run { ClouddriverInstanceCounts(total, up, down, unknown, outOfService, starting) },
-      createdTime = 1544656134371
+      createdTime = 1544656134371,
+      networkMode = networkMode?.name
     )
   }
 

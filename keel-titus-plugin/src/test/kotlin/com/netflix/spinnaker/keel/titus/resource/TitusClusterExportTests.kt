@@ -11,6 +11,8 @@ import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactOriginFilter
 import com.netflix.spinnaker.keel.api.artifacts.BranchFilter
 import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
+import com.netflix.spinnaker.keel.api.artifacts.DockerImage
+import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.BRANCH_JOB_COMMIT_BY_JOB
 import com.netflix.spinnaker.keel.api.ec2.ClusterDependencies
@@ -21,14 +23,13 @@ import com.netflix.spinnaker.keel.api.titus.ResourcesSpec
 import com.netflix.spinnaker.keel.api.titus.TITUS_CLOUD_PROVIDER
 import com.netflix.spinnaker.keel.api.titus.TITUS_CLUSTER_V1
 import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
+import com.netflix.spinnaker.keel.api.titus.TitusServerGroup.NetworkMode.HighScale
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroupSpec
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.clouddriver.model.Credential
 import com.netflix.spinnaker.keel.clouddriver.model.CustomizedMetricSpecificationModel
-import com.netflix.spinnaker.keel.api.artifacts.DockerImage
-import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.clouddriver.model.MetricDimensionModel
 import com.netflix.spinnaker.keel.clouddriver.model.Resources
 import com.netflix.spinnaker.keel.clouddriver.model.SecurityGroupSummary
@@ -38,7 +39,6 @@ import com.netflix.spinnaker.keel.clouddriver.model.TitusScaling
 import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.docker.DigestProvider
 import com.netflix.spinnaker.keel.docker.ReferenceProvider
-import com.netflix.spinnaker.keel.exceptions.DockerArtifactExportError
 import com.netflix.spinnaker.keel.orca.ClusterExportHelper
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.orca.OrcaTaskLauncher
@@ -52,7 +52,6 @@ import com.netflix.spinnaker.keel.titus.resolve
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import io.mockk.clearAllMocks
-import io.mockk.coEvery as every
 import io.mockk.confirmVerified
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
@@ -70,6 +69,7 @@ import strikt.assertions.isNotNull
 import strikt.assertions.isNull
 import java.time.Clock
 import java.util.UUID
+import io.mockk.coEvery as every
 
 internal class TitusClusterExportTests : JUnit5Minutests {
   val titusAccount = "titustest"
@@ -125,7 +125,8 @@ internal class TitusClusterExportTests : JUnit5Minutests {
       dependencies = ClusterDependencies(
         loadBalancerNames = setOf("keel-test-frontend"),
         securityGroupNames = setOf(sg1West.name)
-      )
+      ),
+      networkMode = HighScale
     ),
     container = container
   )
@@ -310,14 +311,15 @@ internal class TitusClusterExportTests : JUnit5Minutests {
                 // the only overrides added by default are Netflix env vars
                 get { env!!.keys }.containsExactly(*NETFLIX_CONTAINER_ENV_VARS)
               }
-              that(spec.defaults.constraints).isNull()
-              that(spec.defaults.entryPoint).isNull()
-              that(spec.defaults.migrationPolicy).isNull()
-              that(spec.defaults.resources).isNull()
-              that(spec.defaults.iamProfile).isNull()
-              that(spec.defaults.capacityGroup).isNull()
-              that(spec.defaults.containerAttributes).isNull()
-              that(spec.defaults.tags).isNull()
+              that(defaults.constraints).isNull()
+              that(defaults.entryPoint).isNull()
+              that(defaults.migrationPolicy).isNull()
+              that(defaults.resources).isNull()
+              that(defaults.iamProfile).isNull()
+              that(defaults.capacityGroup).isNull()
+              that(defaults.containerAttributes).isNull()
+              that(defaults.tags).isNull()
+              that(defaults.networkMode) isEqualTo spec.defaults.networkMode
               that(container).isA<ReferenceProvider>()
             }
           }
