@@ -813,8 +813,6 @@ data class PipelineExportResult(
 
   val exportSucceeded: Boolean
     get() = skipped.filterValues { !(VALID_SKIP_REASONS.contains(it)) }.isEmpty()
-      //if the generated config is empty, fail the export as well
-      && deliveryConfig.environments.isNotEmpty()
 }
 
 private val Exportable.clusterKind: ResourceKind

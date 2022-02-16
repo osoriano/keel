@@ -3,11 +3,11 @@ package com.netflix.spinnaker.keel.notifications.scm
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
-import com.netflix.spinnaker.keel.api.stash.BuildResult
-import com.netflix.spinnaker.keel.api.stash.BuildState.SUCCESSFUL
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.model.Application
 import com.netflix.spinnaker.keel.igor.ScmService
+import com.netflix.spinnaker.keel.igor.model.BuildResult
+import com.netflix.spinnaker.keel.igor.model.BuildState.SUCCESSFUL
 import com.netflix.spinnaker.keel.igor.model.Comment
 import com.netflix.spinnaker.keel.notifications.slack.DeploymentStatus.SUCCEEDED
 import com.netflix.spinnaker.keel.notifications.slack.handlers.GitDataGenerator

@@ -1,9 +1,11 @@
 package com.netflix.spinnaker.keel.igor
 
 import com.netflix.spinnaker.keel.api.ScmBridge
+import com.netflix.spinnaker.keel.api.migration.MigrationCommitData
+import com.netflix.spinnaker.keel.api.migration.PrLink
 import com.netflix.spinnaker.keel.front50.model.Application
-import com.netflix.spinnaker.keel.api.stash.Branch
-import com.netflix.spinnaker.keel.api.stash.BuildResult
+import com.netflix.spinnaker.keel.igor.model.Branch
+import com.netflix.spinnaker.keel.igor.model.BuildResult
 import com.netflix.spinnaker.keel.igor.model.Comment
 import kotlinx.coroutines.runBlocking
 import retrofit2.Response
@@ -94,6 +96,14 @@ interface ScmService: ScmBridge {
     @Path("commitHash") commitHash: String,
     @Body buildResult: BuildResult
   ): Response<Unit>
+
+  @POST("/delivery-config/{scmType}/{projectKey}/{repoSlug}/create-pr")
+  override suspend fun createPr(
+    @Path("scmType") scmType: String,
+    @Path("projectKey") projectKey: String,
+    @Path("repoSlug") repoSlug: String,
+    @Body migrationCommitData: MigrationCommitData
+  ): PrLink
 }
 
 fun Application.getDefaultBranch(scmService: ScmService): String = runBlocking {

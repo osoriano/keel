@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.notifications.slack.handlers
 
 import com.netflix.spinnaker.config.BaseUrlConfig
+import com.netflix.spinnaker.keel.api.ScmBridge
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.artifacts.ArtifactVersionLinks
@@ -24,6 +25,7 @@ import org.springframework.stereotype.Component
 @Component
 @EnableConfigurationProperties(BaseUrlConfig::class)
 class GitDataGenerator(
+  private val scmBridge: ScmBridge,
   val config: BaseUrlConfig,
   val slackService: SlackService,
   private val artifactVersionLinks: ArtifactVersionLinks,

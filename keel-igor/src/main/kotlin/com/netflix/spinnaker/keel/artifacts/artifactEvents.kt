@@ -2,9 +2,9 @@ package com.netflix.spinnaker.keel.artifacts
 
 import com.netflix.spinnaker.keel.api.artifacts.DOCKER
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
-import com.netflix.spinnaker.keel.api.stash.BuildState
-import com.netflix.spinnaker.keel.api.stash.BuildState.SUCCESSFUL
-import com.netflix.spinnaker.keel.api.stash.BuildState.UNKNOWN
+import com.netflix.spinnaker.keel.igor.model.BuildState
+import com.netflix.spinnaker.keel.igor.model.BuildState.SUCCESSFUL
+import com.netflix.spinnaker.keel.igor.model.BuildState.UNKNOWN
 
 val PublishedArtifact.isArtifactEvent: Boolean
   get() = metadata["rocketEventType"] == "ARTIFACT"

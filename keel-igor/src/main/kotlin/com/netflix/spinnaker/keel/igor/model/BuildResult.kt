@@ -1,4 +1,4 @@
-package com.netflix.spinnaker.keel.api.stash
+package com.netflix.spinnaker.keel.igor.model
 
 import com.fasterxml.jackson.annotation.JsonProperty
 
