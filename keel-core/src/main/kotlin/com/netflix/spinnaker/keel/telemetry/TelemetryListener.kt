@@ -386,6 +386,13 @@ class TelemetryListener(
     with(event) {
       val approvedAt = repository.getApprovedAt(deliveryConfig, artifact, version, environment.name)
       val pinnedAt = repository.getPinnedAt(deliveryConfig, artifact, version, environment.name)
+
+      // check if the version was already deployed
+      val isFirstDeployment = !repository.wasSuccessfullyDeployedTo(deliveryConfig, artifact, version, environment.name)
+      // we only want to record the metric if this deployment is because of a pin (because we adjust the approved at time)
+      //   or if this is the first deployment of the version (i.e. it's not a redeployment of the same version).
+      val shouldRecordMetric = pinnedAt != null || isFirstDeployment
+
       val startTime = when {
         pinnedAt != null && approvedAt == null -> pinnedAt
         pinnedAt == null && approvedAt != null -> approvedAt
@@ -398,7 +405,7 @@ class TelemetryListener(
       val action = if (startTime == pinnedAt) "pinned" else "approved"
 
       // record how long it took us to deploy this version since it was approved or pinned
-      if (startTime != null) {
+      if (startTime != null && shouldRecordMetric) {
         log.debug("Recording deployment delay since $action for $artifact: ${Duration.between(startTime, timestamp)}")
         spectator.recordDuration(
           ARTIFACT_DELAY, startTime, timestamp,
@@ -410,7 +417,7 @@ class TelemetryListener(
       }
 
       // for environments with no constraints, record how long it took us to deploy this version since it was stored
-      if (environment.constraints.isEmpty()) {
+      if (environment.constraints.isEmpty() && shouldRecordMetric) {
         val publishedArtifact = repository.getArtifactVersion(artifact, version)
         if (publishedArtifact?.storedAt != null) {
           log.debug("Recording deployment delay since storing for $artifact: ${Duration.between(publishedArtifact.storedAt!!, timestamp)}")
@@ -428,7 +435,8 @@ class TelemetryListener(
       // this will not include bake time for debians because of the implicit ImageExistsConstraint.
       val constraintStates = repository.constraintStateFor(deliveryConfig.name, environment.name, version, artifact.reference)
       val finalApprovalTime = constraintStates.mapNotNull { it.judgedAt }.maxOrNull() ?: startTime
-      if (finalApprovalTime != null) {
+
+      if (finalApprovalTime != null && shouldRecordMetric) {
         log.debug("Recording deployment delay since last constraint approval for $artifact: ${Duration.between(finalApprovalTime, timestamp)}")
         spectator.recordDuration(
           ARTIFACT_DELAY, finalApprovalTime, timestamp,

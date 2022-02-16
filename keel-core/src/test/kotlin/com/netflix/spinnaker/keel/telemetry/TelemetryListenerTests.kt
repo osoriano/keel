@@ -57,6 +57,7 @@ internal class TelemetryListenerTests : JUnit5Minutests {
     before {
       every { registry.timer(any(), any<Iterable<Tag>>()) } returns timer
       every { timer.record(any<Duration>()) } just runs
+      every { repository.wasSuccessfullyDeployedTo(any(),any(),any(),any()) } returns false
     }
 
     context("successful metric submission") {
