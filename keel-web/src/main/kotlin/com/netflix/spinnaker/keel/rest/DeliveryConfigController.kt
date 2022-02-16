@@ -3,6 +3,7 @@ package com.netflix.spinnaker.keel.rest
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.ResourceDiffFactory
+import com.netflix.spinnaker.keel.application.ApplicationConfig
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport.TargetEntity.APPLICATION
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport.TargetEntity.SERVICE_ACCOUNT
@@ -13,6 +14,7 @@ import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.model.ManagedDeliveryConfig
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 import com.netflix.spinnaker.keel.parseDeliveryConfig
+import com.netflix.spinnaker.keel.persistence.ApplicationRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.schema.Generator
@@ -55,7 +57,8 @@ class DeliveryConfigController(
   private val deliveryConfigUpserter: DeliveryConfigUpserter,
   private val yamlMapper: YAMLMapper,
   private val front50Cache: Front50Cache,
-  private val diffFactory: ResourceDiffFactory
+  private val diffFactory: ResourceDiffFactory,
+  private val applicationRepository: ApplicationRepository,
 ) {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
@@ -99,10 +102,12 @@ class DeliveryConfigController(
       log.debug("Upserting config of app ${submittedDeliveryConfig.application}")
       val (deliveryConfig, isNew) = deliveryConfigUpserter.upsertConfig(it, allowResourceOverwriting = force)
       if (isNew) {
+        applicationRepository.store(ApplicationConfig(application = submittedDeliveryConfig.application, autoImport = true, updatedBy = user))
         // We need to update front50 to enable the git integration to import future delivery config changes
         runBlocking {
           front50Cache.updateManagedDeliveryConfig(submittedDeliveryConfig.application, user, ManagedDeliveryConfig(importDeliveryConfig = true))
         }
+
       }
       return deliveryConfig
     }
