@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.igor.model
 
+import com.netflix.spinnaker.keel.api.stash.BuildState
+
 /**
  * The details of a (Jenkins) build, as reported by Rocket.
  */

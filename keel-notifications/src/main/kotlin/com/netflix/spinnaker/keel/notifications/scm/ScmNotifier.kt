@@ -4,11 +4,11 @@ import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.shortHash
+import com.netflix.spinnaker.keel.api.stash.BuildResult
+import com.netflix.spinnaker.keel.api.stash.BuildState
+import com.netflix.spinnaker.keel.api.stash.BuildState.SUCCESSFUL
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.igor.ScmService
-import com.netflix.spinnaker.keel.igor.model.BuildResult
-import com.netflix.spinnaker.keel.igor.model.BuildState
-import com.netflix.spinnaker.keel.igor.model.BuildState.SUCCESSFUL
 import com.netflix.spinnaker.keel.igor.model.Comment
 import com.netflix.spinnaker.keel.notifications.slack.DeploymentStatus
 import com.netflix.spinnaker.keel.notifications.slack.DeploymentStatus.FAILED

@@ -7,7 +7,7 @@ import com.netflix.spinnaker.keel.actuation.EnvironmentTaskCanceler
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.JiraBridge
-import com.netflix.spinnaker.keel.api.ScmBridge
+import com.netflix.spinnaker.keel.api.StashBridge
 import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
 import com.netflix.spinnaker.keel.api.artifacts.Commit
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
@@ -117,14 +117,6 @@ class ComparableLinksTests : JUnit5Minutests {
       every { parseDefaultGitMetadata(any(), any()) } returns null
     }
 
-    private val scmInfo = mockk<ScmBridge> {
-      coEvery {
-        getScmInfo()
-      } answers {
-        mapOf("stash" to "https://stash")
-      }
-    }
-
     val dependsOnEvaluator = mockk<ConstraintEvaluator<DependsOnConstraint>> {
       every { isImplicit() } returns false
       every { supportedType } returns SupportedConstraintType("depends-on")
@@ -147,7 +139,7 @@ class ComparableLinksTests : JUnit5Minutests {
 
     val environmentTaskCanceler: EnvironmentTaskCanceler = mockk(relaxUnitFun = true)
     val yamlMapper: YAMLMapper = mockk(relaxUnitFun = true)
-    val scmBridge: ScmBridge  = mockk(relaxed = true)
+    val stashBridge: StashBridge  = mockk(relaxed = true)
     val jiraBridge: JiraBridge = mockk(relaxed = true)
     val pausedRepository: PausedRepository = mockk(relaxed = true)
     val resourceHandler = DummyResourceHandlerV1
@@ -168,7 +160,7 @@ class ComparableLinksTests : JUnit5Minutests {
       artifactVersionLinks,
       environmentTaskCanceler,
       yamlMapper,
-      scmBridge,
+      stashBridge,
       jiraBridge,
       pausedRepository,
       listOf(resourceHandler),

@@ -8,7 +8,6 @@ import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.JiraBridge
-import com.netflix.spinnaker.keel.api.ScmBridge
 import com.netflix.spinnaker.keel.api.Verification
 import com.netflix.spinnaker.keel.api.action.ActionState
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus.RELEASE
@@ -61,6 +60,7 @@ import com.netflix.spinnaker.keel.persistence.ApplicationPullRequestDataIsMissin
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.PausedRepository
 import com.netflix.spinnaker.keel.api.ResourceStatus.CREATED
+import com.netflix.spinnaker.keel.api.StashBridge
 import com.netflix.spinnaker.keel.serialization.configuredYamlMapper
 import com.netflix.spinnaker.keel.test.DummyArtifact
 import com.netflix.spinnaker.keel.test.DummyResourceHandlerV1
@@ -263,7 +263,7 @@ class ApplicationServiceTests : JUnit5Minutests {
     val artifactVersionLinks = ArtifactVersionLinks(mockScmInfo(), mockCacheFactory())
     val environmentTaskCanceler: EnvironmentTaskCanceler = mockk(relaxUnitFun = true)
     val yamlMapper: YAMLMapper = configuredYamlMapper()
-    val scmBridge: ScmBridge = mockk(relaxed = true)
+    val stashBridge: StashBridge = mockk(relaxed = true)
     val jiraBridge: JiraBridge = mockk(relaxed = true)
     val resourceHandler = spyk(DummyResourceHandlerV1)
     val diffFactory = DefaultResourceDiffFactory()
@@ -283,7 +283,7 @@ class ApplicationServiceTests : JUnit5Minutests {
       artifactVersionLinks,
       environmentTaskCanceler,
       yamlMapper,
-      scmBridge,
+      stashBridge,
       jiraBridge,
       pausedRepository,
       listOf(resourceHandler),
@@ -1252,8 +1252,8 @@ class ApplicationServiceTests : JUnit5Minutests {
         } just Runs
 
         every {
-          scmBridge.createPr("stash", any(), any(), any())
-        } returns expectedPrResponse
+          stashBridge.createCommitAndPrFromConfig(any())
+        } returns expectedPrResponse.link
       }
 
       test("successfully created a PR in stash with the config; not failed when jira integration is returning error") {
@@ -1296,7 +1296,7 @@ class ApplicationServiceTests : JUnit5Minutests {
 
       before {
         every {
-          scmBridge.createPr(any(), any(), any(), any())
+          stashBridge.createCommitAndPrFromConfig(any())
         } throws retrofitError
 
         every { repository.getMigratableApplicationData(application1) } returns ApplicationPrData(

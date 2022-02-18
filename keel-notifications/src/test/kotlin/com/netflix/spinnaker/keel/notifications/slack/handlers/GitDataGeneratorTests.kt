@@ -36,12 +36,11 @@ import strikt.assertions.isTrue
 class GitDataGeneratorTests : JUnit5Minutests {
 
   class Fixture {
-    val scmBridge: ScmBridge = mockk()
     val slackService: SlackService = mockk()
     val config: BaseUrlConfig = BaseUrlConfig()
     val artifactVersionLinks = ArtifactVersionLinks(mockScmInfo(), mockCacheFactory())
 
-    val subject = GitDataGenerator(scmBridge, config, slackService, artifactVersionLinks)
+    val subject = GitDataGenerator(config, slackService, artifactVersionLinks)
 
     val clock: MutableClock = MutableClock()
 

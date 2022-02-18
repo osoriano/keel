@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.springframework.stereotype.Component
+<<<<<<< 18a357a0e27d1429b78551a3d4cd161d807ec9ef
 <<<<<<< 81a02f79ab6c85a4b20ffb80739fa11f668718b1
 <<<<<<< 167ad3338605133bfc668b54b812132b3cb61e6e
 import java.net.URL
@@ -19,13 +20,16 @@ import org.springframework.beans.factory.annotation.Qualifier
 >>>>>>> 3f7e0b13832ca29f8794caa1c2d3c3112a840a28
 =======
 >>>>>>> 195e071533e22e8bef9a0eb2fc259eac211bff60
+=======
+import org.springframework.beans.factory.annotation.Qualifier
+>>>>>>> 0f5f989b898518e29173fc2f182e8ff33b632943
 
 @Component
 class ArtifactVersionLinks(
   private val scmBridge: ScmBridge,
-  cacheFactory: CacheFactory,
+  cacheFactory: CacheFactory) {
+
   private val coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
-) {
   private val cacheName = "scmInfo"
   private val cache = cacheFactory.asyncLoadingCache<Any, Map<String, String?>>(cacheName) {
     scmBridge.getScmInfo()
@@ -111,3 +115,4 @@ class ArtifactVersionLinks(
     } else null
   }
 }
+
