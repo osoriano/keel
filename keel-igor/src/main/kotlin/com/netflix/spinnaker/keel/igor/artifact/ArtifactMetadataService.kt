@@ -9,6 +9,7 @@ import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.Job
 import com.netflix.spinnaker.keel.api.artifacts.PullRequest
 import com.netflix.spinnaker.keel.api.artifacts.Repo
+import com.netflix.spinnaker.keel.api.artifacts.shortHash
 import com.netflix.spinnaker.keel.igor.model.Build
 import com.netflix.spinnaker.keel.igor.model.CompletionStatus
 import io.github.resilience4j.kotlin.retry.executeSuspendFunction
@@ -109,9 +110,6 @@ class ArtifactMetadataService(
     }
   }
 
-  private val String.shortHash: String
-    get() = substring(0, 7)
-
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 }
 
@@ -132,10 +130,9 @@ internal fun Build.toArtifactMetadata() =
       ),
       GitMetadata(
         commit = scm.first().sha1.let {
-          when {
-            it == null -> error("Cannot parse git metadata from Build object with missing commit hash")
-            it.length > 7 -> it.substring(0, 7)
-            else -> it
+          when (it) {
+            null -> error("Cannot parse git metadata from Build object with missing commit hash")
+            else -> it.shortHash
           }
         },
         commitInfo = Commit(

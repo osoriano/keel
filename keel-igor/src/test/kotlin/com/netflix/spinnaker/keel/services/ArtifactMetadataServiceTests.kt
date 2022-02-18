@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.services
 
+import com.netflix.spinnaker.keel.api.artifacts.shortHash
 import com.netflix.spinnaker.keel.igor.BuildService
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
 import com.netflix.spinnaker.keel.igor.artifact.toArtifactMetadata
@@ -24,7 +25,7 @@ class ArtifactMetadataServiceTests : JUnit5Minutests {
     val buildService: BuildService = mockk()
     val artifactMetadataService = ArtifactMetadataService(buildService)
     val longHash = "970318968feb640da723b8826861e41f0718a487"
-    val shortHash = longHash.substring(0, 7)
+    val shortHash = longHash.shortHash
     val matchingBuild = Build(
       number = 1,
       name = "job bla bla",

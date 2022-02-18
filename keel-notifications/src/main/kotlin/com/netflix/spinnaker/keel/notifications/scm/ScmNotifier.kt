@@ -3,6 +3,7 @@ package com.netflix.spinnaker.keel.notifications.scm
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
+import com.netflix.spinnaker.keel.api.artifacts.shortHash
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.igor.ScmService
 import com.netflix.spinnaker.keel.igor.model.BuildResult
@@ -93,7 +94,7 @@ class ScmNotifier(
             buildResult = BuildResult(
               state = status.toBuildState(),
               key = "Preview environment deployment",
-              url = gitDataGenerator.generateShaUrl(config.application, commitHash.substring(0, 7)),
+              url = gitDataGenerator.generateShaUrl(config.application, commitHash.shortHash),
               description = "${if (status == SUCCEEDED) "Successful" else "Failed"} deployment from branch ${environment.branch}"
             )
           )

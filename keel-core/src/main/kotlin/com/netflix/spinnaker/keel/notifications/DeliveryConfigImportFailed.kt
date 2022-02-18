@@ -4,6 +4,7 @@ import com.netflix.spinnaker.keel.api.UID
 import com.netflix.spinnaker.keel.api.artifacts.Commit
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.Repo
+import com.netflix.spinnaker.keel.api.artifacts.shortHash
 import com.netflix.spinnaker.keel.events.EventLevel
 import com.netflix.spinnaker.keel.events.EventLevel.ERROR
 import java.time.Instant
@@ -30,16 +31,13 @@ data class DeliveryConfigImportFailed(
   override val message: String
     get() {
       val commitText = if (commitHash != null) {
-        " [${commitHash.short}]"
+        " [${commitHash.shortHash}]"
       } else {
         ""
       }
       return "Failed to import delivery config from branch $branch$commitText. Reason: $reason"
     }
 }
-
-private val String.short: String
-  get() = substring(0, 7)
 
 fun DeliveryConfigImportFailed.gitMetadata(): GitMetadata {
     return GitMetadata(

@@ -108,7 +108,7 @@ data class PublishedArtifact(
     get() = gitMetadata?.commitInfo?.sha ?: gitMetadata?.commit ?: metadata["commitId"] as? String
 
   val shortCommitHash: String?
-    get() = commitHash?.substring(0, 7)
+    get() = commitHash?.shortHash
 
   val prCommitHash: String?
     get() = (metadata["prCommitId"] as? String)?.let { it.ifEmpty { null } }
@@ -122,3 +122,6 @@ data class PublishedArtifact(
     version = if (type.lowercase() == DEBIAN && !version.startsWith(name)) "$name-$version" else version
   )
 }
+
+val String.shortHash: String
+  get() = this.take(7)

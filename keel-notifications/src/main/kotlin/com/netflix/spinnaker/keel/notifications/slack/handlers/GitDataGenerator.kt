@@ -4,6 +4,7 @@ import com.netflix.spinnaker.config.BaseUrlConfig
 import com.netflix.spinnaker.keel.api.ScmBridge
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
+import com.netflix.spinnaker.keel.api.artifacts.shortHash
 import com.netflix.spinnaker.keel.artifacts.ArtifactVersionLinks
 import com.netflix.spinnaker.keel.exceptions.UnsupportedScmType
 import com.netflix.spinnaker.keel.notifications.slack.SlackService
@@ -76,7 +77,7 @@ class GitDataGenerator(
   }
 
   fun linkedCommitTitleSnippet(gitMetadata: GitMetadata, application: String): String {
-    var text = "${linkedApp(application)} in commit <${generateShaUrl(application, gitMetadata.commit.take(7))}|#${gitMetadata.commit.take(7)}>"
+    var text = "${linkedApp(application)} in commit <${generateShaUrl(application, gitMetadata.commit.shortHash)}|#${gitMetadata.commit.shortHash}>"
     text += " " + getAuthor(gitMetadata)
     return text
   }
@@ -205,7 +206,7 @@ class GitDataGenerator(
 
         if (commitInfo != null && commitInfo!!.sha != null && commitInfo!!.sha?.length!! >= 7) {
           markdownText(details +
-            "<${commitInfo?.link}|${commitInfo?.sha?.substring(0, 7)}>")
+            "<${commitInfo?.link}|${commitInfo?.sha?.shortHash}>")
         }
       }
       return this
