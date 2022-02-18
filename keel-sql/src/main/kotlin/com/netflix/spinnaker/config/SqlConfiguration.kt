@@ -46,7 +46,7 @@ import javax.annotation.PostConstruct
 
 @Configuration
 @ConditionalOnProperty("sql.enabled")
-@EnableConfigurationProperties(RetentionProperties::class)
+@EnableConfigurationProperties(RetentionProperties::class, ResourceEventPruneConfig::class)
 @Import(DefaultSqlConfiguration::class, SqlRetryProperties::class, EnvironmentExclusionConfig::class)
 class SqlConfiguration
 {
@@ -84,7 +84,8 @@ class SqlConfiguration
     objectMapper: ObjectMapper,
     publisher: ApplicationEventPublisher,
     registry: Registry,
-    springEnv: Environment
+    springEnv: Environment,
+    resourceEventPruneConfig: ResourceEventPruneConfig
   ) =
     SqlResourceRepository(
       jooq,
@@ -94,7 +95,8 @@ class SqlConfiguration
       SqlRetry(sqlRetryProperties),
       publisher,
       registry,
-      springEnv
+      springEnv,
+      resourceEventPruneConfig
     )
 
   @Bean

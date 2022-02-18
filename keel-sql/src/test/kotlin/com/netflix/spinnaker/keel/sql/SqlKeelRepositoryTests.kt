@@ -3,6 +3,7 @@ package com.netflix.spinnaker.keel.sql
 import com.fasterxml.jackson.databind.jsontype.NamedType
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.config.PersistenceRetryConfig
+import com.netflix.spinnaker.config.ResourceEventPruneConfig
 import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
@@ -100,7 +101,7 @@ class SqlKeelRepositoryTests : JUnit5Minutests {
       publisher = mockk(relaxed = true))
 
   private fun createResourceRepository(resourceFactory: ResourceFactory): SqlResourceRepository =
-    SqlResourceRepository(jooq, clock, objectMapper, resourceFactory, sqlRetry, publisher = mockk(relaxed = true), spectator = NoopRegistry(), springEnv = mockEnvironment())
+    SqlResourceRepository(jooq, clock, objectMapper, resourceFactory, sqlRetry, publisher = mockk(relaxed = true), spectator = NoopRegistry(), springEnv = mockEnvironment(), resourceEventPruneConfig = ResourceEventPruneConfig())
 
   private fun createArtifactRepository(): SqlArtifactRepository =
     SqlArtifactRepository(jooq, clock, objectMapper, sqlRetry, defaultArtifactSuppliers(), publisher = mockk(relaxed = true))

@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.sql
 
 import com.netflix.spectator.api.NoopRegistry
+import com.netflix.spinnaker.config.ResourceEventPruneConfig
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.Resource
@@ -126,7 +127,8 @@ internal class SqlDeliveryConfigRepositoryPeriodicallyCheckedTests :
         sqlRetry = sqlRetry,
         publisher = mockk(relaxed = true),
         spectator = NoopRegistry(),
-        springEnv = mockEnvironment()
+        springEnv = mockEnvironment(),
+        resourceEventPruneConfig = ResourceEventPruneConfig()
       )
 
       val factory = { clock: Clock ->

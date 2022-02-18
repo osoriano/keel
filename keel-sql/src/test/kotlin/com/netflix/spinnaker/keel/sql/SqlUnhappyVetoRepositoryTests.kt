@@ -18,6 +18,7 @@
 package com.netflix.spinnaker.keel.sql
 
 import com.netflix.spectator.api.NoopRegistry
+import com.netflix.spinnaker.config.ResourceEventPruneConfig
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.persistence.UnhappyVetoRepositoryTests
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
@@ -44,7 +45,8 @@ internal object SqlUnhappyVetoRepositoryTests :
     sqlRetry,
     publisher = mockk(relaxed = true),
     spectator = NoopRegistry(),
-    springEnv = mockEnvironment()
+    springEnv = mockEnvironment(),
+    resourceEventPruneConfig = ResourceEventPruneConfig()
   )
 
   override fun factory(clock: Clock) =

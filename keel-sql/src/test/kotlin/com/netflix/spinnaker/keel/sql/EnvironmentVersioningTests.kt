@@ -2,6 +2,7 @@ package com.netflix.spinnaker.keel.sql
 
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.config.PersistenceRetryConfig
+import com.netflix.spinnaker.config.ResourceEventPruneConfig
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.NotificationConfig
@@ -82,7 +83,8 @@ class EnvironmentVersioningTests {
     sqlRetry,
     mockk(relaxed = true),
     NoopRegistry(),
-    mockEnvironment()
+    mockEnvironment(),
+    ResourceEventPruneConfig()
   )
 
   private val actionRepository = SqlActionRepository(

@@ -1,9 +1,11 @@
 package com.netflix.spinnaker.keel.sql
 
 import com.netflix.spectator.api.NoopRegistry
+import com.netflix.spinnaker.config.ResourceEventPruneConfig
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.persistence.ResourceRepositoryTests
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
+import com.netflix.spinnaker.keel.telemetry.ResourceCheckCompleted
 import com.netflix.spinnaker.keel.test.mockEnvironment
 import com.netflix.spinnaker.keel.test.resourceFactory
 import com.netflix.spinnaker.kork.sql.config.RetryProperties
@@ -12,12 +14,18 @@ import com.netflix.spinnaker.kork.sql.test.SqlTestUtil.cleanupDb
 import io.mockk.mockk
 import org.springframework.context.ApplicationEventPublisher
 import java.time.Clock
+import java.time.Duration
 
 internal class SqlResourceRepositoryTests : ResourceRepositoryTests<SqlResourceRepository>() {
   private val jooq = testDatabase.context
   private val retryProperties = RetryProperties(5, 100)
   private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties))
   private val resourceFactory = resourceFactory()
+  private val resourceEventPruneConfig = ResourceEventPruneConfig().apply {
+    minEventsKept = 10
+    deleteChunkSize = 5
+    daysKept = 1
+  }
   private val deliveryConfigRepository = SqlDeliveryConfigRepository(
     jooq,
     clock,
@@ -36,7 +44,8 @@ internal class SqlResourceRepositoryTests : ResourceRepositoryTests<SqlResourceR
       sqlRetry,
       publisher,
       NoopRegistry(),
-      springEnv = mockEnvironment()
+      springEnv = mockEnvironment(),
+      resourceEventPruneConfig
     )
   }
 
@@ -44,5 +53,12 @@ internal class SqlResourceRepositoryTests : ResourceRepositoryTests<SqlResourceR
 
   override fun flush() {
     cleanupDb(jooq)
+  }
+
+  /**
+   * Allows us to call this on the typed repository w/o exposing this method on the interface.
+   */
+  override fun pruneHistory(resourceId: String, repository: SqlResourceRepository) {
+    repository.pruneHistory(ResourceCheckCompleted(Duration.ZERO, resourceId))
   }
 }

@@ -36,7 +36,8 @@ data class ResourceCheckStarted(
 )
 
 data class ResourceCheckCompleted(
-  val duration: Duration
+  val duration: Duration,
+  val resourceID: String
 ) : TelemetryEvent()
 
 data class AboutToBeChecked(

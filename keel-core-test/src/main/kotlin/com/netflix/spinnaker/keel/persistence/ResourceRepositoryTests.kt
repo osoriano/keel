@@ -43,6 +43,7 @@ import io.mockk.verify
 import io.mockk.verifyAll
 import org.springframework.context.ApplicationEventPublisher
 import strikt.api.Assertion
+import strikt.api.expect
 import strikt.api.expectCatching
 import strikt.api.expectThat
 import strikt.api.expectThrows
@@ -55,6 +56,7 @@ import strikt.assertions.isA
 import strikt.assertions.isEmpty
 import strikt.assertions.isEqualTo
 import strikt.assertions.isFailure
+import strikt.assertions.isGreaterThan
 import strikt.assertions.isGreaterThanOrEqualTo
 import strikt.assertions.isNotEmpty
 import strikt.assertions.isSuccess
@@ -76,6 +78,8 @@ abstract class ResourceRepositoryTests<T : ResourceRepository> : JUnit5Minutests
   abstract val storeDeliveryConfig: (DeliveryConfig) -> Unit
 
   open fun flush() {}
+
+  open fun pruneHistory(resourceId: String, repository: T) {}
 
   val clusterName = "im-a-cluster"
   val clusterId = "test:$clusterName"
@@ -464,6 +468,48 @@ abstract class ResourceRepositoryTests<T : ResourceRepository> : JUnit5Minutests
           expectThat(subject.eventHistory(resource.id)) {
             first().isA<ApplicationActuationResumed>()
             second().isA<ApplicationActuationPaused>()
+          }
+        }
+      }
+
+      context("pruning resource event history") {
+        //  prune config:
+        //    minEventsKept = 10
+        //    deleteChunkSize = 5
+        //    daysKept = 1
+        before {
+          repeat(3) { //3*4 = 12 events, plust there will be a 'resource created' event
+            tick()
+            subject.appendHistory(ResourceUpdated(resource, emptyMap(), clock))
+            tick()
+            subject.appendHistory(ResourceDeltaDetected(resource, emptyMap(), clock))
+            tick()
+            subject.appendHistory(ResourceActuationLaunched(resource, "whatever", emptyList(), clock))
+            tick()
+            subject.appendHistory(ResourceDeltaResolved(resource, clock))
+          }
+        }
+
+        test("prune 0 events when there are no records older than `daysKept`(1 here)") {
+          val eventsBeforePrune = subject.eventHistory(resource.id, 100)
+          pruneHistory(resource.id, subject)
+          val eventsAfterPrune = subject.eventHistory(resource.id, 100)
+          expectThat(eventsBeforePrune.size).isEqualTo(eventsAfterPrune.size)
+        }
+
+        test("prunes one batch when records older than `daysKept`(1 here), stops when under min to keep") {
+          clock.tickDays(2)
+          val eventsBeforePrune = subject.eventHistory(resource.id, 100)
+          pruneHistory(resource.id, subject)
+          val eventsAfterPrune = subject.eventHistory(resource.id, 100)
+
+          // we should stop pruning because we don't have enough events, even though the events are old
+          pruneHistory(resource.id, subject)
+          val eventsAfterPrune2 = subject.eventHistory(resource.id, 100)
+
+          expect {
+            that(eventsBeforePrune.size - eventsAfterPrune.size).isGreaterThan(0)
+            that(eventsAfterPrune2.size).isEqualTo(eventsAfterPrune.size)
           }
         }
       }

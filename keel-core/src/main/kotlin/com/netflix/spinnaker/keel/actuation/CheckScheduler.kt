@@ -125,7 +125,7 @@ class CheckScheduler(
                     launch {
                       publisher.publishEvent(ResourceCheckStarted(it))
                       resourceActuator.checkResource(it)
-                      publisher.publishEvent(ResourceCheckCompleted(Duration.between(startTime, clock.instant())))
+                      publisher.publishEvent(ResourceCheckCompleted(Duration.between(startTime, clock.instant()), it.id))
                     }
                   }
                 } catch (e: TimeoutCancellationException) {

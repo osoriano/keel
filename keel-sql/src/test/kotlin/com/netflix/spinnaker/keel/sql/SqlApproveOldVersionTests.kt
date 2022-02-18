@@ -3,6 +3,7 @@ package com.netflix.spinnaker.keel.sql
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.config.PersistenceRetryConfig
+import com.netflix.spinnaker.config.ResourceEventPruneConfig
 import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.persistence.ApproveOldVersionTests
 import com.netflix.spinnaker.keel.persistence.KeelRepository
@@ -25,7 +26,7 @@ class SqlApproveOldVersionTests : ApproveOldVersionTests<KeelRepository>() {
 
   override fun createKeelRepository(resourceFactory: ResourceFactory, mapper: ObjectMapper): KeelRepository {
     val deliveryConfigRepository = SqlDeliveryConfigRepository(jooq, clock, mapper, resourceFactory, sqlRetry, defaultArtifactSuppliers(), publisher = mockk(relaxed = true))
-    val resourceRepository = SqlResourceRepository(jooq, clock, mapper, resourceFactory, sqlRetry, publisher = mockk(relaxed = true), spectator = NoopRegistry(), springEnv = mockEnvironment())
+    val resourceRepository = SqlResourceRepository(jooq, clock, mapper, resourceFactory, sqlRetry, publisher = mockk(relaxed = true), spectator = NoopRegistry(), springEnv = mockEnvironment(), resourceEventPruneConfig = ResourceEventPruneConfig())
     val artifactRepository = SqlArtifactRepository(jooq, clock, mapper, sqlRetry, defaultArtifactSuppliers(), publisher = mockk(relaxed = true))
     val verificationRepository = SqlActionRepository(jooq, clock, mapper, resourceFactory, sqlRetry, environment = mockk())
     return KeelRepository(

@@ -3,6 +3,7 @@ package com.netflix.spinnaker.keel.sql
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.convertValue
 import com.netflix.spectator.api.Registry
+import com.netflix.spinnaker.config.ResourceEventPruneConfig
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceKind.Companion.parseKind
 import com.netflix.spinnaker.keel.api.ResourceSpec
@@ -21,6 +22,8 @@ import com.netflix.spinnaker.keel.persistence.ResourceHeader
 import com.netflix.spinnaker.keel.persistence.ResourceRepository
 import com.netflix.spinnaker.keel.api.ResourceStatus
 import com.netflix.spinnaker.keel.api.ResourceStatusSnapshot
+import com.netflix.spinnaker.keel.events.PersistentEvent.EventScope.RESOURCE
+import com.netflix.spinnaker.keel.persistence.metamodel.Tables
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ACTIVE_ENVIRONMENT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ACTIVE_RESOURCE
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.DELIVERY_CONFIG
@@ -35,6 +38,7 @@ import com.netflix.spinnaker.keel.resources.ResourceFactory
 import com.netflix.spinnaker.keel.sql.RetryCategory.READ
 import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
 import com.netflix.spinnaker.keel.telemetry.AboutToBeChecked
+import com.netflix.spinnaker.keel.telemetry.ResourceCheckCompleted
 import de.huxhorn.sulky.ulid.ULID
 import org.jooq.DSLContext
 import org.jooq.Record1
@@ -42,6 +46,7 @@ import org.jooq.Select
 import org.jooq.impl.DSL
 import org.jooq.impl.DSL.coalesce
 import org.jooq.impl.DSL.max
+import org.jooq.impl.DSL.rowNumber
 import org.jooq.impl.DSL.select
 import org.jooq.impl.DSL.value
 import org.slf4j.LoggerFactory
@@ -61,7 +66,8 @@ open class SqlResourceRepository(
   private val sqlRetry: SqlRetry,
   private val publisher: ApplicationEventPublisher,
   private val spectator: Registry,
-  private val springEnv: Environment
+  private val springEnv: Environment,
+  private val resourceEventPruneConfig: ResourceEventPruneConfig
 ) : ResourceRepository {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
@@ -607,6 +613,44 @@ open class SqlResourceRepository(
         .where(RESOURCE.ID.eq(resource.id))
         .fetchOne(RESOURCE.ATTEMPTED_DELETIONS)!!
     }
+  }
+
+  /**
+   * Prunes some history once a resource check is completed so that
+   * the history does not grow without bound.
+   */
+  @EventListener(ResourceCheckCompleted::class)
+  fun pruneHistory(event: ResourceCheckCompleted) {
+    val count = sqlRetry.withRetry(READ){
+      jooq
+        .selectCount()
+        .from(EVENT)
+        .where(EVENT.SCOPE.eq(EventScope.RESOURCE))
+        .and(EVENT.REF.eq(event.resourceID))
+        .fetchSingleInto<Int>()
+    }
+    if (count <= resourceEventPruneConfig.minEventsKept) {
+      // leave the latest minEventsKept rows.
+      return
+    }
+    val deleteChunkSize = if (count - resourceEventPruneConfig.deleteChunkSize < resourceEventPruneConfig.minEventsKept) {
+      // if we're close to the min events kept, change how many to delete
+      count - resourceEventPruneConfig.minEventsKept
+    } else {
+      resourceEventPruneConfig.deleteChunkSize
+    }
+
+    // delete things older than 14 days
+    val recordsDeleted: Int = sqlRetry.withRetry(WRITE) {
+      jooq.deleteFrom(EVENT)
+          .where(EVENT.SCOPE.eq(EventScope.RESOURCE))
+          .and(EVENT.REF.eq(event.resourceID))
+          .and(EVENT.TIMESTAMP.lessOrEqual(clock.instant().minus(Duration.ofDays(resourceEventPruneConfig.daysKept))))
+          .orderBy(EVENT.TIMESTAMP) // order so we delete the oldest records first
+          .limit(deleteChunkSize) // delete in chunks so that we always have at least resourceEventPruneConfig.minEventsKept records
+          .execute()
+      }
+    log.debug("Deleted $recordsDeleted for ${event.resourceID} older than ${resourceEventPruneConfig.daysKept} days")
   }
 
   fun getResourceUid(id: String) =
