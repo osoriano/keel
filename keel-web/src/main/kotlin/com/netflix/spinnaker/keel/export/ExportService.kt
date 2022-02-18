@@ -237,16 +237,20 @@ class ExportService(
     log.debug("Running the migration export on apps: $apps")
     apps.forEach { app ->
       runBlocking {
-        when (val result = exportFromPipelines(app)) {
-          is ExportErrorResult -> deliveryConfigRepository.storeFailedPipelinesExportResult(app, result.error)
-          is ExportSkippedResult -> log.info("Skipping export of $app - it is already on MD")
-          is PipelineExportResult -> deliveryConfigRepository.storePipelinesExportResult(
-            result.deliveryConfig,
-            result.toSkippedPipelines(),
-            result.exportSucceeded,
-            result.repoSlug,
-            result.projectKey
-          )
+        try {
+          when (val result = exportFromPipelines(app)) {
+            is ExportErrorResult -> deliveryConfigRepository.storeFailedPipelinesExportResult(app, result.error)
+            is ExportSkippedResult -> log.info("Skipping export of $app - it is already on MD")
+            is PipelineExportResult -> deliveryConfigRepository.storePipelinesExportResult(
+              result.deliveryConfig,
+              result.toSkippedPipelines(),
+              result.exportSucceeded,
+              result.repoSlug,
+              result.projectKey
+            )
+          }
+        } catch (e: Exception) {
+          log.error("Failed to export application $app")
         }
       }
     }
