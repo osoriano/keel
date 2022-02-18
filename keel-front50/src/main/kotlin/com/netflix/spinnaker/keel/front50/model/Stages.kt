@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.front50.model
 
+import com.fasterxml.jackson.annotation.JsonAlias
 import com.fasterxml.jackson.annotation.JsonAnyGetter
 import com.fasterxml.jackson.annotation.JsonAnySetter
 import com.fasterxml.jackson.annotation.JsonSubTypes
@@ -30,7 +31,8 @@ import com.netflix.spinnaker.keel.artifacts.DebianArtifact
   Type(value = DeployStage::class, name = "deploy"),
   Type(value = FindImageStage::class, name = "findImage"),
   Type(value = FindImageFromTagsStage::class, name = "findImageFromTags"),
-  Type(value = ManualJudgmentStage::class, name = "manualJudgment")
+  Type(value = ManualJudgmentStage::class, name = "manualJudgment"),
+  Type(value = JenkinsStage::class, name = "jenkins")
 )
 abstract class Stage {
   abstract val type: String
@@ -138,5 +140,16 @@ data class ManualJudgmentStage(
   override val name: String,
   override val type: String,
   override val refId: String,
+  override val requisiteStageRefIds: List<String> = emptyList(),
+) : Stage()
+
+data class JenkinsStage(
+  override val name: String,
+  override val type: String,
+  override val refId: String,
+  @JsonAlias("master")
+  val controller: String,
+  val job: String,
+  val parameters: Map<String, String> = emptyMap(),
   override val requisiteStageRefIds: List<String> = emptyList(),
 ) : Stage()

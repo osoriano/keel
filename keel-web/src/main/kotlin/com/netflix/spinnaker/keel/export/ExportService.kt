@@ -16,6 +16,7 @@ import com.netflix.spinnaker.keel.api.NotificationFrequency
 import com.netflix.spinnaker.keel.api.NotificationType
 import com.netflix.spinnaker.keel.api.ResourceKind
 import com.netflix.spinnaker.keel.api.ResourceSpec
+import com.netflix.spinnaker.keel.api.Verification
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.ec2.ApplicationLoadBalancerSpec
 import com.netflix.spinnaker.keel.api.ec2.ClassicLoadBalancerSpec
@@ -48,16 +49,15 @@ import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.model.DeployStage
 import com.netflix.spinnaker.keel.front50.model.Pipeline
 import com.netflix.spinnaker.keel.front50.model.RestrictedExecutionWindow
-import com.netflix.spinnaker.keel.igor.JobService
 import com.netflix.spinnaker.keel.orca.ExecutionDetailResponse
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
 import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.validators.DeliveryConfigValidator
+import com.netflix.spinnaker.keel.verification.jenkins.JenkinsJobVerification
 import com.netflix.spinnaker.keel.veto.unhealthy.UnsupportedResourceTypeException
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
-import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.core.env.Environment
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -99,7 +99,10 @@ class ExportService(
       listOf("findImageFromTags", "deploy"),
       listOf("findImageFromTags", "manualJudgement", "deploy"),
       listOf("bake", "deploy")
-    )
+    ).let {
+      // also support all the shapes above followed by a jenkins stage
+      it + it.map { shape -> shape + "jenkins" }
+    }
 
     val SUPPORTED_TRIGGER_TYPES = listOf("docker", "jenkins", "rocket", "pipeline")
 
@@ -110,8 +113,8 @@ class ExportService(
 
     val SPEL_REGEX = Regex("\\$\\{.+\\}")
 
-    const val PRODUCTION_EVN = "production"
-    const val TESTING_EVN = "testing"
+    const val PRODUCTION_ENV = "production"
+    const val TESTING_ENV = "testing"
   }
 
   private val isScheduledExportEnabled : Boolean
@@ -264,7 +267,8 @@ class ExportService(
    */
   suspend fun exportFromPipelines(
     applicationName: String,
-    maxAgeDays: Long = 6L * 30L
+    maxAgeDays: Long = 6L * 30L,
+    includeVerifications: Boolean = false
   ): ExportResult {
     log.info("Exporting delivery config from pipelines for application $applicationName (max age: $maxAgeDays days)")
 
@@ -281,24 +285,25 @@ class ExportService(
 
     val serviceAccount = application.email ?: DEFAULT_SERVICE_ACCOUNT
 
-    //1. find pipelines which are not matching to the supported patterns above
+    // 1. find pipelines which are not matching to the supported patterns above
     val nonExportablePipelines = pipelines.findNonExportable(maxAgeDays)
-    //2. get the actual supported pipelines
+
+    // 2. get the actual supported pipelines
     val exportablePipelines = pipelines - nonExportablePipelines.keys
 
-    // this returns 1:1 mapping between a "deploy" stage and a server group associated
+    // this returns a 1:1 mapping between a "deploy" stage and the associated server group
     val pipelinesToDeploysAndClusters = exportablePipelines.toDeploysAndClusters(serviceAccount)
 
     val environments = mutableSetOf<SubmittedEnvironment>()
     val artifacts = mutableSetOf<DeliveryArtifact>()
     var configValidationException: Exception? = null
 
-    //3. iterate over the deploy pipelines, and map resources to the environments they represent
+    // 3. iterate over the deploy pipelines, and map resources to the environments they represent
     val pipelinesToEnvironments = pipelinesToDeploysAndClusters.mapValues { (pipeline, deploysAndClusters) ->
-      //4. iterate over the clusters, export their resources, create constraints and environment
+      // 4. iterate over the clusters, export their resources, create constraints and environment
       deploysAndClusters.mapNotNull { (deploy, cluster) ->
         log.debug("Attempting to build environment for cluster ${cluster.moniker}")
-        val environmentName = figureOutEnvironmentName(cluster)
+        val environmentName = inferEnvironmentName(cluster)
         val manualJudgement = if (pipeline.hasManualJudgment(deploy)) {
           log.debug("Adding manual judgment constraint for environment $environmentName based on manual judgment stage in pipeline ${pipeline.name}")
           setOf(ManualJudgementConstraint())
@@ -308,7 +313,7 @@ class ExportService(
 
         val allowedTimes = createAllowedTimeConstraint(deploy.restrictedExecutionWindow)
 
-        //5. infer from the cluster all dependent resources, including artifacts
+        // 5. infer from the cluster all dependent resources, including artifacts
         val resourcesAndArtifacts = try {
            createResourcesBasedOnCluster(cluster, environments, applicationName)
         } catch (e: ArtifactNotSupportedException) {
@@ -321,10 +326,18 @@ class ExportService(
           return@mapNotNull null
         }
 
+        // 6. export verifications
+        val verifications = if (includeVerifications) {
+          exportVerifications(pipeline, deploy)
+        } else {
+          emptyList()
+        }
+
         val environment = SubmittedEnvironment(
           name = environmentName,
           resources = resourcesAndArtifacts.resources,
           constraints = manualJudgement + allowedTimes,
+          verifyWith = verifications
         )
 
         log.debug("Exported environment $environmentName from cluster [${cluster.moniker}]")
@@ -372,7 +385,7 @@ class ExportService(
     try {
       validator.validate(deliveryConfig)
     } catch (ex: Exception) {
-      log.debug("Delivery config for application ${application.name} didn't passed validation; caught exception", ex)
+      log.debug("Delivery config for application ${application.name} didn't passed validation; exception: $ex", ex)
       configValidationException = ex
     }
 
@@ -413,7 +426,7 @@ class ExportService(
    * Adding slack notifications for production environment, using the slack channel as defined in spinnaker
   */
   private fun notifications(envName: String, slackChannel: String?): Set<NotificationConfig> {
-    if (envName == PRODUCTION_EVN && slackChannel != null) {
+    if (envName == PRODUCTION_ENV && slackChannel != null) {
       return setOf(NotificationConfig(
         address = slackChannel,
         type = NotificationType.slack,
@@ -423,17 +436,42 @@ class ExportService(
     return emptySet()
   }
 
-  private fun figureOutEnvironmentName(cluster: Exportable): String {
+  private fun inferEnvironmentName(cluster: Exportable): String {
     return with(cluster) {
       when {
         !moniker.stack.isNullOrEmpty() -> moniker.stack!!
-        "test" in account -> TESTING_EVN
-        "prod" in account -> PRODUCTION_EVN
+        "test" in account -> TESTING_ENV
+        "prod" in account -> PRODUCTION_ENV
         else -> account
       }
     }
   }
 
+  /**
+   * Given a [Pipeline], look for supported test stages following a [DeployStage] and convert each to
+   * a [Verification].
+   *
+   * Currently, only Jenkins stages are supported.
+   */
+  private fun exportVerifications(pipeline: Pipeline, deployStage: DeployStage): List<Verification> {
+    val jenkinsStages = pipeline.findDownstreamJenkinsStages(deployStage)
+    return jenkinsStages.mapNotNull { jenkinsStage ->
+      // TODO: check if jenkinsStage looks like it's actually running tests by checking that it outputs test reports
+      val isTest = true
+      if (isTest) {
+        with(jenkinsStage) {
+          JenkinsJobVerification(
+            controller = controller,
+            job = job,
+            staticParameters = parameters
+            // TODO: should we try to setup some dynamic parameters for simple/common SpEL expressions?
+          )
+        }
+      } else {
+        null
+      }
+    }
+  }
 
   /**
    * Finds non-exportable pipelines in the list and associates them with the reason why they're not.
@@ -507,11 +545,12 @@ class ExportService(
         )), artifact)
   }
 
-  private suspend fun dependentResources(dependencies: Dependent,
-                                         environments: Set<SubmittedEnvironment>,
-                                         cluster: Exportable,
-                                         kind: ResourceKind,
-                                         applicationName: String
+  private suspend fun dependentResources(
+    dependencies: Dependent,
+    environments: Set<SubmittedEnvironment>,
+    cluster: Exportable,
+    kind: ResourceKind,
+    applicationName: String
   ): Set<SubmittedResource<ResourceSpec>> {
 
     val dependencyType = when (kind) {

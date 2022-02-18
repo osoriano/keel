@@ -5,4 +5,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 interface VerificationMixin {
   @get:JsonIgnore
   val id: String
+
+  @get:JsonIgnore
+  val actionType: String
 }

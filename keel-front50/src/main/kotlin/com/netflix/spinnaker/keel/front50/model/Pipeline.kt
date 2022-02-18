@@ -59,6 +59,11 @@ data class Pipeline(
         }
       }
 
+  fun findDownstreamJenkinsStages(deployStage: DeployStage): List<JenkinsStage> {
+    val i = stages.indexOf(deployStage)
+    return stages.slice(i until stages.size).filterIsInstance<JenkinsStage>()
+  }
+
   fun hasManualJudgment(deployStage: DeployStage) =
     try {
       stages[stages.indexOf(deployStage) - 1] is ManualJudgmentStage
