@@ -150,17 +150,15 @@ class ClusterExportHelper(
   @Suppress("UNCHECKED_CAST")
   private fun ExecutionDetailResponse.getDeployStageContext() =
     stages
-      ?.find { stage -> stage["type"] == "deploy" }
-      ?.let { stage -> stage["context"] }
-      ?.let { context -> context as? OrcaExecutionStage }
+      ?.find { stage -> stage.type == "deploy" }
+      ?.let { stage -> stage.context }
       ?.let { context ->
-        (context["clusters"] as? List<OrcaExecutionStage>)?.firstOrNull()
+        (context["clusters"] as? List<Map<String, Any?>>)?.firstOrNull()
       }
 
   @Suppress("UNCHECKED_CAST")
   private fun ExecutionDetailResponse.getTaskContext(taskType: String) =
     execution?.stages
-      ?.find { stage -> stage["type"] == taskType }
-      ?.let { stage -> stage["context"] }
-      ?.let { context -> context as? Map<String, Any> }
+      ?.find { stage -> stage.type == taskType }
+      ?.let { stage -> stage.context }
 }

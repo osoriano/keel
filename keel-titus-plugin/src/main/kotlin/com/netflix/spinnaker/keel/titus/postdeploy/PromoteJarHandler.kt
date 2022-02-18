@@ -10,11 +10,12 @@ import com.netflix.spinnaker.keel.api.postdeploy.PostDeployAction
 import com.netflix.spinnaker.keel.api.postdeploy.SupportedPostDeployActionType
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroup
+import com.netflix.spinnaker.keel.artifacts.repoUrl
 import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.core.api.PromoteJarPostDeployAction
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.titus.ContainerRunner
-import com.netflix.spinnaker.keel.titus.verification.LinkStrategy
+import com.netflix.spinnaker.keel.titus.LinkStrategy
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.stereotype.Component
@@ -87,6 +88,3 @@ class PromoteJarHandler(
     return TitusServerGroup.Location(account!!, region!!)
   }
 }
-
-fun PublishedArtifact.repoUrl(gitUrlPrefix: String?): String =
-  gitUrlPrefix + gitMetadata?.project + "/" + gitMetadata?.repo?.name + ".git"

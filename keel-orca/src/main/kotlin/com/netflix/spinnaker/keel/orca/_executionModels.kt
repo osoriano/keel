@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.fasterxml.jackson.databind.deser.std.StdNodeBasedDeserializer
 import com.fasterxml.jackson.module.kotlin.convertValue
+import com.netflix.spinnaker.keel.actuation.Stage
 import com.netflix.spinnaker.keel.api.TaskExecution
 import com.netflix.spinnaker.keel.api.TaskStatus
 import com.netflix.spinnaker.keel.serialization.mapper
@@ -36,33 +37,7 @@ data class ExecutionDetailResponse(
   val variables: List<KeyValuePair>? = null
 ) : TaskExecution
 
-typealias OrcaExecutionStage = Map<String, Any>
-
-data class OrcaStage(
-  val id: String,
-  val type: String,
-  val name: String,
-  val startTime: Instant?,
-  val endTime: Instant?,
-  val status: TaskStatus,
-  val context: Map<String, Any>,
-  val outputs: Map<String, Any>,
-  val tasks: List<OrcaStageTask>,
-  val syntheticStageOwner: String?, // only appears with a before stage/after stage
-  val refId: String?, //this is a short code for the stage, used in ordering
-  val requisiteStageRefIds: List<String> //this is a coded form of what stage goes after another stage/belongs to a stage
-)
-
-data class OrcaStageTask(
-  val id: String,
-  val name: String,
-  val implementingClass: String,
-  val startTime: Instant?,
-  val endTime: Instant?,
-  val status: TaskStatus,
-  val stageStart: Boolean,
-  val stageEnd: Boolean
-)
+typealias OrcaExecutionStage = Stage
 
 data class OrcaExecutionStages(
   val stages: List<OrcaExecutionStage>?

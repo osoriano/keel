@@ -1,6 +1,8 @@
 package com.netflix.spinnaker.keel.orca
 
+import com.netflix.spinnaker.keel.actuation.Stage
 import com.netflix.spinnaker.keel.api.RedBlack
+import com.netflix.spinnaker.keel.api.TaskStatus.RUNNING
 import com.netflix.spinnaker.keel.api.TaskStatus.SUCCEEDED
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.clouddriver.model.ActiveServerGroup
@@ -142,9 +144,12 @@ class ClusterExportHelperTests : JUnit5Minutests {
       status = SUCCEEDED,
       execution = OrcaExecutionStages(
         stages = listOf(
-          mapOf(
-            "type" to "createServerGroup",
-            "context" to context
+          Stage(
+            type = "createServerGroup",
+            id = "fake",
+            name = "fake",
+            status = SUCCEEDED,
+            context = context
           )
         )
       )
@@ -159,9 +164,12 @@ class ClusterExportHelperTests : JUnit5Minutests {
       endTime = Instant.now() - Duration.ofMinutes(30),
       status = SUCCEEDED,
       stages = listOf(
-        mapOf(
-          "type" to "deploy",
-          "context" to mapOf(
+        Stage(
+          type = "deploy",
+          id = "fake",
+          name = "fake",
+          status = SUCCEEDED,
+          context = mapOf(
             "clusters" to listOf(
               mapOf(
                 "strategy" to "redblack",

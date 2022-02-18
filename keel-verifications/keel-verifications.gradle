@@ -1,0 +1,8 @@
+dependencies {
+  api(project(":keel-core"))
+  api(project(":keel-network"))
+  api(project(":keel-orca"))
+  api(project(":keel-titus-plugin"))
+
+  testImplementation(project(":keel-test"))
+}

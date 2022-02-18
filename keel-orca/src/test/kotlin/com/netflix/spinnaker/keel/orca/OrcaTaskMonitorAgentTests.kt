@@ -1,7 +1,10 @@
 package com.netflix.spinnaker.keel.orca
 
+import com.fasterxml.jackson.module.kotlin.convertValue
+import com.netflix.spinnaker.keel.actuation.Stage
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.TaskStatus
+import com.netflix.spinnaker.keel.api.TaskStatus.RUNNING
 import com.netflix.spinnaker.keel.api.TaskStatus.SUCCEEDED
 import com.netflix.spinnaker.keel.api.TaskStatus.TERMINAL
 import com.netflix.spinnaker.keel.api.actuation.SubjectType.CONSTRAINT
@@ -15,6 +18,7 @@ import com.netflix.spinnaker.keel.persistence.NoSuchResourceId
 import com.netflix.spinnaker.keel.persistence.ResourceRepository
 import com.netflix.spinnaker.keel.persistence.TaskRecord
 import com.netflix.spinnaker.keel.persistence.TaskTrackingRepository
+import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
 import com.netflix.spinnaker.keel.test.DummyResourceSpec
 import com.netflix.spinnaker.keel.test.resource
 import dev.minutest.junit.JUnit5Minutests
@@ -43,6 +47,7 @@ internal class OrcaTaskMonitorAgentTests : JUnit5Minutests {
     val taskTrackingRepository: TaskTrackingRepository = mockk(relaxUnitFun = true)
     val resourceRepository: ResourceRepository = mockk()
     val resource: Resource<DummyResourceSpec> = resource()
+    val mapper = configuredObjectMapper()
 
     val taskResourceRecord = TaskRecord(
       id = "123",
@@ -289,13 +294,18 @@ internal class OrcaTaskMonitorAgentTests : JUnit5Minutests {
   private fun orcaContext(
     exception: OrcaException? = null,
     katoException: List<Map<String, Any>>? = emptyList()
-  ): Map<String, Any> =
-    mapOf(
-      "context" to
+  ) =
+    OrcaExecutionStage(
+      type = "whatever",
+      id = "fake",
+      name = "fake",
+      status = TERMINAL,
+      context = mapper.convertValue(
         OrcaContext(
           exception = exception,
           clouddriverException = katoException
         )
+      )
     )
 
   private fun clouddriverExceptions():

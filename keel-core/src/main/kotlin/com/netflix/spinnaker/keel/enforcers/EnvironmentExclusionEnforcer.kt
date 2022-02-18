@@ -60,9 +60,9 @@ class EnvironmentExclusionEnforcer(
    * 2. No active deployments
    * 3. No active verifications
    */
-  fun <T> withVerificationLease(context: ArtifactInEnvironmentContext, action: () -> T) : T {
-    if(!enforcementEnabled) {
-      return action.invoke()
+  suspend fun <T> withVerificationLease(context: ArtifactInEnvironmentContext, action: suspend () -> T) : T {
+    if (!enforcementEnabled) {
+      return action()
     }
 
     with(context) {
@@ -73,7 +73,7 @@ class EnvironmentExclusionEnforcer(
         ensureNoActiveVerifications(deliveryConfig, environment)
 
         // it's now safe to do the action
-        return action.invoke()
+        return action()
       }
     }
   }

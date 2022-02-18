@@ -1,4 +1,4 @@
-package com.netflix.spinnaker.keel.api.titus
+package com.netflix.spinnaker.keel.verification.container
 
 import com.netflix.spinnaker.keel.api.Verification
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroup.Location

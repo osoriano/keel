@@ -1,6 +1,9 @@
-package com.netflix.spinnaker.keel.titus.verification
+package com.netflix.spinnaker.keel.titus
 
 import com.netflix.spinnaker.keel.orca.ExecutionDetailResponse
+
+const val TITUS_JOB_TASKS = "tasks"
+const val JOB_STATUS = "jobStatus"
 
 /**
  * Determine the UI link to show the user about the status of the verification

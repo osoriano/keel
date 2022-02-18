@@ -25,7 +25,7 @@ import com.netflix.spinnaker.keel.api.ec2.ClusterSpec
 import com.netflix.spinnaker.keel.api.ec2.EC2_SECURITY_GROUP_V1
 import com.netflix.spinnaker.keel.api.ec2.SecurityGroupSpec
 import com.netflix.spinnaker.keel.api.ec2.old.ClusterV1Spec
-import com.netflix.spinnaker.keel.api.titus.TestContainerVerification
+import com.netflix.spinnaker.keel.verification.container.TestContainerVerification
 import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroup.Location
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact

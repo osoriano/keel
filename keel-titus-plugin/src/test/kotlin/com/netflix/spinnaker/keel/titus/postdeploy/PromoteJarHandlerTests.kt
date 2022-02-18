@@ -10,9 +10,9 @@ import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.core.api.PromoteJarPostDeployAction
 import com.netflix.spinnaker.keel.persistence.KeelRepository
+import com.netflix.spinnaker.keel.test.deliveryConfigWithClusterAndLoadBalancer
 import com.netflix.spinnaker.keel.titus.ContainerRunner
-import com.netflix.spinnaker.keel.titus.deliveryConfigWithClusterAndLoadBalancer
-import com.netflix.spinnaker.keel.titus.verification.TASKS
+import com.netflix.spinnaker.keel.titus.TITUS_JOB_TASKS
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -56,7 +56,7 @@ class PromoteJarHandlerTests {
   private val gitConfig = GitLinkConfig()
   private val keelRepository: KeelRepository = mockk()
   private val containerRunner: ContainerRunner = mockk {
-    coEvery { launchContainer(any(), any(), any(), any(), any(), any(), any(), any()) } returns mapOf(TASKS to listOf("1"))
+    coEvery { launchContainer(any(), any(), any(), any(), any(), any(), any(), any()) } returns mapOf(TITUS_JOB_TASKS to listOf("1"))
   }
 
   val subject = PromoteJarHandler(

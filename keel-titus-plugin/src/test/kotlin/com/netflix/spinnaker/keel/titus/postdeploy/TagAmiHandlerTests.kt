@@ -11,7 +11,7 @@ import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
 import com.netflix.spinnaker.keel.core.api.TagAmiPostDeployAction
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.test.DummyArtifact
-import com.netflix.spinnaker.keel.titus.verification.TASKS
+import com.netflix.spinnaker.keel.titus.TITUS_JOB_TASKS
 import com.netflix.spinnaker.keel.verification.ImageFinder
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -81,7 +81,7 @@ internal class TagAmiHandlerTests {
   @Test
   fun `task succeeded`() {
     val taskId = "01FAP9T72MWQEF49QY2JNJHPWA"
-    val oldState = ActionState(ConstraintStatus.PENDING, now(), null, metadata = mapOf(TASKS to listOf(taskId)))
+    val oldState = ActionState(ConstraintStatus.PENDING, now(), null, metadata = mapOf(TITUS_JOB_TASKS to listOf(taskId)))
     coEvery { orca.getOrchestrationExecution(taskId, any() ) } returns mockk {
       every { id } returns taskId
       every { application } returns "fnord"
@@ -98,7 +98,7 @@ internal class TagAmiHandlerTests {
   @Test
   fun `task terminal`() {
     val taskId = "01FAP9T72MWQEF49QY2JNJHPWA"
-    val oldState = ActionState(ConstraintStatus.PENDING, now(), null, metadata = mapOf(TASKS to listOf(taskId)))
+    val oldState = ActionState(ConstraintStatus.PENDING, now(), null, metadata = mapOf(TITUS_JOB_TASKS to listOf(taskId)))
     coEvery { orca.getOrchestrationExecution(taskId, any() ) } returns mockk {
       every { id } returns taskId
       every { application } returns "fnord"
@@ -114,7 +114,7 @@ internal class TagAmiHandlerTests {
 
   @Test
   fun `task not launched`() {
-    val oldState = ActionState(ConstraintStatus.PENDING, now(), null, metadata = mapOf(TASKS to emptyList<String>()))
+    val oldState = ActionState(ConstraintStatus.PENDING, now(), null, metadata = mapOf(TITUS_JOB_TASKS to emptyList<String>()))
 
     val newState = runBlocking {
       handler.evaluate(context, mockk(), oldState)

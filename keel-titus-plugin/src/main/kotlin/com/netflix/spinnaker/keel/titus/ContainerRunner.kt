@@ -5,15 +5,14 @@ import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.keel.api.action.ActionState
 import com.netflix.spinnaker.keel.api.actuation.SubjectType.VERIFICATION
 import com.netflix.spinnaker.keel.api.actuation.TaskLauncher
-import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
-import com.netflix.spinnaker.keel.api.titus.TitusServerGroup
+import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.FAIL
+import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PASS
+import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PENDING
+import com.netflix.spinnaker.keel.api.titus.TitusServerGroup.Location
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.telemetry.safeIncrement
 import com.netflix.spinnaker.keel.titus.batch.ContainerJobConfig
 import com.netflix.spinnaker.keel.titus.batch.createRunJobStage
-import com.netflix.spinnaker.keel.titus.verification.LinkStrategy
-import com.netflix.spinnaker.keel.titus.verification.TASKS
-import com.netflix.spinnaker.keel.titus.verification.getLink
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -38,22 +37,22 @@ class ContainerRunner(
     linkStrategy: LinkStrategy?
   ): ActionState {
     @Suppress("UNCHECKED_CAST")
-    val taskId = (oldState.metadata[TASKS] as Iterable<String>?)?.last()
+    val taskId = (oldState.metadata[TITUS_JOB_TASKS] as Iterable<String>?)?.last()
     log.debug("Checking status for task $taskId")
     require(taskId is String) {
       "No task id found in previous container state"
     }
 
     val response = withContext(coroutineDispatcher) {
-        orca.getOrchestrationExecution(taskId)
-      }
+      orca.getOrchestrationExecution(taskId)
+    }
 
     log.debug("Container test task $taskId status: ${response.status.name}")
 
     val status = when {
-      response.status.isSuccess() -> ConstraintStatus.PASS
-      response.status.isIncomplete() -> ConstraintStatus.PENDING
-      else -> ConstraintStatus.FAIL
+      response.status.isSuccess() -> PASS
+      response.status.isIncomplete() -> PENDING
+      else -> FAIL
     }
 
     return oldState.copy(status=status, link= getLink(response, linkStrategy))
@@ -68,7 +67,7 @@ class ContainerRunner(
     serviceAccount: String,
     application: String,
     environmentName: String,
-    location: TitusServerGroup.Location,
+    location: Location,
     environmentVariables: Map<String, String> = emptyMap(),
     containerApplication: String = application,
     entrypoint: String = ""
@@ -93,12 +92,12 @@ class ContainerRunner(
             ).createRunJobStage()
           )
         )
-        .let { task ->
-          log.debug("Launched container task ${task.id} for $application environment $environmentName")
-          incrementContainerLaunchedCounter(application, environmentName, imageId)
-          mapOf(TASKS to listOf(task.id))
-        }
-    }
+          .let { task ->
+            log.debug("Launched container task ${task.id} for $application environment $environmentName")
+            incrementContainerLaunchedCounter(application, environmentName, imageId)
+            mapOf(TITUS_JOB_TASKS to listOf(task.id))
+          }
+      }
   }
 
   private fun incrementContainerLaunchedCounter(application: String, environmentName: String, imageId: String) {

@@ -11,8 +11,6 @@ import com.netflix.spinnaker.keel.api.titus.TitusServerGroup
 import com.netflix.spinnaker.keel.orca.ExecutionDetailResponse
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.titus.batch.RUN_JOB_TYPE
-import com.netflix.spinnaker.keel.titus.verification.LinkStrategy
-import com.netflix.spinnaker.keel.titus.verification.TASKS
 import de.huxhorn.sulky.ulid.ULID
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -64,7 +62,7 @@ internal class ContainerRunnerTests {
       environmentVariables = environmentVariables,
     ) }
       .isSuccess()
-      .get(TASKS)
+      .get(TITUS_JOB_TASKS)
       .isA<Iterable<String>>()
       .first() isEqualTo taskId
 
@@ -168,7 +166,7 @@ internal class ContainerRunnerTests {
       status = ConstraintStatus.PENDING,
       startedAt = Instant.now().minusSeconds(120),
       endedAt = null,
-      metadata = mapOf(TASKS to listOf(taskId))
+      metadata = mapOf(TITUS_JOB_TASKS to listOf(taskId))
     )
 
   private fun stubTaskLaunch(): String =

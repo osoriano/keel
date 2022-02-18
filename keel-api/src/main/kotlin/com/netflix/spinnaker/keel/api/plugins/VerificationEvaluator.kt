@@ -14,9 +14,9 @@ interface VerificationEvaluator<VERIFICATION: Verification> {
    * @param oldState previous verification state
    * @return updated verification state
    */
-  fun evaluate(
+  suspend fun evaluate(
     context: ArtifactInEnvironmentContext,
-    verification: Verification,
+    verification: VERIFICATION,
     oldState: ActionState
   ): ActionState
 
@@ -25,5 +25,5 @@ interface VerificationEvaluator<VERIFICATION: Verification> {
    *
    * @return any metadata needed to [evaluate] the verification in future.
    */
-  fun start(context: ArtifactInEnvironmentContext, verification: Verification): Map<String, Any?>
+  suspend fun start(context: ArtifactInEnvironmentContext, verification: VERIFICATION): Map<String, Any?>
 }

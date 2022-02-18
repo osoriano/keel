@@ -22,9 +22,9 @@ import com.netflix.spinnaker.keel.persistence.EnvironmentLeaseRepository
 import com.netflix.spinnaker.keel.telemetry.VerificationCompleted
 import com.netflix.spinnaker.keel.telemetry.VerificationStarted
 import de.huxhorn.sulky.ulid.ULID
-import io.mockk.every
+import io.mockk.coEvery as every
+import io.mockk.coVerify as verify
 import io.mockk.mockk
-import io.mockk.verify
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest

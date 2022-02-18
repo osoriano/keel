@@ -1,4 +1,4 @@
-package com.netflix.spinnaker.keel.titus.verification
+package com.netflix.spinnaker.keel.titus
 
 import com.netflix.spinnaker.keel.orca.ExecutionDetailResponse
 

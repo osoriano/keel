@@ -2,14 +2,15 @@ package com.netflix.spinnaker.keel.orca
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.convertValue
+import com.netflix.spinnaker.keel.actuation.Stage
 
 /**
  * get the exception - can be either general orca exception or clouddriver-specific
  */
-fun List<Map<String, Any>>?.getFailureMessage(mapper: ObjectMapper): String? {
+fun List<Stage>?.getFailureMessage(mapper: ObjectMapper): String? {
 
   this?.forEach { it ->
-    val context: OrcaContext? = it["context"]?.let { mapper.convertValue(it) }
+    val context: OrcaContext? = it.context.let { mapper.convertValue(it) }
 
     // find the first exception and return
     if (context?.exception != null) {

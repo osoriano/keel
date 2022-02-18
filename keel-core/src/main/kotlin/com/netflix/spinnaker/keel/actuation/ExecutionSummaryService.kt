@@ -1,8 +1,10 @@
 package com.netflix.spinnaker.keel.actuation
 
+import com.fasterxml.jackson.annotation.JsonAlias
 import com.netflix.buoy.sdk.model.RolloutTarget
 import com.netflix.spinnaker.keel.api.TaskStatus
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 /**
  * Provides the data needed by the UI to visualize a task
@@ -29,11 +31,34 @@ data class Stage(
   val id: String,
   val type: String,
   val name: String,
+  val status: TaskStatus,
+  @JsonAlias("startTime")
+  val _startTime: Long? = null,
+  @JsonAlias("endTime")
+  val _endTime: Long? = null,
+  val refId: String? = null, //this is a short code for the stage, used in ordering
+  val requisiteStageRefIds: List<String> = emptyList(), //this is a coded form of what stage goes after another stage/belongs to a stage
+  val syntheticStageOwner: String? = null, // only appears with a before stage/after stage
+  val context: Map<String, Any?> = emptyMap(),
+  val outputs: Map<String, Any?> = emptyMap(),
+  val tasks: List<StageTask> = emptyList()
+) {
+  val startTime: Instant?
+    get() = _startTime?.let { Instant.ofEpochMilli(it) }
+
+  val endTime: Instant?
+    get() = _endTime?.let { Instant.ofEpochMilli(it) }
+}
+
+data class StageTask(
+  val id: String,
+  val name: String,
+  val implementingClass: String,
   val startTime: Instant?,
   val endTime: Instant?,
   val status: TaskStatus,
-  val refId: String?, //this is a short code for the stage, used in ordering
-  val requisiteStageRefIds: List<String> //this is a coded form of what stage goes after another stage/belongs to a stage
+  val stageStart: Boolean,
+  val stageEnd: Boolean
 )
 
 data class RolloutTargetWithStatus(

@@ -49,8 +49,8 @@ class OrcaExecutionSummaryServiceTests {
       that(summary.currentStage).isNull()
       that(summary.status).isEqualTo(TaskStatus.SUCCEEDED)
       that(summary.stages).isNotEmpty()
-      that(summary.stages[0].startTime).isNotNull().isEqualTo(Instant.parse("2021-10-05T19:46:48Z"))
-      that(summary.stages[0].endTime).isNotNull().isEqualTo(Instant.parse("2021-10-05T19:50:46Z"))
+      that(summary.stages[0].startTime).isNotNull().isEqualTo(Instant.parse("2021-10-05T19:46:48.531Z"))
+      that(summary.stages[0].endTime).isNotNull().isEqualTo(Instant.parse("2021-10-05T19:50:46.532Z"))
     }
   }
 
@@ -63,7 +63,7 @@ class OrcaExecutionSummaryServiceTests {
       that(summary.deployTargets.map { it.status }.toSet()).containsExactlyInAnyOrder(SUCCEEDED, NOT_STARTED)
       that(summary.currentStage).isNotNull().get { type }.isEqualTo("waitForNextRolloutStep")
       that(summary.currentStage?.startTime).isNotNull()
-      that(summary.currentStage?.startTime).isEqualTo(Instant.parse("2021-10-05T19:40:18Z"))
+      that(summary.currentStage?.startTime).isEqualTo(Instant.parse("2021-10-05T19:40:18.551Z"))
       that(summary.status).isEqualTo(TaskStatus.RUNNING)
       that(summary.rolloutWorkflowId) isEqualTo "rollout:01FH8ZD7107CZN3V5YKE15RRVA:01FH8ZD710VC49HBF8G9VF7V28"
     }

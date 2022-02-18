@@ -12,6 +12,7 @@ import com.netflix.spinnaker.keel.api.plugins.VerificationEvaluator
 import com.netflix.spinnaker.keel.enforcers.EnvironmentExclusionEnforcer
 import com.netflix.spinnaker.keel.telemetry.VerificationCompleted
 import com.netflix.spinnaker.keel.telemetry.VerificationStarted
+import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
@@ -63,10 +64,10 @@ class VerificationRunner(
     eventPublisher.publishEvent(VerificationStarted(context, action))
   }
 
-  private fun List<VerificationEvaluator<*>>.evaluatorFor(verification: Verification) =
-    first { it.supportedVerification.first == verification.type }
+  private fun <V : Verification> List<VerificationEvaluator<*>>.evaluatorFor(verification: V) =
+    first { it.supportedVerification.first == verification.type } as VerificationEvaluator<V>
 
-  private fun List<VerificationEvaluator<*>>.start(context: ArtifactInEnvironmentContext, verification: Verification) =
+  private suspend fun <V : Verification> List<VerificationEvaluator<*>>.start(context: ArtifactInEnvironmentContext, verification: V) =
     evaluatorFor(verification).start(context, verification)
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }

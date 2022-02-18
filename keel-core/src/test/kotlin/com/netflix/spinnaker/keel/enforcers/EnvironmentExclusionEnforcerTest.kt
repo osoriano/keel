@@ -69,7 +69,7 @@ internal class EnvironmentExclusionEnforcerTest {
     every { verificationRepository.getVerificationContextsWithStatus(any(), any(), ConstraintStatus.PENDING) } returns emptyList()
     val action : () -> Unit = mockk(relaxed=true)
 
-    enforcer.withVerificationLease(mockk(relaxed=true), action)
+    runBlocking { enforcer.withVerificationLease(mockk(relaxed=true), action) }
 
     verify(exactly=1) {
       action.invoke()
@@ -164,7 +164,7 @@ internal class EnvironmentExclusionEnforcerTest {
 
     val action : () -> Unit = mockk(relaxed=true)
 
-    enforcer.withVerificationLease(mockk(relaxed=true), action)
+    runBlocking { enforcer.withVerificationLease(mockk(relaxed=true), action) }
 
     verify(exactly=1) {
       action.invoke()

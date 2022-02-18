@@ -31,6 +31,7 @@ dependencies {
   implementation(project(":keel-retrofit"))
   implementation(project(":keel-graphql-schema"))
   implementation(project(":keel-buoy"))
+  implementation(project(":keel-verifications"))
 
   implementation("com.netflix.spinnaker.kork.internal:kork-web")
   implementation("com.netflix.spinnaker.kork.internal:kork-artifacts")
@@ -45,12 +46,12 @@ dependencies {
   implementation("org.apache.maven:maven-artifact:3.6.3")
   implementation("com.netflix.spinnaker.kork.internal:kork-plugins")
   implementation("com.slack.api:bolt-servlet:${slackSdkVersion}")
-  implementation("com.graphql-java:graphql-java-extended-scalars:16.0.1")
 
   // DGS dependencies
   implementation(platform("com.netflix.graphql.dgs:graphql-dgs-platform-dependencies:${dgsVersion}"))
   implementation("com.netflix.graphql.dgs:graphql-dgs-spring-boot-starter")
-  implementation 'com.fasterxml.jackson.datatype:jackson-datatype-joda'
+  implementation("com.fasterxml.jackson.datatype:jackson-datatype-joda")
+  implementation("com.graphql-java:graphql-java-extended-scalars:16.0.1")
 
   runtimeOnly("com.netflix.spinnaker.kork.internal:kork-runtime")
   runtimeOnly("io.springfox:springfox-boot-starter:3.0.0")

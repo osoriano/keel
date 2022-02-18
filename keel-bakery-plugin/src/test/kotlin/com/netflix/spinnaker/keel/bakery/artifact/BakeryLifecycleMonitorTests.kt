@@ -3,6 +3,7 @@ package com.netflix.spinnaker.keel.bakery.artifact
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.config.BaseUrlConfig
 import com.netflix.spinnaker.config.LifecycleConfig
+import com.netflix.spinnaker.keel.actuation.Stage
 import com.netflix.spinnaker.keel.api.TaskStatus
 import com.netflix.spinnaker.keel.api.TaskStatus.BUFFERED
 import com.netflix.spinnaker.keel.api.TaskStatus.PAUSED
@@ -256,27 +257,32 @@ class BakeryLifecycleMonitorTests : JUnit5Minutests {
       endTime = null,
       status = SUCCEEDED,
       execution = OrcaExecutionStages(
-        listOf(mapOf(
-          "type" to "bake",
-          "outputs" to mapOf(
-            "deploymentDetails" to listOf(
-              mapOf(
-                "ami" to "ami-222",
-                "imageId" to "ami-222",
-                "imageName" to "waffle-time-server-0.1.0_rc.6-h14.a03a954-x86_64-20210304183413-bionic-classic-hvm-sriov-ebs",
-                "amiSuffix" to "20210304183413",
-                "baseLabel" to "release",
-                "baseOs" to "bionic-classic",
-                "storeType" to "ebs",
-                "vmType" to "hvm",
-                "region" to "us-east-1",
-                "package" to "waffle-time-server_0.1.0~rc.6-h14.a03a954_all.deb",
-                "cloudProviderType" to "aws",
-                "baseAmiId" to "ami-111"
+        listOf(
+          Stage(
+            type = "bake",
+            id = "fake",
+            name = "fake",
+            status = SUCCEEDED,
+            outputs = mapOf(
+              "deploymentDetails" to listOf(
+                mapOf(
+                  "ami" to "ami-222",
+                  "imageId" to "ami-222",
+                  "imageName" to "waffle-time-server-0.1.0_rc.6-h14.a03a954-x86_64-20210304183413-bionic-classic-hvm-sriov-ebs",
+                  "amiSuffix" to "20210304183413",
+                  "baseLabel" to "release",
+                  "baseOs" to "bionic-classic",
+                  "storeType" to "ebs",
+                  "vmType" to "hvm",
+                  "region" to "us-east-1",
+                  "package" to "waffle-time-server_0.1.0~rc.6-h14.a03a954_all.deb",
+                  "cloudProviderType" to "aws",
+                  "baseAmiId" to "ami-111"
+                )
               )
             )
           )
-        ))
+        )
       )
     )
 }

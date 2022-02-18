@@ -61,39 +61,30 @@ class OrcaExecutionSummaryService(
       }
     } ?: return null
 
-    val typedStages: List<OrcaStage> =
-      taskDetails.execution?.stages?.map { stage -> stage.mapValues {
-        (key, value) ->
-        if ((key == "startTime" || key == "endTime") && value is Long) {
-          value / 1000 // orca returns the value in ms, so we need to convert it to seconds
-        } else {
-          value
-        }
-      } }?.map { mapper.convertValue(it) }
-        ?: emptyList()
+    val stages = taskDetails.execution?.stages ?: emptyList()
 
-    val currentStage = typedStages
+    val currentStage = stages
       .filter { it.status == RUNNING }
       .maxByOrNull { it.refId?.length ?: 0 } //grab the longest ref id, which will be the most nested running stage
 
-    val targets = getTargets(taskDetails, typedStages)
+    val targets = getTargets(taskDetails, stages)
 
     return ExecutionSummary(
       name = taskDetails.name,
       id = taskDetails.id,
       status = taskDetails.status,
-      currentStage = currentStage?.toStage(),
-      stages = typedStages.map { it.toStage() },
+      currentStage = currentStage,
+      stages = stages,
       deployTargets = targets,
-      error = if (taskDetails.status.isFailure()) taskDetails.execution?.stages.getFailureMessage(mapper) else null,
-      rolloutWorkflowId = getRolloutWorkflowId(taskDetails, typedStages)
+      error = if (taskDetails.status.isFailure()) stages.getFailureMessage(mapper) else null,
+      rolloutWorkflowId = getRolloutWorkflowId(taskDetails, stages)
     )
   }
 
   /**
    * Create the rollout targets and determine their status
    */
-  fun getTargets(execution: ExecutionDetailResponse, typedStages: List<OrcaStage>): List<RolloutTargetWithStatus> {
+  fun getTargets(execution: ExecutionDetailResponse, typedStages: List<Stage>): List<RolloutTargetWithStatus> {
     val targetsWithStatus: MutableList<RolloutTargetWithStatus> = mutableListOf()
     val statusTargetMap = when {
       execution.isManagedRollout() -> getTargetStatusManagedRollout(typedStages)
@@ -115,7 +106,7 @@ class OrcaExecutionSummaryService(
     return targetsWithStatus
   }
 
-  fun getRolloutWorkflowId(execution: ExecutionDetailResponse, typedStages: List<OrcaStage>) : String? =
+  fun getRolloutWorkflowId(execution: ExecutionDetailResponse, typedStages: List<Stage>) : String? =
     if(execution.isManagedRollout()) {
       typedStages.firstNotNullOfOrNull { it.context["rolloutWorkflowId"] }?.toString()
     } else {
@@ -153,10 +144,10 @@ class OrcaExecutionSummaryService(
     containsStageType(PUBLISH_DGS_STAGE)
 
   fun ExecutionDetailResponse.containsStageType(type: String): Boolean =
-    execution?.stages?.find { it["type"] == type } != null
+    execution?.stages?.find { it.type == type } != null
 
   fun getTargetStatusManagedRollout(
-    typedStages: List<OrcaStage>
+    typedStages: List<Stage>
   ): Map<RolloutStatus, List<RolloutTarget>> {
     val targets: MutableMap<RolloutStatus, List<RolloutTarget>> = mutableMapOf()
 
@@ -226,7 +217,7 @@ class OrcaExecutionSummaryService(
 
   fun getTargetStatus(
     execution: ExecutionDetailResponse,
-    typedStages: List<OrcaStage>
+    typedStages: List<Stage>
   ): Map<RolloutStatus, List<RolloutTarget>> {
     val targets = when {
       execution.isDeployServerGroup() -> {
@@ -297,7 +288,7 @@ class OrcaExecutionSummaryService(
       else -> mapOf(RolloutStatus.NOT_STARTED to targets)
     }
 
-  fun createTargetFromDeployStage(deployStage: OrcaStage?): List<RolloutTarget> {
+  fun createTargetFromDeployStage(deployStage: Stage?): List<RolloutTarget> {
     if (deployStage == null || deployStage.type != CREATE_SERVER_GROUP_STAGE) {
       return emptyList()
     }
@@ -325,7 +316,7 @@ class OrcaExecutionSummaryService(
     }
   }
 
-  fun createTargetFromSecurityGroup(upsertSecurityGroupStage: OrcaStage?): List<RolloutTarget> {
+  fun createTargetFromSecurityGroup(upsertSecurityGroupStage: Stage?): List<RolloutTarget> {
     if (upsertSecurityGroupStage == null || upsertSecurityGroupStage.type != SECURITY_GROUP_STAGE) {
       return emptyList()
     }
@@ -347,7 +338,7 @@ class OrcaExecutionSummaryService(
    *   account, cloud provider, and region are all in the context of the stage with the same key.
    * This function takes that general form and creates a rollback target from it.
    */
-  private fun generateTargetForRegion(stage: OrcaStage): List<RolloutTarget> {
+  private fun generateTargetForRegion(stage: Stage): List<RolloutTarget> {
     val region: String = stage.getRegion() ?: "unable to find region"
     val account = stage.getAccount() ?: "unable to find account"
     val cloudProvider: String = stage.getCloudProvider() ?: "unable to find cloud provider"
@@ -369,7 +360,7 @@ class OrcaExecutionSummaryService(
    *    "account": "mgmt"
    *  },
   */
-  private fun generateTargetFromSource(stage: OrcaStage): List<RolloutTarget> {
+  private fun generateTargetFromSource(stage: Stage): List<RolloutTarget> {
     val source = stage.context["source"] as? Map<String, String> ?: emptyMap()
     val region = source["region"] ?: "unable to find region"
     val account = stage.getAccount() ?: "unable to find account"
@@ -391,7 +382,7 @@ class OrcaExecutionSummaryService(
     val availabilityZones: Map<String, List<String>> //key is region, value is list of azs
   )
 
-  fun createTargetFromLoadBalancer(upsertLoadBalancerStage: OrcaStage?): List<RolloutTarget> {
+  fun createTargetFromLoadBalancer(upsertLoadBalancerStage: Stage?): List<RolloutTarget> {
     if (upsertLoadBalancerStage == null || upsertLoadBalancerStage.type != LOAD_BALANCER_STAGE) {
       return emptyList()
     }
@@ -415,27 +406,15 @@ class OrcaExecutionSummaryService(
     }.flatten()
   }
 
-  fun OrcaStage.getAccount(): String? =
+  fun Stage.getAccount(): String? =
     context["credentials"] as? String
 
-  fun OrcaStage.getCloudProvider(): String? =
+  fun Stage.getCloudProvider(): String? =
     context["cloudProvider"] as? String
 
-  fun OrcaStage.getRegion(): String? =
+  fun Stage.getRegion(): String? =
     context["region"] as? String
 
-  fun OrcaStage.getRegions(): List<String> =
+  fun Stage.getRegions(): List<String> =
     context["regions"] as? List<String> ?: emptyList()
-
-  fun OrcaStage.toStage() =
-    Stage(
-      id = id,
-      type = type,
-      name = name,
-      startTime = startTime,
-      endTime = endTime,
-      status = status,
-      refId = refId,
-      requisiteStageRefIds = requisiteStageRefIds,
-    )
 }

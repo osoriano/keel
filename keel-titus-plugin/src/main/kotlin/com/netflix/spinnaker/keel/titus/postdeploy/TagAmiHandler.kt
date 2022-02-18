@@ -17,8 +17,8 @@ import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.core.api.TagAmiPostDeployAction
 import com.netflix.spinnaker.keel.orca.OrcaService
-import com.netflix.spinnaker.keel.titus.verification.OrcaLinkStrategy
-import com.netflix.spinnaker.keel.titus.verification.TASKS
+import com.netflix.spinnaker.keel.titus.OrcaLinkStrategy
+import com.netflix.spinnaker.keel.titus.TITUS_JOB_TASKS
 import com.netflix.spinnaker.keel.verification.ImageFinder
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -90,7 +90,7 @@ class TagAmiHandler(
       tasksIds.add(task.id)
     }
 
-    return mapOf(TASKS to tasksIds)
+    return mapOf(TITUS_JOB_TASKS to tasksIds)
   }
 
   /**
@@ -109,7 +109,7 @@ class TagAmiHandler(
     oldState: ActionState
   ): ActionState {
     @Suppress("UNCHECKED_CAST")
-    val taskId = (oldState.metadata[TASKS] as? Iterable<String>)?.lastOrNull()
+    val taskId = (oldState.metadata[TITUS_JOB_TASKS] as? Iterable<String>)?.lastOrNull()
 
     if (taskId == null) {
       log.debug("Completing post deploy action ${context.shortName()} because no tasks were launched. Are there any ec2 clusters in the config?")
