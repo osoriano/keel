@@ -146,7 +146,6 @@ class ResourceActuator(
 
         val response = vetoEnforcer.canCheck(resource)
         if (!response.allowed) {
-          handleArtifactVetoing(response, resource, deliveryConfig, environment, desired)
           log.debug("Skipping actuation for resource {} because it was vetoed: {}", resource.id, response.message)
           publisher.publishEvent(ResourceCheckSkipped(resource.kind, resource.id, response.vetoName))
           publisher.publishEvent(
@@ -223,82 +222,6 @@ class ResourceActuator(
       } catch (e: Exception) {
         log.error("Resource check for $id failed", e)
         publisher.publishEvent(ResourceCheckError(resource, e.toSpinnakerException(), clock))
-      }
-    }
-  }
-
-  /**
-   * [VersionedArtifactProvider] is a special [resource] sub-type. When a veto response sets
-   * [VetoResponse.vetoArtifact], the resource under evaluation is of type
-   * [VersionedArtifactProvider], and the version has never before been deployed successfully to an environment,
-   * disallow the desired artifact version from being deployed to
-   * the environment containing [resource]. This ensures that the environment will be fully restored to
-   * a prior good-state.
-   *
-   * This method can override a veto's request to veto an artifact. In this method we have more
-   * information about the diff and the artifact version, and so we can make a better decision about
-   * whether or not to veto an artifact version
-   *
-   * If the version has previously been deployed successfully do not veto the artifact version because
-   * we do not want to veto the artifact version in the case of a bad config change or other downstream
-   * problem. Rolling back most likely will not help in these cases and it will probably cause confusion.
-   */
-  private fun handleArtifactVetoing(
-    response: VetoResponse,
-    resource: Resource<*>,
-    deliveryConfig: DeliveryConfig,
-    environment: Environment,
-    desired: Any?
-  ) {
-    if (response.vetoArtifact && resource.spec is VersionedArtifactProvider) {
-      try {
-        val versionedArtifact = desired.findArtifact()
-
-        if (versionedArtifact != null) {
-          val artifact = deliveryConfig.matchingArtifactByName(versionedArtifact.artifactName, versionedArtifact.artifactType)
-            ?: error("Artifact ${versionedArtifact.artifactType}:${versionedArtifact.artifactName} not found in delivery config ${deliveryConfig.name}")
-
-          val promotionStatus = artifactRepository.getArtifactPromotionStatus(
-            deliveryConfig, artifact, versionedArtifact.artifactVersion, environment.name)
-
-          val veto = EnvironmentArtifactVeto(
-            reference = artifact.reference,
-            version = versionedArtifact.artifactVersion,
-            targetEnvironment = environment.name,
-            vetoedBy = "Spinnaker",
-            comment = "Automatically marked as bad because multiple deployments of this version failed and none have ever succeeded."
-          )
-          if (promotionStatus == DEPLOYING) {
-            artifactRepository.markAsVetoedIn(
-              deliveryConfig = deliveryConfig,
-              veto = veto
-            )
-            log.info(
-              "Vetoing artifact version {} of artifact {} for config {} and env {} because multiple deploys failed",
-              versionedArtifact,
-              artifact.reference + ":" + artifact.type,
-              deliveryConfig.name,
-              environment.name
-            )
-
-            publisher.publishEvent(ArtifactVersionVetoed(
-              resource.application,
-              veto,
-              deliveryConfig),
-            )
-          } else {
-            log.info(
-              "Not vetoing artifact version {} of artifact {} for config {} and env {} because it's not currently deploying",
-              versionedArtifact,
-              artifact.reference + ":" + artifact.type,
-              deliveryConfig.name,
-              environment.name
-            )
-          }
-        }
-      } catch (e: Exception) {
-        log.warn("Failed to veto presumed bad artifact version for ${resource.id}", e)
-        // TODO: emit metric
       }
     }
   }

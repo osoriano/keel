@@ -52,13 +52,12 @@ interface Veto {
     VetoResponse(allowed = true, vetoName = name())
 
   fun deniedResponse(message: String, vetoArtifact: Boolean = true, suggestedStatus: ResourceStatus? = null): VetoResponse =
-    VetoResponse(allowed = false, vetoName = name(), vetoArtifact = vetoArtifact, message = message, suggestedStatus = suggestedStatus)
+    VetoResponse(allowed = false, vetoName = name(), message = message, suggestedStatus = suggestedStatus)
 }
 
 data class VetoResponse(
   val allowed: Boolean,
   val vetoName: String,
-  val vetoArtifact: Boolean = false,
   val message: String? = null,
   val suggestedStatus: ResourceStatus? = null
 )

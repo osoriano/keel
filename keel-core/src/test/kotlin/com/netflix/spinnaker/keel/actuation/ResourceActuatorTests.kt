@@ -679,57 +679,12 @@ internal class ResourceActuatorTests : JUnit5Minutests {
 
       context("the artifact versioned resource is vetoed and the veto response has vetoArtifact set") {
         before {
-          every { veto.check(resource) } returns VetoResponse(allowed = false, vetoName = "aVeto", vetoArtifact = true)
+          every { veto.check(resource) } returns VetoResponse(allowed = false, vetoName = "aVeto")
           every { plugin1.desired(resource) } returns DummyArtifactVersionedResourceSpec()
           every { plugin1.current(resource) } returns DummyArtifactVersionedResourceSpec()
           every { plugin1.actuationInProgress(resource) } returns false
           every { deliveryConfigRepository.deliveryConfigLastChecked(any()) } returns Instant.now().minus(Duration.ofSeconds(30))
         }
-
-        context("the version is currently deploying in the environment") {
-          before {
-            every { artifactRepository.getArtifactPromotionStatus(any(), any(), any(), any()) } returns DEPLOYING
-            every { artifactRepository.markAsVetoedIn(any(), any(), false) } returns true
-            runBlocking {
-              subject.checkResource(resource)
-            }
-          }
-          test("the desired artifact version is vetoed from the target environment") {
-            verify { artifactRepository.markAsVetoedIn(any(), any(), false) }
-            verify { publisher.publishEvent(ofType<ResourceActuationVetoed>()) }
-            verify { publisher.publishEvent(ofType<ArtifactVersionVetoed>()) }
-          }
-        }
-
-        context("the version is not currently deploying in the environment") {
-          for (promotionStatus in PromotionStatus.values().filter { it != DEPLOYING }) {
-            before {
-              every {
-                artifactRepository.getArtifactPromotionStatus(any(), any(), "fnord-42", any())
-              } returns promotionStatus
-              runBlocking {
-                subject.checkResource(resource)
-              }
-            }
-
-            test("version is not vetoed with $promotionStatus status") {
-              verify(exactly = 0) {
-                artifactRepository.markAsVetoedIn(any(),
-                  EnvironmentArtifactVeto(
-                    "staging",
-                    "fnord",
-                    "fnord-42.0",
-                    "Spinnaker",
-                    "Automatically marked as bad because multiple deployments of this version failed."
-                  ),
-                  false
-                )
-              }
-              verify { publisher.publishEvent(ofType<ResourceActuationVetoed>()) }
-            }
-          }
-        }
-
       }
     }
 
