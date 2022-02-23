@@ -1029,194 +1029,206 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
     }
 
     context("apps migration") {
-      context("can store and get apps for migration") {
-        before {
-          val deliveryConfig2 = deliveryConfig.copy(name = "fnord2", application = "fnord2")
-          repository.storeAppForPotentialMigration(deliveryConfig.application, false)
-          repository.storeAppForPotentialMigration(deliveryConfig2.application, false)
-        }
+      before {
+        val deliveryConfig2 = deliveryConfig.copy(name = "fnord2", application = "fnord2")
+        repository.storeAppForPotentialMigration(deliveryConfig.application)
+        repository.storeAppForPotentialMigration(deliveryConfig2.application)
+      }
 
-        test("get all apps") {
-          expectCatching {
-            repository.getAppsToExport(Duration.ofDays(1), 10)
-          }
-            .isSuccess()
-            .hasSize(2)
-        }
-
-        test("Ignore apps that are already managed") {
-          store()
-          expectCatching {
-            repository.getAppsToExport(Duration.ofDays(1), 10)
-          }
-            .isSuccess()
-            .hasSize(1)
-            .first().isEqualTo("fnord2")
-        }
-
-        context("apps that are already migrating") {
-          deriveFixture {
-            copy(
-              deliveryConfig = deliveryConfig.copy(
-                metadata = mapOf(MIGRATING_KEY to true)
-              )
-            )
-          }
-
-          before {
-            store()
-          }
-
-          test("are ignored") {
-            expectCatching {
-              repository.getAppsToExport(Duration.ofDays(1), 10)
-            }
-              .isSuccess()
-              .doesNotContain(deliveryConfig.application)
-          }
-        }
-
-        test("Ignore apps that were exported recently") {
+      test("get all apps") {
+        expectCatching {
           repository.getAppsToExport(Duration.ofDays(1), 10)
+        }
+          .isSuccess()
+          .hasSize(2)
+      }
+
+      test("by default apps are not added to allow list") {
+        expectCatching { repository.getApplicationMigrationStatus(deliveryConfig.application) }
+          .isSuccess()
+          .get { inAllowList }.isFalse()
+      }
+
+      test("add app to allow list") {
+        repository.storeAppForPotentialMigration(deliveryConfig.application, true)
+        expectCatching { repository.getApplicationMigrationStatus(deliveryConfig.application) }
+          .isSuccess()
+          .get { inAllowList }.isTrue()
+      }
+
+      test("Ignore apps that are already managed") {
+        store()
+        expectCatching {
+          repository.getAppsToExport(Duration.ofDays(1), 10)
+        }
+          .isSuccess()
+          .hasSize(1)
+          .first().isEqualTo("fnord2")
+      }
+
+      context("apps that are already migrating") {
+        deriveFixture {
+          copy(
+            deliveryConfig = deliveryConfig.copy(
+              metadata = mapOf(MIGRATING_KEY to true)
+            )
+          )
+        }
+
+        before {
+          store()
+        }
+
+        test("are ignored") {
           expectCatching {
             repository.getAppsToExport(Duration.ofDays(1), 10)
           }
             .isSuccess()
-            .isEmpty()
-        }
-
-        test("App can be migrated") {
-          repository.storeAppForPotentialMigration(deliveryConfig.application, true)
-          repository.storePipelinesExportResult(submittedConfig, emptyList(), true)
-          repository.updateMigratingAppScmStatus(deliveryConfig.application, true)
-          expectCatching {
-            repository.getApplicationMigrationStatus(deliveryConfig.application)
-          }
-            .isSuccess()
-            .and {
-              get { isMigratable }.isTrue()
-              get { deliveryConfig }.isNotNull()
-              get { isScmPowered }.isTrue()
-            }
-
-        }
-
-        test("App cannot be migrated - not in allowed list") {
-          repository.storePipelinesExportResult(submittedConfig, emptyList(), true)
-          repository.updateMigratingAppScmStatus(deliveryConfig.application, true)
-          expectCatching {
-            repository.getApplicationMigrationStatus(deliveryConfig.application)
-          }
-            .isSuccess()
-            .get { isMigratable }.isFalse()
-        }
-
-        test("App cannot be migrated - failed export") {
-          repository.storeAppForPotentialMigration(deliveryConfig.application, true)
-          repository.storePipelinesExportResult(submittedConfig, emptyList(), false)
-          repository.updateMigratingAppScmStatus(deliveryConfig.application, true)
-          expectCatching {
-            repository.getApplicationMigrationStatus(deliveryConfig.application)
-          }
-            .isSuccess()
-            .get { isMigratable }.isFalse()
-        }
-
-        test("App cannot be migrated - not scm powered") {
-          repository.storeAppForPotentialMigration(deliveryConfig.application, true)
-          repository.storePipelinesExportResult(submittedConfig, emptyList(), true)
-          repository.updateMigratingAppScmStatus(deliveryConfig.application, false)
-          expectCatching {
-            repository.getApplicationMigrationStatus(deliveryConfig.application)
-          }
-            .isSuccess()
-            .get { isMigratable }.isFalse()
-        }
-
-        test("App is not in the migration list") {
-          expectCatching {
-            repository.getApplicationMigrationStatus("not-in-list-app")
-          }
-            .isSuccess()
-            .get { isMigratable }.isFalse()
-        }
-
-        test("App is already managed") {
-          store()
-          repository.storeAppForPotentialMigration(deliveryConfig.application, true)
-          expectCatching {
-            repository.getApplicationMigrationStatus(deliveryConfig.application)
-          }
-            .isSuccess().and {
-              get { alreadyManaged }.isTrue()
-              get { isMigratable }.isFalse()
-            }
-        }
-
-
-        context("app is already migrating") {
-          deriveFixture {
-            copy(
-              deliveryConfig = deliveryConfig.copy(
-                metadata = mapOf(MIGRATING_KEY to true)
-              )
-            )
-          }
-
-          before {
-            store()
-          }
-
-          test("app is not marked as managed") {
-            expectCatching {
-              repository.getApplicationMigrationStatus(deliveryConfig.application)
-            }.isSuccess().and {
-              get { alreadyManaged }.isFalse()
-            }
-          }
-        }
-
-        context("check migration PR") {
-          before {
-            repository.storeAppForPotentialMigration(deliveryConfig.application, true)
-            repository.storePrLinkForMigratedApplication(deliveryConfig.application, "https://stash/projects/SPKR/repos/keel/pull-requests/100")
-          }
-
-          test("Application does not match") {
-            expectCatching {
-              repository.isMigrationPr("random-app", "100")
-            }.isSuccess()
-              .isFalse()
-          }
-
-          test("PR id does not match") {
-            expectCatching {
-              repository.isMigrationPr(deliveryConfig.application, "101")
-            }.isSuccess()
-              .isFalse()
-          }
-
-          test("PR id and app match") {
-            expectCatching {
-              repository.isMigrationPr(deliveryConfig.application, "100")
-            }.isSuccess()
-              .isTrue()
-          }
-        }
-
-        test("Getting the app config correctly") {
-          val submittedConfig = SubmittedDeliveryConfig(name = deliveryConfig.name, application = deliveryConfig.application, serviceAccount = deliveryConfig.serviceAccount)
-          repository.storeAppForPotentialMigration(deliveryConfig.application, true)
-          repository.storePipelinesExportResult(submittedConfig, emptyList(), true, "myRepo", "myProject")
-          val result = expectCatching {
-            repository.getMigratableApplicationData(deliveryConfig.application)
-          }
-          expectThat(result.isSuccess().and {
-            get { repoSlug }.isEqualTo("myRepo")
-            get { projectKey }.isEqualTo("myProject")
-          })
+            .doesNotContain(deliveryConfig.application)
         }
       }
+
+      test("Ignore apps that were exported recently") {
+        repository.getAppsToExport(Duration.ofDays(1), 10)
+        expectCatching {
+          repository.getAppsToExport(Duration.ofDays(1), 10)
+        }
+          .isSuccess()
+          .isEmpty()
+      }
+
+      test("App can be migrated") {
+        repository.storeAppForPotentialMigration(deliveryConfig.application, true)
+        repository.storePipelinesExportResult(submittedConfig, emptyList(), true)
+        repository.updateMigratingAppScmStatus(deliveryConfig.application, true)
+        expectCatching {
+          repository.getApplicationMigrationStatus(deliveryConfig.application)
+        }
+          .isSuccess()
+          .and {
+            get { isMigratable }.isTrue()
+            get { deliveryConfig }.isNotNull()
+            get { isScmPowered }.isTrue()
+          }
+
+      }
+
+      test("App cannot be migrated - not in allowed list") {
+        repository.storePipelinesExportResult(submittedConfig, emptyList(), true)
+        repository.updateMigratingAppScmStatus(deliveryConfig.application, true)
+        expectCatching {
+          repository.getApplicationMigrationStatus(deliveryConfig.application)
+        }
+          .isSuccess()
+          .get { isMigratable }.isFalse()
+      }
+
+      test("App cannot be migrated - failed export") {
+        repository.storeAppForPotentialMigration(deliveryConfig.application, true)
+        repository.storePipelinesExportResult(submittedConfig, emptyList(), false)
+        repository.updateMigratingAppScmStatus(deliveryConfig.application, true)
+        expectCatching {
+          repository.getApplicationMigrationStatus(deliveryConfig.application)
+        }
+          .isSuccess()
+          .get { isMigratable }.isFalse()
+      }
+
+      test("App cannot be migrated - not scm powered") {
+        repository.storeAppForPotentialMigration(deliveryConfig.application, true)
+        repository.storePipelinesExportResult(submittedConfig, emptyList(), true)
+        repository.updateMigratingAppScmStatus(deliveryConfig.application, false)
+        expectCatching {
+          repository.getApplicationMigrationStatus(deliveryConfig.application)
+        }
+          .isSuccess()
+          .get { isMigratable }.isFalse()
+      }
+
+      test("App is not in the migration list") {
+        expectCatching {
+          repository.getApplicationMigrationStatus("not-in-list-app")
+        }
+          .isSuccess()
+          .get { isMigratable }.isFalse()
+      }
+
+      test("App is already managed") {
+        store()
+        repository.storeAppForPotentialMigration(deliveryConfig.application, true)
+        expectCatching {
+          repository.getApplicationMigrationStatus(deliveryConfig.application)
+        }
+          .isSuccess().and {
+            get { alreadyManaged }.isTrue()
+            get { isMigratable }.isFalse()
+          }
+      }
+
+
+      context("app is already migrating") {
+        deriveFixture {
+          copy(
+            deliveryConfig = deliveryConfig.copy(
+              metadata = mapOf(MIGRATING_KEY to true)
+            )
+          )
+        }
+
+        before {
+          store()
+        }
+
+        test("app is not marked as managed") {
+          expectCatching {
+            repository.getApplicationMigrationStatus(deliveryConfig.application)
+          }.isSuccess().and {
+            get { alreadyManaged }.isFalse()
+          }
+        }
+      }
+
+      context("check migration PR") {
+        before {
+          repository.storeAppForPotentialMigration(deliveryConfig.application, true)
+          repository.storePrLinkForMigratedApplication(deliveryConfig.application, "https://stash/projects/SPKR/repos/keel/pull-requests/100")
+        }
+
+        test("Application does not match") {
+          expectCatching {
+            repository.isMigrationPr("random-app", "100")
+          }.isSuccess()
+            .isFalse()
+        }
+
+        test("PR id does not match") {
+          expectCatching {
+            repository.isMigrationPr(deliveryConfig.application, "101")
+          }.isSuccess()
+            .isFalse()
+        }
+
+        test("PR id and app match") {
+          expectCatching {
+            repository.isMigrationPr(deliveryConfig.application, "100")
+          }.isSuccess()
+            .isTrue()
+        }
+      }
+
+      test("Getting the app config correctly") {
+        val submittedConfig = SubmittedDeliveryConfig(name = deliveryConfig.name, application = deliveryConfig.application, serviceAccount = deliveryConfig.serviceAccount)
+        repository.storeAppForPotentialMigration(deliveryConfig.application, true)
+        repository.storePipelinesExportResult(submittedConfig, emptyList(), true, "myRepo", "myProject")
+        val result = expectCatching {
+          repository.getMigratableApplicationData(deliveryConfig.application)
+        }
+        expectThat(result.isSuccess().and {
+          get { repoSlug }.isEqualTo("myRepo")
+          get { projectKey }.isEqualTo("myProject")
+        })
+      }
     }
+
   }
 }

@@ -1516,13 +1516,17 @@ class SqlDeliveryConfigRepository(
     }
   }
 
-  override fun storeAppForPotentialMigration(app: String, inAllowList: Boolean) {
+  override fun storeAppForPotentialMigration(app: String, inAllowList: Boolean?) {
     sqlRetry.withRetry(WRITE) {
       jooq.insertInto(MIGRATION_STATUS)
         .set(MIGRATION_STATUS.APPLICATION, app)
-        .set(MIGRATION_STATUS.IN_ALLOW_LIST, inAllowList)
-        .onDuplicateKeyUpdate()
-        .set(MIGRATION_STATUS.IN_ALLOW_LIST, inAllowList)
+        .set(MIGRATION_STATUS.IN_ALLOW_LIST, inAllowList ?: false)
+        .apply {
+          if (inAllowList != null) {
+            onDuplicateKeyUpdate()
+              .set(MIGRATION_STATUS.IN_ALLOW_LIST, inAllowList)
+          }
+        }
         .execute()
     }
   }

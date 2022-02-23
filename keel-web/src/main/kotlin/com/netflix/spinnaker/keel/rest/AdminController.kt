@@ -175,7 +175,7 @@ class AdminController(
 
   data class AddAppsToMigrationPayload(
     val apps: List<String>,
-    val inAllowedList: Boolean,
+    val inAllowedList: Boolean? = null,
   )
 
   /**

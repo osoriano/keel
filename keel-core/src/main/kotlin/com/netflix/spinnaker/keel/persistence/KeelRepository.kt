@@ -741,7 +741,7 @@ class KeelRepository(
    * Store app in the migration DB if not exist.
    * [inAllowedList] defines if the app could be actively migrated if the export completed successfully
    */
-  fun storeAppForPotentialMigration(app: String, inAllowList: Boolean) =
+  fun storeAppForPotentialMigration(app: String, inAllowList: Boolean?) =
     deliveryConfigRepository.storeAppForPotentialMigration(app, inAllowList)
 
   /**
