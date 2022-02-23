@@ -1056,6 +1056,13 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
           .get { inAllowList }.isTrue()
       }
 
+      test("re-add existing app to the list") {
+        repository.storeAppForPotentialMigration(deliveryConfig.application)
+        expectCatching { repository.getApplicationMigrationStatus(deliveryConfig.application) }
+          .isSuccess()
+          .get { inAllowList }.isFalse()
+      }
+
       test("Ignore apps that are already managed") {
         store()
         expectCatching {

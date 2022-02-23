@@ -1525,6 +1525,8 @@ class SqlDeliveryConfigRepository(
           if (inAllowList != null) {
             onDuplicateKeyUpdate()
               .set(MIGRATION_STATUS.IN_ALLOW_LIST, inAllowList)
+          } else {
+            onDuplicateKeyIgnore()
           }
         }
         .execute()
