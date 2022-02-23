@@ -4,8 +4,12 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.config.PersistenceRetryConfig
 import com.netflix.spinnaker.keel.api.DeliveryConfig.Companion.MIGRATING_KEY
 import com.netflix.spinnaker.keel.api.Environment
+import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.artifacts.branchStartsWith
 import com.netflix.spinnaker.keel.api.artifacts.from
+import com.netflix.spinnaker.keel.api.plugins.ResolvableResourceHandler
+import com.netflix.spinnaker.keel.api.plugins.SupportedKind
+import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
@@ -16,8 +20,12 @@ import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.persistence.OverwritingExistingResourcesDisallowed
 import com.netflix.spinnaker.keel.persistence.PersistenceRetry
 import com.netflix.spinnaker.keel.test.DummyResourceHandlerV1
+import com.netflix.spinnaker.keel.test.DummyResourceSpec
+import com.netflix.spinnaker.keel.test.TEST_API_V1
+import com.netflix.spinnaker.keel.test.TEST_API_V2
 import com.netflix.spinnaker.keel.test.deliveryArtifact
 import com.netflix.spinnaker.keel.test.submittedDeliveryConfig
+import com.netflix.spinnaker.keel.test.submittedResource
 import com.netflix.spinnaker.keel.validators.DeliveryConfigValidator
 import io.mockk.Runs
 import io.mockk.called
@@ -36,6 +44,21 @@ import strikt.assertions.isTrue
 import strikt.assertions.second
 import org.springframework.core.env.Environment as SpringEnv
 
+object DummyResourceHandlerV2NoCurrent :
+  ResolvableResourceHandler<DummyResourceSpec, Map<String, DummyResourceSpec>>(emptyList()) {
+  override val supportedKind =
+    SupportedKind(TEST_API_V2.qualify("whatever"), DummyResourceSpec::class.java)
+
+  override val eventPublisher: EventPublisher = mockk(relaxed = true)
+
+  override suspend fun current(resource: Resource<DummyResourceSpec>): Map<String, DummyResourceSpec> {
+    return emptyMap()
+  }
+
+  override suspend fun toResolvedType(resource: Resource<DummyResourceSpec>): Map<String, DummyResourceSpec> =
+    emptyMap()
+}
+
 internal class DeliveryConfigUpserterTest {
   private val repository: KeelRepository = mockk()
   private val mapper: ObjectMapper = mockk()
@@ -44,7 +67,8 @@ internal class DeliveryConfigUpserterTest {
   private val springEnv: SpringEnv = mockk()
   private val persistenceRetry = PersistenceRetry(PersistenceRetryConfig())
   private val dummyResourceHandler = spyk(DummyResourceHandlerV1)
-  private val resourceHandlers = listOf(dummyResourceHandler)
+  private val dummyResourceHandlerV2 = spyk(DummyResourceHandlerV2NoCurrent)
+  private val resourceHandlers = listOf(dummyResourceHandler, dummyResourceHandlerV2)
 
   private val subject = DeliveryConfigUpserter(
     repository = repository,
@@ -71,7 +95,7 @@ internal class DeliveryConfigUpserterTest {
     } just Runs
 
     every {
-      repository.upsertDeliveryConfig(submittedDeliveryConfig)
+      repository.upsertDeliveryConfig(any<SubmittedDeliveryConfig>())
     } returns deliveryConfig
 
     every {
@@ -154,6 +178,21 @@ internal class DeliveryConfigUpserterTest {
 
     expectThat(subject.upsertConfig(submittedDeliveryConfig, allowResourceOverwriting = true)).second.isTrue()
   }
+
+  @Test
+  fun `allow upserting if resource current resolver is an empty map`() {
+    every {
+      repository.getDeliveryConfigForApplication(any())
+    }.throws(NoDeliveryConfigForApplication(deliveryConfig.application))
+
+    expectThat(
+      subject.upsertConfig(
+        submittedDeliveryConfig(resource = submittedResource(kind = TEST_API_V2.qualify("whatever"))),
+        allowResourceOverwriting = false
+      )
+    ).second.isTrue()
+  }
+
 
   @Test
   fun `do not allow upserting if overwriting existing resources for a new app`() {

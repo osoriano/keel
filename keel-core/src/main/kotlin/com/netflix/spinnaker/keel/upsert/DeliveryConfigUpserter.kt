@@ -87,7 +87,8 @@ class DeliveryConfigUpserter(
       env.resources.forEach { resource ->
         val handler = resourceHandlers.supporting(resource.kind) as? ResourceHandler<ResourceSpec, *>
         val current = handler?.current(resource)
-        if (current != null) {
+        val isCurrentEmptyMap = (current is Map<*,*>) && current.isEmpty()
+        if (current != null && !isCurrentEmptyMap) {
           throw OverwritingExistingResourcesDisallowed(deliveryConfig.application, resource.id)
         }
       }
