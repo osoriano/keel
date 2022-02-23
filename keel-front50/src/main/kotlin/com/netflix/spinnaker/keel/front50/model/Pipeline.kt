@@ -17,7 +17,8 @@ data class Pipeline(
   private val _stages: List<Stage> = emptyList(),
   @JsonAlias("updateTs")
   private val _updateTs: Long? = null,
-  val lastModifiedBy: String? = null
+  val lastModifiedBy: String? = null,
+  val notifications: List<PipelineNotifications> = emptyList()
 ) {
   /**
    * The pipeline stages, in the right order of dependency between them.

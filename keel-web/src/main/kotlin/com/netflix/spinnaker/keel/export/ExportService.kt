@@ -48,6 +48,7 @@ import com.netflix.spinnaker.keel.filterNotNullValues
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.model.DeployStage
 import com.netflix.spinnaker.keel.front50.model.Pipeline
+import com.netflix.spinnaker.keel.front50.model.PipelineNotifications
 import com.netflix.spinnaker.keel.front50.model.RestrictedExecutionWindow
 import com.netflix.spinnaker.keel.orca.ExecutionDetailResponse
 import com.netflix.spinnaker.keel.orca.OrcaService
@@ -113,7 +114,7 @@ class ExportService(
 
     val SPEL_REGEX = Regex("\\$\\{.+\\}")
 
-    const val PRODUCTION_ENV = "production"
+    const val PRODUCTION_ENV: String = "production"
     const val TESTING_ENV = "testing"
   }
 
@@ -361,7 +362,7 @@ class ExportService(
         val constraints = triggersToEnvironmentConstraints(applicationName, pipeline, environment, pipelinesToEnvironments)
         environment.copy(
           constraints = environment.constraints + constraints,
-          notifications = notifications(environment.name, application.slackChannel?.name)
+          notifications = notifications(environment.name, application.slackChannel?.name, pipeline.notifications)
         ).addMetadata(
           "exportedFrom" to pipeline.link(baseUrlConfig.baseUrl)
         )
@@ -423,15 +424,27 @@ class ExportService(
     }
 
   /**
-   * Adding slack notifications for production environment, using the slack channel as defined in spinnaker
+   * Adding Slack notifications for production environment, using the Slack channel as defined in spinnaker's configuration.
+   * If no Slack channel is defined, use the pipeline's Slack notifications
   */
-  private fun notifications(envName: String, slackChannel: String?): Set<NotificationConfig> {
-    if (envName == PRODUCTION_ENV && slackChannel != null) {
-      return setOf(NotificationConfig(
-        address = slackChannel,
-        type = NotificationType.slack,
-        frequency = NotificationFrequency.normal
-      ))
+  private fun notifications(envName: String, slackChannel: String?, notifications: List<PipelineNotifications>): Set<NotificationConfig> {
+   if (envName == PRODUCTION_ENV) {
+     return if (slackChannel != null) { // if the Slack channel explicitly defined, use it
+        setOf(NotificationConfig(
+          address = slackChannel,
+          type = NotificationType.slack,
+          frequency = NotificationFrequency.normal
+        ))
+      } else {
+        notifications.filter { it.type == "slack" }
+          .map {
+            NotificationConfig(
+              address = it.address,
+              type = NotificationType.slack,
+              frequency = NotificationFrequency.normal
+            )
+          }.toSet()
+      }
     }
     return emptySet()
   }
