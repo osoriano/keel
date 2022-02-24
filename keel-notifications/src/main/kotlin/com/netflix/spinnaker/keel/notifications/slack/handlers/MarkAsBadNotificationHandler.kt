@@ -22,14 +22,14 @@ class MarkAsBadNotificationHandler(
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
   private fun SlackMarkAsBadNotification.headerText(): String {
-    return "[$application] ${vetoedArtifact.buildNumber ?: vetoedArtifact.version} marked as bad in ${targetEnvironment.lowercase()}"
+    return "[$application] ${vetoedArtifact.buildNumber ?: vetoedArtifact.version} was rejected in ${targetEnvironment.lowercase()}"
   }
 
   private fun SlackMarkAsBadNotification.toBlocks(): List<LayoutBlock> {
     val username = slackService.getUsernameByEmail(user)
 
     return withBlocks {
-      gitDataGenerator.notificationBodyWithEnv(this, ":broken_heart:", application, vetoedArtifact, "marked as bad", targetEnvironment, preposition = "in")
+      gitDataGenerator.notificationBodyWithEnv(this, ":broken_heart:", application, vetoedArtifact, "was rejected", targetEnvironment, preposition = "in")
 
       vetoedArtifact.gitMetadata?.let { gitMetadata ->
         section {
@@ -39,7 +39,7 @@ class MarkAsBadNotificationHandler(
 
       context {
         elements {
-          markdownText("$username marked as bad on <!date^${time.epochSecond}^{date_num} {time_secs}|fallback-text-include-PST>: \"${comment}\"")
+          markdownText("$username rejected this build on <!date^${time.epochSecond}^{date_num} {time_secs}|fallback-text-include-PST>: \"${comment}\"")
         }
       }
     }
