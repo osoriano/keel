@@ -22,12 +22,12 @@ class PinnedNotificationHandler(
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
   private fun SlackPinnedNotification.headerText(): String {
-    return "[$application] ${pinnedArtifact.buildNumber ?: pinnedArtifact.version} is pinned to ${pin.targetEnvironment.lowercase()}"
+    return "[$application] ${pinnedArtifact.buildNumber ?: pinnedArtifact.version} is locked to ${pin.targetEnvironment.lowercase()}"
   }
 
   private fun SlackPinnedNotification.toBlocks(): List<LayoutBlock> {
     return withBlocks {
-      gitDataGenerator.notificationBodyWithEnv(this, ":pin:", application, pinnedArtifact, "pinned", pin.targetEnvironment)
+      gitDataGenerator.notificationBodyWithEnv(this, ":lock:", application, pinnedArtifact, "locked", pin.targetEnvironment)
 
       pinnedArtifact.gitMetadata?.let { gitMetadata ->
         section {
@@ -38,7 +38,7 @@ class PinnedNotificationHandler(
       val username = pin.pinnedBy?.let { slackService.getUsernameByEmail(it) }
       context {
         elements {
-          markdownText("$username pinned on <!date^${time.epochSecond}^{date_num} {time_secs}|fallback-text-include-PST>: \"${pin.comment}\"")
+          markdownText("$username locked on <!date^${time.epochSecond}^{date_num} {time_secs}|fallback-text-include-PST>: \"${pin.comment}\"")
         }
       }
     }

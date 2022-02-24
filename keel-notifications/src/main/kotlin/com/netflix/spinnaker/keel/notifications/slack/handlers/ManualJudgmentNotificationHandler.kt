@@ -144,7 +144,7 @@ class ManualJudgmentNotificationHandler(
         }
         if (pinnedArtifact != null) {
           val pinnedUrl = "<${gitDataGenerator.generateArtifactUrl(application, pinnedArtifact.reference, pinnedArtifact.version)}|#${pinnedArtifact.buildNumber ?: pinnedArtifact.version}>"
-          text += "\n :warning: Another version ($pinnedUrl) is pinned here. You will need to unpin before this version can be deployed."
+          text += "\n :warning: This environment has been locked on to build ($pinnedUrl). Spinnaker will not promote builds to this environment until the lock is removed."
         }
         if (text.isNotEmpty()) {
           section {

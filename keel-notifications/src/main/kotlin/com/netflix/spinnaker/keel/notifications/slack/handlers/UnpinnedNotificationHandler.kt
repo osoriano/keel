@@ -22,7 +22,7 @@ class UnpinnedNotificationHandler(
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
   private fun SlackUnpinnedNotification.headerText(): String {
-    return "[$application] pin removed from ${targetEnvironment.lowercase()}"
+    return "[$application] lock removed from ${targetEnvironment.lowercase()}"
   }
 
   private fun SlackUnpinnedNotification.toBlocks(): List<LayoutBlock> =
@@ -33,11 +33,11 @@ class UnpinnedNotificationHandler(
           "<$link|#${it.buildNumber ?: it.version}>"
         } ?: originalPin.version
 
-      val header = ":wastebasket: :pin: *${gitDataGenerator.linkedApp(application)} pin of build $previouslyPinned removed from ${gitDataGenerator.toCode(targetEnvironment)}*"
+      val header = ":unlock2: *${gitDataGenerator.linkedApp(application)} lock on build $previouslyPinned removed from ${gitDataGenerator.toCode(targetEnvironment)}*"
 
       val unpinner = slackService.getUsernameByEmail(user)
       val isPinnedVersionAlreadyDeployed = latestApprovedArtifactVersion?.version == originalPin.version
-      var text = "$unpinner unpinned ${gitDataGenerator.toCode(targetEnvironment)}"
+      var text = "$unpinner unlocked ${gitDataGenerator.toCode(targetEnvironment)}"
 
       if (latestApprovedArtifactVersion != null) {
         val link = gitDataGenerator.generateArtifactUrl(application, originalPin.artifact.reference, latestApprovedArtifactVersion.version)
@@ -69,7 +69,7 @@ class UnpinnedNotificationHandler(
 
       context {
         elements {
-          markdownText("$pinner originally pinned on " +
+          markdownText("$pinner originally locked on " +
             "<!date^${originalPin.pinnedAt!!.epochSecond}^{date_num} {time_secs}|fallback-text-include-PST>" +
             ": \"${originalPin.comment}\"")
         }
