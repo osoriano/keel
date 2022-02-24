@@ -250,7 +250,9 @@ class ExportService(
               result.toSkippedPipelines(),
               result.exportSucceeded,
               result.repoSlug,
-              result.projectKey
+              result.projectKey,
+              result.isInactive
+
             )
           }
         } catch (e: Exception) {
@@ -871,6 +873,10 @@ data class PipelineExportResult(
     get() = skipped.filterValues { !(VALID_SKIP_REASONS.contains(it)) }.isEmpty()
       //if the generated config is empty, fail the export as well
       && deliveryConfig.environments.isNotEmpty()
+
+  val isInactive: Boolean
+    get() = !exportSucceeded &&
+      skipped.all { (_, reason) -> reason == SkipReason.DISABLED || reason == SkipReason.NOT_EXECUTED_RECENTLY }
 }
 
 private val Exportable.clusterKind: ResourceKind

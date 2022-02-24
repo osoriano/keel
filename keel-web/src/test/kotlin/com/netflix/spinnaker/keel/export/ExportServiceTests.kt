@@ -346,6 +346,25 @@ internal class ExportServiceTests {
   }
 
   @Test
+  fun `application is active`() {
+    expectThat(exportResult.isInactive).isFalse()
+  }
+
+  @Test
+  fun `application is inactive`() {
+    val result = PipelineExportResult(
+      deliveryConfig = submittedDeliveryCofig.copy(environments = emptySet()),
+      baseUrl = "https://baseurl.com",
+      exported = emptyMap(),
+      projectKey = "spkr",
+      repoSlug = "keel",
+      configValidationException = null,
+      skipped = mapOf(pipeline to SkipReason.NOT_EXECUTED_RECENTLY)
+    )
+    expectThat(result.isInactive).isTrue()
+  }
+
+  @Test
   fun `export is successful if only has old and disabled pipelines`() {
     listOf(SkipReason.DISABLED, SkipReason.NOT_EXECUTED_RECENTLY).forEach {
       expectThat(exportResult.copy(skipped = mapOf(pipeline to it)).exportSucceeded).isTrue()

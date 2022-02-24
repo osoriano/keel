@@ -1658,7 +1658,8 @@ class SqlDeliveryConfigRepository(
     skippedPipelines: List<SkippedPipeline>,
     exportSucceeded: Boolean,
     repoSlug: String?,
-    projectKey: String?
+    projectKey: String?,
+    isInactive: Boolean,
   ) {
     sqlRetry.withRetry(WRITE) {
       jooq.update(MIGRATION_STATUS)
@@ -1669,6 +1670,7 @@ class SqlDeliveryConfigRepository(
         .set(MIGRATION_STATUS.EXPORT_SUCCEEDED, exportSucceeded)
         .set(MIGRATION_STATUS.REPO_SLUG, repoSlug)
         .set(MIGRATION_STATUS.PROJECT_KEY, projectKey)
+        .set(MIGRATION_STATUS.IS_INACTIVE, isInactive)
         .where(MIGRATION_STATUS.APPLICATION.eq(deliveryConfig.application))
         .execute()
     }

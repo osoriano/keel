@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: add-migration-app-is-inactive
+      author: rhorev
+      changes:
+        - addColumn:
+            tableName: migration_status
+            columns:
+              - column:
+                  name: is_inactive
+                  type: boolean
+                  afterColumn: export_succeeded
+                  constraints:
+                    - nullable: true

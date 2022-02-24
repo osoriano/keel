@@ -314,7 +314,8 @@ interface DeliveryConfigRepository : PeriodicallyCheckedRepository<DeliveryConfi
     skippedPipelines: List<SkippedPipeline>,
     exportSucceeded: Boolean,
     repoSlug: String? = null,
-    projectKey: String? = null
+    projectKey: String? = null,
+    isInactive: Boolean,
   )
 
   /**

@@ -428,3 +428,6 @@ databaseChangeLog:
 - include:
     file: changelog/20220214-app-config.yml
     relativeToChangelogFile: true
+- include:
+    file: changelog/20220224-add-app-is-inactive.yml
+    relativeToChangelogFile: true

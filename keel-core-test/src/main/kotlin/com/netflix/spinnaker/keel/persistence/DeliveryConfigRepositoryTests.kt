@@ -1106,7 +1106,7 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
 
       test("App can be migrated") {
         repository.storeAppForPotentialMigration(deliveryConfig.application, true)
-        repository.storePipelinesExportResult(submittedConfig, emptyList(), true)
+        repository.storePipelinesExportResult(submittedConfig, emptyList(), true, isInactive = false)
         repository.updateMigratingAppScmStatus(deliveryConfig.application, true)
         expectCatching {
           repository.getApplicationMigrationStatus(deliveryConfig.application)
@@ -1121,7 +1121,7 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
       }
 
       test("App cannot be migrated - not in allowed list") {
-        repository.storePipelinesExportResult(submittedConfig, emptyList(), true)
+        repository.storePipelinesExportResult(submittedConfig, emptyList(), true, isInactive = false)
         repository.updateMigratingAppScmStatus(deliveryConfig.application, true)
         expectCatching {
           repository.getApplicationMigrationStatus(deliveryConfig.application)
@@ -1132,7 +1132,7 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
 
       test("App cannot be migrated - failed export") {
         repository.storeAppForPotentialMigration(deliveryConfig.application, true)
-        repository.storePipelinesExportResult(submittedConfig, emptyList(), false)
+        repository.storePipelinesExportResult(submittedConfig, emptyList(), false, isInactive = false)
         repository.updateMigratingAppScmStatus(deliveryConfig.application, true)
         expectCatching {
           repository.getApplicationMigrationStatus(deliveryConfig.application)
@@ -1143,7 +1143,7 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
 
       test("App cannot be migrated - not scm powered") {
         repository.storeAppForPotentialMigration(deliveryConfig.application, true)
-        repository.storePipelinesExportResult(submittedConfig, emptyList(), true)
+        repository.storePipelinesExportResult(submittedConfig, emptyList(), true, isInactive = false)
         repository.updateMigratingAppScmStatus(deliveryConfig.application, false)
         expectCatching {
           repository.getApplicationMigrationStatus(deliveryConfig.application)
@@ -1226,7 +1226,7 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
       test("Getting the app config correctly") {
         val submittedConfig = SubmittedDeliveryConfig(name = deliveryConfig.name, application = deliveryConfig.application, serviceAccount = deliveryConfig.serviceAccount)
         repository.storeAppForPotentialMigration(deliveryConfig.application, true)
-        repository.storePipelinesExportResult(submittedConfig, emptyList(), true, "myRepo", "myProject")
+        repository.storePipelinesExportResult(submittedConfig, emptyList(), true, "myRepo", "myProject", isInactive = false)
         val result = expectCatching {
           repository.getMigratableApplicationData(deliveryConfig.application)
         }
