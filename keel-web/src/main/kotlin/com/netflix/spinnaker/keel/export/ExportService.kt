@@ -892,11 +892,11 @@ private val Pair<Set<SubmittedResource<ResourceSpec>>, DeliveryArtifact?>.resour
 fun PipelineExportResult.toSkippedPipelines(): List<SkippedPipeline> =
   skipped.map { (pipeline, reason) ->
     SkippedPipeline(
-      pipeline.id,
-      pipeline.name,
-      pipeline.link(baseUrl),
-      pipeline.shape.joinToString(" -> "),
-      reason
+      id = pipeline.id,
+      name = pipeline.name,
+      link = pipeline.link(baseUrl),
+      shape = pipeline.shape.joinToString(" -> "),
+      reason = reason
     )
   }
 
