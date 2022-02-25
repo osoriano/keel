@@ -117,3 +117,18 @@ fun clusterSpecRegionOverrideLens(region: String): Lens<ClusterSpec, ServerGroup
     }
   }
 )
+
+val launchConfigurationSpecAssociateIPv6AddressLens: Lens<LaunchConfigurationSpec?, Boolean?> = Lens(
+  get = { it?.associateIPv6Address },
+  set = { spec, associateIPv6Address ->
+    if (associateIPv6Address == null) {
+      spec?.copy(associateIPv6Address = null)
+    } else {
+      spec?.copy(associateIPv6Address = associateIPv6Address)
+        ?: LaunchConfigurationSpec(associateIPv6Address = associateIPv6Address)
+    }
+  }
+)
+
+val clusterSpecAssociateIPv6AddressLens: Lens<ClusterSpec, Boolean?> =
+  clusterSpecDefaultsLens + serverGroupSpecLaunchConfigurationSpecLens + launchConfigurationSpecAssociateIPv6AddressLens

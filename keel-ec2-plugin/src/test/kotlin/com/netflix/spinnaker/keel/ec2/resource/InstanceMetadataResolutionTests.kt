@@ -19,6 +19,7 @@ import com.netflix.spinnaker.keel.clouddriver.model.InstanceMonitoring
 import com.netflix.spinnaker.keel.clouddriver.model.LaunchTemplate
 import com.netflix.spinnaker.keel.clouddriver.model.LaunchTemplateData
 import com.netflix.spinnaker.keel.clouddriver.model.Network
+import com.netflix.spinnaker.keel.clouddriver.model.NetworkInterface
 import com.netflix.spinnaker.keel.clouddriver.model.ServerGroupCollection
 import com.netflix.spinnaker.keel.clouddriver.model.Subnet
 import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
@@ -99,7 +100,8 @@ internal class InstanceMetadataResolutionTests {
         keyName = "fnordKey",
         iamInstanceProfile = IamInstanceProfile("fnordInstanceProfile"),
         monitoring = InstanceMonitoring(false),
-        ramDiskId = null
+        ramDiskId = null,
+        networkInterfaces = listOf(NetworkInterface(ipv6AddressCount = 1))
       )
     ),
     asg = AutoScalingGroup(

@@ -19,6 +19,7 @@ import com.netflix.spinnaker.keel.clouddriver.model.LaunchTemplate
 import com.netflix.spinnaker.keel.clouddriver.model.LaunchTemplateData
 import com.netflix.spinnaker.keel.clouddriver.model.MetricDimensionModel
 import com.netflix.spinnaker.keel.clouddriver.model.Network
+import com.netflix.spinnaker.keel.clouddriver.model.NetworkInterface
 import com.netflix.spinnaker.keel.clouddriver.model.ScalingPolicy
 import com.netflix.spinnaker.keel.clouddriver.model.ScalingPolicyAlarm
 import com.netflix.spinnaker.keel.clouddriver.model.SecurityGroupSummary
@@ -74,7 +75,12 @@ fun ServerGroup.toCloudDriverResponse(
             instanceType = launchConfiguration.instanceType,
             keyName = launchConfiguration.keyPair,
             monitoring = InstanceMonitoring(launchConfiguration.instanceMonitoring),
-            ramDiskId = launchConfiguration.ramdiskId
+            ramDiskId = launchConfiguration.ramdiskId,
+            networkInterfaces = listOf(
+              NetworkInterface(
+                ipv6AddressCount = if (launchConfiguration.associateIPv6Address) 1 else 0
+              )
+            )
           )
         )
       }

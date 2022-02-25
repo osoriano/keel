@@ -49,7 +49,10 @@ fun<T : BaseEc2ServerGroup> ContextBuilder<FixtureMaker<T>>.checkServerGroupCons
             instanceType = "t2.micro",
             keyName = "mykey",
             iamInstanceProfile = IamInstanceProfile(name = "profile"),
-            monitoring = InstanceMonitoring(enabled = true)
+            monitoring = InstanceMonitoring(enabled = true),
+            networkInterfaces = listOf(
+              NetworkInterface(ipv6AddressCount = 0)
+            )
           )))
       }.isSuccess()
     }

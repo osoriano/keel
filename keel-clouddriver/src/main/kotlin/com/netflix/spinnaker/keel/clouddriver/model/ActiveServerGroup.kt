@@ -246,11 +246,16 @@ data class LaunchTemplateData(
   val iamInstanceProfile: IamInstanceProfile,
   val monitoring: InstanceMonitoring,
   val ramDiskId: String?,
-  val metadataOptions: Map<String, String> = emptyMap()
+  val metadataOptions: Map<String, String> = emptyMap(),
+  val networkInterfaces: List<NetworkInterface>
 )
 
 data class IamInstanceProfile(
   val name: String
+)
+
+data class NetworkInterface(
+  val ipv6AddressCount: Int
 )
 
 data class AutoScalingGroup(

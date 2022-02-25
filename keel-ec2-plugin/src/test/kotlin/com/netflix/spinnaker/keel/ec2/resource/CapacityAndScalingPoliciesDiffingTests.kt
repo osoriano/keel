@@ -29,6 +29,7 @@ import com.netflix.spinnaker.keel.clouddriver.model.InstanceMonitoring
 import com.netflix.spinnaker.keel.clouddriver.model.LaunchTemplate
 import com.netflix.spinnaker.keel.clouddriver.model.LaunchTemplateData
 import com.netflix.spinnaker.keel.clouddriver.model.Network
+import com.netflix.spinnaker.keel.clouddriver.model.NetworkInterface
 import com.netflix.spinnaker.keel.clouddriver.model.PredefinedMetricSpecificationModel
 import com.netflix.spinnaker.keel.clouddriver.model.ScalingPolicy
 import com.netflix.spinnaker.keel.clouddriver.model.ServerGroupCollection
@@ -121,7 +122,8 @@ class CapacityAndScalingPoliciesDiffingTests {
         keyName = "fnordKey",
         iamInstanceProfile = IamInstanceProfile("fnordInstanceProfile"),
         monitoring = InstanceMonitoring(false),
-        ramDiskId = null
+        ramDiskId = null,
+        networkInterfaces = listOf(NetworkInterface(ipv6AddressCount = 1))
       )
     ),
     asg = AutoScalingGroup(

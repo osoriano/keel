@@ -617,7 +617,8 @@ class ClusterHandler(
         "loadBalancers" to dependencies.loadBalancerNames,
         "targetGroups" to dependencies.targetGroups,
         "account" to location.account,
-        "requireIMDSv2" to launchConfiguration.requireIMDSv2
+        "requireIMDSv2" to launchConfiguration.requireIMDSv2,
+        "associateIPv6Address" to launchConfiguration.associateIPv6Address
         // scaling is not set here because the deploy stage does not accept scaling policies.
         // They're copied on a clone if they exist, or created in a modify job by us if they don't.
       )
@@ -1152,7 +1153,8 @@ class ClusterHandler(
 
         // Because launchConfig.ramdiskId can be null, need to do launchTemplateData?. instead of launchTemplateData!!
         ramdiskId = (launchConfig?.ramdiskId ?: launchTemplateData?.ramDiskId).orNull(),
-        requireIMDSv2 = launchTemplateData?.metadataOptions?.get("httpTokens") == "required"
+        requireIMDSv2 = launchTemplateData?.metadataOptions?.get("httpTokens") == "required",
+        associateIPv6Address = associateIPv6Address
       ),
       buildInfo = buildInfo?.toEc2Api(),
       capacity = capacity.let {
@@ -1186,6 +1188,9 @@ class ClusterHandler(
       instanceCounts = instanceCounts.toEc2Api()
     )
   }
+
+  private val ActiveServerGroup.associateIPv6Address
+    get() = (launchTemplate?.launchTemplateData?.networkInterfaces?.firstOrNull()?.ipv6AddressCount ?: 0) > 0
 
   private fun List<MetricDimensionModel>?.toSpec(): Set<MetricDimension> =
     when (this) {

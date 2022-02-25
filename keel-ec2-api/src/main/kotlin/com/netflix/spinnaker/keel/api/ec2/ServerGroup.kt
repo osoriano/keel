@@ -118,7 +118,8 @@ data class ServerGroup(
     val keyPair: String,
     val instanceMonitoring: Boolean = DEFAULT_INSTANCE_MONITORING,
     val ramdiskId: String? = null,
-    val requireIMDSv2: Boolean = false
+    val requireIMDSv2: Boolean = false,
+    val associateIPv6Address: Boolean = false
   ) {
     companion object {
       const val DEFAULT_EBS_OPTIMIZED = false

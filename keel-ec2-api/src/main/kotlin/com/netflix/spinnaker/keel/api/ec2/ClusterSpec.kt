@@ -89,7 +89,10 @@ private fun ClusterSpec.resolveLaunchConfiguration(region: SubnetAwareRegionSpec
     ramdiskId = overrides[region.name]?.launchConfiguration?.ramdiskId
       ?: defaults.launchConfiguration?.ramdiskId,
     requireIMDSv2 = (overrides[region.name]?.launchConfiguration?.instanceMetadataServiceVersion
-      ?: defaults.launchConfiguration?.instanceMetadataServiceVersion) == InstanceMetadataServiceVersion.V2
+      ?: defaults.launchConfiguration?.instanceMetadataServiceVersion) == InstanceMetadataServiceVersion.V2,
+    associateIPv6Address = overrides[region.name]?.launchConfiguration?.associateIPv6Address
+      ?: defaults.launchConfiguration?.associateIPv6Address
+      ?: false
   )
 }
 
