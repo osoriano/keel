@@ -36,6 +36,7 @@ import com.netflix.spinnaker.keel.ec2.jackson.mixins.ClassicLoadBalancerSpecMixi
 import com.netflix.spinnaker.keel.ec2.jackson.mixins.ClusterDependenciesMixin
 import com.netflix.spinnaker.keel.ec2.jackson.mixins.ClusterSpecMixin
 import com.netflix.spinnaker.keel.ec2.jackson.mixins.ClusterV1SpecMixin
+import com.netflix.spinnaker.keel.ec2.jackson.mixins.CrossAccountReferenceRuleMixin
 import com.netflix.spinnaker.keel.ec2.jackson.mixins.CustomizedMetricSpecificationMixin
 import com.netflix.spinnaker.keel.ec2.jackson.mixins.HealthMixin
 import com.netflix.spinnaker.keel.ec2.jackson.mixins.HealthSpecMixin
@@ -85,6 +86,7 @@ internal object KeelEc2ApiModule : SimpleModule("Keel EC2 API") {
       setMixInAnnotations<ClusterDependencies, ClusterDependenciesMixin>()
       setMixInAnnotations<ClusterSpec, ClusterSpecMixin>()
       setMixInAnnotations<ClusterV1Spec, ClusterV1SpecMixin>()
+      setMixInAnnotations<CrossAccountReferenceRule, CrossAccountReferenceRuleMixin>()
       setMixInAnnotations<CustomizedMetricSpecification, CustomizedMetricSpecificationMixin>()
       setMixInAnnotations<Health, HealthMixin>()
       setMixInAnnotations<HealthSpec, HealthSpecMixin>()

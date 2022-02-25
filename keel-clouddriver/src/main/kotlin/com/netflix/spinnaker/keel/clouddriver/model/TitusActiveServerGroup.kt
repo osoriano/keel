@@ -17,8 +17,13 @@
  */
 package com.netflix.spinnaker.keel.clouddriver.model
 
+import com.fasterxml.jackson.annotation.JsonSubTypes
+import com.fasterxml.jackson.annotation.JsonTypeInfo
+import com.fasterxml.jackson.annotation.JsonTypeInfo.Id.DEDUCTION
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.plugins.ServerGroupIdentity
+import com.netflix.spinnaker.keel.clouddriver.model.TitusScaling.Policy.StepPolicy
+import com.netflix.spinnaker.keel.clouddriver.model.TitusScaling.Policy.TargetPolicy
 
 /**
  * Fields common to classes that model Titus server groups
@@ -187,6 +192,11 @@ data class TitusScaling(
   val id: String,
   val policy: Policy
 ) {
+  @JsonTypeInfo(use = DEDUCTION)
+  @JsonSubTypes(
+    JsonSubTypes.Type(TargetPolicy::class),
+    JsonSubTypes.Type(StepPolicy::class)
+  )
   sealed class Policy {
     data class TargetPolicy(
       val targetPolicyDescriptor: TargetPolicyDescriptor

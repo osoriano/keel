@@ -2,6 +2,7 @@ package com.netflix.spinnaker.keel.ec2.jackson
 
 import com.fasterxml.jackson.databind.BeanProperty
 import com.fasterxml.jackson.databind.DeserializationContext
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.PropertyMetadata
 import com.fasterxml.jackson.databind.PropertyName
@@ -24,3 +25,6 @@ internal inline fun <reified T> DeserializationContext.findInjectableValue(
       null
     ) as T
   }
+
+internal inline fun <reified TYPE> DeserializationContext.parse(node: JsonNode) =
+  parser.codec.treeToValue(node, TYPE::class.java)

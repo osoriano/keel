@@ -15,10 +15,19 @@
  */
 package com.netflix.spinnaker.keel.api.ec2
 
+import com.fasterxml.jackson.annotation.JsonSubTypes
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type
+import com.fasterxml.jackson.annotation.JsonTypeInfo
+import com.fasterxml.jackson.annotation.JsonTypeInfo.Id.DEDUCTION
 import com.netflix.spinnaker.keel.api.ExcludedFromDiff
 import com.netflix.spinnaker.keel.api.schema.Literal
 import com.netflix.spinnaker.keel.api.schema.Optional
 
+@JsonTypeInfo(use = DEDUCTION, defaultImpl = ReferenceRule::class)
+@JsonSubTypes(
+  Type(ReferenceRule::class),
+  Type(CidrRule::class)
+)
 abstract class SecurityGroupRule {
   abstract val protocol: Protocol
   abstract val portRange: IngressPorts
