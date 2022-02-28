@@ -21,6 +21,7 @@ import com.netflix.spinnaker.keel.notifications.NotificationType.ARTIFACT_MARK_A
 import com.netflix.spinnaker.keel.notifications.NotificationType.ARTIFACT_PINNED
 import com.netflix.spinnaker.keel.notifications.NotificationType.ARTIFACT_UNPINNED
 import com.netflix.spinnaker.keel.notifications.NotificationType.DELIVERY_CONFIG_CHANGED
+import com.netflix.spinnaker.keel.notifications.NotificationType.MIGRATION_READY_NOTIFICATION
 import com.netflix.spinnaker.keel.notifications.NotificationType.PLUGIN_NOTIFICATION
 import com.netflix.spinnaker.keel.notifications.NotificationType.RESOURCE_UNHEALTHY
 
@@ -97,4 +98,10 @@ data class PluginNotification(
 ) : NotificationEvent() {
   override val type = PLUGIN_NOTIFICATION
   override val scope = ENVIRONMENT
+}
+data class MigrationReadyNotification(
+  val config: DeliveryConfig
+) : NotificationEvent() {
+  override val type = MIGRATION_READY_NOTIFICATION
+  override val scope = APPLICATION
 }

@@ -136,6 +136,11 @@ data class SlackPluginNotification(
   val targetEnvironment: String,
 ) : SlackNotificationEvent(time, application)
 
+data class SlackMigrationNotification(
+  override val time: Instant,
+  override val application: String
+) : SlackNotificationEvent(time, application)
+
 enum class DeploymentStatus {
   SUCCEEDED, FAILED;
 }

@@ -255,6 +255,14 @@ class AdminController(
   fun syncFront50Config() {
     adminService.syncFront50Config()
   }
+  @PostMapping(
+    path = ["/migration/notify-apps"]
+  )
+  fun sendMigrationSlack(
+    @RequestBody applications: List<String>
+  ) {
+    applicationService.sendSlackNotificationForMigration(applications)
+  }
 
 }
 

@@ -31,6 +31,7 @@ class SlackAppServlet(
     private const val SHOW_FULL_COMMIT_ACTION = "FULL_COMMIT_MODAL"
     private const val SHOW_FAILURE_ACTION = "FULL_REASON_MODAL"
     private const val SHOW_DIFF_ACTION = "mj-diff-link"
+    private const val MIGRATION_READY_ACTION = "migration-link"
   }
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
@@ -56,6 +57,9 @@ class SlackAppServlet(
         }
         SHOW_DIFF_ACTION -> {
           log.debug(logMessage("'see changes' button clicked", req))
+        }
+        MIGRATION_READY_ACTION -> {
+          log.debug(logMessage("'start migration' button clicked", req))
         }
         else -> {
           log.warn(logMessage("Unrecognized action", req))

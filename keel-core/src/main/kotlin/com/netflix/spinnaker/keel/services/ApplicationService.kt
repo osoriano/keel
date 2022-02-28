@@ -65,6 +65,7 @@ import com.netflix.spinnaker.keel.core.api.ResourcePlan
 import com.netflix.spinnaker.keel.core.api.ResourceSummary
 import com.netflix.spinnaker.keel.core.api.VerificationSummary
 import com.netflix.spinnaker.keel.events.MarkAsBadNotification
+import com.netflix.spinnaker.keel.events.MigrationReadyNotification
 import com.netflix.spinnaker.keel.events.PinnedNotification
 import com.netflix.spinnaker.keel.events.UnpinnedNotification
 import com.netflix.spinnaker.keel.exceptions.InvalidConstraintException
@@ -88,7 +89,6 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.http.HttpStatus
@@ -125,7 +125,7 @@ class ApplicationService(
   private val jiraBridge: JiraBridge,
   private val pausedRepository: PausedRepository,
   private val handlers: List<ResourceHandler<*, *>>,
-  private val diffFactory: ResourceDiffFactory,
+  private val diffFactory: ResourceDiffFactory
 ) : CoroutineScope {
   override val coroutineContext: CoroutineContext = Dispatchers.Default
 
@@ -795,7 +795,7 @@ class ApplicationService(
 
     //create a jira issue
     try {
-      val jiraRequest =  JiraIssue(
+      val jiraRequest = JiraIssue(
         JiraFields(
           summary = "Managed Delivery migration started for application $application",
           description = "This is an automated ticket. A PR was created to migrate application $application to Managed Delivery.\n Check out the PR: $prLink",
@@ -807,7 +807,8 @@ class ApplicationService(
       log.debug("jira issue ${jiraIssue.key} was created for application $application migration PR")
       repository.storeJiraLinkForMigratedApplication(application, jiraIssue.self)
     } catch (ex: Exception) {
-      log.debug("tried to create a new jira issue for a migration PR for application $application, but caught an exception", ex.message?:ex)
+      log.debug("tried to create a new jira issue for a migration PR for application $application, but caught an exception", ex.message
+        ?: ex)
     }
 
     return Pair(applicationPrData, prLink)
@@ -882,7 +883,7 @@ class ApplicationService(
   /**
    * @return The [ResourceDiff] for the specified [resource], by comparing its desired and current states.
    */
-  private suspend fun <SPEC: ResourceSpec> getResourceDiff(resource: Resource<SPEC>): ResourceDiff<Any>? {
+  private suspend fun <SPEC : ResourceSpec> getResourceDiff(resource: Resource<SPEC>): ResourceDiff<Any>? {
     val handler = handlers.supporting(resource.kind) as ResourceHandler<SPEC, *>
     return coroutineScope {
       val tasks = listOf(
@@ -911,11 +912,25 @@ class ApplicationService(
   /**
    * @return What [ResourceAction] Keel would take based on the resource [diff].
    */
-  private fun <SPEC: ResourceSpec> getActuationAction(resource: Resource<SPEC>, diff: ResourceDiff<Any>): ResourceAction {
+  private fun <SPEC : ResourceSpec> getActuationAction(resource: Resource<SPEC>, diff: ResourceDiff<Any>): ResourceAction {
     return when {
       !diff.hasChanges() -> NONE
       diff.current == null -> CREATE
       else -> UPDATE
+    }
+  }
+
+  /**
+   * When given a list of applications, check if the application is eligible for migration and if so,
+   * send Slack notification to indicate the migration is ready
+   */
+  fun sendSlackNotificationForMigration(appNames: List<String>) {
+    appNames.forEach { application ->
+      val isMigratable = repository.getApplicationMigrationStatus(application).isMigratable
+      if (isMigratable) {
+        val submittedDeliveryConfig = repository.getMigratableApplicationData(application).deliveryConfig
+        publisher.publishEvent(MigrationReadyNotification(submittedDeliveryConfig.toDeliveryConfig()))
+      }
     }
   }
 

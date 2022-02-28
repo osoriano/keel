@@ -24,6 +24,7 @@ import com.netflix.spinnaker.keel.events.ApplicationActuationResumed
 import com.netflix.spinnaker.keel.events.ArtifactDeployedNotification
 import com.netflix.spinnaker.keel.events.DeliveryConfigChangedNotification
 import com.netflix.spinnaker.keel.events.MarkAsBadNotification
+import com.netflix.spinnaker.keel.events.MigrationReadyNotification
 import com.netflix.spinnaker.keel.events.PinnedNotification
 import com.netflix.spinnaker.keel.events.PluginNotification
 import com.netflix.spinnaker.keel.events.ResourceTaskFailed
@@ -49,6 +50,7 @@ import com.netflix.spinnaker.keel.notifications.NotificationType.MANUAL_JUDGMENT
 import com.netflix.spinnaker.keel.notifications.NotificationType.PLUGIN_NOTIFICATION_NORMAL
 import com.netflix.spinnaker.keel.notifications.NotificationType.PLUGIN_NOTIFICATION_QUIET
 import com.netflix.spinnaker.keel.notifications.NotificationType.PLUGIN_NOTIFICATION_VERBOSE
+import com.netflix.spinnaker.keel.notifications.NotificationType.MIGRATION_READY_NOTIFICATION
 import com.netflix.spinnaker.keel.notifications.NotificationType.TEST_FAILED
 import com.netflix.spinnaker.keel.notifications.NotificationType.TEST_PASSED
 import com.netflix.spinnaker.keel.notifications.scm.ScmNotifier
@@ -62,6 +64,7 @@ import com.netflix.spinnaker.keel.notifications.slack.SlackLifecycleNotification
 import com.netflix.spinnaker.keel.notifications.slack.SlackManualJudgmentNotification
 import com.netflix.spinnaker.keel.notifications.slack.SlackManualJudgmentUpdateNotification
 import com.netflix.spinnaker.keel.notifications.slack.SlackMarkAsBadNotification
+import com.netflix.spinnaker.keel.notifications.slack.SlackMigrationNotification
 import com.netflix.spinnaker.keel.notifications.slack.SlackNotificationEvent
 import com.netflix.spinnaker.keel.notifications.slack.SlackPausedNotification
 import com.netflix.spinnaker.keel.notifications.slack.SlackPinnedNotification
@@ -456,6 +459,16 @@ class NotificationEventListener(
     }
   }
 
+  @EventListener(MigrationReadyNotification::class)
+  fun onMigrationEvent(notification: MigrationReadyNotification) {
+        sendSlackMessage(notification.config,
+          SlackMigrationNotification(
+            time = clock.instant(),
+            application = notification.config.application
+          ),
+          MIGRATION_READY_NOTIFICATION)
+  }
+
   fun ConstraintStateChanged.shouldSendManualJudgementAwait(): Boolean =
     constraint is ManualJudgementConstraint && previousState == null && currentState.status == PENDING
 
@@ -594,7 +607,8 @@ class NotificationEventListener(
       ARTIFACT_DEPLOYMENT_SUCCEEDED,
       DELIVERY_CONFIG_CHANGED,
       TEST_PASSED,
-      PLUGIN_NOTIFICATION_NORMAL
+      PLUGIN_NOTIFICATION_NORMAL,
+      MIGRATION_READY_NOTIFICATION
     )
     val verboseNotifications = normalNotifications + listOf(
       MANUAL_JUDGMENT_REJECTED,
