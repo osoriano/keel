@@ -15,6 +15,7 @@ import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.events.DeliveryConfigChangedNotification
 import com.netflix.spinnaker.keel.exceptions.ValidationException
+import com.netflix.spinnaker.keel.persistence.ApplicationRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.persistence.OverwritingExistingResourcesDisallowed
@@ -69,6 +70,7 @@ internal class DeliveryConfigUpserterTest {
   private val dummyResourceHandler = spyk(DummyResourceHandlerV1)
   private val dummyResourceHandlerV2 = spyk(DummyResourceHandlerV2NoCurrent)
   private val resourceHandlers = listOf(dummyResourceHandler, dummyResourceHandlerV2)
+  private val applicationRepository: ApplicationRepository = mockk()
 
   private val subject = DeliveryConfigUpserter(
     repository = repository,
@@ -79,6 +81,7 @@ internal class DeliveryConfigUpserterTest {
     persistenceRetry = persistenceRetry,
     diffFactory = DefaultResourceDiffFactory(),
     resourceHandlers = resourceHandlers,
+    applicationRepository = applicationRepository,
   )
 
   private val submittedDeliveryConfig = submittedDeliveryConfig()
@@ -105,6 +108,10 @@ internal class DeliveryConfigUpserterTest {
     every {
       publisher.publishEvent(any<Object>())
     } just Runs
+
+    every {
+      applicationRepository.store(any())
+    } just Runs
   }
 
   @Test
@@ -117,6 +124,7 @@ internal class DeliveryConfigUpserterTest {
       subject.upsertConfig(submittedDeliveryConfig, allowResourceOverwriting = true)
     }
     verify(exactly = 0) { repository.upsertDeliveryConfig(any<SubmittedDeliveryConfig>()) }
+    verify(exactly = 0) { applicationRepository.store(any()) }
   }
 
   @Test
@@ -124,6 +132,7 @@ internal class DeliveryConfigUpserterTest {
     expectThat(subject.upsertConfig(submittedDeliveryConfig, allowResourceOverwriting = true)).second.isFalse()
     verify { repository.upsertDeliveryConfig(submittedDeliveryConfig) }
     verify(exactly = 0) { publisher.publishEvent(any<Object>()) } // No diff
+    verify(exactly = 0) { applicationRepository.store(any()) }
   }
 
   @Test
@@ -136,6 +145,7 @@ internal class DeliveryConfigUpserterTest {
 
     verify { repository.upsertDeliveryConfig(submittedDeliveryConfig) }
     verify { publisher.publishEvent(any<DeliveryConfigChangedNotification>()) }
+    verify(exactly = 0) { applicationRepository.store(any()) }
   }
 
   @Test
@@ -152,6 +162,7 @@ internal class DeliveryConfigUpserterTest {
     subject.upsertConfig(submittedDeliveryConfig, allowResourceOverwriting = true)
 
     verify { publisher wasNot called }
+    verify(exactly = 0) { applicationRepository.store(any()) }
   }
 
   @Test
@@ -177,6 +188,7 @@ internal class DeliveryConfigUpserterTest {
     }.throws(NoDeliveryConfigForApplication(deliveryConfig.application))
 
     expectThat(subject.upsertConfig(submittedDeliveryConfig, allowResourceOverwriting = true)).second.isTrue()
+    verify(exactly = 1) { applicationRepository.store(any()) }
   }
 
   @Test
@@ -206,6 +218,7 @@ internal class DeliveryConfigUpserterTest {
         allowResourceOverwriting = false
       ))
     }
+    verify(exactly = 0) { applicationRepository.store(any()) }
   }
 
   @Test
@@ -219,5 +232,6 @@ internal class DeliveryConfigUpserterTest {
     }
 
     expectThat(subject.upsertConfig(submittedDeliveryConfig, allowResourceOverwriting = true)).second.isTrue()
+    verify(exactly = 1) { applicationRepository.store(any()) }
   }
 }

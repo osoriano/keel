@@ -27,6 +27,7 @@ import com.netflix.spinnaker.keel.api.ec2.EC2_SECURITY_GROUP_V1
 import com.netflix.spinnaker.keel.api.ec2.SecurityGroupSpec
 import com.netflix.spinnaker.keel.api.ec2.old.ClusterV1Spec
 import com.netflix.spinnaker.keel.api.ec2.old.ClusterV1Spec.ImageProvider
+import com.netflix.spinnaker.keel.application.ApplicationConfig
 import com.netflix.spinnaker.keel.core.api.ManualJudgementConstraint
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.core.api.SubmittedEnvironment
@@ -35,12 +36,12 @@ import com.netflix.spinnaker.keel.core.name
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.model.Application
 import com.netflix.spinnaker.keel.front50.model.DataSources
-import com.netflix.spinnaker.keel.front50.model.ManagedDeliveryConfig
 import com.netflix.spinnaker.keel.graphql.resources.GraphqlSchemaHandler.Companion.GRAPHQL_SCHEMA_V1
 import com.netflix.spinnaker.keel.graphql.resources.GraphqlSchemaSpec
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 import com.netflix.spinnaker.keel.notifications.DeliveryConfigImportFailed
 import com.netflix.spinnaker.keel.notifications.DismissibleNotification
+import com.netflix.spinnaker.keel.persistence.ApplicationRepository
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
 import com.netflix.spinnaker.keel.persistence.EnvironmentDeletionRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
@@ -117,6 +118,7 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
     val eventPublisher: ApplicationEventPublisher = mockk()
     val validator: DeliveryConfigValidator = mockk()
     val scmUtils: ScmUtils = mockk()
+    val applicationRepository: ApplicationRepository = mockk()
 
     val subject = spyk(
       PreviewEnvironmentCodeEventListener(
@@ -131,11 +133,12 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
         spectator = spectator,
         clock = clock,
         eventPublisher = eventPublisher,
-        scmUtils = scmUtils
+        scmUtils = scmUtils,
+        applicationRepository = applicationRepository
       )
     )
 
-    val appConfig = Application(
+    val front50App = Application(
       name = "fnord",
       email = "keel@keel.io",
       repoType = "stash",
@@ -143,6 +146,8 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
       repoSlug = "myrepo",
       dataSources = DataSources(enabled = emptyList(), disabled = emptyList())
     )
+
+    val appConfig = ApplicationConfig(application = "fnord", autoImport = true)
 
     val dockerFromMain = dockerArtifact()
 
@@ -310,6 +315,10 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
 
       every {
         front50Cache.applicationByName(deliveryConfig.application)
+      } returns front50App
+
+      every {
+        applicationRepository.get(deliveryConfig.application)
       } returns appConfig
 
       every {
@@ -556,12 +565,12 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
       }
 
       context("an app with custom manifest path") {
-        val manifestPath = "custom/spinnaker.yml"
+        val deliveryConfigPath = "custom/spinnaker.yml"
 
         before {
           every {
-            front50Cache.applicationByName(deliveryConfig.application)
-          } returns appConfig.copy(managedDelivery = ManagedDeliveryConfig(manifestPath = manifestPath))
+            applicationRepository.get(deliveryConfig.application)
+          } returns appConfig.copy(deliveryConfigPath = deliveryConfigPath)
 
         }
 
@@ -570,7 +579,7 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
           verify(exactly = 1) {
             importer.import(
               codeEvent = any(),
-              manifestPath = manifestPath
+              manifestPath = deliveryConfigPath
             )
           }
         }
@@ -649,7 +658,7 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
 
         every {
           front50Cache.applicationByName("fnord")
-        } returns appConfig.copy(
+        } returns front50App.copy(
           repoProjectKey = "anotherorg",
           repoSlug = "another-repo"
         )

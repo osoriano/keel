@@ -5,6 +5,7 @@ import com.netflix.spinnaker.keel.persistence.ApplicationRepository
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.APPLICATION_CONFIG
 import org.jooq.DSLContext
 import java.time.Clock
+import java.time.Instant
 
 class SqlApplicationRepository(
   private val jooq: DSLContext,
@@ -52,4 +53,11 @@ class SqlApplicationRepository(
     }
   }
 
+  override fun isAutoImportEnabled(application: String): Boolean {
+    return sqlRetry.withRetry(RetryCategory.READ) {
+      jooq.select(APPLICATION_CONFIG.AUTO_IMPORT).from(APPLICATION_CONFIG)
+        .where(APPLICATION_CONFIG.APPLICATION.eq(application))
+        .fetchOne(APPLICATION_CONFIG.AUTO_IMPORT)
+    } == true
+  }
 }

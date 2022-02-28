@@ -66,4 +66,10 @@ class SqlApplicationRepositoryTests {
     expectThat(repository.get(config.application)).isNotNull().get { autoImport }.isTrue()
     expectThat(repository.get("fnord2")).isNotNull().get { autoImport }.isFalse()
   }
+
+  @Test
+  fun `auto import`() {
+    repository.store(config)
+    expectThat(repository.isAutoImportEnabled(config.application)).isTrue()
+  }
 }

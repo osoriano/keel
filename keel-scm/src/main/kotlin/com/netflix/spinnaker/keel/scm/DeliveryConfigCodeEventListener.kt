@@ -11,7 +11,6 @@ import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.model.Application
 import com.netflix.spinnaker.keel.front50.model.GitRepository
-import com.netflix.spinnaker.keel.front50.model.ManagedDeliveryConfig
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 import com.netflix.spinnaker.keel.notifications.DeliveryConfigImportFailed
 import com.netflix.spinnaker.keel.persistence.ApplicationRepository
@@ -106,9 +105,13 @@ class DeliveryConfigCodeEventListener(
 
       try {
         val user = event.causeByEmail ?: event.authorEmail ?: error("Can't authorize import due to missing author e-mail in code event: $event")
+        val appConfig = applicationRepository.get(app.name)
+        if (appConfig == null) {
+          log.debug("app config is missing for application ${app.name}. This should only happen when onboarding a new app")
+        }
         val deliveryConfig = deliveryConfigImporter.import(
           codeEvent = event,
-          manifestPath = app.managedDelivery?.manifestPath
+          manifestPath = appConfig?.deliveryConfigPath // The config might be missing for migrating apps
         ).let {
           if (it.serviceAccount == null) {
             it.copy(serviceAccount = app.email)
@@ -132,7 +135,7 @@ class DeliveryConfigCodeEventListener(
           )
         }
         log.debug("Creating/updating delivery config for application ${app.name} from branch ${event.targetBranch}")
-        val isNew = deliveryConfigUpserter.upsertConfig(deliveryConfig, gitMetadata, allowResourceOverwriting = true).second
+        val isNew = deliveryConfigUpserter.upsertConfig(deliveryConfig, gitMetadata, allowResourceOverwriting = true, user).second
         log.debug("Delivery config for application ${app.name} updated successfully from branch ${event.targetBranch}")
         event.emitCounterMetric(CODE_EVENT_COUNTER, DELIVERY_CONFIG_RETRIEVAL_SUCCESS, app.name)
         if (isNew) {
@@ -166,7 +169,7 @@ class DeliveryConfigCodeEventListener(
   ) = (event.pullRequestId?.let { keelRepository.isMigrationPr(app.name, it) }) ?: false
 
   private fun isAutoImportEnabled(app: Application) =
-    app.managedDelivery?.importDeliveryConfig == true && keelRepository.isApplicationConfigured(app.name)
+    applicationRepository.isAutoImportEnabled(app.name) && keelRepository.isApplicationConfigured(app.name)
 
 
   /**
@@ -184,8 +187,6 @@ class DeliveryConfigCodeEventListener(
 
   private fun onboardNewApplication(application: Application, user: String, event: CodeEvent) {
     runBlocking {
-      front50Cache.updateManagedDeliveryConfig(application, user, ManagedDeliveryConfig(importDeliveryConfig = true))
-      applicationRepository.store(ApplicationConfig(application.name, autoImport = true, updatedBy = user))
       if (isMigrationPr(event, application)) {
         front50Cache.disableAllPipelines(application.name)
         pausedRepository.resumeApplication(application.name)

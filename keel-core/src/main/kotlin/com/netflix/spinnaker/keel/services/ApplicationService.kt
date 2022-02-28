@@ -81,6 +81,7 @@ import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.persistence.NoSuchDeliveryConfigException
 import com.netflix.spinnaker.keel.persistence.PausedRepository
 import com.netflix.spinnaker.keel.telemetry.InvalidVerificationIdSeen
+import com.netflix.spinnaker.keel.upsert.DeliveryConfigUpserter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -125,7 +126,8 @@ class ApplicationService(
   private val jiraBridge: JiraBridge,
   private val pausedRepository: PausedRepository,
   private val handlers: List<ResourceHandler<*, *>>,
-  private val diffFactory: ResourceDiffFactory
+  private val diffFactory: ResourceDiffFactory,
+  private val deliveryConfigUpserter: DeliveryConfigUpserter,
 ) : CoroutineScope {
   override val coroutineContext: CoroutineContext = Dispatchers.Default
 
@@ -838,7 +840,11 @@ class ApplicationService(
   fun storePausedMigrationConfig(application: String, user: String): DeliveryConfig {
     val applicationPrData = repository.getMigratableApplicationData(application)
     pausedRepository.pauseApplication(application, user, "Automatically paused while upgrading to Managed Delivery.")
-    return repository.upsertDeliveryConfig(applicationPrData.deliveryConfig)
+    return deliveryConfigUpserter.upsertConfig(
+      applicationPrData.deliveryConfig,
+      allowResourceOverwriting = true,
+      user = user
+    ).first
   }
 
   /**

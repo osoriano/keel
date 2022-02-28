@@ -17,9 +17,6 @@ import com.netflix.spinnaker.keel.core.api.DependsOnConstraint
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.core.api.SubmittedEnvironment
 import com.netflix.spinnaker.keel.core.api.SubmittedResource
-import com.netflix.spinnaker.keel.front50.Front50Cache
-import com.netflix.spinnaker.keel.front50.model.Application
-import com.netflix.spinnaker.keel.front50.model.ManagedDeliveryConfig
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 import com.netflix.spinnaker.keel.jackson.readValueInliningAliases
 import com.netflix.spinnaker.keel.notifications.DismissibleNotification
@@ -27,9 +24,11 @@ import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.persistence.NoSuchDeliveryConfigName
+import com.netflix.spinnaker.keel.persistence.OverwritingExistingResourcesDisallowed
 import com.netflix.spinnaker.keel.spring.test.MockEurekaConfiguration
 import com.netflix.spinnaker.keel.test.DummyResourceSpec
 import com.netflix.spinnaker.keel.test.TEST_API_V1
+import com.netflix.spinnaker.keel.upsert.DeliveryConfigUpserter
 import com.netflix.spinnaker.keel.yaml.APPLICATION_YAML
 import com.ninjasquad.springmockk.MockkBean
 import dev.minutest.junit.JUnit5Minutests
@@ -87,7 +86,7 @@ internal class DeliveryConfigControllerTests
   lateinit var importer: DeliveryConfigImporter
 
   @MockkBean
-  lateinit var front50Cache: Front50Cache
+  lateinit var deliveryConfigUpserter: DeliveryConfigUpserter
 
   private val deliveryConfig = SubmittedDeliveryConfig(
     name = "keel-manifest",
@@ -297,20 +296,16 @@ internal class DeliveryConfigControllerTests
               every {
                 notificationRepository.dismissNotification(any<KClass<DismissibleNotification>>(), any(), any(), any())
               } returns true
-
-              coEvery {
-                front50Cache.updateManagedDeliveryConfig(any<String>(), any(), any())
-              } returns Application(name = deliveryConfig.application, email = "keel@keel.io")
-
-              every {
-                repository.upsertDeliveryConfig(ofType<SubmittedDeliveryConfig>())
-              } answers {
-                firstArg<SubmittedDeliveryConfig>().toDeliveryConfig()
-              }
             }
 
             derivedContext<ResultActions>("existing apps") {
               fixture {
+                every {
+                  deliveryConfigUpserter.upsertConfig(any(), any(), true, any())
+                } answers {
+                  Pair(firstArg<SubmittedDeliveryConfig>().toDeliveryConfig(), false)
+                }
+
                 every { repository.getDeliveryConfigForApplication(deliveryConfig.application) } returns deliveryConfig.toDeliveryConfig()
 
                 val request = post(endpoint)
@@ -328,13 +323,7 @@ internal class DeliveryConfigControllerTests
               }
 
               test("the manifest is persisted") {
-                verify { repository.upsertDeliveryConfig(match<SubmittedDeliveryConfig> { it.application == "keel" }) }
-              }
-
-              test("only new apps should call front50") {
-                coVerify(exactly = 0) {
-                  front50Cache.updateManagedDeliveryConfig(any<String>(), any(), any())
-                }
+                verify { deliveryConfigUpserter.upsertConfig(match { it.application == "keel" }, any(), true, "user") }
               }
             }
 
@@ -343,6 +332,12 @@ internal class DeliveryConfigControllerTests
                 every { repository.getDeliveryConfigForApplication(deliveryConfig.application) } throws NoDeliveryConfigForApplication(
                   "no config"
                 )
+                every {
+                  deliveryConfigUpserter.upsertConfig(any(), any(), true, any())
+                } answers {
+                  Pair(firstArg<SubmittedDeliveryConfig>().toDeliveryConfig(), true)
+                }
+
                 val request = post(endpoint)
                   .accept(contentType)
                   .contentType(contentType)
@@ -357,12 +352,9 @@ internal class DeliveryConfigControllerTests
                 andExpect(status().isOk)
               }
 
-              test("initializing front50 properly") {
-                coVerify(exactly = 1) {
-                  front50Cache.updateManagedDeliveryConfig(any<String>(), any(), ManagedDeliveryConfig(importDeliveryConfig = true))
-                }
+              test("the manifest is persisted") {
+                verify { deliveryConfigUpserter.upsertConfig(match { it.application == "keel" }, any(), true, "user") }
               }
-
             }
 
             derivedContext<ResultActions>("new apps - without force") {
@@ -370,6 +362,10 @@ internal class DeliveryConfigControllerTests
                 every { repository.getDeliveryConfigForApplication(deliveryConfig.application) } throws NoDeliveryConfigForApplication(
                   "no config"
                 )
+                every {
+                  deliveryConfigUpserter.upsertConfig(any(), any(), any(), any())
+                } throws OverwritingExistingResourcesDisallowed(deliveryConfig.application, "resource")
+
                 val request = post(endpoint)
                   .accept(contentType)
                   .contentType(contentType)
@@ -382,13 +378,6 @@ internal class DeliveryConfigControllerTests
               test("the request failed") {
                 andExpect(status().is4xxClientError)
               }
-
-              test("delivery config is not upserted") {
-                coVerify(exactly = 0) {
-                  repository.upsertDeliveryConfig(ofType<SubmittedDeliveryConfig>())
-                }
-              }
-
             }
           }
         }
@@ -456,8 +445,10 @@ internal class DeliveryConfigControllerTests
     context("importing a delivery config from source control") {
       before {
         every {
-          repository.upsertDeliveryConfig(ofType<SubmittedDeliveryConfig>())
-        } returns deliveryConfig.toDeliveryConfig()
+          deliveryConfigUpserter.upsertConfig(any(), any(), true, any())
+        } answers {
+          Pair(firstArg<SubmittedDeliveryConfig>().toDeliveryConfig(), false)
+        }
 
         every { repository.getDeliveryConfigForApplication(deliveryConfig.application) } returns deliveryConfig.toDeliveryConfig()
       }
@@ -474,12 +465,13 @@ internal class DeliveryConfigControllerTests
             post("/delivery-configs/import?repoType=stash&projectKey=proj&repoSlug=repo&manifestPath=spinnaker.yml")
               .accept(APPLICATION_YAML)
               .contentType(APPLICATION_YAML)
+              .header("X-SPINNAKER-USER", "user")
 
           val response = mvc.perform(request)
           response.andExpect(status().isOk)
 
           verify(exactly = 1) {
-            repository.upsertDeliveryConfig(deliveryConfig)
+            deliveryConfigUpserter.upsertConfig(any(), any(), any(), any())
           }
         }
       }
@@ -502,6 +494,7 @@ internal class DeliveryConfigControllerTests
             post("/delivery-configs/import?repoType=stash&projectKey=proj&repoSlug=repo&manifestPath=spinnaker.yml")
               .accept(APPLICATION_YAML)
               .contentType(APPLICATION_YAML)
+              .header("X-SPINNAKER-USER", "user")
 
           val response = mvc.perform(request)
           response.andExpect(status().isNotFound)

@@ -41,6 +41,7 @@ import com.netflix.spinnaker.keel.test.DummyResourceHandlerV1
 import com.netflix.spinnaker.keel.test.DummySortingStrategy
 import com.netflix.spinnaker.keel.test.artifactReferenceResource
 import com.netflix.spinnaker.keel.test.versionedArtifactResource
+import com.netflix.spinnaker.keel.upsert.DeliveryConfigUpserter
 import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
@@ -144,6 +145,7 @@ class ComparableLinksTests : JUnit5Minutests {
     val pausedRepository: PausedRepository = mockk(relaxed = true)
     val resourceHandler = DummyResourceHandlerV1
     val diffFactory = DefaultResourceDiffFactory()
+    val deliveryConfigUpserter: DeliveryConfigUpserter = mockk()
 
     // subject
     val applicationService = ApplicationService(
@@ -164,7 +166,8 @@ class ComparableLinksTests : JUnit5Minutests {
       jiraBridge,
       pausedRepository,
       listOf(resourceHandler),
-      diffFactory
+      diffFactory,
+      deliveryConfigUpserter,
     )
 
     val buildMetadata = BuildMetadata(

@@ -13,6 +13,7 @@ import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 import com.netflix.spinnaker.keel.notifications.DeliveryConfigImportFailed
+import com.netflix.spinnaker.keel.persistence.ApplicationRepository
 import com.netflix.spinnaker.keel.persistence.DependentAttachFilter.ATTACH_PREVIEW_ENVIRONMENTS
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
 import com.netflix.spinnaker.keel.persistence.EnvironmentDeletionRepository
@@ -63,7 +64,8 @@ class PreviewEnvironmentCodeEventListener(
   private val spectator: Registry,
   private val clock: Clock,
   private val eventPublisher: ApplicationEventPublisher,
-  private val scmUtils: ScmUtils
+  private val scmUtils: ScmUtils,
+  private val applicationRepository: ApplicationRepository,
 ) {
   companion object {
     private val log by lazy { LoggerFactory.getLogger(PreviewEnvironmentCodeEventListener::class.java) }
@@ -210,9 +212,8 @@ class PreviewEnvironmentCodeEventListener(
   ): DeliveryConfig {
     val commitEvent = event.toCommitEvent()
     val branchName = event.pullRequestBranch
-    val manifestPath = runBlocking {
-      front50Cache.applicationByName(deliveryConfig.application).managedDelivery?.manifestPath
-    }
+    val appConfig = applicationRepository.get(deliveryConfig.application) ?: error("config is missing for application ${deliveryConfig.application}")
+    val manifestPath = appConfig.deliveryConfigPath
 
     return try {
       deliveryConfigImporter.import(

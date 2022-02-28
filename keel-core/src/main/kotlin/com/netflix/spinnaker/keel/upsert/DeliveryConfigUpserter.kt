@@ -8,8 +8,10 @@ import com.netflix.spinnaker.keel.api.ResourceSpec
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.plugins.ResourceHandler
 import com.netflix.spinnaker.keel.api.plugins.supporting
+import com.netflix.spinnaker.keel.application.ApplicationConfig
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.events.DeliveryConfigChangedNotification
+import com.netflix.spinnaker.keel.persistence.ApplicationRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.persistence.OverwritingExistingResourcesDisallowed
@@ -20,6 +22,8 @@ import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Propagation
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.core.env.Environment as SpringEnvironment
 
 /**
@@ -36,6 +40,7 @@ class DeliveryConfigUpserter(
   private val persistenceRetry: PersistenceRetry,
   private val diffFactory: ResourceDiffFactory,
   private val resourceHandlers: List<ResourceHandler<*, *>>,
+  private val applicationRepository: ApplicationRepository,
 ) {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
@@ -47,7 +52,7 @@ class DeliveryConfigUpserter(
    * This function returns the [DeliveryConfig] as stored in the database, and a boolean indicating if the config was
    * just inserted for the first time.
    */
-  fun upsertConfig(deliveryConfig: SubmittedDeliveryConfig, gitMetadata: GitMetadata? = null, allowResourceOverwriting: Boolean): Pair<DeliveryConfig, Boolean>  {
+  fun upsertConfig(deliveryConfig: SubmittedDeliveryConfig, gitMetadata: GitMetadata? = null, allowResourceOverwriting: Boolean, user: String? = null): Pair<DeliveryConfig, Boolean>  {
     val existing: DeliveryConfig? = try {
       repository.getDeliveryConfigForApplication(deliveryConfig.application).withoutPreview()
     } catch (e: NoDeliveryConfigForApplication) {
@@ -63,10 +68,12 @@ class DeliveryConfigUpserter(
     log.info("Validating config for app ${deliveryConfig.application}")
     validator.validate(deliveryConfig)
     log.debug("Upserting delivery config '${deliveryConfig.name}' for app '${deliveryConfig.application}'")
-    val config = persistenceRetry.withRetry(RetryCategory.WRITE) {
-        repository.upsertDeliveryConfig(deliveryConfig)
-      }.withoutPreview()
     val isNew = existing == null || existing.isMigrating()
+
+    val config = persistenceRetry.withRetry(RetryCategory.WRITE) {
+        upsertDeliveryAndAppConfig(deliveryConfig, isNew, user)
+      }.withoutPreview()
+
     if (shouldNotifyOfConfigChange(existing, config)) {
       log.debug("Publish deliveryConfigChange event for app ${deliveryConfig.application}")
       publisher.publishEvent(
@@ -80,6 +87,25 @@ class DeliveryConfigUpserter(
       log.debug("No config changes for app ${deliveryConfig.application}. Skipping notification")
     }
     return Pair(config.copy(rawConfig = null), isNew)
+  }
+
+  @Transactional(propagation = Propagation.REQUIRED)
+  fun upsertDeliveryAndAppConfig(
+    submittedDeliveryConfig: SubmittedDeliveryConfig,
+    isNew: Boolean,
+    user: String?
+  ): DeliveryConfig {
+    if (isNew) {
+      applicationRepository.store(
+        ApplicationConfig(
+          application = submittedDeliveryConfig.application,
+          autoImport = true,
+          deliveryConfigPath = null,
+          updatedBy = user
+        )
+      )
+    }
+    return repository.upsertDeliveryConfig(submittedDeliveryConfig)
   }
 
   private suspend fun ensureResourcesDoNotExist(deliveryConfig: SubmittedDeliveryConfig) {

@@ -13,7 +13,6 @@ import com.netflix.spinnaker.keel.core.api.SubmittedEnvironment
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.model.Application
 import com.netflix.spinnaker.keel.front50.model.DataSources
-import com.netflix.spinnaker.keel.front50.model.ManagedDeliveryConfig
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 import com.netflix.spinnaker.keel.notifications.DeliveryConfigImportFailed
 import com.netflix.spinnaker.keel.persistence.ApplicationRepository
@@ -76,17 +75,18 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
       applicationRepository = applicationRepository
     )
 
-    val configuredApp = Application(
+    val front50ConfiguredApp = Application(
       name = "fnord",
       email = "keel@keel.io",
       repoType = "stash",
       repoProjectKey = "myorg",
       repoSlug = "myrepo",
-      managedDelivery = ManagedDeliveryConfig(importDeliveryConfig = true),
       dataSources = DataSources(enabled = emptyList(), disabled = emptyList())
     )
 
-    val notConfiguredApp = Application(
+    val appConfig = ApplicationConfig(application = front50ConfiguredApp.name, autoImport = true)
+
+    val front50NotConfiguredApp = Application(
       name = "notfnord",
       email = "keel@keel.io",
       repoType = "stash",
@@ -95,7 +95,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
       dataSources = DataSources(enabled = emptyList(), disabled = emptyList())
     )
 
-    val migratingApp = configuredApp.copy(name = "migratingfnord")
+    val front50MigratingApp = front50ConfiguredApp.copy(name = "migratingfnord")
 
     val artifactFromMain = DockerArtifact(
       name = "myorg/myartifact",
@@ -134,14 +134,14 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
 
       every {
         front50Cache.searchApplicationsByRepo(any())
-      } returns listOf(configuredApp, notConfiguredApp)
+      } returns listOf(front50ConfiguredApp, front50NotConfiguredApp)
 
       every {
         importer.import(any<CodeEvent>(), any())
       } returns deliveryConfig
 
       every {
-        deliveryConfigUpserter.upsertConfig(deliveryConfig, any(), any())
+        deliveryConfigUpserter.upsertConfig(deliveryConfig, any(), any(), any())
       } returns Pair(deliveryConfig.toDeliveryConfig(), false)
 
       every {
@@ -171,7 +171,23 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
       every {
         keelRepository.isMigrationPr(any(), any())
       } answers {
-        firstArg<String>() == migratingApp.name && secondArg<String>() == "23"
+        firstArg<String>() == front50MigratingApp.name && secondArg<String>() == "23"
+      }
+
+      every {
+        applicationRepository.get(any())
+      } answers {
+        if (firstArg<String>() == appConfig.application) {
+          appConfig
+        } else {
+          null
+        }
+      }
+
+      every {
+        applicationRepository.isAutoImportEnabled(any())
+      } answers {
+        firstArg<String>() == appConfig.application
       }
 
       every {
@@ -180,10 +196,6 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
 
       every {
         pausedRepository.resumeApplication(any())
-      } just runs
-
-      every {
-        applicationRepository.store(any())
       } just runs
     }
   }
@@ -246,7 +258,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
 
           test("the delivery config is created/updated") {
             verify {
-              deliveryConfigUpserter.upsertConfig(deliveryConfig, any(), any())
+              deliveryConfigUpserter.upsertConfig(deliveryConfig, any(), any(), any())
             }
           }
 
@@ -262,14 +274,6 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
           }
 
           test("we are not onboarding existing apps") {
-            verify(exactly = 0) {
-              front50Cache.updateManagedDeliveryConfig(any<Application>(), any(), any())
-            }
-
-            verify(exactly = 0) {
-              applicationRepository.store(any())
-            }
-
             verify(exactly = 0) {
               front50Cache.disableAllPipelines(any())
             }
@@ -306,7 +310,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
         before {
           every {
             front50Cache.searchApplicationsByRepo(any())
-          } returns listOf(configuredApp.copy(name = "notConfiguredApp"))
+          } returns listOf(front50ConfiguredApp.copy(name = "notConfiguredApp"))
 
           subject.handleCodeEvent(commitEvent)
         }
@@ -318,10 +322,10 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
         before {
           every {
             front50Cache.searchApplicationsByRepo(any())
-          } returns listOf(migratingApp)
+          } returns listOf(front50MigratingApp)
 
           every {
-            deliveryConfigUpserter.upsertConfig(deliveryConfig, any(), any())
+            deliveryConfigUpserter.upsertConfig(deliveryConfig, any(), any(), any())
           } returns Pair(deliveryConfig.toDeliveryConfig(), true)
         }
 
@@ -329,29 +333,15 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
           subject.handleCodeEvent(prMergedEvent)
 
           verify {
-            deliveryConfigUpserter.upsertConfig(deliveryConfig, any(), any())
+            deliveryConfigUpserter.upsertConfig(deliveryConfig, any(), any(), any())
           }
 
           verify {
-            front50Cache.updateManagedDeliveryConfig(migratingApp, any(), any())
+            front50Cache.disableAllPipelines(front50MigratingApp.name)
           }
 
           verify {
-            applicationRepository.store(
-              ApplicationConfig(
-                application = migratingApp.name,
-                autoImport = true,
-                updatedBy = prMergedEvent.causeByEmail
-              )
-            )
-          }
-
-          verify {
-            front50Cache.disableAllPipelines(migratingApp.name)
-          }
-
-          verify {
-            pausedRepository.resumeApplication(migratingApp.name)
+            pausedRepository.resumeApplication(front50MigratingApp.name)
           }
         }
 
@@ -362,19 +352,11 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
       }
 
       context("apps with custom manifest path") {
-        val manifestPath = "custom/spinnaker.yml"
+        val deliveryConfigPath = "custom/spinnaker.yml"
         before {
           every {
-            front50Cache.searchApplicationsByRepo(any())
-          } returns listOf(
-            configuredApp.copy(
-              managedDelivery = ManagedDeliveryConfig(
-                importDeliveryConfig = true,
-                manifestPath = manifestPath
-              )
-            ),
-            notConfiguredApp
-          )
+            applicationRepository.get(front50ConfiguredApp.name)
+          } returns appConfig.copy(deliveryConfigPath = deliveryConfigPath)
         }
 
         test("importing the manifest from the correct path") {
@@ -382,7 +364,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
           verify(exactly = 1) {
             importer.import(
               codeEvent = commitEvent,
-              manifestPath = manifestPath
+              manifestPath = deliveryConfigPath
             )
           }
         }

@@ -6,6 +6,7 @@ union MD_ApplicationResult = MD_Application | MD_Error
 type Query @extends {
   md_application(appName: String!): MD_ApplicationResult
   md_migration(appName: String!): MD_Migration
+  md_gitIntegration(appName: String!): MD_GitIntegration
 }
 
 type MD_Application {

@@ -69,6 +69,7 @@ import com.netflix.spinnaker.keel.test.DummySortingStrategy
 import com.netflix.spinnaker.keel.test.artifactReferenceResource
 import com.netflix.spinnaker.keel.test.submittedResource
 import com.netflix.spinnaker.keel.test.versionedArtifactResource
+import com.netflix.spinnaker.keel.upsert.DeliveryConfigUpserter
 import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
@@ -117,6 +118,7 @@ class ApplicationServiceTests : JUnit5Minutests {
     }
     val pausedRepository: PausedRepository = mockk()
     val resourceStatusService: ResourceStatusService = mockk()
+    val deliveryConfigUpserter: DeliveryConfigUpserter = mockk()
 
     val application1 = "fnord1"
     val application2 = "fnord2"
@@ -287,7 +289,8 @@ class ApplicationServiceTests : JUnit5Minutests {
       jiraBridge,
       pausedRepository,
       listOf(resourceHandler),
-      diffFactory
+      diffFactory,
+      deliveryConfigUpserter
     )
 
     val buildMetadata = BuildMetadata(
@@ -1336,8 +1339,8 @@ class ApplicationServiceTests : JUnit5Minutests {
         } returns ApplicationPrData(submittedDeliveryConfig,"repo","project")
 
         every {
-          repository.upsertDeliveryConfig(any<SubmittedDeliveryConfig>())
-        } returns submittedDeliveryConfig.toDeliveryConfig()
+          deliveryConfigUpserter.upsertConfig(any(), any(), any(), any())
+        } returns Pair(submittedDeliveryConfig.toDeliveryConfig(), true)
 
         every { pausedRepository.pauseApplication(any(), any(), any()) } just runs
       }
@@ -1349,7 +1352,7 @@ class ApplicationServiceTests : JUnit5Minutests {
 
         verify {
           pausedRepository.pauseApplication(application1, "keel", any())
-          repository.upsertDeliveryConfig(submittedDeliveryConfig)
+          deliveryConfigUpserter.upsertConfig(submittedDeliveryConfig, any(), true, any())
         }
       }
     }
