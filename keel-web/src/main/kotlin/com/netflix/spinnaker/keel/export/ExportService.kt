@@ -1,6 +1,5 @@
 package com.netflix.spinnaker.keel.export
 
-import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import com.netflix.spinnaker.config.BaseUrlConfig
 import com.netflix.spinnaker.keel.api.AccountAwareLocations
@@ -27,7 +26,6 @@ import com.netflix.spinnaker.keel.api.ec2.EC2_CLUSTER_V1_1
 import com.netflix.spinnaker.keel.api.ec2.EC2_SECURITY_GROUP_V1
 import com.netflix.spinnaker.keel.api.ec2.SecurityGroupSpec
 import com.netflix.spinnaker.keel.api.migration.SkipReason
-import com.netflix.spinnaker.keel.api.migration.SkippedPipeline
 import com.netflix.spinnaker.keel.api.plugins.ResourceHandler
 import com.netflix.spinnaker.keel.api.plugins.supporting
 import com.netflix.spinnaker.keel.api.titus.TITUS_CLUSTER_V1
@@ -47,9 +45,13 @@ import com.netflix.spinnaker.keel.exceptions.ArtifactNotSupportedException
 import com.netflix.spinnaker.keel.filterNotNullValues
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.model.DeployStage
+import com.netflix.spinnaker.keel.front50.model.JenkinsStage
 import com.netflix.spinnaker.keel.front50.model.Pipeline
 import com.netflix.spinnaker.keel.front50.model.PipelineNotifications
 import com.netflix.spinnaker.keel.front50.model.RestrictedExecutionWindow
+import com.netflix.spinnaker.keel.jenkins.JenkinsService
+import com.netflix.spinnaker.keel.jenkins.PublisherType.HTML_REPORT
+import com.netflix.spinnaker.keel.jenkins.PublisherType.JUNIT_REPORT
 import com.netflix.spinnaker.keel.orca.ExecutionDetailResponse
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
@@ -79,7 +81,8 @@ class ExportService(
   private val validator: DeliveryConfigValidator,
   private val deliveryConfigRepository: DeliveryConfigRepository,
   private val springEnv: Environment,
-  private val cloudDriverCache: CloudDriverCache
+  private val cloudDriverCache: CloudDriverCache,
+  private val jenkinsService: JenkinsService
 ) {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
   private val prettyPrinter by lazy { yamlMapper.writerWithDefaultPrettyPrinter() }
@@ -100,10 +103,20 @@ class ExportService(
       listOf("findImageFromTags", "deploy"),
       listOf("findImageFromTags", "manualJudgement", "deploy"),
       listOf("bake", "deploy")
-    ).let {
-      // also support all the shapes above followed by a jenkins stage
-      it + it.map { shape -> shape + "jenkins" }
+    ).let { basicShapes ->
+      // also support all the shapes above followed by a jenkins stage supposedly used for tests
+      basicShapes + basicShapes.map { shape -> shape + "jenkins" }
     }
+
+    /**
+     * List of pipeline shapes that we know how to convert to a [Verification].
+     */
+    val EXPORTABLE_TEST_PIPELINE_SHAPES = listOf(
+      listOf("jenkins"),
+      listOf("jenkins", "manualJudgment"),
+      listOf("wait", "jenkins"),
+      listOf("wait", "jenkins", "manualJudgment")
+    )
 
     val SUPPORTED_TRIGGER_TYPES = listOf("docker", "jenkins", "rocket", "pipeline")
 
@@ -252,7 +265,6 @@ class ExportService(
               result.repoSlug,
               result.projectKey,
               result.isInactive
-
             )
           }
         } catch (e: Exception) {
@@ -277,16 +289,15 @@ class ExportService(
 
     val pipelines = front50Cache.pipelinesByApplication(applicationName)
     val application = front50Cache.applicationByName(applicationName)
+    val serviceAccount = application.email ?: DEFAULT_SERVICE_ACCOUNT
 
     try {
       deliveryConfigRepository.getByApplication(applicationName)
-      log.debug("found an existing config for application $applicationName. Will not process with export process.")
+      log.debug("Found an existing config for application $applicationName. Will not proceed with export process.")
       return ExportSkippedResult(isManaged = true)
     } catch (e: NoDeliveryConfigForApplication) {
-      log.debug("did not found an existing config for application $applicationName. Trying to export..")
+      log.debug("Did not find an existing config for application $applicationName. Trying to export...")
     }
-
-    val serviceAccount = application.email ?: DEFAULT_SERVICE_ACCOUNT
 
     // 1. find pipelines which are not matching to the supported patterns above
     val nonExportablePipelines = pipelines.findNonExportable(maxAgeDays)
@@ -302,7 +313,7 @@ class ExportService(
     var configValidationException: Exception? = null
 
     // 3. iterate over the deploy pipelines, and map resources to the environments they represent
-    val pipelinesToEnvironments = pipelinesToDeploysAndClusters.mapValues { (pipeline, deploysAndClusters) ->
+    val deployPipelinesToEnvironments = pipelinesToDeploysAndClusters.mapValues { (pipeline, deploysAndClusters) ->
       // 4. iterate over the clusters, export their resources, create constraints and environment
       deploysAndClusters.mapNotNull { (deploy, cluster) ->
         log.debug("Attempting to build environment for cluster ${cluster.moniker}")
@@ -329,9 +340,9 @@ class ExportService(
           return@mapNotNull null
         }
 
-        // 6. export verifications
+        // 6. export verifications from this pipeline
         val verifications = if (includeVerifications) {
-          exportVerifications(pipeline, deploy)
+          pipeline.exportVerifications(deploy)
         } else {
           emptyList()
         }
@@ -358,15 +369,33 @@ class ExportService(
       }
     }
 
-    // Now look at the pipeline triggers and dependencies between pipelines and add constraints
-    val finalEnvironments = pipelinesToEnvironments.flatMap { (pipeline, envs) ->
+    // 7. find test pipelines
+    val testPipelines = pipelines.filter { it.shape in EXPORTABLE_TEST_PIPELINE_SHAPES }
+    val testPipelinesToEnvironments = mutableMapOf<Pipeline, List<SubmittedEnvironment>>()
+
+    // 8. assemble the final environments
+    val finalEnvironments = deployPipelinesToEnvironments.flatMap { (deployPipeline, envs) ->
       envs.map { environment ->
-        val constraints = triggersToEnvironmentConstraints(applicationName, pipeline, environment, pipelinesToEnvironments)
+        // 8a. look at the pipeline triggers and dependencies between pipelines to find any additional constraints
+        val additionalConstraints = exportConstraintsFromTriggers(applicationName, deployPipeline, environment, deployPipelinesToEnvironments)
+
+        // 8b. look at test pipelines independent of the deployment pipeline to find any additional verifications
+        val additionalVerifications = if (includeVerifications) {
+          testPipelines.exportVerifications(deployPipeline).onEach { (testPipeline, _) ->
+            testPipelinesToEnvironments.compute(testPipeline) { _, curEnvs ->
+              (curEnvs ?: mutableListOf()) + environment
+            }
+          }
+        } else {
+          emptyMap()
+        }
+
         environment.copy(
-          constraints = environment.constraints + constraints,
-          notifications = notifications(environment.name, application.slackChannel?.name, pipeline.notifications)
+          constraints = environment.constraints + additionalConstraints,
+          notifications = notifications(environment.name, application.slackChannel?.name, deployPipeline.notifications),
+          verifyWith = environment.verifyWith + additionalVerifications.values
         ).addMetadata(
-          "exportedFrom" to pipeline.link(baseUrlConfig.baseUrl)
+          "exportedFrom" to deployPipeline.link(baseUrlConfig.baseUrl)
         )
       }
     }.toSet()
@@ -394,7 +423,8 @@ class ExportService(
 
     val result = PipelineExportResult(
       deliveryConfig = deliveryConfig,
-      exported = pipelinesToEnvironments,
+      // include the test pipelines that exported verifications
+      processed = deployPipelinesToEnvironments + testPipelinesToEnvironments,
       skipped = nonExportablePipelines,
       baseUrl = baseUrlConfig.baseUrl,
       configValidationException = configValidationException?.message,
@@ -463,32 +493,6 @@ class ExportService(
   }
 
   /**
-   * Given a [Pipeline], look for supported test stages following a [DeployStage] and convert each to
-   * a [Verification].
-   *
-   * Currently, only Jenkins stages are supported.
-   */
-  private fun exportVerifications(pipeline: Pipeline, deployStage: DeployStage): List<Verification> {
-    val jenkinsStages = pipeline.findDownstreamJenkinsStages(deployStage)
-    return jenkinsStages.mapNotNull { jenkinsStage ->
-      // TODO: check if jenkinsStage looks like it's actually running tests by checking that it outputs test reports
-      val isTest = true
-      if (isTest) {
-        with(jenkinsStage) {
-          JenkinsJobVerification(
-            controller = controller,
-            job = job,
-            staticParameters = parameters
-            // TODO: should we try to setup some dynamic parameters for simple/common SpEL expressions?
-          )
-        }
-      } else {
-        null
-      }
-    }
-  }
-
-  /**
    * Finds non-exportable pipelines in the list and associates them with the reason why they're not.
    */
   private fun List<Pipeline>.findNonExportable(maxAgeDays: Long): Map<Pipeline, SkipReason> {
@@ -508,11 +512,14 @@ class ExportService(
         (lastExecution == null || lastExecution.olderThan(maxAgeDays)) -> SkipReason.NOT_EXECUTED_RECENTLY
         pipeline.fromTemplate -> SkipReason.FROM_TEMPLATE
         pipeline.hasParallelStages -> SkipReason.HAS_PARALLEL_STAGES
-        pipeline.shape !in EXPORTABLE_PIPELINE_SHAPES -> SkipReason.SHAPE_NOT_SUPPORTED
+        !pipeline.isExportable -> SkipReason.SHAPE_NOT_SUPPORTED
         else -> null
       }
     }.filterNotNullValues()
   }
+
+  private val Pipeline.isExportable: Boolean
+    get() = shape in EXPORTABLE_PIPELINE_SHAPES
 
   //Take a cluster exportable and return a pair with its dependent resources specs (cluster, security groups, and load balancers, and the artifact).
   private suspend fun createResourcesBasedOnCluster(cluster: Exportable, environments: Set<SubmittedEnvironment>, applicationName: String
@@ -695,7 +702,7 @@ class ExportService(
   /**
    * Attempts to extract [Constraint]s from the pipeline triggers for the specified [environment].
    */
-  private fun triggersToEnvironmentConstraints(
+  private fun exportConstraintsFromTriggers(
     application: String,
     pipeline: Pipeline,
     environment: SubmittedEnvironment,
@@ -819,64 +826,68 @@ class ExportService(
 
   private fun ExecutionDetailResponse.olderThan(days: Long) =
     buildTime.isBefore(Instant.now() - Duration.ofDays(days))
-}
 
-interface ExportResult
-
-data class ExportSkippedResult(
-  val isManaged: Boolean
-) : ExportResult
-
-data class ExportErrorResult(
-  val error: String,
-  val detail: Any? = null
-) : Exception(error, detail as? Throwable), ExportResult
-
-data class PipelineExportResult(
-  val deliveryConfig: SubmittedDeliveryConfig,
-  val configValidationException: String?,
-  @JsonIgnore
-  val exported: Map<Pipeline, List<SubmittedEnvironment>>,
-  @JsonIgnore
-  val skipped: Map<Pipeline, SkipReason>,
-  @JsonIgnore
-  val baseUrl: String,
-  @JsonIgnore
-  val repoSlug: String?,
-  @JsonIgnore
-  val projectKey: String?
-) : ExportResult {
-  companion object {
-    val VALID_SKIP_REASONS = listOf(SkipReason.DISABLED, SkipReason.NOT_EXECUTED_RECENTLY)
+  /**
+   * Given a [Pipeline], look for supported test stages following a [DeployStage] and convert each to
+   * a [Verification].
+   *
+   * Currently, only Jenkins stages are supported.
+   */
+  private suspend fun Pipeline.exportVerifications(deployStage: DeployStage): List<Verification> {
+    // find Jenkins stages that come after the deploy stage (if they come before, they're not being used to run tests)
+    val jenkinsStages = findDownstreamJenkinsStages(deployStage)
+    return jenkinsStages.mapNotNull { it.toVerificationOrNull() }
   }
 
-  val pipelines: Map<String, Any> = mapOf(
-    "exported" to exported.entries.map { (pipeline, environments) ->
-      mapOf(
-        "name" to pipeline.name,
-        "link" to pipeline.link(baseUrl),
-        "shape" to pipeline.shape.joinToString(" -> "),
-        "environments" to environments.map { it.name }
-      )
-    },
-    "skipped" to skipped.map { (pipeline, reason) ->
-      mapOf(
-        "name" to pipeline.name,
-        "link" to pipeline.link(baseUrl),
-        "shape" to pipeline.shape.joinToString(" -> "),
-        "reason" to reason
-      )
+  /**
+   * Given a list of test pipelines, look for those triggered by the specified [deployPipeline] and converts any
+   * supported test stages in them to a [Verification].
+   */
+  private suspend fun List<Pipeline>.exportVerifications(deployPipeline: Pipeline): Map<Pipeline, Verification> {
+    return associateWith { testPipeline ->
+      val triggerPipelineId = testPipeline.triggers
+        .find { it.type.lowercase() == "pipeline" }
+        ?.let { it.pipeline }
+
+      if (deployPipeline.id == triggerPipelineId) {
+        testPipeline.toVerificationOrNull()
+      } else {
+        null
+      }
+    }.filterNotNullValues()
+  }
+
+  /**
+   * Converts a [JenkinsStage] to a [Verification], but only if it looks like it's used for running tests
+   * by inspecting its "publishers" and checking for the presence of HTML and/or JUnit reports.
+   */
+  private suspend fun JenkinsStage.toVerificationOrNull(): Verification? {
+    val looksLikeTests = try {
+      val config = jenkinsService.getJobConfig(controller, job)
+      config.project.publishers.any { it.type == JUNIT_REPORT || it.type == HTML_REPORT }
+    } catch(e: Exception) {
+      log.debug("Error retrieving/parsing config for Jenkins job $controller/$job: $e")
+      false
     }
-  )
 
-  val exportSucceeded: Boolean
-    get() = skipped.filterValues { !(VALID_SKIP_REASONS.contains(it)) }.isEmpty()
-      //if the generated config is empty, fail the export as well
-      && deliveryConfig.environments.isNotEmpty()
+    return if (looksLikeTests) {
+      JenkinsJobVerification(
+        controller = controller,
+        job = job,
+        staticParameters = parameters
+        // TODO: should we try to setup some dynamic parameters for simple/common SpEL expressions?
+      )
+    } else {
+      null
+    }
+  }
 
-  val isInactive: Boolean
-    get() = !exportSucceeded &&
-      skipped.all { (_, reason) -> reason == SkipReason.DISABLED || reason == SkipReason.NOT_EXECUTED_RECENTLY }
+  /**
+   * Converts a [Pipeline] to a [Verification], but only if it contains a [JenkinsStage] that looks like it's used
+   * for running tests.
+   */
+  private suspend fun Pipeline.toVerificationOrNull(): Verification? =
+    stages.filterIsInstance<JenkinsStage>().firstOrNull()?.toVerificationOrNull()
 }
 
 private val Exportable.clusterKind: ResourceKind
@@ -888,19 +899,6 @@ private val Pair<Set<SubmittedResource<ResourceSpec>>, DeliveryArtifact?>.artifa
 
 private val Pair<Set<SubmittedResource<ResourceSpec>>, DeliveryArtifact?>.resources: Set<SubmittedResource<ResourceSpec>>
   get() = this.first
-
-fun PipelineExportResult.toSkippedPipelines(): List<SkippedPipeline> =
-  skipped.map { (pipeline, reason) ->
-    SkippedPipeline(
-      id = pipeline.id,
-      name = pipeline.name,
-      link = pipeline.link(baseUrl),
-      shape = pipeline.shape.joinToString(" -> "),
-      reason = reason
-    )
-  }
-
-private fun Pipeline.link(baseUrl: String) = "$baseUrl/#/applications/${application}/executions/configure/${id}"
 
 private fun Int.fromDayNumberToWeekday() :String =
   when (this) {

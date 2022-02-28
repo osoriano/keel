@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.jsontype.NamedType
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import com.fasterxml.jackson.module.kotlin.convertValue
 import com.netflix.spinnaker.config.BaseUrlConfig
-import com.netflix.spinnaker.keel.api.TaskStatus
+import com.netflix.spinnaker.keel.api.TaskStatus.SUCCEEDED
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
 import com.netflix.spinnaker.keel.api.ec2.EC2_CLASSIC_LOAD_BALANCER_V1
 import com.netflix.spinnaker.keel.api.ec2.EC2_CLUSTER_V1_1
@@ -16,7 +16,6 @@ import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.model.Credential
-import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.core.api.SubmittedResource
 import com.netflix.spinnaker.keel.ec2.resource.ClassicLoadBalancerHandler
 import com.netflix.spinnaker.keel.ec2.resource.ClusterHandler
@@ -32,6 +31,7 @@ import com.netflix.spinnaker.keel.front50.model.SlackChannel
 import com.netflix.spinnaker.keel.front50.model.TimeWindowConfig
 import com.netflix.spinnaker.keel.front50.model.Trigger
 import com.netflix.spinnaker.keel.igor.JobService
+import com.netflix.spinnaker.keel.jenkins.JenkinsService
 import com.netflix.spinnaker.keel.orca.ExecutionDetailResponse
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
@@ -52,7 +52,6 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import strikt.api.expectThat
-import strikt.assertions.contains
 import strikt.assertions.first
 import strikt.assertions.hasSize
 import strikt.assertions.isA
@@ -76,6 +75,7 @@ internal class ExportServiceTests {
   private val securityGroupHandler: SecurityGroupHandler = mockk()
   private val classicLbHandler: ClassicLoadBalancerHandler = mockk()
   private val objectMapper = configuredTestObjectMapper()
+  private val jenkinsService: JenkinsService = mockk()
   private val prettyPrinter: ObjectWriter = mockk()
 
   private val subject = ExportService(
@@ -87,7 +87,8 @@ internal class ExportServiceTests {
     validator = DeliveryConfigValidator(),
     deliveryConfigRepository = deliveryConfigRepository,
     springEnv = mockEnvironment(),
-    cloudDriverCache = cloudDriverCache
+    cloudDriverCache = cloudDriverCache,
+    jenkinsService = jenkinsService
   )
 
   private val submittedDeliveryCofig = submittedDeliveryConfig()
@@ -165,7 +166,7 @@ internal class ExportServiceTests {
     name = "aws-deploy-to-test",
     application = "fnord",
     buildTime = Instant.now(),
-    status = TaskStatus.SUCCEEDED,
+    status = SUCCEEDED,
     startTime = null,
     endTime = null
   )
@@ -180,7 +181,7 @@ internal class ExportServiceTests {
   private val exportResult = PipelineExportResult(
     deliveryConfig = submittedDeliveryCofig,
     baseUrl = "https://baseurl.com",
-    exported = mapOf(pipeline to submittedDeliveryCofig.environments.toList()),
+    processed = mapOf(pipeline to submittedDeliveryCofig.environments.toList()),
     projectKey = "spkr",
     repoSlug = "keel",
     configValidationException = null,
@@ -355,7 +356,7 @@ internal class ExportServiceTests {
     val result = PipelineExportResult(
       deliveryConfig = submittedDeliveryCofig.copy(environments = emptySet()),
       baseUrl = "https://baseurl.com",
-      exported = emptyMap(),
+      processed = emptyMap(),
       projectKey = "spkr",
       repoSlug = "keel",
       configValidationException = null,
@@ -396,5 +397,4 @@ internal class ExportServiceTests {
     verify { titusClusterHandler.export(any()) }
     expectThat(exported.spec).isEqualTo(titusCluster.spec)
   }
-
 }

@@ -60,7 +60,8 @@ include(
   "keel-titus-registry",
   "keel-web",
   "keel-graphql-schema",
-  "keel-verifications"
+  "keel-verifications",
+  "keel-jenkins"
 )
 
 rootProject.name = "keel"
