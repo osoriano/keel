@@ -191,6 +191,13 @@ class AdminController(
     adminService.storeAppForPotentialMigration(payload.apps, payload.inAllowedList)
   }
 
+  @PostMapping(
+    path = ["/migration/recheck"]
+  )
+  fun recheckMigratingApp(@RequestBody apps: List<String>) {
+    adminService.triggerMigratingAppsRecheck(apps)
+  }
+
   /**
    * Run the export
    */

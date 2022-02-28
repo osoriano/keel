@@ -284,6 +284,10 @@ interface DeliveryConfigRepository : PeriodicallyCheckedRepository<DeliveryConfi
    */
   fun storeAppForPotentialMigration(app: String, inAllowedList: Boolean? = null)
 
+  /**
+   * Resets the [LAST_CHECKED] flag of an app to get it rechecked on the next cycle
+   */
+  fun triggerMigratingAppsRecheck(applications: List<String>)
 
   /**
    * Return the information needed in order to open a PR for an application.

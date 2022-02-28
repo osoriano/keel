@@ -1533,6 +1533,15 @@ class SqlDeliveryConfigRepository(
     }
   }
 
+  override fun triggerMigratingAppsRecheck(applications: List<String>) {
+    sqlRetry.withRetry(WRITE) {
+      jooq.update(MIGRATION_STATUS)
+        .setNull(MIGRATION_STATUS.LAST_CHECKED)
+        .where(MIGRATION_STATUS.APPLICATION.`in`(applications))
+        .execute()
+    }
+  }
+
   override fun getMigratableApplicationData(app: String): ApplicationPrData {
     return sqlRetry.withRetry(READ) {
       jooq

@@ -745,6 +745,12 @@ class KeelRepository(
     deliveryConfigRepository.storeAppForPotentialMigration(app, inAllowList)
 
   /**
+   * Resets the [LAST_CHECKED] flag of an app to get it rechecked on the next cycle
+   */
+  fun triggerMigratingAppsRecheck(applications: List<String>) =
+    deliveryConfigRepository.triggerMigratingAppsRecheck(applications)
+
+  /**
    * Return the information needed in order to open a PR for an application.
    * During a successful export process, the generated delivery config, repoSlug and projectKey and store them by app.
    */

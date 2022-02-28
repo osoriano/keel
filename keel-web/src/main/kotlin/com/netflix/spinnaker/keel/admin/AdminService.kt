@@ -214,6 +214,10 @@ class AdminService(
     }
   }
 
+  fun triggerMigratingAppsRecheck(apps: List<String>) {
+    repository.triggerMigratingAppsRecheck(apps)
+  }
+
   fun getTaskSummary(id: String): ExecutionSummary? =
     executionSummaryService.getSummary(id)
 
