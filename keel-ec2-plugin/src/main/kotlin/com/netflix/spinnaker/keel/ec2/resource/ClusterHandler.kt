@@ -145,10 +145,38 @@ class ClusterHandler(
       resolve().byRegion()
     }
 
-  override suspend fun current(resource: Resource<ClusterSpec>): Map<String, ServerGroup> =
-    cloudDriverService
-      .getActiveServerGroups(resource)
-      .byRegion()
+  override suspend fun current(resource: Resource<ClusterSpec>): Map<String, ServerGroup> {
+    val activeServerGroups = cloudDriverService.getActiveServerGroups(resource)
+    val allHaveSameVersion = activeServerGroups.distinctBy { it.launchConfiguration.appVersion }.size == 1
+
+    // collect info about unhealthy regions
+    val unhealthyRegions = mutableListOf<String>()
+    activeServerGroups.forEach { serverGroup ->
+      val healthy = serverGroup.instanceCounts?.isHealthy(
+        health = resource.spec.deployWith.health,
+        capacity = resource.spec.resolveCapacity(serverGroup.location.region)
+      )
+      if (healthy == false) {
+        unhealthyRegions.add(serverGroup.location.region)
+      }
+    }
+
+    // publish health event
+    val allHealthy = unhealthyRegions.isEmpty()
+    eventPublisher.publishEvent(
+      ResourceHealthEvent(resource, allHealthy, unhealthyRegions, resource.spec.locations.regions.size)
+    )
+
+    if (allHaveSameVersion && allHealthy) {
+      // only publish a successfully deployed event if the server group is healthy
+      val appVersion = activeServerGroups.first().launchConfiguration.appVersion
+      if (appVersion != null) {
+        notifyArtifactDeployed(resource, appVersion)
+      }
+    }
+
+    return activeServerGroups.byRegion()
+  }
 
   override fun getDesiredRegion(diff: ResourceDiff<ServerGroup>): String =
     diff.desired.location.region
@@ -1047,24 +1075,6 @@ class ClusterHandler(
         }
       }
 
-    }
-
-    val allSame: Boolean = activeServerGroups.distinctBy { it.launchConfiguration.appVersion }.size == 1
-    val unhealthyRegions = mutableListOf<String>()
-    activeServerGroups.forEach { serverGroup ->
-      if (serverGroup.instanceCounts?.isHealthy(resource.spec.deployWith.health, resource.spec.resolveCapacity(serverGroup.location.region)) == false) {
-        unhealthyRegions.add(serverGroup.location.region)
-      }
-    }
-    val healthy: Boolean = unhealthyRegions.isEmpty()
-    eventPublisher.publishEvent(ResourceHealthEvent(resource, healthy, unhealthyRegions, resource.spec.locations.regions.size))
-
-    if (allSame && healthy) {
-      // // only publish a successfully deployed event if the server group is healthy
-      val appVersion = activeServerGroups.first().launchConfiguration.appVersion
-      if (appVersion != null) {
-        notifyArtifactDeployed(resource, appVersion)
-      }
     }
 
     return activeServerGroups

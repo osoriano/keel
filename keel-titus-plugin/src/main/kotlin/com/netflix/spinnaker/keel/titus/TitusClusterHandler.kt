@@ -130,10 +130,49 @@ class TitusClusterHandler(
       resolve().byRegion()
     }
 
-  override suspend fun current(resource: Resource<TitusClusterSpec>): Map<String, TitusServerGroup> =
-    cloudDriverService
-      .getActiveServerGroups(resource)
-      .byRegion()
+  override suspend fun current(resource: Resource<TitusClusterSpec>): Map<String, TitusServerGroup> {
+    val activeServerGroups = cloudDriverService.getActiveServerGroups(resource)
+    val allHaveSameImage = activeServerGroups.distinctBy { it.container.digest }.size == 1
+
+    // collect info about unhealthy regions
+    val unhealthyRegions = mutableListOf<String>()
+    activeServerGroups.forEach { serverGroup ->
+      if (serverGroup.instanceCounts?.isHealthy(resource.spec.deployWith.health, serverGroup.capacity) == false) {
+        unhealthyRegions.add(serverGroup.location.region)
+      }
+    }
+
+    // publish health event
+    val allHealthy = unhealthyRegions.isEmpty()
+    eventPublisher.publishEvent(
+      ResourceHealthEvent(
+        resource,
+        allHealthy,
+        unhealthyRegions,
+        resource.spec.locations.regions.size
+      )
+    )
+
+    log.debug("Checking if artifact should be marked as deployed in Titus cluster ${resource.id}: " +
+      "same container in all ASGs = $allHaveSameImage, unhealthy regions = $unhealthyRegions")
+
+    if (allHaveSameImage && allHealthy) {
+      // only publish a successfully deployed event if the server group is healthy
+      val container = activeServerGroups.first().container
+      getTagsForDigest(container, resource.spec.locations.account)
+        .apply {
+          log.debug("Marking ${this.size} tags for container $container as deployed to Titus cluster ${resource.id}: $this")
+        }
+        .forEach { tag ->
+          // We publish an event for each tag that matches the digest
+          // so that we handle the tags like `latest` where more than one tags have the same digest
+          // and we don't care about some of them.
+          notifyArtifactDeployed(resource, tag)
+        }
+    }
+
+    return activeServerGroups.byRegion()
+  }
 
   override suspend fun actuationInProgress(resource: Resource<TitusClusterSpec>): Boolean =
     generateCorrelationIds(resource).any { correlationId ->
@@ -932,41 +971,6 @@ private fun jsonStringify(arguments: Map<String, Any>?) =
       }
     }
 
-    // publish health events
-    val sameContainer: Boolean = activeServerGroups.distinctBy { it.container.digest }.size == 1
-    val unhealthyRegions = mutableListOf<String>()
-    activeServerGroups.forEach { serverGroup ->
-      if (serverGroup.instanceCounts?.isHealthy(resource.spec.deployWith.health, serverGroup.capacity) == false) {
-        unhealthyRegions.add(serverGroup.location.region)
-      }
-    }
-    val healthy: Boolean = unhealthyRegions.isEmpty()
-    eventPublisher.publishEvent(
-      ResourceHealthEvent(
-        resource,
-        healthy,
-        unhealthyRegions,
-        resource.spec.locations.regions.size
-      )
-    )
-
-    log.debug("Checking if artifact should be marked as deployed in Titus cluster ${resource.id}: " +
-      "same container in all ASGs = $sameContainer, unhealthy regions = $unhealthyRegions")
-
-    if (sameContainer && healthy) {
-      // only publish a successfully deployed event if the server group is healthy
-      val container = activeServerGroups.first().container
-      getTagsForDigest(container, resource.spec.locations.account)
-        .apply {
-          log.debug("Marking ${this.size} tags for container $container as deployed to Titus cluster ${resource.id}: $this")
-        }
-        .forEach { tag ->
-          // We publish an event for each tag that matches the digest
-          // so that we handle the tags like `latest` where more than one tags have the same digest
-          // and we don't care about some of them.
-          notifyArtifactDeployed(resource, tag)
-        }
-    }
     return activeServerGroups
   }
 
