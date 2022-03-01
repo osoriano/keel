@@ -103,10 +103,7 @@ class ExportService(
       listOf("findImageFromTags", "deploy"),
       listOf("findImageFromTags", "manualJudgement", "deploy"),
       listOf("bake", "deploy")
-    ).let { basicShapes ->
-      // also support all the shapes above followed by a jenkins stage supposedly used for tests
-      basicShapes + basicShapes.map { shape -> shape + "jenkins" }
-    }
+    )
 
     /**
      * List of pipeline shapes that we know how to convert to a [Verification].
@@ -259,12 +256,12 @@ class ExportService(
             is ExportErrorResult -> deliveryConfigRepository.storeFailedPipelinesExportResult(app, result.error)
             is ExportSkippedResult -> log.info("Skipping export of $app - it is already on MD")
             is PipelineExportResult -> deliveryConfigRepository.storePipelinesExportResult(
-              result.deliveryConfig,
-              result.toSkippedPipelines(),
-              result.exportSucceeded,
-              result.repoSlug,
-              result.projectKey,
-              result.isInactive
+              deliveryConfig = result.deliveryConfig,
+              skippedPipelines = result.toSkippedPipelines(),
+              exportSucceeded = result.exportSucceeded,
+              repoSlug = result.repoSlug,
+              projectKey = result.projectKey,
+              isInactive = result.isInactive
             )
           }
         } catch (e: Exception) {
@@ -300,7 +297,7 @@ class ExportService(
     }
 
     // 1. find pipelines which are not matching to the supported patterns above
-    val nonExportablePipelines = pipelines.findNonExportable(maxAgeDays)
+    val nonExportablePipelines = pipelines.findNonExportable(maxAgeDays, includeVerifications)
 
     // 2. get the actual supported pipelines
     val exportablePipelines = pipelines - nonExportablePipelines.keys
@@ -495,7 +492,7 @@ class ExportService(
   /**
    * Finds non-exportable pipelines in the list and associates them with the reason why they're not.
    */
-  private fun List<Pipeline>.findNonExportable(maxAgeDays: Long): Map<Pipeline, SkipReason> {
+  private fun List<Pipeline>.findNonExportable(maxAgeDays: Long, includeVerifications: Boolean): Map<Pipeline, SkipReason> {
     val lastExecutions = runBlocking {
       associateWith { pipeline ->
         //return a map with the pipeline and its latest execution
@@ -512,17 +509,27 @@ class ExportService(
         (lastExecution == null || lastExecution.olderThan(maxAgeDays)) -> SkipReason.NOT_EXECUTED_RECENTLY
         pipeline.fromTemplate -> SkipReason.FROM_TEMPLATE
         pipeline.hasParallelStages -> SkipReason.HAS_PARALLEL_STAGES
-        !pipeline.isExportable -> SkipReason.SHAPE_NOT_SUPPORTED
+        !isExportable(pipeline, includeVerifications) -> SkipReason.SHAPE_NOT_SUPPORTED
         else -> null
       }
     }.filterNotNullValues()
   }
 
-  private val Pipeline.isExportable: Boolean
-    get() = shape in EXPORTABLE_PIPELINE_SHAPES
+  fun isExportable(pipeline: Pipeline, includeVerifications: Boolean = false): Boolean =
+    EXPORTABLE_PIPELINE_SHAPES.let { basicShapes ->
+      if (includeVerifications) {
+        // also support all the shapes above followed by a jenkins stage supposedly used for tests
+        basicShapes + basicShapes.map { shape -> shape + "jenkins" }
+      } else {
+        basicShapes
+      }
+    }.contains(pipeline.shape)
 
-  //Take a cluster exportable and return a pair with its dependent resources specs (cluster, security groups, and load balancers, and the artifact).
-  private suspend fun createResourcesBasedOnCluster(cluster: Exportable, environments: Set<SubmittedEnvironment>, applicationName: String
+  // Take a cluster exportable and return a pair with its dependent resources specs (cluster, security groups, and load balancers, and the artifact).
+  private suspend fun createResourcesBasedOnCluster(
+    cluster: Exportable,
+    environments: Set<SubmittedEnvironment>,
+    applicationName: String
   ): Pair<Set<SubmittedResource<ResourceSpec>>, DeliveryArtifact?> {
     val spec = try {
       handlers.supporting(cluster.clusterKind).export(cluster)

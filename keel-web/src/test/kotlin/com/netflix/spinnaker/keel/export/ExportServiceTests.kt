@@ -20,17 +20,19 @@ import com.netflix.spinnaker.keel.core.api.SubmittedResource
 import com.netflix.spinnaker.keel.ec2.resource.ClassicLoadBalancerHandler
 import com.netflix.spinnaker.keel.ec2.resource.ClusterHandler
 import com.netflix.spinnaker.keel.ec2.resource.SecurityGroupHandler
+import com.netflix.spinnaker.keel.export.ExportService.Companion.EXPORTABLE_PIPELINE_SHAPES
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.model.Application
 import com.netflix.spinnaker.keel.front50.model.Cluster
 import com.netflix.spinnaker.keel.front50.model.DeployStage
+import com.netflix.spinnaker.keel.front50.model.GenericStage
+import com.netflix.spinnaker.keel.front50.model.JenkinsStage
 import com.netflix.spinnaker.keel.front50.model.Pipeline
 import com.netflix.spinnaker.keel.front50.model.PipelineNotifications
 import com.netflix.spinnaker.keel.front50.model.RestrictedExecutionWindow
 import com.netflix.spinnaker.keel.front50.model.SlackChannel
 import com.netflix.spinnaker.keel.front50.model.TimeWindowConfig
 import com.netflix.spinnaker.keel.front50.model.Trigger
-import com.netflix.spinnaker.keel.igor.JobService
 import com.netflix.spinnaker.keel.jenkins.JenkinsService
 import com.netflix.spinnaker.keel.orca.ExecutionDetailResponse
 import com.netflix.spinnaker.keel.orca.OrcaService
@@ -68,7 +70,6 @@ internal class ExportServiceTests {
   private val orcaService: OrcaService = mockk()
   private val yamlMapper: YAMLMapper = mockk()
   private val deliveryConfigRepository: DeliveryConfigRepository = mockk()
-  private val jobService: JobService = mockk()
   private val cloudDriverCache: CloudDriverCache = mockk()
   private val titusClusterHandler: TitusClusterHandler = mockk()
   private val ec2ClusterHandler: ClusterHandler = mockk()
@@ -396,5 +397,40 @@ internal class ExportServiceTests {
     }
     verify { titusClusterHandler.export(any()) }
     expectThat(exported.spec).isEqualTo(titusCluster.spec)
+  }
+
+  @Test
+  fun `basic pipeline shapes are exportable`() {
+    EXPORTABLE_PIPELINE_SHAPES.forEach { shape ->
+      val pipeline = Pipeline(
+        name = "pipeline",
+        id = "1",
+        application = appName,
+        _stages = shape.mapIndexed { index, stage -> GenericStage(name = "whatever", type = stage, refId = "$index") }
+      )
+      expectThat(subject.isExportable(pipeline, includeVerifications = false)).isTrue()
+    }
+  }
+
+  @Test
+  fun `pipeline shapes with added jenkins stage are only exportable when exporting verifications is enabled`() {
+    fun jenkinsStage(deployIndex: Int) = GenericStage(name = "jenkins", type = "jenkins", refId = "${deployIndex + 1}")
+
+    EXPORTABLE_PIPELINE_SHAPES.forEach { shape ->
+      var deployIndex = -1
+      var pipeline = Pipeline(
+        name = "pipeline",
+        id = "1",
+        application = appName,
+        _stages = shape.mapIndexed { index, stage ->
+          if (stage == "deploy") deployIndex = index
+          GenericStage(name = "whatever", type = stage, refId = "$index")
+        }
+      )
+      val stagesWithJenkins = pipeline.stages.toMutableList().apply { add(deployIndex + 1, jenkinsStage(deployIndex)) }
+      pipeline = pipeline.copy(_stages = stagesWithJenkins)
+      expectThat(subject.isExportable(pipeline, includeVerifications = false)).isFalse()
+      expectThat(subject.isExportable(pipeline, includeVerifications = true)).isTrue()
+    }
   }
 }
