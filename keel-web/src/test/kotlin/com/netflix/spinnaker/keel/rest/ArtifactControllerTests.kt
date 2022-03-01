@@ -49,7 +49,12 @@ internal class ArtifactControllerTests
   class TestConfig {
     @Bean
     @Primary
-    fun environment(): ConfigurableEnvironment = spyk(MockEnvironment())
+    fun environment(): ConfigurableEnvironment = spyk(
+      MockEnvironment()
+        // the com.netflix.temporal.spring.convention.LaptopTaskQueueNamer bean, in the netflix:temporal-java-spring library,
+        // requires that the spring.application.name property be set.
+        .withProperty("spring.application.name", "keel")
+    )
 
     // Hack to mock ApplicationEventPublisher, which is handled as a special case in Spring (the application
     // context implements the interface). See https://github.com/spring-projects/spring-boot/issues/6060
@@ -165,7 +170,7 @@ internal class ArtifactControllerTests
       response = mvc.perform(request)
     }
   }
-  
+
   fun tests() = rootContext<Fixture> {
     fixture {
       Fixture()
