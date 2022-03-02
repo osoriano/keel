@@ -23,6 +23,7 @@ import com.netflix.spinnaker.keel.api.titus.ResourcesSpec
 import com.netflix.spinnaker.keel.api.titus.TITUS_CLOUD_PROVIDER
 import com.netflix.spinnaker.keel.api.titus.TITUS_CLUSTER_V1
 import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
+import com.netflix.spinnaker.keel.api.titus.TitusScalingSpec
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroup.NetworkMode.HighScale
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroupSpec
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
@@ -287,7 +288,7 @@ internal class TitusClusterExportTests : JUnit5Minutests {
         val cluster = runBlocking {
           export(exportable)
         }
-        expectThat(cluster.defaults.scaling).isNotNull().get { targetTrackingPolicies }.isNotEmpty()
+        expectThat(cluster.defaults.scaling).isA<TitusScalingSpec>().get { targetTrackingPolicies }.isNotEmpty()
       }
     }
 

@@ -35,6 +35,9 @@ data class Scaling(
 fun Scaling?.hasScalingPolicies(): Boolean =
   this != null && (targetTrackingPolicies.isNotEmpty() || stepScalingPolicies.isNotEmpty())
 
+fun ScalingSpec?.hasScalingPolicies(): Boolean =
+  this != null && if (this is EC2ScalingSpec) (targetTrackingPolicies.isNotEmpty() || stepScalingPolicies.isNotEmpty()) else true
+
 sealed class ScalingPolicy<T : ScalingPolicy<T>> {
   /**
    * @return `true` if the configuration of `other` is the same as this policy (ignoring identifiers, just "is this

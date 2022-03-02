@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.api.ec2.old
 
+import com.fasterxml.jackson.annotation.JsonTypeInfo
+import com.fasterxml.jackson.annotation.JsonTypeInfo.Id.DEDUCTION
 import com.netflix.spinnaker.keel.api.ArtifactReferenceProvider
 import com.netflix.spinnaker.keel.api.ClusterDeployStrategy
 import com.netflix.spinnaker.keel.api.Locatable
@@ -11,9 +13,10 @@ import com.netflix.spinnaker.keel.api.ec2.ClusterDependencies
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec.CapacitySpec
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec.HealthSpec
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec.ServerGroupSpec
+import com.netflix.spinnaker.keel.api.ec2.EC2ScalingSpec
 import com.netflix.spinnaker.keel.api.ec2.LaunchConfigurationSpec
 import com.netflix.spinnaker.keel.api.ec2.OverrideableClusterDependencyContainer
-import com.netflix.spinnaker.keel.api.ec2.Scaling
+import com.netflix.spinnaker.keel.api.ec2.ScalingSpec
 import com.netflix.spinnaker.keel.api.schema.Factory
 import com.netflix.spinnaker.keel.api.schema.Optional
 
@@ -35,7 +38,8 @@ data class ClusterV1Spec (
     capacity: CapacitySpec? = null,
     dependencies: ClusterDependencies? = null,
     health: HealthSpec? = null,
-    scaling: Scaling? = null,
+    @JsonTypeInfo(use = DEDUCTION, defaultImpl = EC2ScalingSpec::class)
+    scaling: ScalingSpec? = null,
     tags: Map<String, String>? = null,
     overrides: Map<String, ServerGroupSpec> = emptyMap()
   ) : this(

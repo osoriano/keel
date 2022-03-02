@@ -9,6 +9,7 @@ import com.netflix.spinnaker.keel.api.ec2.DEFAULT_AUTOSCALE_SCALE_IN_COOLDOWN
 import com.netflix.spinnaker.keel.api.ec2.DEFAULT_AUTOSCALE_SCALE_OUT_COOLDOWN
 import com.netflix.spinnaker.keel.api.ec2.Scaling
 import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
+import com.netflix.spinnaker.keel.api.titus.TitusScalingSpec
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroup
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroup.Location
 import com.netflix.spinnaker.keel.clouddriver.model.Resources
@@ -110,10 +111,13 @@ fun TitusClusterSpec.resolveScaling(region: String? = null) =
   (region?.let { overrides[it] }?.scaling ?: defaults.scaling)
   ?.run {
     // we set the warmup to ZERO/null as Titus doesn't use the warmup setting
-    Scaling(
-      targetTrackingPolicies = targetTrackingPolicies.map { it.copy(warmup = null, scaleOutCooldown = it.scaleOutCooldown ?: DEFAULT_AUTOSCALE_SCALE_OUT_COOLDOWN, scaleInCooldown = it.scaleInCooldown ?: DEFAULT_AUTOSCALE_SCALE_IN_COOLDOWN) }.toSet(),
-      stepScalingPolicies = stepScalingPolicies.map { it.copy(warmup = ZERO) }.toSet()
-    )
+    when (this) {
+      is TitusScalingSpec -> Scaling(
+        targetTrackingPolicies = targetTrackingPolicies.map { it.copy(warmup = null, scaleOutCooldown = it.scaleOutCooldown ?: DEFAULT_AUTOSCALE_SCALE_OUT_COOLDOWN, scaleInCooldown = it.scaleInCooldown ?: DEFAULT_AUTOSCALE_SCALE_IN_COOLDOWN) }.toSet(),
+        stepScalingPolicies = stepScalingPolicies.map { it.copy(warmup = ZERO) }.toSet()
+      )
+      else -> Scaling()
+    }
   } ?: Scaling()
 
 fun TitusClusterSpec.resolveEfs(region: String? = null) =

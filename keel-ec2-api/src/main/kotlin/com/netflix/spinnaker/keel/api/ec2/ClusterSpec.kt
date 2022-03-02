@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.api.ec2
 
+import com.fasterxml.jackson.annotation.JsonTypeInfo
+import com.fasterxml.jackson.annotation.JsonTypeInfo.Id.DEDUCTION
 import com.netflix.spinnaker.keel.api.ClusterDeployStrategy
 import com.netflix.spinnaker.keel.api.ComputeResourceSpec
 import com.netflix.spinnaker.keel.api.Dependency
@@ -109,15 +111,18 @@ fun ServerGroupSpec.resolveCapacity(): Capacity? =
     else -> Capacity.DefaultCapacity(capacity)
   }
 
-fun ClusterSpec.resolveScaling(region: String? = null): Scaling =
-  Scaling(
-    suspendedProcesses = defaults.scaling?.suspendedProcesses +
-      (region?.let { overrides[it] }?.scaling?.suspendedProcesses ?: emptySet()),
-    targetTrackingPolicies = defaults.scaling?.targetTrackingPolicies +
-      (region?.let { overrides[it] }?.scaling?.targetTrackingPolicies ?: emptySet()),
-    stepScalingPolicies = defaults.scaling?.stepScalingPolicies +
-      (region?.let { overrides[it] }?.scaling?.stepScalingPolicies ?: emptySet())
+fun ClusterSpec.resolveScaling(region: String? = null): Scaling {
+  val defaultScaling = defaults.scaling as? EC2ScalingSpec
+  val regionalScaling = overrides[region]?.scaling as? EC2ScalingSpec
+  return Scaling(
+    suspendedProcesses = defaultScaling?.suspendedProcesses +
+      (regionalScaling?.suspendedProcesses ?: emptySet()),
+    targetTrackingPolicies = defaultScaling?.targetTrackingPolicies +
+      (regionalScaling?.targetTrackingPolicies ?: emptySet()),
+    stepScalingPolicies = defaultScaling?.stepScalingPolicies +
+      (regionalScaling?.stepScalingPolicies ?: emptySet())
   )
+}
 
 fun ClusterSpec.resolveDependencies(region: String? = null): ClusterDependencies =
   ClusterDependencies(
@@ -176,7 +181,8 @@ data class ClusterSpec(
     capacity: CapacitySpec? = null,
     dependencies: ClusterDependencies? = null,
     health: HealthSpec? = null,
-    scaling: Scaling? = null,
+    @JsonTypeInfo(use = DEDUCTION, defaultImpl = EC2ScalingSpec::class)
+    scaling: ScalingSpec? = null,
     tags: Map<String, String>? = null,
     overrides: Map<String, ServerGroupSpec> = emptyMap(),
     rolloutWith: RolloutConfig? = null
@@ -247,7 +253,7 @@ data class ClusterSpec(
     val capacity: CapacitySpec? = null,
     override val dependencies: ClusterDependencies? = null,
     val health: HealthSpec? = null,
-    val scaling: Scaling? = null,
+    val scaling: ScalingSpec? = null,
     val tags: Map<String, String>? = null
   ) : ClusterDependencyContainer {
     init {
@@ -275,6 +281,14 @@ data class ClusterSpec(
     val terminationPolicies: Set<TerminationPolicy>? = null
   )
 }
+
+interface ScalingSpec
+
+data class EC2ScalingSpec(
+  val suspendedProcesses: Set<ScalingProcess> = emptySet(),
+  val targetTrackingPolicies: Set<TargetTrackingPolicy> = emptySet(),
+  val stepScalingPolicies: Set<StepScalingPolicy> = emptySet()
+) : ScalingSpec
 
 operator fun Locations<SubnetAwareRegionSpec>.get(region: String) =
   regions.first { it.name == region }

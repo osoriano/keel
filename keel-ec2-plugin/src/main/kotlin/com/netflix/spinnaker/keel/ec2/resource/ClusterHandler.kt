@@ -29,6 +29,7 @@ import com.netflix.spinnaker.keel.api.ec2.ClusterSpec.HealthSpec
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec.ServerGroupSpec
 import com.netflix.spinnaker.keel.api.ec2.CustomizedMetricSpecification
 import com.netflix.spinnaker.keel.api.ec2.DEFAULT_AUTOSCALE_INSTANCE_WARMUP
+import com.netflix.spinnaker.keel.api.ec2.EC2ScalingSpec
 import com.netflix.spinnaker.keel.api.ec2.EC2_CLOUD_PROVIDER
 import com.netflix.spinnaker.keel.api.ec2.EC2_CLUSTER_V1_1
 import com.netflix.spinnaker.keel.api.ec2.HealthCheckType
@@ -1319,7 +1320,7 @@ class ClusterHandler(
       capacity = CapacitySpec(1, 1, 1),
       dependencies = ClusterDependencies(),
       health = Health().toSpecWithoutDefaults(),
-      scaling = Scaling(),
+      scaling = EC2ScalingSpec(),
       tags = emptyMap()
     )
 
@@ -1328,12 +1329,15 @@ class ClusterHandler(
       capacity = CapacitySpec(capacity.min, capacity.max, if (scaling.hasScalingPolicies()) null else capacity.desired),
       dependencies = dependencies,
       health = health.toSpecWithoutDefaults(),
-      scaling = if (scaling.hasScalingPolicies()) scaling else null,
+      scaling = if (scaling.hasScalingPolicies()) scaling.toEC2ScalingSpec() else null,
       tags = tags
     )
 
     return checkNotNull(buildSpecFromDiff(defaults, thisSpec))
   }
+
+  private fun Scaling.toEC2ScalingSpec() =
+    EC2ScalingSpec(suspendedProcesses, targetTrackingPolicies, stepScalingPolicies)
 
   /**
    * Translates a Health object to a ClusterSpec.HealthSpec with default values omitted for export.

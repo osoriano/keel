@@ -8,6 +8,7 @@ import com.netflix.spinnaker.keel.api.ec2.ClusterSpec
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec.CapacitySpec
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec.ServerGroupSpec
 import com.netflix.spinnaker.keel.api.ec2.CustomizedMetricSpecification
+import com.netflix.spinnaker.keel.api.ec2.EC2ScalingSpec
 import com.netflix.spinnaker.keel.api.ec2.EC2_CLUSTER_V1_1
 import com.netflix.spinnaker.keel.api.ec2.LaunchConfigurationSpec
 import com.netflix.spinnaker.keel.api.ec2.PredefinedMetricSpecification
@@ -204,7 +205,7 @@ class CapacityAndScalingPoliciesDiffingTests {
       spec = spec.run {
         copy(_defaults = defaults.run {
           copy(
-            scaling = Scaling(
+            scaling = EC2ScalingSpec(
               targetTrackingPolicies = setOf(
                 TargetTrackingPolicy(
                   targetValue = 20.0,

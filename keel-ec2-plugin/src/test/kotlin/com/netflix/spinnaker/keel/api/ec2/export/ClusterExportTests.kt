@@ -18,10 +18,10 @@ import com.netflix.spinnaker.keel.api.ec2.ClusterSpec
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec.CapacitySpec
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec.ServerGroupSpec
 import com.netflix.spinnaker.keel.api.ec2.CustomizedMetricSpecification
+import com.netflix.spinnaker.keel.api.ec2.EC2ScalingSpec
 import com.netflix.spinnaker.keel.api.ec2.EC2_CLOUD_PROVIDER
 import com.netflix.spinnaker.keel.api.ec2.EC2_CLUSTER_V1_1
 import com.netflix.spinnaker.keel.api.ec2.LaunchConfigurationSpec
-import com.netflix.spinnaker.keel.api.ec2.Scaling
 import com.netflix.spinnaker.keel.api.ec2.ServerGroup.ActiveServerGroupImage
 import com.netflix.spinnaker.keel.api.ec2.ServerGroup.LaunchConfiguration.Companion.defaultIamRoleFor
 import com.netflix.spinnaker.keel.api.ec2.TargetTrackingPolicy
@@ -137,7 +137,7 @@ internal class ClusterExportTests : JUnit5Minutests {
         instanceMonitoring = false
       ),
       capacity = CapacitySpec(min = 1, max = 6),
-      scaling = Scaling(
+      scaling = EC2ScalingSpec(
         targetTrackingPolicies = setOf(
           TargetTrackingPolicy(
             name = targetTrackingPolicyName,
@@ -380,7 +380,7 @@ internal class ClusterExportTests : JUnit5Minutests {
         expectThat(cluster) {
           get { locations.regions }.hasSize(2)
           get { overrides }.hasSize(0)
-          get { defaults.scaling!!.targetTrackingPolicies }.hasSize(1)
+          get { defaults.scaling }.isA<EC2ScalingSpec>().get { targetTrackingPolicies }.hasSize(1)
           get { defaults.health }.isNull()
           get { deployWith }.isA<RedBlack>()
           get { artifactReference }.isNotNull()
@@ -403,7 +403,7 @@ internal class ClusterExportTests : JUnit5Minutests {
           get { locations.regions }.hasSize(2)
           get { overrides }.hasSize(1)
           get { overrides }.get { "us-east-1" }.get { "capacity" }.isNotEmpty()
-          get { defaults.scaling!!.targetTrackingPolicies }.hasSize(1)
+          get { defaults.scaling }.isA<EC2ScalingSpec>().get { targetTrackingPolicies }.hasSize(1)
           get { spec.defaults.health }.isNull()
         }
       }

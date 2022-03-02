@@ -6,10 +6,11 @@ import com.netflix.spinnaker.keel.api.SubnetAwareLocations
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec.CapacitySpec
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec.ServerGroupSpec
+import com.netflix.spinnaker.keel.api.ec2.EC2ScalingSpec
 import com.netflix.spinnaker.keel.api.ec2.InstanceMetadataServiceVersion
 import com.netflix.spinnaker.keel.api.ec2.LaunchConfigurationSpec
-import com.netflix.spinnaker.keel.api.ec2.Scaling
 import com.netflix.spinnaker.keel.api.ec2.ScalingProcess
+import com.netflix.spinnaker.keel.api.ec2.ScalingSpec
 import com.netflix.spinnaker.keel.optics.monikerStackLens
 import com.netflix.spinnaker.keel.optics.subnetAwareLocationsAccountLens
 
@@ -67,12 +68,12 @@ val serverGroupSpecCapacityLens: Lens<ServerGroupSpec, CapacitySpec?> = Lens(
   set = { serverGroupSpec, capacity -> serverGroupSpec.copy(capacity = capacity) }
 )
 
-val serverGroupSpecScalingLens: Lens<ServerGroupSpec, Scaling?> = Lens(
+val serverGroupSpecScalingLens: Lens<ServerGroupSpec, ScalingSpec?> = Lens(
   get = ServerGroupSpec::scaling,
   set = { serverGroupSpec, scaling -> serverGroupSpec.copy(scaling = scaling) }
 )
 
-val serverGroupSpecScalingLensNullable: Lens<ServerGroupSpec?, Scaling?> = Lens(
+val serverGroupSpecScalingLensNullable: Lens<ServerGroupSpec?, ScalingSpec?> = Lens(
   get = { it?.scaling },
   set = { serverGroupSpec, scaling ->
     if (scaling == null) {
@@ -83,13 +84,13 @@ val serverGroupSpecScalingLensNullable: Lens<ServerGroupSpec?, Scaling?> = Lens(
   }
 )
 
-val scalingSuspendedProcessesLensNullable: Lens<Scaling?, Set<ScalingProcess>?> = Lens(
-  get = { it?.suspendedProcesses },
+val scalingSuspendedProcessesLensNullable: Lens<ScalingSpec?, Set<ScalingProcess>?> = Lens(
+  get = { (it as? EC2ScalingSpec)?.suspendedProcesses },
   set = { scaling, suspendedProcesses ->
     if (suspendedProcesses == null) {
-      scaling?.copy(suspendedProcesses = emptySet())
+      (scaling as? EC2ScalingSpec)?.copy(suspendedProcesses = emptySet())
     } else {
-      scaling?.copy(suspendedProcesses = suspendedProcesses) ?: Scaling(suspendedProcesses = suspendedProcesses)
+      (scaling as? EC2ScalingSpec)?.copy(suspendedProcesses = suspendedProcesses) ?: EC2ScalingSpec(suspendedProcesses = suspendedProcesses)
     }
   }
 )

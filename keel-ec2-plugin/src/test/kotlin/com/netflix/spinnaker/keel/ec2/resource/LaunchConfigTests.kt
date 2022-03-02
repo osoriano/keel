@@ -9,13 +9,13 @@ import com.netflix.spinnaker.keel.api.ec2.ClusterDependencies
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec.CapacitySpec
 import com.netflix.spinnaker.keel.api.ec2.CustomizedMetricSpecification
+import com.netflix.spinnaker.keel.api.ec2.EC2ScalingSpec
 import com.netflix.spinnaker.keel.api.ec2.EC2_CLOUD_PROVIDER
 import com.netflix.spinnaker.keel.api.ec2.EC2_CLUSTER_V1_1
 import com.netflix.spinnaker.keel.api.ec2.InstanceMetadataServiceVersion
 import com.netflix.spinnaker.keel.api.ec2.InstanceMetadataServiceVersion.V1
 import com.netflix.spinnaker.keel.api.ec2.InstanceMetadataServiceVersion.V2
 import com.netflix.spinnaker.keel.api.ec2.LaunchConfigurationSpec
-import com.netflix.spinnaker.keel.api.ec2.Scaling
 import com.netflix.spinnaker.keel.api.ec2.ServerGroup
 import com.netflix.spinnaker.keel.api.ec2.TargetTrackingPolicy
 import com.netflix.spinnaker.keel.api.ec2.VirtualMachineImage
@@ -129,7 +129,7 @@ internal class LaunchConfigTests {
         instanceMetadataServiceVersion = instanceMetadataServiceVersion
       ),
       capacity = CapacitySpec(1, 6),
-      scaling = Scaling(
+      scaling = EC2ScalingSpec(
         targetTrackingPolicies = setOf(
           TargetTrackingPolicy(
             name = "keel-test-target-tracking-policy",
