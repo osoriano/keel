@@ -24,7 +24,19 @@ data class Pipeline(
    * The pipeline stages, in the right order of dependency between them.
    */
   val stages: List<Stage>
-    get() = _stages.sortedBy { if (it.requisiteStageRefIds.isEmpty()) "" else it.requisiteStageRefIds.first() }
+    get() = _stages.sortedBy { stage ->
+      predecessorsOf(stage).reversed().joinToString()
+    }
+
+  /**
+   * @return The list of refIds corresponding to the predecessors of the [stage], recursively.
+   */
+  private fun predecessorsOf(stage: Stage): List<String> =
+    stage.requisiteStageRefIds.flatMap { refId ->
+      _stages.find { it.refId == refId }
+        ?.let { listOf(it.refId) + predecessorsOf(it) }
+        ?: emptyList()
+    }
 
   /**
    * List of the pipeline stage types ordered by stage dependencies.

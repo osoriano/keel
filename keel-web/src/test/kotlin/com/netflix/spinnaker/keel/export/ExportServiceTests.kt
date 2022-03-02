@@ -433,4 +433,40 @@ internal class ExportServiceTests {
       expectThat(subject.isExportable(pipeline, includeVerifications = true)).isTrue()
     }
   }
+
+  @Test
+  fun `pipeline stages are sorted based on requisiteStageRefIds`() {
+    val basePipeline = Pipeline(name = "pipeline", id = "1", application = appName)
+
+    EXPORTABLE_PIPELINE_SHAPES.forEach { shape ->
+      val pipeline = basePipeline.copy(
+        _stages = shape.mapIndexed { index, stage ->
+          GenericStage(
+            name = "whatever",
+            type = stage,
+            refId = "$index",
+            requisiteStageRefIds = if (index == 0) {
+              emptyList()
+            } else {
+              listOf("${index - 1}")
+            }
+          )
+        }
+      )
+      println(pipeline.shape.joinToString(" -> "))
+      expectThat(pipeline.shape).isEqualTo(shape)
+    }
+
+    // check a pipeline where the stages are out of order
+    basePipeline.copy(
+      _stages = listOf(
+        GenericStage("bake", "bake", refId = "1", requisiteStageRefIds = listOf("3")),
+        GenericStage("deploy", "deploy", refId = "2", requisiteStageRefIds = listOf("1")),
+        GenericStage("build", "jenkins", refId = "3", requisiteStageRefIds = emptyList()),
+        GenericStage("test", "jenkins", refId = "4", requisiteStageRefIds = listOf("2")),
+      )
+    ).also { pipeline ->
+      expectThat(pipeline.stages.map { it.name }).isEqualTo(listOf("build", "bake", "deploy", "test"))
+    }
+  }
 }
