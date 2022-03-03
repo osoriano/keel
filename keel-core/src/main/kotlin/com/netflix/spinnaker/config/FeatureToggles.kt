@@ -13,6 +13,7 @@ class FeatureToggles(private val springEnvironment: ConfigurableEnvironment) {
     const val OPTIMIZED_DOCKER_FLOW: String = "keel.artifacts.optimized-docker-flow"
     const val GRAPHQL_SCHEMA_VALIDATION_CONSTRAINT: String = "keel.constraints.schema-validation.enabled"
     const val COROUTINE_MONITORING: String = "keel.metrics.coroutines.enabled"
+    const val SKIP_PAUSED_APPS: String = "keel.environment-check.skip-paused-apps"
   }
 
   /**

@@ -58,7 +58,15 @@ internal object SqlResourceRepositoryPeriodicallyCheckedTests :
     )
   }
 
-  val deliveryConfigRepository = SqlDeliveryConfigRepository(jooq, systemUTC(), configuredObjectMapper(), resourceFactory, sqlRetry, publisher = mockk(relaxed = true))
+  val deliveryConfigRepository = SqlDeliveryConfigRepository(
+      jooq,
+      systemUTC(),
+      configuredObjectMapper(),
+      resourceFactory,
+      sqlRetry,
+      publisher = mockk(relaxed = true),
+      featureToggles = mockk()
+  )
 
   override val storeDeliveryConfig: (DeliveryConfig) -> Unit = deliveryConfigRepository::store
 

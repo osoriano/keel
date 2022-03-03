@@ -34,7 +34,15 @@ class SqlDismissibleNotificationRepositoryTests {
   private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties))
   private val clock = MutableClock()
   private val objectMapper = configuredTestObjectMapper()
-  private val deliveryConfigRepository = SqlDeliveryConfigRepository(jooq, clock, objectMapper, resourceFactory(), sqlRetry, publisher = mockk())
+  private val deliveryConfigRepository = SqlDeliveryConfigRepository(
+      jooq,
+      clock,
+      objectMapper,
+      resourceFactory(),
+      sqlRetry,
+      publisher = mockk(),
+      featureToggles = mockk()
+  )
   private val notificationRepository = SqlDismissibleNotificationRepository(jooq, sqlRetry, objectMapper, clock)
   private val deliveryConfig = deliveryConfig()
 

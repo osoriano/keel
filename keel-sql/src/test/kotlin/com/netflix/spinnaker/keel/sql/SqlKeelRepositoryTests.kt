@@ -92,13 +92,15 @@ class SqlKeelRepositoryTests : JUnit5Minutests {
 
   private fun createDeliveryConfigRepository(resourceFactory: ResourceFactory): SqlDeliveryConfigRepository =
     SqlDeliveryConfigRepository(
-      jooq,
-      clock,
-      objectMapper,
-      resourceFactory,
-      sqlRetry,
-      defaultArtifactSuppliers(),
-      publisher = mockk(relaxed = true))
+        jooq,
+        clock,
+        objectMapper,
+        resourceFactory,
+        sqlRetry,
+        defaultArtifactSuppliers(),
+        publisher = mockk(relaxed = true),
+        featureToggles = mockk()
+    )
 
   private fun createResourceRepository(resourceFactory: ResourceFactory): SqlResourceRepository =
     SqlResourceRepository(jooq, clock, objectMapper, resourceFactory, sqlRetry, publisher = mockk(relaxed = true), spectator = NoopRegistry(), springEnv = mockEnvironment(), resourceEventPruneConfig = ResourceEventPruneConfig())

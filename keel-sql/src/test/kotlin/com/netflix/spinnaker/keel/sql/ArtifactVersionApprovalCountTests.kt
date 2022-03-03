@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.sql
 
+import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.keel.test.configuredTestObjectMapper
 import com.netflix.spinnaker.keel.test.defaultArtifactSuppliers
 import com.netflix.spinnaker.keel.test.deliveryConfig
@@ -8,7 +9,9 @@ import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil.cleanupDb
 import com.netflix.spinnaker.time.MutableClock
+import io.mockk.every
 import io.mockk.mockk
+import org.junit.Before
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.springframework.context.ApplicationEventPublisher
@@ -29,14 +32,16 @@ class ArtifactVersionApprovalCountTests {
   private val publisher = mockk<ApplicationEventPublisher>(relaxed = true)
   private val resourceFactory = resourceFactory()
   private val deliveryConfig = deliveryConfig()
+  private val featureToggles = mockk<FeatureToggles>()
   private val deliveryConfigRepository = SqlDeliveryConfigRepository(
-    jooq,
-    clock,
-    objectMapper,
-    resourceFactory,
-    sqlRetry,
-    defaultArtifactSuppliers(),
-    publisher = publisher
+      jooq,
+      clock,
+      objectMapper,
+      resourceFactory,
+      sqlRetry,
+      defaultArtifactSuppliers(),
+      publisher = publisher,
+      featureToggles = featureToggles
   )
   private val artifactRepository = SqlArtifactRepository(
     jooq,
@@ -45,6 +50,13 @@ class ArtifactVersionApprovalCountTests {
     sqlRetry,
     publisher = publisher
   )
+
+  @Before
+  fun setup() {
+    every {
+      featureToggles.isEnabled(FeatureToggles.SKIP_PAUSED_APPS, any())
+    } returns true
+  }
 
   @AfterEach
   fun cleanup() {

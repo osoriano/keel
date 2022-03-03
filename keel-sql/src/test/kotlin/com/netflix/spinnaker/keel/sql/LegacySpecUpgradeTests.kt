@@ -85,13 +85,14 @@ internal class LegacySpecUpgradeTests : JUnit5Minutests {
     val resourceFactory = resourceFactory(resourceTypeIdentifier, listOf(v1to2Migrator, v2to3Migrator))
 
     val deliveryConfigRepository = SqlDeliveryConfigRepository(
-      jooq,
-      systemUTC(),
-      configuredObjectMapper(),
-      resourceFactory,
-      sqlRetry,
-      emptyList(),
-      publisher = mockk(relaxed = true)
+        jooq,
+        systemUTC(),
+        configuredObjectMapper(),
+        resourceFactory,
+        sqlRetry,
+        emptyList(),
+        publisher = mockk(relaxed = true),
+        featureToggles = mockk()
     )
     val resourceRepository = SqlResourceRepository(
       jooq,

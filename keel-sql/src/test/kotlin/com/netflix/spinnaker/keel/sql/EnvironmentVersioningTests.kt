@@ -1,6 +1,8 @@
 package com.netflix.spinnaker.keel.sql
 
 import com.netflix.spectator.api.NoopRegistry
+import com.netflix.spinnaker.config.FeatureToggles
+import com.netflix.spinnaker.config.FeatureToggles.Companion.SKIP_PAUSED_APPS
 import com.netflix.spinnaker.config.PersistenceRetryConfig
 import com.netflix.spinnaker.config.ResourceEventPruneConfig
 import com.netflix.spinnaker.keel.api.DeliveryConfig
@@ -30,8 +32,10 @@ import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil.cleanupDb
 import com.netflix.spinnaker.time.MutableClock
+import io.mockk.every
 import io.mockk.mockk
 import org.jooq.Table
+import org.junit.Before
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -56,15 +60,17 @@ class EnvironmentVersioningTests {
   private val clock = MutableClock()
   private val resourceFactory = resourceFactory()
   val deliveryConfig = deliveryConfig()
+  private val featureToggles = mockk<FeatureToggles>()
 
   private val deliveryConfigRepository = SqlDeliveryConfigRepository(
-    jooq,
-    clock,
-    objectMapper,
-    resourceFactory,
-    sqlRetry,
-    defaultArtifactSuppliers(),
-    publisher = mockk(relaxed = true)
+      jooq,
+      clock,
+      objectMapper,
+      resourceFactory,
+      sqlRetry,
+      defaultArtifactSuppliers(),
+      publisher = mockk(relaxed = true),
+      featureToggles = featureToggles,
   )
 
   private val artifactRepository = SqlArtifactRepository(
@@ -108,6 +114,13 @@ class EnvironmentVersioningTests {
   )
 
   private val heart = SqlHeart(jooq, sqlRetry, clock)
+
+  @BeforeEach
+  fun setup() {
+    every {
+      featureToggles.isEnabled(SKIP_PAUSED_APPS, any())
+    } returns true
+  }
 
   @BeforeEach
   fun storeDeliveryConfig() {

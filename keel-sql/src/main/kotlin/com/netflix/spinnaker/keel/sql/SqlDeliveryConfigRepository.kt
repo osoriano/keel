@@ -2,6 +2,8 @@ package com.netflix.spinnaker.keel.sql
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.netflix.spinnaker.config.FeatureToggles
+import com.netflix.spinnaker.config.FeatureToggles.Companion.SKIP_PAUSED_APPS
 import com.netflix.spinnaker.keel.api.ArtifactChange
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.DeliveryConfig.Companion.MIGRATING_KEY
@@ -96,7 +98,8 @@ class SqlDeliveryConfigRepository(
   resourceFactory: ResourceFactory,
   sqlRetry: SqlRetry,
   artifactSuppliers: List<ArtifactSupplier<*, *>> = emptyList(),
-  private val publisher: ApplicationEventPublisher
+  private val publisher: ApplicationEventPublisher,
+  private val featureToggles: FeatureToggles,
 ) : SqlStorageContext(
   jooq,
   clock,
@@ -1257,12 +1260,17 @@ class SqlDeliveryConfigRepository(
               .or(DELIVERY_CONFIG_LAST_CHECKED.LEASED_AT.lessOrEqual(threeMinutesAgo)) // lease expired
           )
           // the application is not paused
-          .andNotExists(
-            selectOne()
-              .from(PAUSED)
-              .where(PAUSED.NAME.eq(DELIVERY_CONFIG.APPLICATION))
-              .and(PAUSED.SCOPE.eq(APPLICATION))
-          )
+          .apply {
+            if (featureToggles.isEnabled(SKIP_PAUSED_APPS)) {
+              andNotExists(
+                selectOne()
+                  .from(PAUSED)
+                  .where(PAUSED.NAME.eq(DELIVERY_CONFIG.APPLICATION))
+                  .and(PAUSED.SCOPE.eq(APPLICATION))
+              )
+            }
+          }
+
           .orderBy(DELIVERY_CONFIG_LAST_CHECKED.AT)
           .limit(limit)
           .forUpdate()

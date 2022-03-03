@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.persistence
 
+import com.netflix.spinnaker.config.FeatureToggles
+import com.netflix.spinnaker.config.FeatureToggles.Companion.SKIP_PAUSED_APPS
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.DeliveryConfig.Companion.MIGRATING_KEY
 import com.netflix.spinnaker.keel.api.Environment
@@ -42,6 +44,7 @@ import com.netflix.spinnaker.keel.test.withUpdatedResource
 import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
+import io.mockk.every
 import io.mockk.mockk
 import org.springframework.context.ApplicationEventPublisher
 import strikt.api.expect
@@ -75,11 +78,13 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
   JUnit5Minutests {
 
   val publisher: ApplicationEventPublisher = mockk(relaxed = true)
+  val featureToggles: FeatureToggles = mockk()
 
   abstract fun createDeliveryConfigRepository(
     resourceSpecIdentifier: ResourceSpecIdentifier,
     publisher: ApplicationEventPublisher,
-    clock: MutableClock
+    clock: MutableClock,
+    featureToggles: FeatureToggles
   ): T
 
   abstract fun createResourceRepository(
@@ -237,7 +242,8 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
           this@DeliveryConfigRepositoryTests.createDeliveryConfigRepository(
             it,
             publisher,
-            clock
+            clock,
+            featureToggles
           )
         },
         resourceRepositoryProvider = {
@@ -254,6 +260,12 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
 
     after {
       flush()
+    }
+
+    before {
+      every {
+        featureToggles.isEnabled(SKIP_PAUSED_APPS, any())
+      } returns true
     }
 
     context("an empty repository") {

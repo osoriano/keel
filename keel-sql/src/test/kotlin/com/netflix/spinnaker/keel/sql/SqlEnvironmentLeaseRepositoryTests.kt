@@ -24,13 +24,14 @@ internal class SqlEnvironmentLeaseRepositoryTests :
   private val resourceFactory = resourceFactory()
 
   private val deliveryConfigRepository = SqlDeliveryConfigRepository(
-    jooq = jooq,
-    clock = clock,
-    resourceFactory = resourceFactory,
-    objectMapper = mapper,
-    sqlRetry = sqlRetry,
-    artifactSuppliers = artifactSuppliers,
-    publisher = mockk(relaxed = true)
+      jooq = jooq,
+      clock = clock,
+      objectMapper = mapper,
+      resourceFactory = resourceFactory,
+      sqlRetry = sqlRetry,
+      artifactSuppliers = artifactSuppliers,
+      publisher = mockk(relaxed = true),
+      featureToggles = mockk()
   )
   override fun createSubject() =
     SqlEnvironmentLeaseRepository(

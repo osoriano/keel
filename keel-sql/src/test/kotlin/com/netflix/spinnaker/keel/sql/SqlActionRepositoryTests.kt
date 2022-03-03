@@ -33,11 +33,12 @@ internal class SqlActionRepositoryTests :
   private val deliveryConfigRepository = SqlDeliveryConfigRepository(
     jooq = jooq,
     clock = clock,
-    resourceFactory = resourceFactory(),
     objectMapper = mapper,
+    resourceFactory = resourceFactory(),
     sqlRetry = sqlRetry,
     artifactSuppliers = artifactSuppliers,
-    publisher = mockk(relaxed = true)
+    publisher = mockk(relaxed = true),
+    featureToggles = mockk()
   )
   private val artifactRepository = SqlArtifactRepository(
     jooq = jooq,

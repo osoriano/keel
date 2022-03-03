@@ -1,6 +1,8 @@
 package com.netflix.spinnaker.keel.sql
 
 import com.netflix.spectator.api.NoopRegistry
+import com.netflix.spinnaker.config.FeatureToggles
+import com.netflix.spinnaker.config.FeatureToggles.Companion.SKIP_PAUSED_APPS
 import com.netflix.spinnaker.config.ResourceEventPruneConfig
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
@@ -18,6 +20,7 @@ import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil.cleanupDb
 import dev.minutest.rootContext
+import io.mockk.every
 import io.mockk.mockk
 import strikt.api.expectThat
 import strikt.assertions.first
@@ -35,15 +38,18 @@ internal class SqlDeliveryConfigRepositoryPeriodicallyCheckedTests :
   private val objectMapper = configuredTestObjectMapper()
   private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties))
 
+  val featureToggles: FeatureToggles = mockk()
+
   override val factory: (Clock) -> SqlDeliveryConfigRepository = { clock ->
     SqlDeliveryConfigRepository(
-      jooq = jooq,
-      clock = clock,
-      resourceFactory = resourceFactory(),
-      objectMapper = objectMapper,
-      sqlRetry = sqlRetry,
-      artifactSuppliers = defaultArtifactSuppliers(),
-      publisher = mockk(relaxed = true)
+        jooq = jooq,
+        clock = clock,
+        objectMapper = objectMapper,
+        resourceFactory = resourceFactory(),
+        sqlRetry = sqlRetry,
+        artifactSuppliers = defaultArtifactSuppliers(),
+        publisher = mockk(relaxed = true),
+        featureToggles = featureToggles
     )
   }
 
@@ -67,8 +73,28 @@ internal class SqlDeliveryConfigRepositoryPeriodicallyCheckedTests :
           }
       }
 
-      test("delivery config is ignored") {
-        expectThat(nextResults()).hasSize(1)
+      context("skip paused apps is enabled") {
+        before {
+          every {
+            featureToggles.isEnabled(SKIP_PAUSED_APPS, any())
+          } returns true
+        }
+
+        test("delivery config is ignored") {
+          expectThat(nextResults()).hasSize(1)
+        }
+      }
+
+      context("skip paused apps is disabled") {
+        before {
+          every {
+            featureToggles.isEnabled(SKIP_PAUSED_APPS, any())
+          } returns false
+        }
+
+        test("delivery config is checked") {
+          expectThat(nextResults()).hasSize(2)
+        }
       }
     }
   }
@@ -82,6 +108,10 @@ internal class SqlDeliveryConfigRepositoryPeriodicallyCheckedTests :
 
     context("a delivery config was locked for checking previously") {
       before {
+        every {
+          featureToggles.isEnabled(SKIP_PAUSED_APPS, any())
+        } returns true
+
         createAndStore(1)
         nextResults()
       }
@@ -133,13 +163,14 @@ internal class SqlDeliveryConfigRepositoryPeriodicallyCheckedTests :
 
       val factory = { clock: Clock ->
         SqlDeliveryConfigRepository(
-          jooq = jooq,
-          clock = clock,
-          resourceFactory = resourceFactory,
-          objectMapper = objectMapper,
-          sqlRetry = sqlRetry,
-          artifactSuppliers = defaultArtifactSuppliers(),
-          publisher = mockk(relaxed = true)
+            jooq = jooq,
+            clock = clock,
+            objectMapper = objectMapper,
+            resourceFactory = resourceFactory,
+            sqlRetry = sqlRetry,
+            artifactSuppliers = defaultArtifactSuppliers(),
+            publisher = mockk(relaxed = true),
+            featureToggles = featureToggles
         )
       }
 
@@ -184,6 +215,9 @@ internal class SqlDeliveryConfigRepositoryPeriodicallyCheckedTests :
 
     context("a resource with an obsolete version belongs to a delivery config") {
       before {
+        every {
+          featureToggles.isEnabled(SKIP_PAUSED_APPS, any())
+        } returns true
         createAndStore(1)
       }
 

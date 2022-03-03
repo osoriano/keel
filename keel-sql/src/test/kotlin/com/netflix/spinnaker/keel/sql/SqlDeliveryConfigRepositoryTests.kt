@@ -2,6 +2,7 @@ package com.netflix.spinnaker.keel.sql
 
 import com.fasterxml.jackson.databind.jsontype.NamedType
 import com.netflix.spectator.api.NoopRegistry
+import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.config.ResourceEventPruneConfig
 import com.netflix.spinnaker.keel.core.api.DependsOnConstraint
 import com.netflix.spinnaker.keel.core.api.ManualJudgementConstraint
@@ -15,6 +16,7 @@ import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil.cleanupDb
 import com.netflix.spinnaker.time.MutableClock
+import io.mockk.mockk
 import org.junit.jupiter.api.BeforeAll
 import org.springframework.context.ApplicationEventPublisher
 import java.time.Clock
@@ -26,9 +28,18 @@ internal object SqlDeliveryConfigRepositoryTests : DeliveryConfigRepositoryTests
   private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties))
   private var heart: SqlHeart? = null
 
-  override fun createDeliveryConfigRepository(resourceSpecIdentifier: ResourceSpecIdentifier, publisher: ApplicationEventPublisher, clock: MutableClock): SqlDeliveryConfigRepository {
+  override fun createDeliveryConfigRepository(resourceSpecIdentifier: ResourceSpecIdentifier, publisher: ApplicationEventPublisher, clock: MutableClock, featureToggles: FeatureToggles): SqlDeliveryConfigRepository {
     heart = SqlHeart(jooq, sqlRetry, clock)
-    return SqlDeliveryConfigRepository(jooq, clock, objectMapper, resourceFactory(resourceSpecIdentifier), sqlRetry, defaultArtifactSuppliers(), publisher = publisher)
+    return SqlDeliveryConfigRepository(
+        jooq,
+        clock,
+        objectMapper,
+        resourceFactory(resourceSpecIdentifier),
+        sqlRetry,
+        defaultArtifactSuppliers(),
+        publisher = publisher,
+        featureToggles = featureToggles
+    )
   }
 
   override fun createResourceRepository(resourceSpecIdentifier: ResourceSpecIdentifier, publisher: ApplicationEventPublisher, clock: MutableClock): SqlResourceRepository =

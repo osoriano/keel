@@ -32,13 +32,14 @@ class SqlArtifactRepositoryTests : ArtifactRepositoryTests<SqlArtifactRepository
   private val artifact = DockerArtifact(name = "myart", deliveryConfigName = "myconfig", from = ArtifactOriginFilter(branch = BranchFilter("main")))
 
   private val deliveryConfigRepository = SqlDeliveryConfigRepository(
-    jooq,
-    Clock.systemUTC(),
-    objectMapper,
-    resourceFactory(),
-    sqlRetry,
-    defaultArtifactSuppliers(),
-    publisher = mockk(relaxed = true)
+      jooq,
+      Clock.systemUTC(),
+      objectMapper,
+      resourceFactory(),
+      sqlRetry,
+      defaultArtifactSuppliers(),
+      publisher = mockk(relaxed = true),
+      featureToggles = mockk()
   )
 
   override fun factory(clock: Clock, publisher: ApplicationEventPublisher): SqlArtifactRepository =

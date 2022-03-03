@@ -27,12 +27,13 @@ internal class SqlResourceRepositoryTests : ResourceRepositoryTests<SqlResourceR
     daysKept = 1
   }
   private val deliveryConfigRepository = SqlDeliveryConfigRepository(
-    jooq,
-    clock,
-    configuredObjectMapper(),
-    resourceFactory,
-    sqlRetry,
-    publisher = mockk(relaxed = true)
+      jooq,
+      clock,
+      configuredObjectMapper(),
+      resourceFactory,
+      sqlRetry,
+      publisher = mockk(relaxed = true),
+      featureToggles = mockk()
   )
 
   override fun factory(clock: Clock, publisher: ApplicationEventPublisher): SqlResourceRepository {

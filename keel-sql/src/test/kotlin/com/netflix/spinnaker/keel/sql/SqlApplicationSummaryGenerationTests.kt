@@ -17,12 +17,13 @@ class SqlApplicationSummaryGenerationTests : ApplicationSummaryGenerationTests<S
   private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties))
 
   private val deliveryConfigRepository = SqlDeliveryConfigRepository(
-    jooq,
-    Clock.systemUTC(),
-    objectMapper,
-    resourceFactory(),
-    sqlRetry,
-    publisher = mockk(relaxed = true)
+      jooq,
+      Clock.systemUTC(),
+      objectMapper,
+      resourceFactory(),
+      sqlRetry,
+      publisher = mockk(relaxed = true),
+      featureToggles = mockk()
   )
 
   override fun factory(clock: Clock): SqlArtifactRepository =
