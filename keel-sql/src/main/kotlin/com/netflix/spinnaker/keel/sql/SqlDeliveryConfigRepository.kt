@@ -1524,8 +1524,8 @@ class SqlDeliveryConfigRepository(
     }
   }
 
-  override fun storeAppForPotentialMigration(app: String, inAllowList: Boolean?) {
-    sqlRetry.withRetry(WRITE) {
+  override fun storeAppForPotentialMigration(app: String, inAllowList: Boolean?): Boolean {
+    return sqlRetry.withRetry(WRITE) {
       jooq.insertInto(MIGRATION_STATUS)
         .set(MIGRATION_STATUS.APPLICATION, app)
         .set(MIGRATION_STATUS.IN_ALLOW_LIST, inAllowList ?: false)
@@ -1537,7 +1537,7 @@ class SqlDeliveryConfigRepository(
             onDuplicateKeyIgnore()
           }
         }
-        .execute()
+        .execute() > 0
     }
   }
 

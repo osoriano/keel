@@ -208,9 +208,9 @@ class AdminService(
     front50Cache.primeCaches()
   }
 
-  fun storeAppForPotentialMigration(apps: List<String>, inAllowList: Boolean?) {
-    apps.forEach {
-      repository.storeAppForPotentialMigration(it, inAllowList)
+  fun storeAppForPotentialMigration(apps: List<String>, inAllowList: Boolean?): List<Map<String, Boolean>> {
+    return apps.map {
+      mapOf(it to repository.storeAppForPotentialMigration(it, inAllowList))
     }
   }
 

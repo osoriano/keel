@@ -282,7 +282,7 @@ interface DeliveryConfigRepository : PeriodicallyCheckedRepository<DeliveryConfi
    * Store app in the migration DB if not exist.
    * [inAllowedList] defines if the app could be actively migrated if the export completed successfully
    */
-  fun storeAppForPotentialMigration(app: String, inAllowedList: Boolean? = null)
+  fun storeAppForPotentialMigration(app: String, inAllowedList: Boolean? = null): Boolean
 
   /**
    * Resets the [LAST_CHECKED] flag of an app to get it rechecked on the next cycle

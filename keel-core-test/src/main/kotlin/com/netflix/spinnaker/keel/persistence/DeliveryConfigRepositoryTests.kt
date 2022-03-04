@@ -8,7 +8,6 @@ import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.NotificationConfig
 import com.netflix.spinnaker.keel.api.NotificationFrequency
 import com.netflix.spinnaker.keel.api.NotificationFrequency.normal
-import com.netflix.spinnaker.keel.api.NotificationType
 import com.netflix.spinnaker.keel.api.NotificationType.email
 import com.netflix.spinnaker.keel.api.NotificationType.slack
 import com.netflix.spinnaker.keel.api.PreviewEnvironmentSpec

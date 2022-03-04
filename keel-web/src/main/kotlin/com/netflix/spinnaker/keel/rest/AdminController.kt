@@ -187,8 +187,8 @@ class AdminController(
   )
   fun addAppsToMigrationQueue(
     @RequestBody payload: AddAppsToMigrationPayload
-  ) {
-    adminService.storeAppForPotentialMigration(payload.apps, payload.inAllowedList)
+  ): List<Map<String, Boolean>> {
+    return adminService.storeAppForPotentialMigration(payload.apps, payload.inAllowedList)
   }
 
   @PostMapping(
