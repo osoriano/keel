@@ -2,9 +2,10 @@ package com.netflix.spinnaker.keel.notifications.slack.handlers
 
 import com.netflix.spinnaker.config.BaseUrlConfig
 import com.netflix.spinnaker.keel.api.NotificationDisplay
-import com.netflix.spinnaker.keel.notifications.NotificationType
+import com.netflix.spinnaker.keel.notifications.NotificationType.MIGRATION_READY_NOTIFICATION
 import com.netflix.spinnaker.keel.notifications.slack.SlackMigrationNotification
 import com.netflix.spinnaker.keel.notifications.slack.SlackService
+import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.slack.api.model.block.LayoutBlock
 import com.slack.api.model.kotlin_extension.block.withBlocks
 import org.slf4j.LoggerFactory
@@ -19,9 +20,10 @@ import org.springframework.stereotype.Component
 class MigrationNotificationHandler(
   private val slackService: SlackService,
   private val baseUrlConfig: BaseUrlConfig,
+  private val repository: KeelRepository
 ) : SlackNotificationHandler<SlackMigrationNotification> {
 
-  override val supportedTypes = listOf(NotificationType.MIGRATION_READY_NOTIFICATION)
+  override val supportedTypes = listOf(MIGRATION_READY_NOTIFICATION)
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
@@ -67,7 +69,10 @@ class MigrationNotificationHandler(
         type = supportedTypes,
         fallbackText = headerText()
       )
+
+      repository.markSentSlackNotification(MIGRATION_READY_NOTIFICATION, application)
     }
+
   }
 
 }

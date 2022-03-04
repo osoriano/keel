@@ -14,8 +14,8 @@ internal class SqlNotificationRepositoryTests : NotificationRepositoryTests<SqlN
 
   override fun factory(clock: Clock): SqlNotificationRepository {
     return SqlNotificationRepository(
-      clock,
       jooq,
+      clock,
       sqlRetry
     )
   }

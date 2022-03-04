@@ -11,9 +11,9 @@ import java.time.Clock
 import java.time.Duration
 
 class SqlNotificationRepository(
+  val jooq: DSLContext,
   override val clock: Clock,
-  private val jooq: DSLContext,
-  private val sqlRetry: SqlRetry
+  val sqlRetry: SqlRetry
 ) : NotificationRepository(clock) {
   override fun addNotification(scope: NotificationScope, ref: String, type: NotificationType): Boolean {
     sqlRetry.withRetry(READ) {

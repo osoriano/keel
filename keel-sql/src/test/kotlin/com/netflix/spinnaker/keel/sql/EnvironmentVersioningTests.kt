@@ -102,6 +102,12 @@ class EnvironmentVersioningTests {
     environment = MockEnvironment()
   )
 
+  private val notificationRepository = SqlNotificationRepository(
+    jooq = jooq,
+    clock = clock,
+    sqlRetry = sqlRetry
+  )
+
   private val repository = KeelRepository(
     deliveryConfigRepository,
     artifactRepository,
@@ -110,7 +116,8 @@ class EnvironmentVersioningTests {
     clock,
     { },
     DefaultResourceDiffFactory(),
-    PersistenceRetry(PersistenceRetryConfig())
+    PersistenceRetry(PersistenceRetryConfig()),
+    notificationRepository
   )
 
   private val heart = SqlHeart(jooq, sqlRetry, clock)

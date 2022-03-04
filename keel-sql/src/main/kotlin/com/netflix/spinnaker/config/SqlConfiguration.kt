@@ -174,7 +174,7 @@ class SqlConfiguration
     jooq: DSLContext,
     clock: Clock,
     properties: SqlProperties
-  ) = SqlNotificationRepository(clock, jooq, SqlRetry(sqlRetryProperties))
+  ) = SqlNotificationRepository(jooq, clock, SqlRetry(sqlRetryProperties))
 
   @Bean
   fun unhealthyRepository(

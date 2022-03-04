@@ -333,7 +333,7 @@ internal class TitusClusterExportTests : JUnit5Minutests {
             every { titusRegistryService.findImages(any(), any(), any(), any(), any()) } returns images
 
             every {
-              artifactBridge.getArtifactMetadata(any(), any())
+              artifactBridge.getArtifactMetadata(any(), any(), any())
             } returns ArtifactMetadata(BuildMetadata(id = 10), GitMetadata(commit = " commit"))
           }
           test("tag strategy is chosen as INCREASING_TAG") {
@@ -353,7 +353,7 @@ internal class TitusClusterExportTests : JUnit5Minutests {
             } returns branchJobShaImages
 
             every {
-              artifactBridge.getArtifactMetadata(any(), any())
+              artifactBridge.getArtifactMetadata(any(), any(), any())
             } returns ArtifactMetadata(BuildMetadata(id = 10), GitMetadata(commit = " commit"))
           }
 
@@ -374,7 +374,7 @@ internal class TitusClusterExportTests : JUnit5Minutests {
             } returns imagesWithArtifactInfo
 
             every {
-              artifactBridge.getArtifactMetadata(any(), any())
+              artifactBridge.getArtifactMetadata(any(), any(), any())
             } returns ArtifactMetadata(BuildMetadata(id = 10), GitMetadata(commit = " commit"))
           }
 

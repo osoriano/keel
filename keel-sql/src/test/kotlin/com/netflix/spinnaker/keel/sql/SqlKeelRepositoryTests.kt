@@ -111,6 +111,9 @@ class SqlKeelRepositoryTests : JUnit5Minutests {
   private fun createVerificationRepository(resourceFactory: ResourceFactory): SqlActionRepository =
     SqlActionRepository(jooq, clock, objectMapper, resourceFactory, sqlRetry, environment = mockk())
 
+  private fun createNotificationRepository(): SqlNotificationRepository =
+    SqlNotificationRepository(jooq, clock, sqlRetry)
+
   private fun flush() {
     SqlTestUtil.cleanupDb(jooq)
   }
@@ -185,6 +188,7 @@ class SqlKeelRepositoryTests : JUnit5Minutests {
     val deliveryConfigRepositoryProvider: (ResourceFactory) -> SqlDeliveryConfigRepository,
     val resourceRepositoryProvider: (ResourceFactory) -> SqlResourceRepository,
     val artifactRepositoryProvider: () -> SqlArtifactRepository,
+    val notificationRepositoryProvider: () -> SqlNotificationRepository,
     val actionRepositoryProvider: (ResourceFactory) -> SqlActionRepository
   ) {
     internal val clock = MutableClock()
@@ -194,6 +198,7 @@ class SqlKeelRepositoryTests : JUnit5Minutests {
     internal val resourceRepository = spyk(resourceRepositoryProvider(dummyResourceFactory))
     internal val artifactRepository= artifactRepositoryProvider()
     internal val actionRepository = actionRepositoryProvider(dummyResourceFactory)
+    internal val notificationRepository = notificationRepositoryProvider()
 
     val subject = KeelRepository(
       deliveryConfigRepository,
@@ -203,7 +208,8 @@ class SqlKeelRepositoryTests : JUnit5Minutests {
       clock,
       publisher,
       DefaultResourceDiffFactory(),
-      PersistenceRetry(PersistenceRetryConfig())
+      PersistenceRetry(PersistenceRetryConfig()),
+      notificationRepository
     )
 
     fun resourcesDueForCheck() =
@@ -223,7 +229,8 @@ class SqlKeelRepositoryTests : JUnit5Minutests {
         deliveryConfigRepositoryProvider = this@SqlKeelRepositoryTests::createDeliveryConfigRepository,
         resourceRepositoryProvider = this@SqlKeelRepositoryTests::createResourceRepository,
         artifactRepositoryProvider = this@SqlKeelRepositoryTests::createArtifactRepository,
-        actionRepositoryProvider = this@SqlKeelRepositoryTests::createVerificationRepository
+        actionRepositoryProvider = this@SqlKeelRepositoryTests::createVerificationRepository,
+        notificationRepositoryProvider = this@SqlKeelRepositoryTests::createNotificationRepository
       )
     }
 

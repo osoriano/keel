@@ -32,20 +32,14 @@ class ArtifactMetadataService(
     private const val DEFAULT_MAX_ATTEMPTS = 20
   }
 
-  override suspend fun getArtifactMetadata(
-    buildNumber: String,
-    commitHash: String) : ArtifactMetadata? {
-    return getArtifactMetadata(buildNumber, commitHash, DEFAULT_MAX_ATTEMPTS)
-  }
-
   /**
    * Returns additional metadata about the specified build and commit, if available. This call is configured
    * to auto-retry as it's not on a code path where any external retries would happen.
    */
-  suspend fun getArtifactMetadata(
+  override suspend fun getArtifactMetadata(
     buildNumber: String,
     commitHash: String,
-    maxAttempts: Int = DEFAULT_MAX_ATTEMPTS
+    maxAttempts: Int
   ): ArtifactMetadata? {
     if (commitHash.length < 7) {
       error("Invalid commit hash: $commitHash (min length is 7 characters, got ${commitHash.length})")

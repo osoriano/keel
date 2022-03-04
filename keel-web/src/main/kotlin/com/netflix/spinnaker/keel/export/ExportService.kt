@@ -297,7 +297,7 @@ class ExportService(
     }
 
     // 1. find pipelines which are not matching to the supported patterns above
-    val nonExportablePipelines = pipelines.findNonExportable(maxAgeDays, includeVerifications)
+    var nonExportablePipelines = pipelines.findNonExportable(maxAgeDays, includeVerifications)
 
     // 2. get the actual supported pipelines
     val exportablePipelines = pipelines - nonExportablePipelines.keys
@@ -326,15 +326,17 @@ class ExportService(
 
         // 5. infer from the cluster all dependent resources, including artifacts
         val resourcesAndArtifacts = try {
-           createResourcesBasedOnCluster(cluster, environments, applicationName)
+          createResourcesBasedOnCluster(cluster, environments, applicationName)
         } catch (e: ArtifactNotSupportedException) {
           log.debug("could not export artifacts from cluster ${cluster.moniker.toName()}")
-          return@mapNotNull null
+          nonExportablePipelines = nonExportablePipelines + (pipeline to SkipReason.ARTIFACT_NOT_SUPPORTED)
+          return@mapValues emptyList()
         }
 
         if (resourcesAndArtifacts.resources.isEmpty()) {
           log.debug("could not create resources from cluster ${cluster.moniker.toName()}")
-          return@mapNotNull null
+          nonExportablePipelines = nonExportablePipelines + (pipeline to SkipReason.RESOURCE_NOT_SUPPORTED)
+          return@mapValues emptyList()
         }
 
         // 6. export verifications from this pipeline
@@ -369,53 +371,61 @@ class ExportService(
     // 7. find test pipelines
     val testPipelines = pipelines.filter { it.shape in EXPORTABLE_TEST_PIPELINE_SHAPES }
     val testPipelinesToEnvironments = mutableMapOf<Pipeline, List<SubmittedEnvironment>>()
-
-    // 8. assemble the final environments
-    val finalEnvironments = deployPipelinesToEnvironments.flatMap { (deployPipeline, envs) ->
-      envs.map { environment ->
-        // 8a. look at the pipeline triggers and dependencies between pipelines to find any additional constraints
-        val additionalConstraints = exportConstraintsFromTriggers(applicationName, deployPipeline, environment, deployPipelinesToEnvironments)
-
-        // 8b. look at test pipelines independent of the deployment pipeline to find any additional verifications
-        val additionalVerifications = if (includeVerifications) {
-          testPipelines.exportVerifications(deployPipeline).onEach { (testPipeline, _) ->
-            testPipelinesToEnvironments.compute(testPipeline) { _, curEnvs ->
-              (curEnvs ?: mutableListOf()) + environment
-            }
-          }
-        } else {
-          emptyMap()
-        }
-
-        environment.copy(
-          constraints = environment.constraints + additionalConstraints,
-          notifications = notifications(environment.name, application.slackChannel?.name, deployPipeline.notifications),
-          verifyWith = environment.verifyWith + additionalVerifications.values
-        ).addMetadata(
-          "exportedFrom" to deployPipeline.link(baseUrlConfig.baseUrl)
-        )
-      }
-    }.toSet()
-      .dedupe()
-
-    val finalArtifacts = artifacts.dedupe()
-
-    val deliveryConfig = SubmittedDeliveryConfig(
-      name = applicationName,
+    var deliveryConfig = SubmittedDeliveryConfig(
       application = applicationName,
-      serviceAccount = serviceAccount,
-      artifacts = finalArtifacts,
-      environments = finalEnvironments.sensibleOrder(),
-      metadata = mapOf(
-        "migrating" to true
-      )
+      name = applicationName,
+      serviceAccount = serviceAccount
     )
 
-    try {
-      validator.validate(deliveryConfig)
-    } catch (ex: Exception) {
-      log.debug("Delivery config for application ${application.name} didn't passed validation; exception: $ex", ex)
-      configValidationException = ex
+    // 8. assemble the final environments
+    if (deployPipelinesToEnvironments.isNotEmpty()) {
+      val finalEnvironments = deployPipelinesToEnvironments.flatMap { (deployPipeline, envs) ->
+        envs.map { environment ->
+          // 8a. look at the pipeline triggers and dependencies between pipelines to find any additional constraints
+          val additionalConstraints = exportConstraintsFromTriggers(applicationName, deployPipeline, environment, deployPipelinesToEnvironments)
+
+          // 8b. look at test pipelines independent of the deployment pipeline to find any additional verifications
+          val additionalVerifications = if (includeVerifications) {
+            testPipelines.exportVerifications(deployPipeline).onEach { (testPipeline, _) ->
+              testPipelinesToEnvironments.compute(testPipeline) { _, curEnvs ->
+                (curEnvs ?: mutableListOf()) + environment
+              }
+            }
+          } else {
+            emptyMap()
+          }
+
+          environment.copy(
+            constraints = environment.constraints + additionalConstraints,
+            notifications = notifications(environment.name, application.slackChannel?.name, deployPipeline.notifications),
+            verifyWith = environment.verifyWith + additionalVerifications.values
+          ).addMetadata(
+            "exportedFrom" to deployPipeline.link(baseUrlConfig.baseUrl)
+          )
+        }
+      }.toSet()
+        .dedupe()
+
+
+      val finalArtifacts = artifacts.dedupe()
+
+      deliveryConfig = SubmittedDeliveryConfig(
+        name = applicationName,
+        application = applicationName,
+        serviceAccount = serviceAccount,
+        artifacts = finalArtifacts,
+        environments = finalEnvironments.sensibleOrder(),
+        metadata = mapOf(
+          "migrating" to true
+        )
+      )
+
+      try {
+        validator.validate(deliveryConfig)
+      } catch (ex: Exception) {
+        log.debug("Delivery config for application ${application.name} didn't passed validation; exception: $ex", ex)
+        configValidationException = ex
+      }
     }
 
     val result = PipelineExportResult(
@@ -455,10 +465,10 @@ class ExportService(
   /**
    * Adding Slack notifications for production environment, using the Slack channel as defined in spinnaker's configuration.
    * If no Slack channel is defined, use the pipeline's Slack notifications
-  */
+   */
   private fun notifications(envName: String, slackChannel: String?, notifications: List<PipelineNotifications>): Set<NotificationConfig> {
-   if (envName == PRODUCTION_ENV) {
-     return if (slackChannel != null) { // if the Slack channel explicitly defined, use it
+    if (envName == PRODUCTION_ENV) {
+      return if (slackChannel != null) { // if the Slack channel explicitly defined, use it
         setOf(NotificationConfig(
           address = slackChannel,
           type = NotificationType.slack,
@@ -540,7 +550,7 @@ class ExportService(
 
     // Export the artifact matching the cluster while we're at it
     val artifact = try {
-       handlers.supporting(cluster.clusterKind).exportArtifact(cluster)
+      handlers.supporting(cluster.clusterKind).exportArtifact(cluster)
     } catch (e: ArtifactNotSupportedException) {
       deliveryConfigRepository.updateMigratingAppScmStatus(applicationName, false)
       log.error("artifact for application $applicationName is not supported")
@@ -713,7 +723,7 @@ class ExportService(
     application: String,
     pipeline: Pipeline,
     environment: SubmittedEnvironment,
-    pipelinesToEnvironments: Map<Pipeline, List<SubmittedEnvironment>>
+    pipelinesToEnvironments: Map<Pipeline, List<SubmittedEnvironment>?>
   ): Set<Constraint> {
     val constraints = mutableSetOf<Constraint>()
 
@@ -743,7 +753,7 @@ class ExportService(
             ?.let { (_, envs) ->
               // use the last environment within the matching pipeline (which would match the last deploy,
               // in case there's more than one)
-              envs.last()
+              envs?.last()
             }
 
           if (upstreamEnvironment != null) {
@@ -872,7 +882,7 @@ class ExportService(
     val looksLikeTests = try {
       val config = jenkinsService.getJobConfig(controller, job)
       config.project.publishers.any { it.type == JUNIT_REPORT || it.type == HTML_REPORT }
-    } catch(e: Exception) {
+    } catch (e: Exception) {
       log.debug("Error retrieving/parsing config for Jenkins job $controller/$job: $e")
       false
     }
@@ -907,13 +917,13 @@ private val Pair<Set<SubmittedResource<ResourceSpec>>, DeliveryArtifact?>.artifa
 private val Pair<Set<SubmittedResource<ResourceSpec>>, DeliveryArtifact?>.resources: Set<SubmittedResource<ResourceSpec>>
   get() = this.first
 
-private fun Int.fromDayNumberToWeekday() :String =
+private fun Int.fromDayNumberToWeekday(): String =
   when (this) {
-     1 -> DayOfWeek.SUNDAY
-     2 -> DayOfWeek.MONDAY
-     3 -> DayOfWeek.TUESDAY
-     4 -> DayOfWeek.WEDNESDAY
-     5 -> DayOfWeek.THURSDAY
-     6 -> DayOfWeek.FRIDAY
+    1 -> DayOfWeek.SUNDAY
+    2 -> DayOfWeek.MONDAY
+    3 -> DayOfWeek.TUESDAY
+    4 -> DayOfWeek.WEDNESDAY
+    5 -> DayOfWeek.THURSDAY
+    6 -> DayOfWeek.FRIDAY
     else -> DayOfWeek.SATURDAY
   }.toString()

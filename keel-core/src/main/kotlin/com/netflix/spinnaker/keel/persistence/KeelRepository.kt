@@ -42,6 +42,8 @@ import com.netflix.spinnaker.keel.events.ResourceHistoryEvent
 import com.netflix.spinnaker.keel.events.ResourceState
 import com.netflix.spinnaker.keel.events.ResourceUpdated
 import com.netflix.spinnaker.keel.exceptions.DuplicateManagedResourceException
+import com.netflix.spinnaker.keel.notifications.NotificationScope
+import com.netflix.spinnaker.keel.notifications.NotificationType
 import com.netflix.spinnaker.keel.services.StatusInfoForArtifactInEnvironment
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
@@ -72,7 +74,8 @@ class KeelRepository(
   private val clock: Clock,
   private val publisher: ApplicationEventPublisher,
   private val diffFactory: ResourceDiffFactory,
-  private val persistenceRetry: PersistenceRetry
+  private val persistenceRetry: PersistenceRetry,
+  private val notificationRepository: NotificationRepository
 ) : KeelReadOnlyRepository {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
@@ -777,4 +780,8 @@ class KeelRepository(
 
   override fun versionsInUse(artifact: DeliveryArtifact): Set<String> =
     artifactRepository.versionsInUse(artifact)
+
+  fun markSentSlackNotification(type: NotificationType, application: String) =
+    notificationRepository.addNotification(NotificationScope.APPLICATION, application, type)
+
 }

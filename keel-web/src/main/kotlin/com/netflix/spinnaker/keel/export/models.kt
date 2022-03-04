@@ -37,14 +37,16 @@ data class PipelineExportResult(
   }
 
   val pipelines: Map<String, Any> = mapOf(
-    "exported" to processed.entries.map { (pipeline, environments) ->
-      mapOf(
-        "name" to pipeline.name,
-        "link" to pipeline.link(baseUrl),
-        "shape" to pipeline.shape.joinToString(" -> "),
-        "environments" to environments.map { it.name }
-      )
-    },
+    "exported" to (processed.keys - skipped.keys)
+      .map { pipeline ->
+        val environments = processed[pipeline]
+        mapOf(
+          "name" to pipeline.name,
+          "link" to pipeline.link(baseUrl),
+          "shape" to pipeline.shape.joinToString(" -> "),
+          "environments" to environments?.map { it.name }
+        )
+      },
     "skipped" to skipped.map { (pipeline, reason) ->
       mapOf(
         "name" to pipeline.name,
