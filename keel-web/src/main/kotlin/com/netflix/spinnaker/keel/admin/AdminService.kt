@@ -220,24 +220,5 @@ class AdminService(
 
   fun getTaskSummary(id: String): ExecutionSummary? =
     executionSummaryService.getSummary(id)
-
-  fun syncFront50Config() {
-    val configs = repository.allDeliveryConfigs(DependentAttachFilter.ATTACH_NONE)
-    runBlocking {
-      configs.forEach {
-        try {
-          val application = front50Cache.applicationByName(it.application)
-          applicationRepository.store(
-            ApplicationConfig(
-              application = it.application,
-              autoImport = application.managedDelivery?.importDeliveryConfig ?: false, // Defaulting to false
-              deliveryConfigPath = application.managedDelivery?.manifestPath
-            )
-          )
-        } catch (e: Exception) {
-          log.error("Failed to sync front50 config of application ${it.application}")
-        }
-      }
-    }
-  }
+  
 }

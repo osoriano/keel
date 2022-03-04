@@ -250,12 +250,6 @@ class AdminController(
     runBlocking { applicationService.getActuationPlan(application) }
 
   @PostMapping(
-    path = ["/sync-front50-config"]
-  )
-  fun syncFront50Config() {
-    adminService.syncFront50Config()
-  }
-  @PostMapping(
     path = ["/migration/notify-apps"]
   )
   fun sendMigrationSlack(

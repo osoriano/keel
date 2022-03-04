@@ -160,33 +160,5 @@ class AdminServiceTests : JUnit5Minutests {
         verify { front50Cache.primeCaches() }
       }
     }
-
-    context("front50 config sync") {
-      before {
-        every {
-          repository.allDeliveryConfigs(any())
-        } returns setOf(deliveryConfig, deliveryConfig.copy(application = "fnord2"))
-
-        every {
-          front50Cache.applicationByName(any())
-        } answers {
-          front50Application.copy(name = firstArg<String>())
-        }
-
-        every {
-          applicationRepository.store(any())
-        } just runs
-
-        subject.syncFront50Config()
-      }
-
-      test("Verify that we update all of the apps") {
-        val appConfigs = mutableListOf<ApplicationConfig>()
-        verify(exactly = 2) {
-          applicationRepository.store(capture(appConfigs))
-        }
-        expectThat(appConfigs.map { it.application }).containsExactlyInAnyOrder("fnord", "fnord2")
-      }
-    }
   }
 }
