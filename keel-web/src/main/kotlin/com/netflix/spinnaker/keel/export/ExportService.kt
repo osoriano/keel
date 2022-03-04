@@ -59,6 +59,11 @@ import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.validators.DeliveryConfigValidator
 import com.netflix.spinnaker.keel.verification.jenkins.JenkinsJobVerification
 import com.netflix.spinnaker.keel.veto.unhealthy.UnsupportedResourceTypeException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.core.env.Environment
@@ -67,6 +72,7 @@ import org.springframework.stereotype.Component
 import java.time.DayOfWeek
 import java.time.Duration
 import java.time.Instant
+import kotlin.coroutines.CoroutineContext
 
 /**
  * Encapsulates logic to export delivery configs from pipelines.
@@ -82,10 +88,13 @@ class ExportService(
   private val deliveryConfigRepository: DeliveryConfigRepository,
   private val springEnv: Environment,
   private val cloudDriverCache: CloudDriverCache,
-  private val jenkinsService: JenkinsService
-) {
+  private val jenkinsService: JenkinsService,
+  coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
+) : CoroutineScope {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
   private val prettyPrinter by lazy { yamlMapper.writerWithDefaultPrettyPrinter() }
+
+  override val coroutineContext: CoroutineContext = coroutineDispatcher
 
   companion object {
     /**
@@ -249,8 +258,8 @@ class ExportService(
     if (!isScheduledExportEnabled) return
     val apps = deliveryConfigRepository.getAppsToExport(exportMinAge, exportBatchSize)
     log.debug("Running the migration export on apps: $apps")
-    apps.forEach { app ->
-      runBlocking {
+    val jobs = apps.map { app ->
+      launch {
         try {
           when (val result = exportFromPipelines(app)) {
             is ExportErrorResult -> deliveryConfigRepository.storeFailedPipelinesExportResult(app, result.error)
@@ -269,6 +278,8 @@ class ExportService(
         }
       }
     }
+    runBlocking { jobs.joinAll() }
+    log.debug("Finished running the migration export on apps: $apps")
   }
 
   /**
