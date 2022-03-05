@@ -28,7 +28,7 @@ dependencies {
   testImplementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml")
   testImplementation("org.apache.commons:commons-lang3")
 
-  // the following are needed to use keel's real(-ish) Spring configuration
+  // the following are needed to use keel-web's real(-ish) Spring configuration
   testImplementation(project(":keel-web")) {
     // avoid circular dependency
     exclude(module: "keel-ec2-plugin")

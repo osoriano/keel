@@ -19,12 +19,12 @@ import org.junit.jupiter.api.DynamicTest.dynamicTest
 import org.junit.jupiter.api.TestFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.context.SpringBootTest.WebEnvironment.NONE
+import org.springframework.boot.test.context.SpringBootTest.WebEnvironment.MOCK
 import strikt.api.Assertion
 import strikt.api.expectThat
 
 @SpringBootTest(
-  webEnvironment = NONE,
+  webEnvironment = MOCK,
 )
 class ApiDocCompatibilityTests
 @Autowired constructor(val extensionRegistry: ExtensionRegistry, val generator: Generator) {

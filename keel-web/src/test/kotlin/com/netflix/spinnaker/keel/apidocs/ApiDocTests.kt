@@ -27,7 +27,7 @@ import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.context.SpringBootTest.WebEnvironment.NONE
+import org.springframework.boot.test.context.SpringBootTest.WebEnvironment.MOCK
 import strikt.api.Assertion
 import strikt.api.expectThat
 import strikt.assertions.containsExactly
@@ -52,7 +52,7 @@ import strikt.jackson.textValues
 import kotlin.reflect.KClass
 
 @SpringBootTest(
-  webEnvironment = NONE
+  webEnvironment = MOCK
 )
 class ApiDocTests
   @Autowired constructor(

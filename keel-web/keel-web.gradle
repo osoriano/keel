@@ -46,15 +46,14 @@ dependencies {
   implementation("io.swagger.core.v3:swagger-annotations:2.1.2")
   implementation("org.apache.maven:maven-artifact:3.6.3")
   implementation("com.netflix.spinnaker.kork.internal:kork-plugins")
-  //implementation("com.slack.api:bolt-servlet:${slackSdkVersion}")
   implementation("com.slack.api:bolt-socket-mode:${slackSdkVersion}")
   implementation("javax.websocket:javax.websocket-api:1.1")
   implementation("org.glassfish.tyrus.bundles:tyrus-standalone-client:1.17")
   implementation("com.netflix.spinnaker.netflixplatform:netflixplatform-security")
 
-  // DGS dependencies
-  implementation(platform("com.netflix.graphql.dgs:graphql-dgs-platform-dependencies:${dgsVersion}"))
-  implementation("com.netflix.graphql.dgs:graphql-dgs-spring-boot-starter")
+  // DGS dependencies -- these are no longer OSS-compatible
+  implementation(platform("com.netflix.graphql.dgs:graphql-dgs-netflix-platform:${dgsVersion}"))
+  implementation("com.netflix.graphql.dgs:graphql-dgs-starter")
   implementation("com.fasterxml.jackson.datatype:jackson-datatype-joda")
   implementation("com.graphql-java:graphql-java-extended-scalars:16.0.1")
 

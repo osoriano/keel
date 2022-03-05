@@ -24,11 +24,9 @@ import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.context.SpringBootTest.WebEnvironment.NONE
+import org.springframework.boot.test.context.SpringBootTest.WebEnvironment.MOCK
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.test.context.ContextConfiguration
-import org.springframework.test.context.ContextHierarchy
 import strikt.api.Assertion
 import strikt.api.expect
 import strikt.api.expectThat
@@ -37,11 +35,8 @@ import strikt.assertions.isEqualTo
 import strikt.assertions.isNotNull
 
 @SpringBootTest(
-  webEnvironment = NONE
-)
-@ContextHierarchy(
-  ContextConfiguration(classes = [KeelApplication::class]),
-  ContextConfiguration(classes = [MockFiat::class])
+  webEnvironment = MOCK,
+  classes = [KeelApplication::class, MockFiat::class]
 )
 internal class AuthPropagationTests
 @Autowired constructor(val cloudDriverService: CloudDriverService) : JUnit5Minutests {

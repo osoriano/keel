@@ -17,7 +17,7 @@ import io.mockk.slot
 import io.mockk.verify
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.context.SpringBootTest.WebEnvironment.NONE
+import org.springframework.boot.test.context.SpringBootTest.WebEnvironment.MOCK
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockHttpServletResponse
 import strikt.api.expectThat
@@ -29,7 +29,7 @@ import javax.servlet.ServletRequest
 import javax.servlet.http.HttpServletRequestWrapper
 
 @SpringBootTest(
-  webEnvironment = NONE
+  webEnvironment = MOCK
 )
 class DeliveryConfigYamlParsingFilterTests : JUnit5Minutests {
 

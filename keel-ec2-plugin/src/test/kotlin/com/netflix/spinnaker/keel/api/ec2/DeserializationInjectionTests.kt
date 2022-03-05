@@ -7,7 +7,7 @@ import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.context.SpringBootTest.WebEnvironment.NONE
+import org.springframework.boot.test.context.SpringBootTest.WebEnvironment.MOCK
 import strikt.api.expectCatching
 import strikt.assertions.hasSize
 import strikt.assertions.isA
@@ -22,7 +22,7 @@ import strikt.assertions.isSuccess
     "spring.liquibase.enabled = false" // TODO: ignored by kork's SpringLiquibaseProxy
   ],
   classes = [KeelApplication::class],
-  webEnvironment = NONE
+  webEnvironment = MOCK
 )
 internal class DeserializationInjectionTests {
 

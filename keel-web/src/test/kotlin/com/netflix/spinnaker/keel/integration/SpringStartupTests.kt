@@ -5,10 +5,10 @@ import io.mockk.verify
 import org.junit.jupiter.api.Test
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.context.SpringBootTest.WebEnvironment.NONE
+import org.springframework.boot.test.context.SpringBootTest.WebEnvironment.MOCK
 import org.springframework.context.ApplicationListener
 
-@SpringBootTest(webEnvironment = NONE)
+@SpringBootTest(webEnvironment = MOCK)
 internal class SpringStartupTests {
 
   @MockkBean(relaxUnitFun = true)

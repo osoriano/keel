@@ -36,7 +36,7 @@ import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.context.SpringBootTest.WebEnvironment.NONE
+import org.springframework.boot.test.context.SpringBootTest.WebEnvironment.MOCK
 import strikt.api.expectCatching
 import strikt.assertions.first
 import strikt.assertions.isA
@@ -44,7 +44,7 @@ import strikt.assertions.isEqualTo
 import strikt.assertions.isNotNull
 import strikt.assertions.isSuccess
 
-@SpringBootTest(webEnvironment = NONE)
+@SpringBootTest(webEnvironment = MOCK)
 class DeliveryConfigYamlParsingTests @Autowired constructor(
 
   private val mapper: YAMLMapper
