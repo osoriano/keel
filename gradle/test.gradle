@@ -11,6 +11,10 @@ dependencies {
 test {
   useJUnitPlatform {
     includeEngines("junit-jupiter")
+    distribution {
+      enabled = Boolean.parseBoolean(project.properties["distributedTests"] ?: "false").booleanValue()
+      requirements = ['docker']
+    }
   }
   testLogging {
     exceptionFormat = "full"

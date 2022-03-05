@@ -308,7 +308,7 @@ internal class DeliveryConfigControllerTests
 
                 every { repository.getDeliveryConfigForApplication(deliveryConfig.application) } returns deliveryConfig.toDeliveryConfig()
 
-                val request = post(endpoint)
+                val request = post("" + endpoint)
                   .accept(contentType)
                   .contentType(contentType)
                   .content(configPayload)
@@ -338,7 +338,7 @@ internal class DeliveryConfigControllerTests
                   Pair(firstArg<SubmittedDeliveryConfig>().toDeliveryConfig(), true)
                 }
 
-                val request = post(endpoint)
+                val request = post("" + endpoint)
                   .accept(contentType)
                   .contentType(contentType)
                   .content(configPayload)
@@ -366,7 +366,7 @@ internal class DeliveryConfigControllerTests
                   deliveryConfigUpserter.upsertConfig(any(), any(), any(), any())
                 } throws OverwritingExistingResourcesDisallowed(deliveryConfig.application, "resource")
 
-                val request = post(endpoint)
+                val request = post("" + endpoint)
                   .accept(contentType)
                   .contentType(contentType)
                   .content(configPayload)

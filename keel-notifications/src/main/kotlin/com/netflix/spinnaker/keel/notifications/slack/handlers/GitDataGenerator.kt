@@ -14,8 +14,6 @@ import com.slack.api.model.view.View
 import com.slack.api.model.view.Views.view
 import com.slack.api.model.view.Views.viewClose
 import com.slack.api.model.view.Views.viewTitle
-import org.apache.logging.log4j.util.Strings
-import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.stereotype.Component
 
@@ -35,6 +33,7 @@ class GitDataGenerator(
     const val EMPTY_COMMIT_TEXT = "_No commit message to display_"
   }
 
+<<<<<<< d83e38ff84e3870129eaa8cbc07d8aabb6930019
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
   private fun generateRepoLink(gitMetadata: GitMetadata): String {
@@ -46,6 +45,11 @@ class GitDataGenerator(
         else -> throw UnsupportedScmType(message = "Stash and GitHub are currently the only supported SCM types.")
       }
     } else ""
+=======
+  private fun generateStashRepoLink(gitMetadata: GitMetadata): String {
+      val baseScmUrl = gitMetadata.commitInfo?.link?.let { artifactVersionLinks.getScmBaseLink(it) }
+      return "$baseScmUrl/projects/${gitMetadata.project}/repos/${gitMetadata.repo?.name}"
+>>>>>>> 7d0c5d143f15e8741b53dadde6799f73390c5204
   }
 
   fun generateConfigUrl(application: String): String =
@@ -198,7 +202,7 @@ class GitDataGenerator(
             "<$repoLink/branches|$branch> › "
         }
         //if the commit is not a part of a PR, don't include PR's data
-        if (Strings.isNotEmpty(pullRequest?.number)) {
+        if (!pullRequest?.number.isNullOrEmpty()) {
           details += "<${pullRequest?.url}|PR#${pullRequest?.number}> › "
         }
 

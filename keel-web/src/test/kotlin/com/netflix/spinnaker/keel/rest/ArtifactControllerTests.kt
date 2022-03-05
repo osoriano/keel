@@ -162,7 +162,6 @@ internal class ArtifactControllerTests
     var response: ResultActions? = null
 
     fun postArtifact(event: EchoArtifactEvent, mvc: MockMvc) {
-      //clearMocks(workQueueProcessor, answers = false)
       val request = MockMvcRequestBuilders.post("/artifacts/events")
         .contentType(MediaType.APPLICATION_JSON_VALUE)
         .content(objectMapper.writeValueAsString(event))

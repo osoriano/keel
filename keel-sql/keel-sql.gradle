@@ -64,13 +64,12 @@ dependencies {
   jooqGenerator(platform("com.netflix.spinnaker.netflixplatform:netflixplatform-bom:${netflixplatformVersion}"))
   jooqGenerator("mysql:mysql-connector-java")
   jooqGenerator("org.jooq:jooq-meta-extensions")
-  jooqGenerator("ch.qos.logback:logback-classic:1.2.3")
 
   liquibaseRuntime(platform("com.netflix.spinnaker.netflixplatform:netflixplatform-bom:${netflixplatformVersion}"))
   liquibaseRuntime("org.liquibase:liquibase-core:3.8.9")
-  liquibaseRuntime("ch.qos.logback:logback-classic:1.2.3")
   liquibaseRuntime("org.yaml:snakeyaml:1.28")
   liquibaseRuntime("mysql:mysql-connector-java")
+  liquibaseRuntime("info.picocli:picocli:4.6.3")
 }
 
 liquibaseUpdate {

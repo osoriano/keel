@@ -30,6 +30,7 @@ import com.netflix.spinnaker.keel.api.PreviewEnvironmentSpec
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceKind
 import com.netflix.spinnaker.keel.api.ResourceSpec
+import com.netflix.spinnaker.keel.api.RolloutStrategy
 import com.netflix.spinnaker.keel.api.SubnetAwareRegionSpec
 import com.netflix.spinnaker.keel.api.Verification
 import com.netflix.spinnaker.keel.api.artifacts.Commit
@@ -52,6 +53,7 @@ import com.netflix.spinnaker.keel.jackson.mixins.PreviewEnvironmentSpecMixin
 import com.netflix.spinnaker.keel.jackson.mixins.ResourceKindMixin
 import com.netflix.spinnaker.keel.jackson.mixins.ResourceMixin
 import com.netflix.spinnaker.keel.jackson.mixins.ResourceSpecMixin
+import com.netflix.spinnaker.keel.jackson.mixins.RolloutStrategyMixin
 import com.netflix.spinnaker.keel.jackson.mixins.SubnetAwareRegionSpecMixin
 import com.netflix.spinnaker.keel.jackson.mixins.VerificationMixin
 
@@ -79,6 +81,7 @@ object KeelApiModule : SimpleModule("Keel API") {
       setMixInAnnotations<PreviewEnvironmentSpec, PreviewEnvironmentSpecMixin>()
       setMixInAnnotations<Dependent, DependentMixin>()
       setMixInAnnotations<EnvironmentChangeReason, EnvironmentChangeReasonMixin>()
+      setMixInAnnotations<RolloutStrategy, RolloutStrategyMixin>()
       insertAnnotationIntrospector(FactoryAnnotationIntrospector())
     }
   }

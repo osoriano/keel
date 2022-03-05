@@ -4,6 +4,7 @@ dependencies {
   implementation(project(":keel-igor"))
   implementation(project(":keel-front50"))
   implementation(project(":keel-network"))
+  implementation(project(":keel-stash"))
   implementation("org.springframework.boot:spring-boot-autoconfigure")
 
   implementation("com.slack.api:slack-api-model-kotlin-extension:${slackSdkVersion}")

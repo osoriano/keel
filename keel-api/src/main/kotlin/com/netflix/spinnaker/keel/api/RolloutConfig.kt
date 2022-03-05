@@ -1,7 +1,5 @@
 package com.netflix.spinnaker.keel.api
 
-import com.fasterxml.jackson.annotation.JsonSubTypes
-import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.netflix.spinnaker.keel.api.schema.Discriminator
 import java.time.Duration
 
@@ -38,16 +36,6 @@ enum class SelectionStrategy(val enumStyleName: String) {
   staggered("STAGGERED")
 }
 
-@JsonTypeInfo(
-  use = JsonTypeInfo.Id.NAME,
-  property = "type",
-  include = JsonTypeInfo.As.PROPERTY
-)
-@JsonSubTypes(
-  JsonSubTypes.Type(value = Alphabetical::class),
-  JsonSubTypes.Type(value = OffStreamingPeak::class),
-  JsonSubTypes.Type(value = Staggered::class)
-)
 abstract class RolloutStrategy {
   @Discriminator
   abstract val type: SelectionStrategy

@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.front50
 
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache
+import com.netflix.spinnaker.keel.activation.ApplicationUp
 import com.netflix.spinnaker.keel.caffeine.CacheFactory
 import com.netflix.spinnaker.keel.caffeine.CacheLoadingException
 import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
@@ -10,12 +11,17 @@ import com.netflix.spinnaker.keel.front50.model.DisablePipeline
 import com.netflix.spinnaker.keel.front50.model.GitRepository
 import com.netflix.spinnaker.keel.front50.model.ManagedDeliveryConfig
 import com.netflix.spinnaker.keel.front50.model.Pipeline
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.future.await
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
+import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import java.util.concurrent.CompletableFuture
 import javax.annotation.PostConstruct
+import kotlin.coroutines.CoroutineContext
 
 /**
  * Memory-based cache for Front50 data.
@@ -23,11 +29,13 @@ import javax.annotation.PostConstruct
 @Component
 class Front50Cache(
   private val front50Service: Front50Service,
-  cacheFactory: CacheFactory
-) {
-  companion object {
-    private val log by lazy { LoggerFactory.getLogger(Front50Cache::class.java) }
-  }
+  cacheFactory: CacheFactory,
+  coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
+) : CoroutineScope {
+
+  private val log by lazy { LoggerFactory.getLogger(Front50Cache::class.java) }
+
+  override val coroutineContext: CoroutineContext = coroutineDispatcher
 
   private val applicationsByNameCache: AsyncLoadingCache<String, Application> = cacheFactory
     .asyncLoadingCache(cacheName = "applicationsByName") { app ->
@@ -81,9 +89,9 @@ class Front50Cache(
   suspend fun pipelinesByApplication(application: String): List<Pipeline> =
     pipelinesByApplication.get(application).await()
 
-  @PostConstruct
+  @EventListener(ApplicationUp::class)
   fun primeCaches() {
-    log.debug("Priming Front50 application caches")
+    log.debug("Keel is up. Priming Front50 application caches...")
     runBlocking {
       try {
         val apps = front50Service.allApplications(DEFAULT_SERVICE_ACCOUNT)

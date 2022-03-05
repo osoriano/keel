@@ -99,6 +99,3 @@ EC2_REGION: us-east-2
 NETFLIX_ENVIRONMENT: ${netflix.environment}
 retrofit2:
   logLevel: BASIC
-
-# logging:
-#   config: ${user.home}/.spinnaker/logback-defaults.xml

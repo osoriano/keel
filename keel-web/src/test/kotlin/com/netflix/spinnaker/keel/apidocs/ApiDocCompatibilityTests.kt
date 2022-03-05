@@ -24,7 +24,7 @@ import strikt.api.Assertion
 import strikt.api.expectThat
 
 @SpringBootTest(
-  webEnvironment = NONE
+  webEnvironment = NONE,
 )
 class ApiDocCompatibilityTests
 @Autowired constructor(val extensionRegistry: ExtensionRegistry, val generator: Generator) {
