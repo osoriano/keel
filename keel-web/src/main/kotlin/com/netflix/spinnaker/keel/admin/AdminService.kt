@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.admin
 
+import com.netflix.spinnaker.keel.activation.DiscoveryActivated
 import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
 import com.netflix.spinnaker.keel.api.StatefulConstraint
 import com.netflix.spinnaker.keel.actuation.ExecutionSummary
@@ -44,10 +45,8 @@ class AdminService(
   private val clock: Clock,
   private val applicationRepository: ApplicationRepository,
   coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
-) : CoroutineScope {
+) : CoroutineScope, DiscoveryActivated() {
   override val coroutineContext: CoroutineContext = coroutineDispatcher
-
-  private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
   fun deleteApplicationData(application: String) {
     log.debug("Deleting all data for application: $application")
@@ -96,14 +95,16 @@ class AdminService(
 
   @Scheduled(fixedDelayString = "\${keel.artifact-metadata-backfill.frequency:PT1H}")
   fun scheduledBackfillArtifactMetadata() {
-    val startTime = clock.instant()
-    val job = launch(blankMDC) {
-      supervisorScope {
-        backfillArtifactMetadata()
+    if (enabled.get()) {
+      val startTime = clock.instant()
+      val job = launch(blankMDC) {
+        supervisorScope {
+          backfillArtifactMetadata()
+        }
       }
+      runBlocking { job.join() }
+      log.info("Back-filled artifact metadata in ${Duration.between(startTime, clock.instant()).seconds} seconds")
     }
-    runBlocking { job.join() }
-    log.info("Back-filled artifact metadata in ${Duration.between(startTime, clock.instant()).seconds} seconds")
   }
 
   /**

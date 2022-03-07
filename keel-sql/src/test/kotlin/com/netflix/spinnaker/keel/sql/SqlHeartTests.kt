@@ -4,6 +4,8 @@ import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil
 import com.netflix.spinnaker.time.MutableClock
+import io.mockk.every
+import io.mockk.spyk
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import strikt.api.expectThat
@@ -16,7 +18,7 @@ class SqlHeartTests {
   private val jooq = testDatabase.context
   private val clock = MutableClock()
   private val sqlRetry = RetryProperties(1, 0).let { SqlRetry(SqlRetryProperties(it, it)) }
-  private val heart = SqlHeart(jooq, sqlRetry, clock)
+  private val heart = spyk(SqlHeart(jooq, sqlRetry, clock))
   
   @AfterEach
   fun flush() {
@@ -49,8 +51,17 @@ class SqlHeartTests {
 
   @Test
   fun `will clean old beats`() {
+    every { heart.enabled.get() } returns true
     heart.beat()
     clock.tickMinutes(70)
     expectThat(heart.cleanOldRecords()).isEqualTo(1)
+  }
+
+  @Test
+  fun `won't clean old beats when down in discovery`() {
+    every { heart.enabled.get() } returns false
+    heart.beat()
+    clock.tickMinutes(70)
+    expectThat(heart.cleanOldRecords()).isEqualTo(0)
   }
 }

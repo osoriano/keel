@@ -2,6 +2,7 @@ package com.netflix.spinnaker.keel.export
 
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import com.netflix.spinnaker.config.BaseUrlConfig
+import com.netflix.spinnaker.keel.activation.DiscoveryActivated
 import com.netflix.spinnaker.keel.api.AccountAwareLocations
 import com.netflix.spinnaker.keel.api.Constraint
 import com.netflix.spinnaker.keel.api.Dependency
@@ -90,8 +91,7 @@ class ExportService(
   private val cloudDriverCache: CloudDriverCache,
   private val jenkinsService: JenkinsService,
   coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
-) : CoroutineScope {
-  private val log by lazy { LoggerFactory.getLogger(javaClass) }
+) : CoroutineScope, DiscoveryActivated() {
   private val prettyPrinter by lazy { yamlMapper.writerWithDefaultPrettyPrinter() }
 
   override val coroutineContext: CoroutineContext = coroutineDispatcher
@@ -255,31 +255,32 @@ class ExportService(
    */
   @Scheduled(fixedDelayString = "\${keel.pipelines-export.scheduled.frequency:PT5M}")
   fun checkAppsForExport() {
-    if (!isScheduledExportEnabled) return
-    val apps = deliveryConfigRepository.getAppsToExport(exportMinAge, exportBatchSize)
-    log.debug("Running the migration export on apps: $apps")
-    val jobs = apps.map { app ->
-      launch {
-        try {
-          when (val result = exportFromPipelines(app)) {
-            is ExportErrorResult -> deliveryConfigRepository.storeFailedPipelinesExportResult(app, result.error)
-            is ExportSkippedResult -> log.info("Skipping export of $app - it is already on MD")
-            is PipelineExportResult -> deliveryConfigRepository.storePipelinesExportResult(
-              deliveryConfig = result.deliveryConfig,
-              skippedPipelines = result.toSkippedPipelines(),
-              exportSucceeded = result.exportSucceeded,
-              repoSlug = result.repoSlug,
-              projectKey = result.projectKey,
-              isInactive = result.isInactive
-            )
+    if (isScheduledExportEnabled && enabled.get()) {
+      val apps = deliveryConfigRepository.getAppsToExport(exportMinAge, exportBatchSize)
+      log.debug("Running the migration export on apps: $apps")
+      val jobs = apps.map { app ->
+        launch {
+          try {
+            when (val result = exportFromPipelines(app)) {
+              is ExportErrorResult -> deliveryConfigRepository.storeFailedPipelinesExportResult(app, result.error)
+              is ExportSkippedResult -> log.info("Skipping export of $app - it is already on MD")
+              is PipelineExportResult -> deliveryConfigRepository.storePipelinesExportResult(
+                deliveryConfig = result.deliveryConfig,
+                skippedPipelines = result.toSkippedPipelines(),
+                exportSucceeded = result.exportSucceeded,
+                repoSlug = result.repoSlug,
+                projectKey = result.projectKey,
+                isInactive = result.isInactive
+              )
+            }
+          } catch (e: Exception) {
+            log.error("Failed to export application $app")
           }
-        } catch (e: Exception) {
-          log.error("Failed to export application $app")
         }
       }
+      runBlocking { jobs.joinAll() }
+      log.debug("Finished running the migration export on apps: $apps")
     }
-    runBlocking { jobs.joinAll() }
-    log.debug("Finished running the migration export on apps: $apps")
   }
 
   /**

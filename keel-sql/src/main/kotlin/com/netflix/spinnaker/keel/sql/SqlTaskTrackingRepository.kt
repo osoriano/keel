@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.sql
 
 import com.netflix.spinnaker.config.RetentionProperties
+import com.netflix.spinnaker.keel.activation.DiscoveryActivated
 import com.netflix.spinnaker.keel.api.TaskStatus
 import com.netflix.spinnaker.keel.api.TaskStatus.RUNNING
 import com.netflix.spinnaker.keel.api.actuation.SubjectType
@@ -21,7 +22,7 @@ class SqlTaskTrackingRepository(
   private val clock: Clock,
   private val sqlRetry: SqlRetry,
   private val retentionProperties: RetentionProperties
-) : TaskTrackingRepository {
+) : TaskTrackingRepository, DiscoveryActivated() {
 
   override fun store(task: TaskRecord) {
     sqlRetry.withRetry(WRITE) {
@@ -174,20 +175,20 @@ class SqlTaskTrackingRepository(
 
   @Scheduled(cron = "0 0 7 * * *")
   fun purgeOldTaskRecords() {
-    val cutoff = taskCutoff
-    jooq
-      .deleteFrom(TASK_TRACKING)
-      .where(TASK_TRACKING.ENDED_AT.lessThan(cutoff))
-      .execute()
-      .also { count ->
-        if (count > 0) {
-          log.debug("Purged {} tasks that ended before {}", count, cutoff)
+    if (enabled.get()) {
+      val cutoff = taskCutoff
+      jooq
+        .deleteFrom(TASK_TRACKING)
+        .where(TASK_TRACKING.ENDED_AT.lessThan(cutoff))
+        .execute()
+        .also { count ->
+          if (count > 0) {
+            log.debug("Purged {} tasks that ended before {}", count, cutoff)
+          }
         }
-      }
+    }
   }
 
   private val taskCutoff: Instant
     get() = clock.instant().minus(retentionProperties.tasks)
-
-  private val log by lazy { LoggerFactory.getLogger(javaClass) }
 }
