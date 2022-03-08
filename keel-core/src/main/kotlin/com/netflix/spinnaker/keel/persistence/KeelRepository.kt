@@ -499,7 +499,7 @@ class KeelRepository(
   fun storeArtifactVersion(artifactVersion: PublishedArtifact): Boolean =
     artifactRepository.storeArtifactVersion(artifactVersion)
 
-  fun getArtifactVersion(artifact: DeliveryArtifact, version: String, status: ArtifactStatus? = null): PublishedArtifact? =
+  override fun getArtifactVersion(artifact: DeliveryArtifact, version: String, status: ArtifactStatus?): PublishedArtifact? =
     artifactRepository.getArtifactVersion(artifact, version, status)
 
   fun getLatestApprovedInEnvArtifactVersion(config: DeliveryConfig, artifact: DeliveryArtifact, environmentName: String, excludeCurrent: Boolean?): PublishedArtifact? =

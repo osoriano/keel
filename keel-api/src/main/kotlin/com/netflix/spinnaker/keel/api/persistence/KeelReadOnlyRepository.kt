@@ -113,4 +113,9 @@ interface KeelReadOnlyRepository {
    * Returns the release status for the specified [version] of the [artifact], if available.
    */
   fun getReleaseStatus(artifact: DeliveryArtifact, version: String): ArtifactStatus?
+
+  /**
+   * @return A [PublishedArtifact] object representing the specified artifact version, if known to Keel.
+   */
+  fun getArtifactVersion(artifact: DeliveryArtifact, version: String, status: ArtifactStatus? = null): PublishedArtifact?
 }
