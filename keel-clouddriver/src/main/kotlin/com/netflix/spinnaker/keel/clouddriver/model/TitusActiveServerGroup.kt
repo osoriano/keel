@@ -174,7 +174,7 @@ data class Resources(
   val cpu: Int = 1,
   val disk: Int = 10000,
   val gpu: Int = 0,
-  val memory: Int = 512,
+  val memory: Int = 2048, //higher default than the min because basic containers can't start at the min amt
   val networkMbps: Int = 128
 )
 
