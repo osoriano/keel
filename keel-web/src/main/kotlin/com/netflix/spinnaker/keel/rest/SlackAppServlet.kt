@@ -41,6 +41,8 @@ class SlackAppServlet(
     // For example, for manual judgment notifications: constraintId:OVERRIDE_PASS:MANUAL_JUDGMENT
     val actionIdPattern = "^(\\w+):(\\w+):(\\w+)".toPattern()
     slackApp.blockAction(actionIdPattern) { req: BlockActionRequest, ctx: ActionContext ->
+      log.debug("Received Slack callback for action: ${req.actionId}, triggerId: ${ctx.triggerId}")
+
       when (req.notificationType) {
         MANUAL_JUDGEMENT_ACTION -> {
           log.debug(logMessage("manual judgment button clicked", req))
@@ -75,7 +77,10 @@ class SlackAppServlet(
     "[slack interaction] $what by ${req.payload?.user?.username} (${req.payload?.user?.id}) " +
       "in channel ${req.payload?.channel?.name} (${req.payload?.channel?.id})"
 
+  private val BlockActionRequest.actionId: String
+    get() = payload.actions.first().actionId
+
   //action id is consistent of 3 parts, where the last part is the type
-  val BlockActionRequest.notificationType
-    get() = payload.actions.first().actionId.split(":").last()
+  private val BlockActionRequest.notificationType
+    get() = actionId.split(":").last()
 }

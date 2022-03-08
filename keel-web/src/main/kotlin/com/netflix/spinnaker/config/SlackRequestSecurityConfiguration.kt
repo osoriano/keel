@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.config
 
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.Ordered.HIGHEST_PRECEDENCE
 import org.springframework.core.annotation.Order
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
@@ -18,12 +19,22 @@ class SlackRequestSecurityConfiguration : WebSecurityConfigurerAdapter() {
 
   override fun configure(http: HttpSecurity) {
     http
-      .antMatcher("/slack/notifications/callbacks")
+      .requestMatchers()
+      // always authorize these URIs
+      .antMatchers(
+        "/slack/notifications/callbacks",
+        "/poweruser/slack/message"
+      )
+      .and()
       .authorizeRequests()
       .anyRequest()
       .permitAll()
       .and()
+      // disable CSRF checks for the same URIs
       .csrf()
-      .ignoringAntMatchers("/slack/notifications/callbacks")
+      .ignoringAntMatchers(
+        "/slack/notifications/callbacks",
+        "/poweruser/slack/message"
+      )
   }
 }

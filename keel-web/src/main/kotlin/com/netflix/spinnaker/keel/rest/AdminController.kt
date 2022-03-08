@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.rest
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.keel.admin.AdminService
 import com.netflix.spinnaker.keel.auth.AuthorizationResourceType.SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport
@@ -8,11 +9,12 @@ import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.export.ExportService
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.Front50Service
+import com.netflix.spinnaker.keel.notifications.slack.SlackService
 import com.netflix.spinnaker.keel.services.ApplicationService
 import com.netflix.spinnaker.keel.yaml.APPLICATION_YAML_VALUE
 import com.netflix.spinnaker.security.AuthenticatedRequest
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
+import com.slack.api.model.block.LayoutBlock
+import com.slack.api.util.json.GsonFactory
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory.getLogger
 import org.springframework.http.HttpStatus.NO_CONTENT
@@ -36,9 +38,12 @@ class AdminController(
   private val front50Cache: Front50Cache,
   private val front50Service: Front50Service,
   private val authorizationSupport: AuthorizationSupport,
-  private val applicationService: ApplicationService
+  private val applicationService: ApplicationService,
+  private val slackService: SlackService,
+  private val objectMapper: ObjectMapper
 ) {
   private val log by lazy { getLogger(javaClass) }
+  private val slackJsonFactory = GsonFactory.createSnakeCase()
 
   @DeleteMapping(
     path = ["/applications/{application}"]
@@ -258,6 +263,31 @@ class AdminController(
     applicationService.sendSlackNotificationForMigration(applications)
   }
 
+  /**
+   * Sends an arbitrary BlockKit-based message to a Slack channel. To test interactive notifications:
+   *   1. Change the Keel Slack config in keel.yml temporarily to include a bot token for a Slack app you own
+   *   2. Set server.ssl.enabled=false temporarily in keel.yml
+   *   2. Run ngrok locally: ngrok http 7087
+   *   3. In the Slack app admin webpage, set the callback URL to the ngrok hostname and your desired request path
+   *   4. Send an interactive message using this API
+   *   5. Click on an interactive control in the message -- that will cause a Slack callback that will in turn
+   *      call the ngrok endpoint into your local Keel.
+   *
+   * More info: https://slack.dev/node-slack-sdk/tutorials/local-development
+   *
+   * You can generate a list of blocks using the BlockKit builder: https://app.slack.com/block-kit-builder/
+   */
+  @PostMapping("/slack/message")
+  fun sendSlackNotification(@RequestBody body: Map<String, Any>) {
+    val channel = body["channel"] as? String ?: error("channel is a required field")
+    val blocks: List<LayoutBlock> = (body["blocks"] as? List<*> ?: error("blocks is a required field")).let {
+      it.map { block ->
+        slackJsonFactory.fromJson(objectMapper.writeValueAsString(block), LayoutBlock::class.java)
+      }
+    }
+    val fallbackText = body["fallbackText"] as? String
+    slackService.postChatMessage(channel, blocks, fallbackText = fallbackText ?: "Fallback")
+  }
 }
 
 data class CheckPermissionBody(

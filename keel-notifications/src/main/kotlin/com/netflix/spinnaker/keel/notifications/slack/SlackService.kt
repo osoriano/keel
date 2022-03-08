@@ -36,18 +36,17 @@ class SlackService(
    * Sends slack notification to [channel], which the specified [blocks].
    * In case of an error with creating the blocks, or for notification preview, the fallback text will be sent.
    */
-  fun sendSlackNotification(channel: String, blocks: List<LayoutBlock>,
-                            application: String, type: List<NotificationType>,
-                            fallbackText: String): ChatPostMessageResponse? {
+  fun sendSlackNotification(
+    channel: String,
+    blocks: List<LayoutBlock>,
+    application: String,
+    type: List<NotificationType>,
+    fallbackText: String
+  ): ChatPostMessageResponse? {
     if (isSlackEnabled) {
       log.debug("Sending slack notification $type for application $application in channel $channel")
 
-      val response = slack.methods(configToken).chatPostMessage { req ->
-        req
-          .channel(channel)
-          .blocks(blocks)
-          .text(fallbackText)
-      }
+      val response = postChatMessage(channel, blocks, fallbackText)
 
       if (response.isOk) {
         spectator.counter(
@@ -77,6 +76,20 @@ class SlackService(
       log.debug("new slack integration is not enabled")
       return null
     }
+  }
+
+  /**
+   * Thin wrapper around [postChatMessage] on the Slack client.
+   */
+  fun postChatMessage(
+    channel: String,
+    blocks: List<LayoutBlock>,
+    fallbackText: String
+  ): ChatPostMessageResponse = slack.methods(configToken).chatPostMessage { req ->
+    req
+      .channel(channel)
+      .blocks(blocks)
+      .text(fallbackText)
   }
 
   /**
