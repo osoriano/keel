@@ -29,10 +29,11 @@ class RequestBodyCachingFilter : OncePerRequestFilter() {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
   override fun doFilterInternal(request: HttpServletRequest, response: HttpServletResponse, chain: FilterChain) {
-    val contentLength = request.getHeader("Content-Length") ?: "unknown"
     if (request.method == HttpMethod.POST.name) {
-      log.debug("Caching request body for ${request.method} ${request.requestURI} (content length: $contentLength)")
+      log.debug("Caching request body for ${request.method} ${request.requestURI}")
       val wrapper = BodyCachingRequestWrapper(request)
+      val body = String(wrapper.inputStream.readAllBytes())
+      log.debug("Cached request for ${request.method} ${request.requestURI} (body = $body")
       chain.doFilter(wrapper, response)
     } else {
       chain.doFilter(request, response)
