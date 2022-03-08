@@ -27,6 +27,7 @@ import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceKind
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 import com.netflix.spinnaker.keel.api.ResourceStatus
+import com.netflix.spinnaker.keel.pause.Pause
 
 /**
  * A summary version of a resource that contains identifying information, location information, and status.
@@ -39,7 +40,7 @@ data class ResourceSummary(
   val resource: Resource<*>,
   val status: ResourceStatus,
   val locations: Locations<*>?,
-  val artifact: ResourceArtifactSummary? = null
+  val pause: Pause? = null
 ) {
   val id: String = resource.id
   val kind: ResourceKind = resource.kind

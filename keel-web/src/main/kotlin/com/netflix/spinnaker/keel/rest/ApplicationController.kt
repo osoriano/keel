@@ -19,10 +19,7 @@ package com.netflix.spinnaker.keel.rest
 
 import com.netflix.spinnaker.config.ArtifactConfig
 import com.netflix.spinnaker.keel.api.DeliveryConfig
-import com.netflix.spinnaker.keel.api.constraints.ConstraintState
 import com.netflix.spinnaker.keel.api.constraints.UpdatedConstraintStatus
-import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactPin
-import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactVeto
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.events.ApplicationEvent
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
@@ -31,10 +28,8 @@ import com.netflix.spinnaker.keel.persistence.ResourceRepository.Companion.DEFAU
 import com.netflix.spinnaker.keel.services.ApplicationService
 import com.netflix.spinnaker.keel.yaml.APPLICATION_YAML_VALUE
 import com.netflix.spinnaker.kork.web.exceptions.InvalidRequestException
-import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
-import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType.APPLICATION_JSON_VALUE
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -45,7 +40,6 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
-import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
@@ -54,7 +48,6 @@ import org.springframework.web.bind.annotation.RestController
 class ApplicationController(
   private val actuationPauser: ActuationPauser,
   private val applicationService: ApplicationService,
-  private val artifactConfig: ArtifactConfig,
   private val deliveryConfigImporter: DeliveryConfigImporter
 ) {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
@@ -69,31 +62,16 @@ class ApplicationController(
   )
   fun get(
     @PathVariable("application") application: String,
-    @RequestParam("includeDetails", required = false, defaultValue = "false") includeDetails: Boolean,
     @RequestParam("entities", required = false, defaultValue = "") entities: MutableList<String>,
     @RequestParam("maxArtifactVersions") maxArtifactVersions: Int?
   ): Map<String, Any> {
-    return mutableMapOf(
+    return mutableMapOf<String, Any>(
       "applicationPaused" to actuationPauser.applicationIsPaused(application),
       "hasManagedResources" to applicationService.hasManagedResources(application),
-      "currentEnvironmentConstraints" to applicationService.getConstraintStatesFor(application)
     ).also { results ->
-      // for backwards-compatibility
-      if (includeDetails && !entities.contains("resources")) {
-        entities.add("resources")
-      }
-      if (entities.size == 3) { // requesting everything, can optimize
-        results.putAll(runBlocking { applicationService.getSummariesAllEntities(application) })
-      } else {
-        entities.forEach { entity ->
-          results[entity] = when (entity) {
-            "resources" -> applicationService.getResourceSummariesFor(application)
-            "environments" -> applicationService.getEnvironmentSummariesFor(application)
-            "artifacts" -> applicationService.getArtifactSummariesFor(application,
-              maxArtifactVersions ?: artifactConfig.defaultMaxConsideredVersions)
-            else -> throw InvalidRequestException("Unknown entity type: $entity")
-          }
-        }
+
+      if (entities.contains("resources")) {
+        results["resources"] = applicationService.getResourceSummariesFor(application)
       }
     }
   }
@@ -146,18 +124,6 @@ class ApplicationController(
     applicationService.updateConstraintStatus(user, application, environment, status)
   }
 
-  @GetMapping(
-    path = ["/{application}/environment/{environment}/constraints"],
-    produces = [APPLICATION_JSON_VALUE, APPLICATION_YAML_VALUE]
-  )
-  @PreAuthorize("@authorizationSupport.hasApplicationPermission('READ', 'APPLICATION', #application)")
-  fun getConstraintState(
-    @PathVariable("application") application: String,
-    @PathVariable("environment") environment: String,
-    @RequestParam("limit") limit: Int?
-  ): List<ConstraintState> =
-    applicationService.getConstraintStatesFor(application, environment, limit ?: DEFAULT_MAX_EVENTS)
-
   @PostMapping(
     path = ["/{application}/pause"]
   )
@@ -182,104 +148,6 @@ class ApplicationController(
     @RequestHeader("X-SPINNAKER-USER") user: String
   ) {
     actuationPauser.resumeApplication(application, user)
-  }
-
-  @PostMapping(
-    path = ["/{application}/pin"]
-  )
-  @PreAuthorize(
-    """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #application)
-    and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #application)"""
-  )
-  @ResponseStatus(HttpStatus.ACCEPTED)
-  fun pin(
-    @RequestHeader("X-SPINNAKER-USER") user: String,
-    @PathVariable("application") application: String,
-    @RequestBody pin: EnvironmentArtifactPin
-  ) {
-    applicationService.pin(user, application, pin)
-  }
-
-  @DeleteMapping(
-    path = ["/{application}/pin/{targetEnvironment}"]
-  )
-  @PreAuthorize(
-    """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #application)
-    and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #application)"""
-  )
-  @ResponseStatus(HttpStatus.ACCEPTED)
-  fun deletePin(
-    @RequestHeader("X-SPINNAKER-USER") user: String,
-    @PathVariable("application") application: String,
-    @PathVariable("targetEnvironment") targetEnvironment: String,
-    @RequestParam reference: String? = null
-  ) {
-    applicationService.deletePin(user, application, targetEnvironment, reference)
-  }
-
-  @PostMapping(
-    path = ["/{application}/veto"]
-  )
-  @ResponseStatus(HttpStatus.ACCEPTED)
-  @PreAuthorize(
-    """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #application)
-    and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #application)"""
-  )
-  fun veto(
-    @RequestHeader("X-SPINNAKER-USER") user: String,
-    @PathVariable("application") application: String,
-    @RequestBody veto: EnvironmentArtifactVeto
-  ) {
-    applicationService.markAsVetoedIn(user, application, veto, true)
-  }
-
-  @PostMapping(
-    path = ["/{application}/mark/bad"]
-  )
-  @ResponseStatus(HttpStatus.ACCEPTED)
-  @PreAuthorize(
-    """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #application)
-    and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #application)"""
-  )
-  fun markAsBad(
-    @RequestHeader("X-SPINNAKER-USER") user: String,
-    @PathVariable("application") application: String,
-    @RequestBody veto: EnvironmentArtifactVeto
-  ) {
-    applicationService.markAsVetoedIn(user, application, veto, true)
-  }
-
-  @PostMapping(
-    path = ["/{application}/mark/good"]
-  )
-  @ResponseStatus(HttpStatus.ACCEPTED)
-  @PreAuthorize(
-    """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #application)
-    and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #application)"""
-  )
-  fun markAsGood(
-    @RequestHeader("X-SPINNAKER-USER") user: String,
-    @PathVariable("application") application: String,
-    @RequestBody veto: EnvironmentArtifactVeto
-  ) {
-    applicationService.deleteVeto(application, veto.targetEnvironment, veto.reference, veto.version)
-  }
-
-  @DeleteMapping(
-    path = ["/{application}/veto/{targetEnvironment}/{reference}/{version}"]
-  )
-  @PreAuthorize(
-    """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #application)
-    and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #application)"""
-  )
-  fun deleteVeto(
-    @RequestHeader("X-SPINNAKER-USER") user: String,
-    @PathVariable("application") application: String,
-    @PathVariable("targetEnvironment") targetEnvironment: String,
-    @PathVariable("reference") reference: String,
-    @PathVariable("version") version: String
-  ) {
-    applicationService.deleteVeto(application, targetEnvironment, reference, version)
   }
 
   @GetMapping(
