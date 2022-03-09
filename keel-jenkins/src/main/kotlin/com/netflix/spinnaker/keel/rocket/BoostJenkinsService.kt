@@ -29,7 +29,7 @@ class BoostJenkinsService(
   override suspend fun hasRocketJob(jobName: String): Boolean {
     val response = boostApi.getJob(job = jobName, state = ACTIVE)
     return response.jobs.any {
-      it.name == jobName && it.scmType == ScmType.ROCKET
+      it.name.lowercase() == jobName.lowercase() && it.scmType == ScmType.ROCKET
     }
   }
 
