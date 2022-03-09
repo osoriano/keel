@@ -33,7 +33,12 @@ import com.netflix.spinnaker.keel.front50.model.RestrictedExecutionWindow
 import com.netflix.spinnaker.keel.front50.model.SlackChannel
 import com.netflix.spinnaker.keel.front50.model.TimeWindowConfig
 import com.netflix.spinnaker.keel.front50.model.Trigger
+import com.netflix.spinnaker.keel.jenkins.BasicReport
+import com.netflix.spinnaker.keel.jenkins.JUnitReportConfig
+import com.netflix.spinnaker.keel.jenkins.JenkinsProject
 import com.netflix.spinnaker.keel.jenkins.JenkinsService
+import com.netflix.spinnaker.keel.jenkins.JobConfig
+import com.netflix.spinnaker.keel.notifications.slack.SlackService
 import com.netflix.spinnaker.keel.orca.ExecutionDetailResponse
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
@@ -47,6 +52,7 @@ import com.netflix.spinnaker.keel.test.submittedDeliveryConfig
 import com.netflix.spinnaker.keel.test.titusCluster
 import com.netflix.spinnaker.keel.titus.TitusClusterHandler
 import com.netflix.spinnaker.keel.validators.DeliveryConfigValidator
+import com.netflix.spinnaker.keel.verification.jenkins.JenkinsJobVerification
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
@@ -54,6 +60,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import strikt.api.expectThat
+import strikt.assertions.contains
 import strikt.assertions.first
 import strikt.assertions.hasSize
 import strikt.assertions.isA
@@ -77,6 +84,7 @@ internal class ExportServiceTests {
   private val classicLbHandler: ClassicLoadBalancerHandler = mockk()
   private val objectMapper = configuredTestObjectMapper()
   private val jenkinsService: JenkinsService = mockk()
+  private val slackService: SlackService = mockk()
   private val prettyPrinter: ObjectWriter = mockk()
 
   private val subject = ExportService(
@@ -89,7 +97,9 @@ internal class ExportServiceTests {
     deliveryConfigRepository = deliveryConfigRepository,
     springEnv = mockEnvironment(),
     cloudDriverCache = cloudDriverCache,
-    jenkinsService = jenkinsService
+    jenkinsService = jenkinsService,
+    slackService = slackService,
+    slackNotificationChannel = "team-channel"
   )
 
   private val submittedDeliveryCofig = submittedDeliveryConfig()
@@ -102,6 +112,22 @@ internal class ExportServiceTests {
     name = "pipeline",
     id = "1",
     application = appName,
+  )
+
+  private val deployStage = DeployStage(
+    name = "Deploy",
+    refId = "2",
+    requisiteStageRefIds = listOf("1"),
+    clusters = setOf(
+      Cluster(
+        account = "test",
+        application = appName,
+        provider = "aws",
+        strategy = "highlander",
+        availabilityZones = mapOf("us-east-1" to listOf("us-east-1c", "us-east-1d", "us-east-1e")),
+        _region = null
+      )
+    )
   )
 
   private val pipelineWithNotifications = Pipeline(
@@ -128,44 +154,59 @@ internal class ExportServiceTests {
       type = "jenkins",
       enabled = true,
       application = null,
-      pipeline = null)),
-    _stages = listOf(
-      DeployStage(
-        name = "Deploy",
-        type = "deploy",
-        refId = "2",
-        requisiteStageRefIds = listOf("1"),
-        clusters = setOf(Cluster(
-          account = "test",
-          application = appName,
-          provider = "aws",
-          strategy = "highlander",
-          availabilityZones = mapOf("us-east-1" to listOf("us-east-1c", "us-east-1d", "us-east-1e")),
-          _region = null)))),
+      pipeline = null)
+    ),
+    _stages = listOf(deployStage),
     _updateTs = 1645036222851,
     lastModifiedBy = "md@netflix.com"
   )
 
   private val pipelineWithProdEnvAndNotifications = pipelineWithNotifications.copy(
-    _stages = listOf(DeployStage(
-      name = "Deploy",
-      type = "deploy",
-      refId = "2",
-      requisiteStageRefIds = listOf("1"),
-      clusters = setOf(Cluster(
-        account = "prod",
-        application = appName,
-        provider = "aws",
-        strategy = "highlander",
-        availabilityZones = mapOf("us-east-1" to listOf("us-east-1c", "us-east-1d", "us-east-1e")),
-        _region = null)))),
+    _stages = listOf(
+      deployStage.run {
+        copy(clusters = clusters.map { it.copy(account = "prod") }.toSet())
+      }
     )
+  )
 
+  private val jenkinsStageWithTests = JenkinsStage(
+    name = "Integration tests",
+    refId = "2",
+    requisiteStageRefIds = listOf("1"),
+    controller = "ctrl",
+    job = "job",
+    parameters = mapOf(
+      "param1" to "val1",
+      "param2" to "val2"
+    )
+  )
+
+  private val pipelineWithJenkinsTests = Pipeline(
+    name = "pipeline-with-jenkins-tests",
+    id = "1",
+    application = appName,
+    _stages = listOf(
+      deployStage,
+      jenkinsStageWithTests
+    ),
+    _updateTs = 1645036222851,
+    lastModifiedBy = "md@netflix.com"
+  )
+
+  private val jenkinsJobWithTests = JobConfig(
+    JenkinsProject(
+      publishers = listOf(
+        JUnitReportConfig(listOf(BasicReport("report", ".", "test-report.xml")))
+      )
+    )
+  )
+
+  private val jenkinsJobWithoutTests = JobConfig(JenkinsProject())
 
   private val lastExecution = ExecutionDetailResponse(
     id = "123",
     name = "aws-deploy-to-test",
-    application = "fnord",
+    application = appName,
     buildTime = Instant.now(),
     status = SUCCEEDED,
     startTime = null,
@@ -213,7 +254,7 @@ internal class ExportServiceTests {
     } returns Application(name = appName, repoType = "stash", repoProjectKey = "spkr", repoSlug = appName)
 
     every {
-      deliveryConfigRepository.updateMigratingAppScmStatus("fnord", any())
+      deliveryConfigRepository.updateMigratingAppScmStatus(appName, any())
     } just runs
 
     every {
@@ -262,10 +303,10 @@ internal class ExportServiceTests {
 
     every {
       deliveryConfigRepository.getByApplication(any())
-    } throws NoDeliveryConfigForApplication("fnord")
+    } throws NoDeliveryConfigForApplication(appName)
 
     every {
-      front50Cache.pipelinesByApplication("fnord")
+      front50Cache.pipelinesByApplication(appName)
     } returns listOf(pipelineWithNotifications)
 
     every {
@@ -274,9 +315,12 @@ internal class ExportServiceTests {
 
     every { ec2ClusterHandler.exportArtifact(any()) } returns artifact
 
+    every {
+      slackService.postChatMessage(any(), any(), any())
+    } returns mockk()
+
     objectMapper.registerSubtypes(NamedType(TitusClusterSpec::class.java, TITUS_CLUSTER_V1.kind.toString()))
   }
-
 
   @Test
   fun `don't set slack notification for non-production environments`() {
@@ -317,7 +361,7 @@ internal class ExportServiceTests {
   }
 
   @Test
-  fun `application's notifications takes precedents`() {
+  fun `application's notifications takes precedence`() {
     every {
       front50Cache.pipelinesByApplication(appName)
     } returns listOf(pipelineWithProdEnvAndNotifications)
@@ -340,7 +384,6 @@ internal class ExportServiceTests {
       }
     }
   }
-
 
   @Test
   fun `export is successful`() {
@@ -467,6 +510,94 @@ internal class ExportServiceTests {
       )
     ).also { pipeline ->
       expectThat(pipeline.stages.map { it.name }).isEqualTo(listOf("build", "bake", "deploy", "test"))
+    }
+  }
+
+  @Test
+  fun `can export jenkins jobs with tests to verifications`() {
+    every {
+      front50Cache.pipelinesByApplication(appName)
+    } returns listOf(pipelineWithJenkinsTests)
+
+    every {
+      jenkinsService.getJobConfig(any(), any())
+    } returns jenkinsJobWithTests
+
+    val result = runBlocking {
+      subject.exportFromPipelines(appName, includeVerifications = true)
+    }
+
+    expectThat(result) {
+      isA<PipelineExportResult>().and {
+        get { deliveryConfig.environments.first().verifyWith }
+          .hasSize(1)
+          .first()
+          .isA<JenkinsJobVerification>()
+          .and {
+            get { controller }.isEqualTo(jenkinsStageWithTests.controller)
+            get { job }.isEqualTo(jenkinsStageWithTests.job)
+            get { staticParameters }.isEqualTo(jenkinsStageWithTests.parameters)
+          }
+      }
+    }
+  }
+
+  @Test
+  fun `ignores jenkins jobs without tests`() {
+    every {
+      front50Cache.pipelinesByApplication(appName)
+    } returns listOf(pipelineWithJenkinsTests)
+
+    every {
+      jenkinsService.getJobConfig(any(), any())
+    } returns jenkinsJobWithoutTests
+
+    val result = runBlocking {
+      subject.exportFromPipelines(appName, includeVerifications = true)
+    }
+
+    expectThat(result) {
+      isA<PipelineExportResult>().and {
+        get { deliveryConfig.environments.first().verifyWith }
+          .isEmpty()
+      }
+    }
+  }
+
+  @Test
+  fun `fails to export jenkins jobs with SpEL in parameters and notifies team`() {
+    val badPipeline = pipelineWithJenkinsTests.run {
+      copy(
+        _stages = stages.map {
+          if (it is JenkinsStage) {
+            it.copy(parameters = mapOf("spelParam" to "\${var}"))
+          } else {
+            it
+          }
+        }
+      )
+    }
+
+    every {
+      front50Cache.pipelinesByApplication(appName)
+    } returns listOf(badPipeline)
+
+    every {
+      jenkinsService.getJobConfig(any(), any())
+    } returns jenkinsJobWithTests
+
+    val result = runBlocking {
+      subject.exportFromPipelines(appName, includeVerifications = true)
+    }
+
+    expectThat(result) {
+      isA<PipelineExportResult>().and {
+        get { exportSucceeded }.isFalse()
+      }
+    }
+
+    verify {
+      slackService.postChatMessage("team-channel", any(), any())
     }
   }
 }

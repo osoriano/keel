@@ -18,7 +18,7 @@ class BoostJenkinsService(
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
   override suspend fun getJobConfig(controller: String, job: String): JobConfig {
-    val response = boostApi.getJob(controller, job)
+    val response = boostApi.findJob(controller, job)
     val jobConfig = response.jobs.firstOrNull()?.config
       ?: throw NotFoundException("Jenkins job $job at controller $controller not found.")
 
@@ -27,10 +27,9 @@ class BoostJenkinsService(
   }
 
   override suspend fun hasRocketJob(jobName: String): Boolean {
-    val response = boostApi.getJob(job = jobName, state = ACTIVE)
+    val response = boostApi.findJob(job = jobName, state = ACTIVE)
     return response.jobs.any {
       it.name.lowercase() == jobName.lowercase() && it.scmType == ScmType.ROCKET
     }
   }
-
 }

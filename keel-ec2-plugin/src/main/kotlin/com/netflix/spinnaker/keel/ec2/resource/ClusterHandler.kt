@@ -377,7 +377,7 @@ class ClusterHandler(
 
     try {
       if (!jenkinsService.hasRocketJob(jobName)) {
-        throw ArtifactNotSupportedException("Build job $jobName for artifact $artifactName is not a rocket job.")
+        throw ArtifactNotSupportedException("Build job $jobName for artifact $artifactName is not a Rocket job.")
       }
     } catch (e: HttpException) {
       throw ExportError("Error retrieving information for build job $jobName: ${e.message}")

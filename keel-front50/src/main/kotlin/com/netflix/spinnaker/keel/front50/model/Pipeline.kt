@@ -42,7 +42,7 @@ data class Pipeline(
    * List of the pipeline stage types ordered by stage dependencies.
    */
   val shape: List<String>
-    get() = stages.map { stage -> stage.type }
+    get() = if (hasParallelStages) listOf("<parallel-stages>") else stages.map { stage -> stage.type }
 
   val updateTs: Instant?
     get() = _updateTs?.let { Instant.ofEpochMilli(it) }

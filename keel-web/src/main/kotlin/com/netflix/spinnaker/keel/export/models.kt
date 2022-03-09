@@ -79,3 +79,5 @@ fun PipelineExportResult.toSkippedPipelines(): List<SkippedPipeline> =
   }
 
 fun Pipeline.link(baseUrl: String) = "$baseUrl/#/applications/${application}/executions/configure/${id}"
+
+data class UnsupportedJenkinsStage(override val message: String) : Exception(message)

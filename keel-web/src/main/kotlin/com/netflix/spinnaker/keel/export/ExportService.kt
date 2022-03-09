@@ -53,6 +53,7 @@ import com.netflix.spinnaker.keel.front50.model.RestrictedExecutionWindow
 import com.netflix.spinnaker.keel.jenkins.JenkinsService
 import com.netflix.spinnaker.keel.jenkins.PublisherType.HTML_REPORT
 import com.netflix.spinnaker.keel.jenkins.PublisherType.JUNIT_REPORT
+import com.netflix.spinnaker.keel.notifications.slack.SlackService
 import com.netflix.spinnaker.keel.orca.ExecutionDetailResponse
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
@@ -60,13 +61,19 @@ import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.validators.DeliveryConfigValidator
 import com.netflix.spinnaker.keel.verification.jenkins.JenkinsJobVerification
 import com.netflix.spinnaker.keel.veto.unhealthy.UnsupportedResourceTypeException
+import com.slack.api.app_backend.interactive_components.payload.BlockActionPayload.BlockActionPayloadBuilder
+import com.slack.api.model.block.LayoutBlock
+import com.slack.api.model.block.SectionBlock
+import com.slack.api.model.block.composition.MarkdownTextObject
+import com.slack.api.model.block.composition.TextObject
+import com.slack.api.rtm.message.Message.MessageBuilder
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.env.Environment
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -90,6 +97,9 @@ class ExportService(
   private val springEnv: Environment,
   private val cloudDriverCache: CloudDriverCache,
   private val jenkinsService: JenkinsService,
+  private val slackService: SlackService,
+  @Value("\${keel.export.slack-notification-channel}")
+  private val slackNotificationChannel: String,
   coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : CoroutineScope, DiscoveryActivated() {
   private val prettyPrinter by lazy { yamlMapper.writerWithDefaultPrettyPrinter() }
@@ -353,7 +363,12 @@ class ExportService(
 
         // 6. export verifications from this pipeline
         val verifications = if (includeVerifications) {
-          pipeline.exportVerifications(deploy)
+          try {
+            pipeline.exportVerifications(deploy)
+          } catch(e: UnsupportedJenkinsStage) {
+            log.debug("Failed to export verifications due to unsupported Jenkins stage: $e")
+            return@mapValues emptyList()
+          }
         } else {
           emptyList()
         }
@@ -865,7 +880,7 @@ class ExportService(
   private suspend fun Pipeline.exportVerifications(deployStage: DeployStage): List<Verification> {
     // find Jenkins stages that come after the deploy stage (if they come before, they're not being used to run tests)
     val jenkinsStages = findDownstreamJenkinsStages(deployStage)
-    return jenkinsStages.mapNotNull { it.toVerificationOrNull() }
+    return jenkinsStages.mapNotNull { exportVerification(this, it) }
   }
 
   /**
@@ -879,7 +894,7 @@ class ExportService(
         ?.let { it.pipeline }
 
       if (deployPipeline.id == triggerPipelineId) {
-        testPipeline.toVerificationOrNull()
+        testPipeline.exportVerifications()
       } else {
         null
       }
@@ -887,36 +902,62 @@ class ExportService(
   }
 
   /**
+   * Converts a test [Pipeline] to a [Verification], but only if it contains a [JenkinsStage] that looks like it's used
+   * for running tests.
+   */
+  private suspend fun Pipeline.exportVerifications(): Verification? =
+    stages.filterIsInstance<JenkinsStage>().firstOrNull()?.let { jenkinsStage ->
+      exportVerification(this, jenkinsStage)
+    }
+
+  /**
    * Converts a [JenkinsStage] to a [Verification], but only if it looks like it's used for running tests
    * by inspecting its "publishers" and checking for the presence of HTML and/or JUnit reports.
+   *
+   * @throws UnsupportedJenkinsStage if the Jenkins stage contains parameters with SpEL expressions.
    */
-  private suspend fun JenkinsStage.toVerificationOrNull(): Verification? {
+  private suspend fun exportVerification(pipeline: Pipeline, jenkinsStage: JenkinsStage): Verification? {
     val looksLikeTests = try {
-      val config = jenkinsService.getJobConfig(controller, job)
+      val config = jenkinsService.getJobConfig(jenkinsStage.controller, jenkinsStage.job)
       config.project.publishers.any { it.type == JUNIT_REPORT || it.type == HTML_REPORT }
     } catch (e: Exception) {
-      log.debug("Error retrieving/parsing config for Jenkins job $controller/$job: $e")
+      log.debug("Error retrieving/parsing config for Jenkins job ${jenkinsStage.controller}/${jenkinsStage.job}: $e")
       false
     }
 
-    return if (looksLikeTests) {
-      JenkinsJobVerification(
-        controller = controller,
-        job = job,
-        staticParameters = parameters
-        // TODO: should we try to setup some dynamic parameters for simple/common SpEL expressions?
+    if (!looksLikeTests) {
+      log.debug("Jenkins job ${jenkinsStage.job} in pipeline ${pipeline.name} for application ${pipeline.application}" +
+        " does not look like it's running any tests (no test reports found)."
       )
-    } else {
-      null
+      return null
     }
+
+    val parametersWithSpel = jenkinsStage.parameters.filter { (_, value) ->
+      SPEL_REGEX.matches(value)
+    }
+
+    if (parametersWithSpel.isNotEmpty()) {
+      val message = "Found parameters with SpEL expression for Jenkins job `${jenkinsStage.job}`" +
+        " in pipeline `${pipeline.name}` for application `${pipeline.application}`:\n" +
+        parametersWithSpel.entries.joinToString { (key, value) -> "  - $key: $value\n" } +
+        "Link: ${pipeline.link(baseUrlConfig.baseUrl)}"
+      log.debug(message)
+      slackService.notifyTeam(message)
+      throw UnsupportedJenkinsStage(message)
+    }
+
+    return JenkinsJobVerification(
+      controller = jenkinsStage.controller,
+      job = jenkinsStage.job,
+      staticParameters = jenkinsStage.parameters
+      // TODO: should we try to setup some dynamic parameters for simple/common SpEL expressions?
+    )
   }
 
-  /**
-   * Converts a [Pipeline] to a [Verification], but only if it contains a [JenkinsStage] that looks like it's used
-   * for running tests.
-   */
-  private suspend fun Pipeline.toVerificationOrNull(): Verification? =
-    stages.filterIsInstance<JenkinsStage>().firstOrNull()?.toVerificationOrNull()
+  private fun SlackService.notifyTeam(message: String) {
+    val block = SectionBlock().apply { text = MarkdownTextObject(":alert: $message", false) }
+    postChatMessage(slackNotificationChannel, listOf(block), message)
+  }
 }
 
 private val Exportable.clusterKind: ResourceKind

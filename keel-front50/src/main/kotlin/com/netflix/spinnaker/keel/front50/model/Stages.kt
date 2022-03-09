@@ -58,7 +58,6 @@ data class GenericStage(
 
 data class BakeStage(
   override val name: String,
-  override val type: String,
   override val refId: String,
   override val requisiteStageRefIds: List<String> = emptyList(),
   val `package`: String,
@@ -69,6 +68,8 @@ data class BakeStage(
   val vmType: String = "hvm",
   val cloudProviderType: String = "aws"
 ) : Stage() {
+
+  override val type = "bake"
 
   val artifact: DebianArtifact
     get() = DebianArtifact(
@@ -89,12 +90,13 @@ data class BakeStage(
 
 data class DeployStage(
   override val name: String,
-  override val type: String,
   override val refId: String,
   override val requisiteStageRefIds: List<String> = emptyList(),
   val clusters: Set<Cluster>,
   val restrictedExecutionWindow: RestrictedExecutionWindow? = null
-) : Stage()
+) : Stage() {
+  override val type = "deploy"
+}
 
 data class RestrictedExecutionWindow (
   val whitelist : List<TimeWindowConfig>? = null,
@@ -117,7 +119,6 @@ enum class SelectionStrategy {
 
 data class FindImageStage(
   override val name: String,
-  override val type: String,
   override val refId: String,
   override val requisiteStageRefIds: List<String> = emptyList(),
   val cluster: String,
@@ -127,29 +128,34 @@ data class FindImageStage(
   val cloudProvider: String,
   val regions: Set<String>,
   val cloudProviderType: String = cloudProvider
-) : Stage()
+) : Stage() {
+  override val type = "findImage"
+}
 
 data class FindImageFromTagsStage(
   override val name: String,
-  override val type: String,
   override val refId: String,
   override val requisiteStageRefIds: List<String> = emptyList(),
-) : Stage()
+) : Stage() {
+  override val type = "findImageFromTags"
+}
 
 data class ManualJudgmentStage(
   override val name: String,
-  override val type: String,
   override val refId: String,
   override val requisiteStageRefIds: List<String> = emptyList(),
-) : Stage()
+) : Stage()  {
+  override val type = "manualJudgment"
+}
 
 data class JenkinsStage(
   override val name: String,
-  override val type: String,
   override val refId: String,
   @JsonAlias("master")
   val controller: String,
   val job: String,
   val parameters: Map<String, String> = emptyMap(),
   override val requisiteStageRefIds: List<String> = emptyList(),
-) : Stage()
+) : Stage() {
+  override val type = "jenkins"
+}

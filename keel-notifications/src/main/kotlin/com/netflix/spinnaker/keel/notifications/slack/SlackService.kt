@@ -83,7 +83,7 @@ class SlackService(
    */
   fun postChatMessage(
     channel: String,
-    blocks: List<LayoutBlock>,
+    blocks: List<LayoutBlock> = emptyList(),
     fallbackText: String
   ): ChatPostMessageResponse = slack.methods(configToken).chatPostMessage { req ->
     req

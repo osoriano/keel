@@ -9,7 +9,9 @@ import retrofit2.http.Query
  */
 interface BoostApi {
   @GET("/api/v1/jobs/search-by-name")
-  suspend fun getJob(@Query("master") controller: String? = null,
-                     @Query("name") job: String,
-                     @Query("state") state: JobState? = null): JobsResponse
+  suspend fun findJob(
+    @Query("master") controller: String? = null,
+    @Query("name") job: String,
+    @Query("state") state: JobState? = null
+  ): JobsResponse
 }
