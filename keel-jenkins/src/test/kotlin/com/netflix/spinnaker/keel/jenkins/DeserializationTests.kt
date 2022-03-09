@@ -19,7 +19,9 @@ internal class DeserializationTests {
   fun `can parse Jenkins job`() {
     val encodedXml = javaClass.getResource("/jenkins-job-with-tests.xml").readText()
       .let { jsonMapper.writeValueAsString(it) }
-    val json = """{"scmType": "ROCKET", "config": $encodedXml }"""
+    val json = """{"scmType": "ROCKET",
+      |"name": "a job",
+      |"config": $encodedXml }""".trimMargin()
     val parsed = jsonMapper.readValue<Job>(json)
     println(prettyPrinter.writeValueAsString(parsed))
   }

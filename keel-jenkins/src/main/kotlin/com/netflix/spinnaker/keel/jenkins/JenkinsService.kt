@@ -5,5 +5,5 @@ package com.netflix.spinnaker.keel.jenkins
  */
 interface JenkinsService {
   suspend fun getJobConfig(controller: String, job: String): JobConfig
-  suspend fun hasRocketJob(job: String): Boolean
+  suspend fun hasRocketJob(jobName: String): Boolean
 }

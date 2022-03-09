@@ -26,10 +26,10 @@ class BoostJenkinsService(
     return jobConfig
   }
 
-  override suspend fun hasRocketJob(job: String): Boolean {
-    val response = boostApi.getJob(job = job, state = ACTIVE)
+  override suspend fun hasRocketJob(jobName: String): Boolean {
+    val response = boostApi.getJob(job = jobName, state = ACTIVE)
     return response.jobs.any {
-      it.scmType == ScmType.ROCKET
+      it.name == jobName && it.scmType == ScmType.ROCKET
     }
   }
 
