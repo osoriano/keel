@@ -52,7 +52,7 @@ class SlackCallbackHandler(
     if (slackConfig.socketMode) {
       try {
         val socketModeApp = SocketModeApp(
-          slackConfig.token,
+          slackConfig.appToken,
           Tyrus,
           slackApp
         )

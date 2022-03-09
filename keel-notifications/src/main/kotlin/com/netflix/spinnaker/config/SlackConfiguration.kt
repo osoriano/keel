@@ -10,8 +10,9 @@ import org.springframework.context.annotation.Configuration
 @ConditionalOnProperty("slack.enabled")
 @ConfigurationProperties(prefix = "slack")
 class SlackConfiguration {
-  var token: String? = null
-  var defaultEmailDomain: String? = null
+  var token: String = "configure-me"
+  var appToken: String = "configure-me"
+  var defaultEmailDomain: String = "configure-me"
   var socketMode: Boolean = true
 }
 
