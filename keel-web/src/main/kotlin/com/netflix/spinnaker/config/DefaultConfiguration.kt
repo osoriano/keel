@@ -95,8 +95,7 @@ class DefaultConfiguration(
   @Bean
   fun authenticatedRequestFilter(encryptionService: EncryptionService): FilterRegistrationBean<AuthenticatedRequestFilter> =
     FilterRegistrationBean(AuthenticatedRequestFilter(encryptionService, true))
-      // load _almost_ at the highest precedence because we need to load RequestBodyCachingFilter first
-      .apply { order = HIGHEST_PRECEDENCE + 1 }
+      .apply { order = HIGHEST_PRECEDENCE }
 
   @Bean
   fun taskSchedulerCustomizer(@Value("\${keel.scheduler.thread-pool-size:10}") poolSize: Int): TaskSchedulerCustomizer =
