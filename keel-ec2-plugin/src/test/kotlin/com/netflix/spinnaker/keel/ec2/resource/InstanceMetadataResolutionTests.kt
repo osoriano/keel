@@ -51,7 +51,7 @@ internal class InstanceMetadataResolutionTests {
     clusterExportHelper = mockk(),
     blockDeviceConfig = mockk(),
     artifactService = mockk(),
-    jobService = mockk(),
+    jenkinsService = mockk(),
     diffFactory = DefaultResourceDiffFactory()
   )
 

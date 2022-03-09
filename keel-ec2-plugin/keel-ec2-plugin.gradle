@@ -16,6 +16,7 @@ dependencies {
   implementation("org.jetbrains.kotlinx:kotlinx-coroutines-slf4j:$kotlinCoroutinesVersion")
   implementation("io.swagger.core.v3:swagger-annotations:2.1.2")
   implementation("com.netflix.buoy:buoy-client:0.7.0")
+  implementation(project(":keel-jenkins"))
 
   testImplementation(project(":keel-test"))
   testImplementation(project(":keel-retrofit-test-support"))

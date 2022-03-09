@@ -25,8 +25,17 @@ private val publishersListType =
   jenkinsXmlMapper.typeFactory.constructCollectionType(List::class.java, PublisherConfig::class.java)
 
 data class Job(
-  val config: JobConfig
+  val config: JobConfig,
+  val scmType: ScmType
 )
+
+enum class JobState {
+  DISABLED, ACTIVE, DEFUNCT
+}
+
+enum class ScmType {
+  ROCKET, LEGACY, NONE, UNKNOWN
+}
 
 data class JobConfig(
   val project: JenkinsProject

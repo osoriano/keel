@@ -566,7 +566,7 @@ class ExportService(
     } catch (e: ArtifactNotSupportedException) {
       deliveryConfigRepository.updateMigratingAppScmStatus(applicationName, false)
       log.error("artifact for application $applicationName is not supported")
-      return Pair(emptySet(), null)
+      throw e
     }
 
     deliveryConfigRepository.updateMigratingAppScmStatus(applicationName, true)

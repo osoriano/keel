@@ -42,9 +42,8 @@ import com.netflix.spinnaker.keel.ec2.resource.BlockDeviceConfig
 import com.netflix.spinnaker.keel.ec2.resource.ClusterHandler
 import com.netflix.spinnaker.keel.ec2.resource.toCloudDriverResponse
 import com.netflix.spinnaker.keel.exceptions.ArtifactNotSupportedException
-import com.netflix.spinnaker.keel.igor.JobService
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactService
-import com.netflix.spinnaker.keel.igor.model.Job
+import com.netflix.spinnaker.keel.jenkins.JenkinsService
 import com.netflix.spinnaker.keel.orca.ClusterExportHelper
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.orca.OrcaTaskLauncher
@@ -92,7 +91,7 @@ internal class ClusterExportTests : JUnit5Minutests {
   val clusterExportHelper = mockk<ClusterExportHelper>(relaxed = true)
   val blockDeviceConfig = mockk<BlockDeviceConfig>()
   val artifactService = mockk<ArtifactService>()
-  val jobService = mockk<JobService>()
+  val jenkinsService = mockk<JenkinsService>()
 
   val vpcWest = Network(EC2_CLOUD_PROVIDER, "vpc-1452353", "vpc0", "test", "us-west-2")
   val vpcEast = Network(EC2_CLOUD_PROVIDER, "vpc-4342589", "vpc0", "test", "us-east-1")
@@ -201,7 +200,7 @@ internal class ClusterExportTests : JUnit5Minutests {
         clusterExportHelper,
         blockDeviceConfig,
         artifactService,
-        jobService,
+        jenkinsService,
         DefaultResourceDiffFactory()
       )
     }
@@ -264,7 +263,7 @@ internal class ClusterExportTests : JUnit5Minutests {
             metadata = mapOf("branch" to "main"),
             provenance = "https://blablabla.net/job/users-my-app-build/"
           )
-          every { jobService.getJobByName(any()) } returns Job(name = "users-my-app-build", scmType = "ROCKET", createdAt = "now", updatedAt = "now")
+          every { jenkinsService.hasRocketJob(any()) } returns true
         }
 
         test("deb is exported correctly and includes `from` spec with branch") {
@@ -306,7 +305,7 @@ internal class ClusterExportTests : JUnit5Minutests {
             // the branch has a commit hash instead of a branch name, which is not allowed in the export
             gitMetadata = GitMetadata(commit = "b84af827736", branch = "b84af827736")
           )
-          every { jobService.getJobByName(any()) } returns Job(name = "users-my-app-build", scmType = "ROCKET", createdAt = "now", updatedAt = "now")
+          every { jenkinsService.hasRocketJob(any()) } returns true
         }
 
         test("deb is exported correctly using status and not branch") {

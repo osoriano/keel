@@ -93,8 +93,8 @@ import com.netflix.spinnaker.keel.exceptions.ActiveServerGroupsException
 import com.netflix.spinnaker.keel.exceptions.ArtifactNotSupportedException
 import com.netflix.spinnaker.keel.exceptions.ExportError
 import com.netflix.spinnaker.keel.filterNotNullValues
-import com.netflix.spinnaker.keel.igor.JobService
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactService
+import com.netflix.spinnaker.keel.jenkins.JenkinsService
 import com.netflix.spinnaker.keel.orca.ClusterExportHelper
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.orca.toOrcaJobProperties
@@ -129,7 +129,7 @@ class ClusterHandler(
   private val clusterExportHelper: ClusterExportHelper,
   private val blockDeviceConfig: BlockDeviceConfig,
   private val artifactService: ArtifactService,
-  private val jobService: JobService,
+  private val jenkinsService: JenkinsService,
   diffFactory: ResourceDiffFactory
 ) : BaseClusterHandler<ClusterSpec, ServerGroup>(resolvers, taskLauncher, diffFactory) {
 
@@ -376,7 +376,7 @@ class ClusterHandler(
       ?: throw ArtifactNotSupportedException("Missing build job information for artifact $artifactName")
 
     try {
-      if (jobService.getJobByName(jobName).scmType != SUPPORTED_JOB_TYPE) {
+      if (!jenkinsService.hasRocketJob(jobName)) {
         throw ArtifactNotSupportedException("Build job $jobName for artifact $artifactName is not a rocket job.")
       }
     } catch (e: HttpException) {

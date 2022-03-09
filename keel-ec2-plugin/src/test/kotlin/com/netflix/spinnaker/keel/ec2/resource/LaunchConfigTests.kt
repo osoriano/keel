@@ -29,8 +29,8 @@ import com.netflix.spinnaker.keel.clouddriver.model.ServerGroupCollection
 import com.netflix.spinnaker.keel.clouddriver.model.Subnet
 import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.ec2.resource.LaunchInfo.LAUNCH_TEMPLATE
-import com.netflix.spinnaker.keel.igor.JobService
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactService
+import com.netflix.spinnaker.keel.jenkins.JenkinsService
 import com.netflix.spinnaker.keel.orca.ClusterExportHelper
 import com.netflix.spinnaker.keel.orca.OrcaTaskLauncher
 import com.netflix.spinnaker.keel.test.resource
@@ -179,7 +179,7 @@ internal class LaunchConfigTests {
   val clusterExportHelper = mockk<ClusterExportHelper>(relaxed = true)
   val blockDeviceConfig = mockk<BlockDeviceConfig>()
   val artifactService = mockk<ArtifactService>()
-  val jobService = mockk<JobService>()
+  val jenkinsService = mockk<JenkinsService>()
 
   val clusterHandler = ClusterHandler(
     cloudDriverService,
@@ -192,7 +192,7 @@ internal class LaunchConfigTests {
     clusterExportHelper,
     blockDeviceConfig,
     artifactService,
-    jobService,
+    jenkinsService,
     DefaultResourceDiffFactory()
   )
 
