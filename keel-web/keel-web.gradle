@@ -59,6 +59,8 @@ dependencies {
   implementation("com.graphql-java:graphql-java-extended-scalars:16.0.1")
 
   runtimeOnly("com.netflix.spinnaker.kork.internal:kork-runtime")
+  // Admin UI
+  runtimeOnly("de.codecentric:spring-boot-admin-client")
 
   testImplementation(project(":keel-test"))
   testImplementation(project(":keel-core-test"))

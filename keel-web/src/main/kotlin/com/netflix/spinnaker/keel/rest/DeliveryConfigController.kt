@@ -175,7 +175,12 @@ class DeliveryConfigController(
   }
 
   private fun validateRawConfig(rawDeliveryConfig: String) {
-    val config = yamlMapper.parseDeliveryConfig(rawDeliveryConfig)
+    val config = try {
+      yamlMapper.parseDeliveryConfig(rawDeliveryConfig)
+    } catch (e: Exception) {
+      log.debug("Error parsing delivery config: $e", e)
+      throw e
+    }
     authorizationSupport.checkApplicationPermission(READ, APPLICATION, config.application)
     validator.validate(config)
   }
