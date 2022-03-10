@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.config
 
+import brave.http.HttpTracing
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import com.netflix.spinnaker.config.okhttp3.OkHttpClientProvider
@@ -8,14 +9,13 @@ import com.netflix.spinnaker.keel.igor.BuildService
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 import com.netflix.spinnaker.keel.igor.ScmService
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactService
-import com.netflix.spinnaker.keel.retrofit.InstrumentedJacksonConverter
+import com.netflix.spinnaker.keel.retrofit.buildRetrofitService
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.springframework.beans.factory.BeanCreationException
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import retrofit2.Retrofit
 
 @Configuration
 class IgorConfiguration {
@@ -28,22 +28,25 @@ class IgorConfiguration {
   fun artifactService(
     igorEndpoint: HttpUrl,
     objectMapper: ObjectMapper,
-    clientProvider: OkHttpClientProvider
-  ): ArtifactService = buildService(objectMapper, igorEndpoint, clientProvider)
+    clientProvider: OkHttpClientProvider,
+    httpTracing: HttpTracing
+  ): ArtifactService = buildRetrofitService(igorEndpoint, clientProvider, objectMapper, httpTracing)
 
   @Bean
   fun scmService(
     igorEndpoint: HttpUrl,
     objectMapper: ObjectMapper,
-    clientProvider: OkHttpClientProvider
-  ): ScmService = buildService(objectMapper, igorEndpoint, clientProvider)
+    clientProvider: OkHttpClientProvider,
+    httpTracing: HttpTracing
+  ): ScmService = buildRetrofitService(igorEndpoint, clientProvider, objectMapper, httpTracing)
 
   @Bean
   fun buildService(
     igorEndpoint: HttpUrl,
     objectMapper: ObjectMapper,
-    clientProvider: OkHttpClientProvider
-  ): BuildService = buildService(objectMapper, igorEndpoint, clientProvider)
+    clientProvider: OkHttpClientProvider,
+    httpTracing: HttpTracing
+  ): BuildService = buildRetrofitService(igorEndpoint, clientProvider, objectMapper, httpTracing)
 
   @Bean
   fun deliveryConfigImporter(
@@ -51,15 +54,4 @@ class IgorConfiguration {
     front50Cache: Front50Cache,
     yamlMapper: YAMLMapper,
   ) = DeliveryConfigImporter(scmService, front50Cache, yamlMapper)
-
-  private inline fun <reified T> buildService(
-    objectMapper: ObjectMapper,
-    igorEndpoint: HttpUrl,
-    clientProvider: OkHttpClientProvider
-  ): T = Retrofit.Builder()
-    .addConverterFactory(InstrumentedJacksonConverter.Factory("Igor", objectMapper))
-    .baseUrl(igorEndpoint)
-    .client(clientProvider.getClient(DefaultServiceEndpoint("igor", igorEndpoint.toString())))
-    .build()
-    .create(T::class.java)
 }
