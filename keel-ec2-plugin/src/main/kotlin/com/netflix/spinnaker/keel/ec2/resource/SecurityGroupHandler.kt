@@ -134,6 +134,28 @@ open class SecurityGroupHandler(
           .isNotEmpty()
       }
 
+  fun mergeRegionalSecurityGroups(securityGroups: Map<String, SecurityGroup>, account: String): SecurityGroupSpec {
+    val base = securityGroups.values.minByOrNull { it.inboundRules.size }!!
+    val spec = SecurityGroupSpec(
+      moniker = base.moniker,
+      locations = SimpleLocations(
+        account = account,
+        vpc = base.location.vpc,
+        regions = securityGroups.keys.map {
+          SimpleRegionSpec(it)
+        }
+          .toSet()
+      ),
+      description = base.description,
+      inboundRules = securityGroups.values.map { it.inboundRules }.reduce { acc, it -> acc.intersect(it) },
+      overrides = mutableMapOf()
+    )
+
+    spec.generateOverrides(securityGroups)
+
+    return spec
+  }
+
   override suspend fun export(exportable: Exportable): SecurityGroupSpec {
     val securityGroups = getSecurityGroupsByRegion(exportable)
 
@@ -144,25 +166,7 @@ open class SecurityGroupHandler(
       )
     }
 
-    val base = securityGroups.values.minByOrNull { it.inboundRules.size }!!
-    val spec = SecurityGroupSpec(
-      moniker = base.moniker,
-      locations = SimpleLocations(
-        account = exportable.account,
-        vpc = base.location.vpc,
-        regions = securityGroups.keys.map {
-          SimpleRegionSpec(it)
-        }
-          .toSet()
-      ),
-      description = base.description,
-      inboundRules = base.inboundRules,
-      overrides = mutableMapOf()
-    )
-
-    spec.generateOverrides(securityGroups)
-
-    return spec
+    return mergeRegionalSecurityGroups(securityGroups, exportable.account)
   }
 
   override suspend fun delete(resource: Resource<SecurityGroupSpec>): List<Task> {
@@ -219,7 +223,7 @@ open class SecurityGroupHandler(
             null
           },
           inboundRules = if (inboundDiff) {
-            securityGroup.inboundRules
+            securityGroup.inboundRules - this.inboundRules
           } else {
             null
           }

@@ -70,11 +70,14 @@ import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.runBlocking
 import strikt.api.Assertion
+import strikt.api.expect
 import strikt.api.expectThat
 import strikt.assertions.containsExactly
 import strikt.assertions.containsExactlyInAnyOrder
 import strikt.assertions.first
 import strikt.assertions.get
+import strikt.assertions.getValue
+import strikt.assertions.hasEntry
 import strikt.assertions.hasSize
 import strikt.assertions.isA
 import strikt.assertions.isEmpty
@@ -309,6 +312,57 @@ internal class SecurityGroupHandlerTests : JUnit5Minutests {
       io.mockk.coEvery {
         springEnv.getProperty("keel.notifications.slack", Boolean::class.java, true)
       } returns false
+    }
+
+    context("merge regional security groups") {
+      val rule1 = CidrRule(
+        protocol = TCP,
+        portRange = PortRange(10, 20),
+        blockRange = "bla"
+      )
+      val rule2 = rule1.copy(portRange = PortRange(30, 40))
+      val rule3 = rule1.copy(portRange = PortRange(40, 50))
+
+      test("same inbound rules") {
+        val merge = handler.mergeRegionalSecurityGroups(
+          mapOf(
+            "region1" to securityGroupBase.copy(inboundRules = setOf(rule1, rule2)),
+            "region2" to securityGroupBase.copy(inboundRules = setOf(rule1, rule2))
+          ), "account"
+        )
+        expect {
+          that(merge.inboundRules).isEqualTo(setOf(rule1, rule2))
+          that(merge.overrides).isEmpty()
+        }
+      }
+
+      test("with different inbound rules in each group") {
+        val merge = handler.mergeRegionalSecurityGroups(
+          mapOf(
+            "region1" to securityGroupBase.copy(inboundRules = setOf(rule1, rule2)),
+            "region2" to securityGroupBase.copy(inboundRules = setOf(rule1, rule3))
+          ), "account"
+        )
+        expect {
+          that(merge.inboundRules).isEqualTo(setOf(rule1))
+          that(merge.overrides).isNotEmpty().getValue("region1").get { inboundRules }.isEqualTo(setOf(rule2))
+          that(merge.overrides).isNotEmpty().getValue("region2").get { inboundRules }.isEqualTo(setOf(rule3))
+        }
+      }
+
+      test("one group inbound rules contain the other group rules") {
+        val merge = handler.mergeRegionalSecurityGroups(
+          mapOf(
+            "region1" to securityGroupBase.copy(inboundRules = setOf(rule1)),
+            "region2" to securityGroupBase.copy(inboundRules = setOf(rule1, rule3))
+          ), "account"
+        )
+        expect {
+          that(merge.inboundRules).isEqualTo(setOf(rule1))
+          that(merge.overrides).isNotEmpty().getValue("region2").get { inboundRules }.isEqualTo(setOf(rule3))
+          that(merge.overrides).isNotEmpty().hasSize(1) // region1 should not appear here
+        }
+      }
     }
 
     context("no matching security group exists") {
