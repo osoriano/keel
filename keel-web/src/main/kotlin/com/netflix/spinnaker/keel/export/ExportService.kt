@@ -156,6 +156,9 @@ class ExportService(
   private val exportBatchSize : Int
     get() = springEnv.getProperty("keel.pipelines-export.scheduled.batch-size", Int::class.java, 5)
 
+  private val shouldExportVerifications : Boolean
+    get() = springEnv.getProperty("keel.pipelines-export.scheduled.export-verifications", Boolean::class.java, false)
+
   /**
    * Converts a [cloudProvider] and resource [type] passed to an export function to a [ResourceKind].
    */
@@ -271,7 +274,7 @@ class ExportService(
       val jobs = apps.map { app ->
         launch {
           try {
-            when (val result = exportFromPipelines(app)) {
+            when (val result = exportFromPipelines(app, includeVerifications = shouldExportVerifications)) {
               is ExportErrorResult -> deliveryConfigRepository.storeFailedPipelinesExportResult(app, result.error)
               is ExportSkippedResult -> log.info("Skipping export of $app - it is already on MD")
               is PipelineExportResult -> deliveryConfigRepository.storePipelinesExportResult(
