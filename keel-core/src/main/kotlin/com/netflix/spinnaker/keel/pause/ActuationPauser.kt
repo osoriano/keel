@@ -17,20 +17,31 @@
  */
 package com.netflix.spinnaker.keel.pause
 
+import com.netflix.spectator.api.BasicTag
+import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.keel.actuation.EnvironmentTaskCanceler
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.events.ApplicationActuationPaused
 import com.netflix.spinnaker.keel.events.ApplicationActuationResumed
 import com.netflix.spinnaker.keel.events.ResourceActuationPaused
 import com.netflix.spinnaker.keel.events.ResourceActuationResumed
+import com.netflix.spinnaker.keel.logging.blankMDC
 import com.netflix.spinnaker.keel.pause.PauseScope.APPLICATION
 import com.netflix.spinnaker.keel.pause.PauseScope.RESOURCE
 import com.netflix.spinnaker.keel.persistence.PausedRepository
 import com.netflix.spinnaker.keel.persistence.ResourceRepository
+import com.netflix.spinnaker.keel.telemetry.recordDurationPercentile
+import com.netflix.spinnaker.kork.exceptions.UserException
+import com.netflix.spinnaker.security.AuthenticatedRequest
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import java.time.Clock
+import java.time.Instant
+import kotlin.coroutines.CoroutineContext
 
 @Component
 class ActuationPauser(
@@ -38,8 +49,10 @@ class ActuationPauser(
   val pausedRepository: PausedRepository,
   val publisher: ApplicationEventPublisher,
   val environmentTaskCanceler: EnvironmentTaskCanceler,
-  val clock: Clock
-) {
+  val clock: Clock,
+  private val spectator: Registry,
+): CoroutineScope {
+  override val coroutineContext: CoroutineContext = Dispatchers.Default
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
   fun isPaused(resource: Resource<*>): Boolean =
@@ -87,6 +100,60 @@ class ActuationPauser(
     pausedRepository.resumeApplication(application)
     publisher.publishEvent(ApplicationActuationResumed(application, user, clock))
   }
+
+  fun batchPauseClusters(
+    user: String,
+    clusters: List<String>,
+    titusAccount: String,
+    ec2Account: String,
+    comment: String
+  ) {
+    val startTime = clock.instant()
+    launch(blankMDC) {
+      var current = 0
+      val total = clusters.size
+      clusters.forEach { clusterName ->
+        log.debug("Batch pausing - pausing $clusterName ($current/$total")
+        pauseCluster(
+          name = clusterName,
+          titusAccount = titusAccount,
+          ec2Account = ec2Account,
+          user = AuthenticatedRequest.getSpinnakerUser().orElse(user),
+          comment = comment
+        )
+        current++
+      }
+      recordDuration(startTime, "pause.cluster")
+    }
+  }
+  fun batchResumeClusters(
+    user: String,
+    clusters: List<String>,
+    titusAccount: String,
+    ec2Account: String,
+    comment: String
+  ) {
+    val startTime = clock.instant()
+    launch(blankMDC) {
+      var current = 0
+      val total = clusters.size
+      clusters.forEach { clusterName ->
+        log.debug("Batch resuming - resuming $clusterName ($current/$total")
+        resumeCluster(
+          name = clusterName,
+          titusAccount = titusAccount,
+          ec2Account = ec2Account,
+          user = AuthenticatedRequest.getSpinnakerUser().orElse(user),
+          comment = comment
+        )
+        current++
+      }
+      recordDuration(startTime, "resume.cluster")
+    }
+  }
+
+  private fun recordDuration(startTime : Instant, type: String) =
+    spectator.recordDurationPercentile("batch.action.duration", startTime, clock.instant(), setOf(BasicTag("type", type)))
 
   fun pauseResource(id: String, user: String, comment: String? = null) {
     log.info("Pausing resource $id ${logReason(comment)}")

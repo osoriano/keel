@@ -17,6 +17,7 @@
  */
 package com.netflix.spinnaker.keel.pause
 
+import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.keel.actuation.EnvironmentTaskCanceler
 import com.netflix.spinnaker.keel.events.ApplicationActuationPaused
 import com.netflix.spinnaker.keel.events.ApplicationActuationResumed
@@ -46,6 +47,10 @@ class ActuationPauserTests : JUnit5Minutests {
   val testTitus = "titus:cluster:$titusTest:pancake"
   val prodEc2 = "ec2:cluster:$awsProd:pancake"
   val prodTitus = "titus:cluster:$titusProd:pancake"
+  val prodWafflesEc2 = "ec2:cluster:$awsProd:waffles"
+  val prodWafflesTitus = "titus:cluster:$titusProd:waffles"
+  val prodBiscuitEc2 = "ec2:cluster:$awsProd:biscuit"
+  val prodBiscuitTitus = "titus:cluster:$titusProd:biscuit"
 
   class Fixture {
     val resource1 = resource()
@@ -55,7 +60,8 @@ class ActuationPauserTests : JUnit5Minutests {
     val pausedRepository = mockk<PausedRepository>(relaxUnitFun = true)
     val publisher = mockk<ApplicationEventPublisher>(relaxUnitFun = true)
     val environmentTaskCanceler: EnvironmentTaskCanceler = mockk(relaxed = true)
-    val subject = ActuationPauser(resourceRepository, pausedRepository, publisher, environmentTaskCanceler, Clock.systemUTC())
+    val spectator: Registry = mockk(relaxed = true)
+    val subject = ActuationPauser(resourceRepository, pausedRepository, publisher, environmentTaskCanceler, clock, spectator)
     val user = "keel@keel.io"
   }
 
@@ -151,6 +157,56 @@ class ActuationPauserTests : JUnit5Minutests {
         verify(exactly = 1) { publisher.publishEvent(capture(event)) }
 
         expectThat(event.captured.triggeredBy).isEqualTo(user)
+      }
+    }
+
+    context("orchestrating batch pause") {
+      before {
+        every { resourceRepository.getResourceIdsForClusterName("pancake") } returns
+          listOf(prodEc2, prodTitus)
+        every { resourceRepository.getResourceIdsForClusterName("waffles") } returns
+          listOf(prodWafflesEc2, prodWafflesTitus)
+        every { resourceRepository.getResourceIdsForClusterName("biscuits") } returns
+          listOf(prodBiscuitEc2, prodBiscuitTitus)
+        every { resourceRepository.get(any()) } returns resource1 // for publishing an event
+      }
+
+      test("successfully call pause on all clusters") {
+        subject.batchPauseClusters(
+          user = user,
+          clusters = listOf("pancake", "waffles", "biscuits"),
+          titusAccount = titusProd,
+          ec2Account = awsProd,
+          comment = "no breakfast at this time"
+        )
+        // need to sleep because we launch this in a coroutine
+        Thread.sleep(250)
+
+        verify(exactly = 1) { pausedRepository.pauseResource(prodEc2, any(), any()) }
+        verify(exactly = 1) { pausedRepository.pauseResource(prodTitus, any(), any()) }
+        verify(exactly = 1) { pausedRepository.pauseResource(prodWafflesEc2, any(), any()) }
+        verify(exactly = 1) { pausedRepository.pauseResource(prodWafflesTitus, any(), any()) }
+        verify(exactly = 1) { pausedRepository.pauseResource(prodBiscuitEc2, any(), any()) }
+        verify(exactly = 1) { pausedRepository.pauseResource(prodBiscuitTitus, any(), any()) }
+      }
+
+      test("successfully call resume on all clusters") {
+        subject.batchResumeClusters(
+          user = user,
+          clusters = listOf("pancake", "waffles", "biscuits"),
+          titusAccount = titusProd,
+          ec2Account = awsProd,
+          comment = "resume breakfast pronto!"
+        )
+        // need to sleep because we launch this in a coroutine
+        Thread.sleep(250)
+
+        verify(exactly = 1) { pausedRepository.resumeResourceIfSameUser(prodEc2, user) }
+        verify(exactly = 1) { pausedRepository.resumeResourceIfSameUser(prodTitus, user) }
+        verify(exactly = 1) { pausedRepository.resumeResourceIfSameUser(prodWafflesEc2, user) }
+        verify(exactly = 1) { pausedRepository.resumeResourceIfSameUser(prodWafflesTitus, user) }
+        verify(exactly = 1) { pausedRepository.resumeResourceIfSameUser(prodBiscuitEc2, user) }
+        verify(exactly = 1) { pausedRepository.resumeResourceIfSameUser(prodBiscuitTitus, user) }
       }
     }
 
