@@ -953,6 +953,11 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
       test("there is one previous version. We don't roll back to a skipped version") {
         subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
         subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version3, testEnvironment.name)
+
+        expectThat(
+          subject.getArtifactPromotionStatus(manifest, versionedReleaseDebian, version2, testEnvironment.name)
+        ).isNotNull().isEqualTo(SKIPPED)
+
         expectThat(
           subject.getPreviouslyDeployedArtifactVersion(
             manifest,
