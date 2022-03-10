@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - changeSet:
+      id: index-replaced-by
+      author: rhorev
+      changes:
+        - createIndex:
+            tableName: environment_artifact_versions
+            columns:
+              - column:
+                  name: replaced_by
+            indexName: replaced_by_idx

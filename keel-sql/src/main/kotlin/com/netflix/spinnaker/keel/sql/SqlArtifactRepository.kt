@@ -1963,6 +1963,36 @@ class SqlArtifactRepository(
     return latestApprovedArtifact(envUid, artifactId, excludedStatuses, artifact)
   }
 
+  override fun getPreviouslyDeployedArtifactVersion(
+    deliveryConfig: DeliveryConfig,
+    artifact: DeliveryArtifact,
+    environmentName: String
+  ): PublishedArtifact? {
+    val currentVersion = getCurrentlyDeployedArtifactVersion(deliveryConfig, artifact, environmentName) ?: return null
+    val environment = deliveryConfig.environmentNamed(environmentName)
+    val envUid = deliveryConfig.getUidFor(environment)
+    val artifactId = artifact.uid
+
+    return sqlRetry.withRetry(READ) {
+      jooq
+        .selectArtifactVersionColumns()
+        .from(ARTIFACT_VERSIONS, ENVIRONMENT_ARTIFACT_VERSIONS)
+        .where(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION.eq(ARTIFACT_VERSIONS.VERSION))
+        .and(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(envUid))
+        .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(artifactId))
+        .and(ARTIFACT_VERSIONS.NAME.eq(artifact.name)) // match name also, so if the artifact has been updated we match only the correct versions
+        .and(ENVIRONMENT_ARTIFACT_VERSIONS.REPLACED_BY.eq(currentVersion.version))
+        .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.eq(PREVIOUS))
+        .fetchSortedArtifactVersions(artifact, 10).firstOrNull {
+          // This ensures that we only pick older versions than the current one
+          artifact.sortingStrategy.comparator.compare(
+            it,
+            currentVersion
+          ) > 0
+        }
+    }
+  }
+
   override fun versionsInUse(artifact: DeliveryArtifact): Set<String> =
     jooq
       .select(ENVIRONMENT_VERSION_ARTIFACT_VERSION.ARTIFACT_VERSION)

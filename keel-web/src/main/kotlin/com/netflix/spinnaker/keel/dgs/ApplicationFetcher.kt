@@ -241,7 +241,7 @@ class ApplicationFetcher(
     ))
   }
 
-  @DgsData(parentType = DgsConstants.MD_APPLICATION.TYPE_NAME, field = DgsConstants.MD_APPLICATION.VersionOnUnpinning)
+  @DgsData(parentType = DgsConstants.MD_APPLICATION.TYPE_NAME)
   fun versionOnUnpinning(dfe: DataFetchingEnvironment,
     @InputArgument("reference") reference: String,
     @InputArgument("environment") environment: String
@@ -250,14 +250,19 @@ class ApplicationFetcher(
   }
 
 
-  @DgsData(parentType = DgsConstants.MD_APPLICATION.TYPE_NAME, field = DgsConstants.MD_APPLICATION.VersionOnRollback)
+  @DgsData(parentType = DgsConstants.MD_APPLICATION.TYPE_NAME)
   fun versionOnRollback(dfe: DataFetchingEnvironment,
     @InputArgument("reference") reference: String,
     @InputArgument("environment") environment: String
   ): MD_ArtifactVersionInEnvironment? {
-    //we should exclude artifact versions with status current, as we want to show which version will be
-    //deployed if the current version will be rolled back.
-    return getArtifactVersion(dfe,  reference, environment, true)
+    val config = applicationFetcherSupport.getDeliveryConfigFromContext(dfe)
+    val deliveryArtifact = config.matchingArtifactByReference(reference) ?: return null
+    //[gyardeni + rhorev] please note - some values (like MD_ComparisonLinks) will not be retrieved for MD_ArtifactVersionInEnvironment
+    //due to our current dgs model.
+    return keelRepository.getPreviouslyDeployedArtifactVersion(config, deliveryArtifact, environment)
+      ?.let {
+        return it.toDgs(environment)
+      }
   }
 
 

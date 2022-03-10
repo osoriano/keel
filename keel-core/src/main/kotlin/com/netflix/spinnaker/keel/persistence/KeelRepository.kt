@@ -505,6 +505,9 @@ class KeelRepository(
   fun getLatestApprovedInEnvArtifactVersion(config: DeliveryConfig, artifact: DeliveryArtifact, environmentName: String, excludeCurrent: Boolean?): PublishedArtifact? =
     artifactRepository.getApprovedInEnvArtifactVersion(config, artifact, environmentName, excludeCurrent)
 
+  fun getPreviouslyDeployedArtifactVersion(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact, environmentName: String): PublishedArtifact? =
+    artifactRepository.getPreviouslyDeployedArtifactVersion(deliveryConfig, artifact, environmentName)
+
   fun updateArtifactMetadata(artifact: PublishedArtifact, artifactMetadata: ArtifactMetadata) =
     artifactRepository.updateArtifactMetadata(artifact, artifactMetadata)
 

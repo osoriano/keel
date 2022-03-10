@@ -459,6 +459,15 @@ interface ArtifactRepository : PeriodicallyCheckedRepository<DeliveryArtifact> {
   ): PublishedArtifact?
 
   /**
+   * @return the version the was replaced by the current one
+   */
+  fun getPreviouslyDeployedArtifactVersion(
+    deliveryConfig: DeliveryConfig,
+    artifact: DeliveryArtifact,
+    environmentName: String,
+  ): PublishedArtifact?
+
+  /**
    * @return the versions of [artifact] that are currently in use in any environment.
    */
   fun versionsInUse(artifact: DeliveryArtifact): Set<String>

@@ -919,6 +919,80 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
       }
     }
 
+    context("last previously deployed version (replaced by the current version)") {
+      before {
+        persist(manifest)
+        subject.register(versionedReleaseDebian)
+        listOf(version1, version2, version3).forEach {
+          subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(it, RELEASE))
+          subject.approveVersionFor(manifest, versionedReleaseDebian, it, testEnvironment.name)
+          clock.tickMinutes(1)
+        }
+      }
+      test("no current version") {
+        expectThat(
+          subject.getPreviouslyDeployedArtifactVersion(
+            manifest,
+            versionedReleaseDebian,
+            testEnvironment.name
+          )
+        ).isNull()
+      }
+
+      test("only one version was deployed") {
+        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        expectThat(
+          subject.getPreviouslyDeployedArtifactVersion(
+            manifest,
+            versionedReleaseDebian,
+            testEnvironment.name
+          )
+        ).isNull()
+      }
+
+      test("there is one previous version. We don't roll back to a skipped version") {
+        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version3, testEnvironment.name)
+        expectThat(
+          subject.getPreviouslyDeployedArtifactVersion(
+            manifest,
+            versionedReleaseDebian,
+            testEnvironment.name
+          )
+        ).isNotNull().get { version }.isEqualTo(version1)
+      }
+
+      context("picking the right previous version") {
+        before {
+          listOf(version1, version2, version3).forEach {
+            subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, it, testEnvironment.name)
+            clock.tickMinutes(1)
+          }
+        }
+
+        test("picking the last version") {
+          expectThat(
+            subject.getPreviouslyDeployedArtifactVersion(
+              manifest,
+              versionedReleaseDebian,
+              testEnvironment.name
+            )
+          ).isNotNull().get { version }.isEqualTo(version2) // We go to the version that replaced current
+        }
+
+        test("Still picking the right version after rolling back") {
+          subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version2, testEnvironment.name)
+          expectThat(
+            subject.getPreviouslyDeployedArtifactVersion(
+              manifest,
+              versionedReleaseDebian,
+              testEnvironment.name
+            )
+          ).isNotNull().get { version }.isEqualTo(version1) // We should go to the version that replace version2 (and not to the newer version)
+        }
+      }
+    }
+
     context("set approvedAt") {
       before {
         persist(manifest)
