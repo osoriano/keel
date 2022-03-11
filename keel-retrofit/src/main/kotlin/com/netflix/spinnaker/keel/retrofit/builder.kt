@@ -22,7 +22,7 @@ inline fun <reified T : Any> buildRetrofitService(
   clientProvider: OkHttpClientProvider,
   objectMapper: ObjectMapper,
   httpTracing: HttpTracing,
-  serviceName: String = endpoint.host.substringBefore("-"),
+  serviceName: String = endpoint.host.substringBefore('.').substringBefore('-'),
 ): T {
   val type = T::class.java
   return retrofitServiceBuilder(serviceName, endpoint, objectMapper, clientProvider, httpTracing)
