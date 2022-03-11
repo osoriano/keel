@@ -24,28 +24,29 @@ class LifecycleEventsByVersionDataLoader(
     const val name = "artifact-lifecycle-events-version"
   }
 
+  fun loadData(keys: MutableSet<ArtifactAndVersion>): MutableMap<ArtifactAndVersion, List<MD_LifecycleStep>> {
+    val result: MutableMap<ArtifactAndVersion, List<MD_LifecycleStep>> = mutableMapOf()
+    keys.groupBy { it.artifact }.entries.forEach { (artifact, entries) ->
+      val allVersions: List<MD_LifecycleStep> = lifecycleEventRepository
+        .getSteps(artifact, entries.map { it.version })
+        .map { it.toDgs() }
+
+      val byVersion: Map<String, List<MD_LifecycleStep>> = allVersions
+        .filter { it.artifactVersion != null }
+        .groupBy { it.artifactVersion!! }
+
+      result.putAll(
+        byVersion.mapKeys { entry ->
+          ArtifactAndVersion(artifact, entry.key)
+        }
+      )
+    }
+    return result
+  }
+
   override fun load(keys: MutableSet<ArtifactAndVersion>): CompletionStage<MutableMap<ArtifactAndVersion, List<MD_LifecycleStep>>> {
     return CompletableFuture.supplyAsync {
-      val result: MutableMap<ArtifactAndVersion, List<MD_LifecycleStep>> = mutableMapOf()
-      keys
-        .map { it.artifact }
-        .toSet()
-        .forEach { artifact ->
-          val allVersions: List<MD_LifecycleStep> = lifecycleEventRepository
-            .getSteps(artifact)
-            .map { it.toDgs() }
-
-          val byVersion: Map<String, List<MD_LifecycleStep>> = allVersions
-            .filter { it.artifactVersion != null }
-            .groupBy { it.artifactVersion!! }
-
-          result.putAll(
-            byVersion.mapKeys { entry ->
-              ArtifactAndVersion(artifact, entry.key)
-            }
-          )
-        }
-      result
+      loadData(keys)
     }
   }
 }

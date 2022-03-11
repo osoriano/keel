@@ -12,14 +12,14 @@ interface LifecycleEventRepository {
   fun saveEvent(event: LifecycleEvent): String
 
   /**
-   * Returns all raw events for the artifact version
+   * Returns all raw events for artifact versions
    */
-  fun getEvents(artifact: DeliveryArtifact, artifactVersion: String): List<LifecycleEvent>
+  fun getEvents(artifact: DeliveryArtifact, artifactVersions: List<String>): List<LifecycleEvent>
 
   /**
-   * Returns the event summaries by type ("steps") for an artifact version
+   * Returns the event summaries by type ("steps") for artifact versions
    */
-  fun getSteps(artifact: DeliveryArtifact, artifactVersion: String): List<LifecycleStep>
+  fun getSteps(artifact: DeliveryArtifact, artifactVersions: List<String>): List<LifecycleStep>
 
   /**
    * Returns the event summaries by type ("steps") for all known artifact versions

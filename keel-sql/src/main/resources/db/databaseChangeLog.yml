@@ -434,3 +434,6 @@ databaseChangeLog:
 - include:
     file: changelog/20220310-lifecycle-event-index.yml
     relativeToChangelogFile: true
+- include:
+    file: changelog/20220311-lifecycle-event-index-with-version.yml
+    relativeToChangelogFile: true

@@ -77,7 +77,7 @@ abstract class LifecycleEventRepositoryTests<T: LifecycleEventRepository> : JUni
       }
 
       test("can get saved event") {
-        val events = subject.getEvents(artifact, version1)
+        val events = subject.getEvents(artifact, listOf(version1))
         expect {
           that(events.size).isEqualTo(1)
           that(events.first().status).isEqualTo(NOT_STARTED)
@@ -91,7 +91,7 @@ abstract class LifecycleEventRepositoryTests<T: LifecycleEventRepository> : JUni
         clock.tickMinutes(1)
         val now = clock.instant()
         subject.saveEvent(v1Event1.copy(timestamp = now))
-        val events = subject.getEvents(artifact, version1)
+        val events = subject.getEvents(artifact, listOf(version1))
         expect {
           that(events.size).isEqualTo(1)
           that(events.first().timestamp).isEqualTo(now)
@@ -102,15 +102,26 @@ abstract class LifecycleEventRepositoryTests<T: LifecycleEventRepository> : JUni
     context("turning events into steps") {
       before {
         subject.saveEvent(v1Event1)
+        clock.tickMinutes(1)
+        subject.saveEvent(v2event1)
       }
 
       test("can transform single event to step") {
-        val steps = subject.getSteps(artifact, version1)
+        val steps = subject.getSteps(artifact, listOf(version1))
         expect {
           that(steps.size).isEqualTo(1)
           that(steps.first().status).isEqualTo(NOT_STARTED)
           that(steps.first().startedAt).isNotNull()
           that(steps.first().completedAt).isNull()
+        }
+      }
+
+      test("multiple versions") {
+        val steps = subject.getSteps(artifact, listOf(version1, version2))
+        expect {
+          that(steps.size).isEqualTo(2)
+          that(steps[0].artifactVersion).isEqualTo(version1)
+          that(steps[1].artifactVersion).isEqualTo(version2)
         }
       }
 
@@ -123,7 +134,7 @@ abstract class LifecycleEventRepositoryTests<T: LifecycleEventRepository> : JUni
         }
 
         test("can transform multiple events to step") {
-          val steps = subject.getSteps(artifact, version1)
+          val steps = subject.getSteps(artifact, listOf(version1))
           expect {
             that(steps.size).isEqualTo(1)
             that(steps.first().status).isEqualTo(SUCCEEDED)
@@ -145,7 +156,7 @@ abstract class LifecycleEventRepositoryTests<T: LifecycleEventRepository> : JUni
         }
 
         test("step still shows completed event") {
-          val steps = subject.getSteps(artifact, version1)
+          val steps = subject.getSteps(artifact, listOf(version1))
           expectThat(steps.size).isEqualTo(1)
           expectThat(steps.first()){
             get { status }.isEqualTo(SUCCEEDED)
@@ -173,7 +184,7 @@ abstract class LifecycleEventRepositoryTests<T: LifecycleEventRepository> : JUni
         }
 
         test("can transform multiple events to multiple steps") {
-          val steps = subject.getSteps(artifact, version1)
+          val steps = subject.getSteps(artifact, listOf(version1))
           expect {
             that(steps.size).isEqualTo(2)
             that(steps.first().status).isEqualTo(FAILED)
@@ -215,7 +226,7 @@ abstract class LifecycleEventRepositoryTests<T: LifecycleEventRepository> : JUni
       }
 
       test("no steps returned when link isn't valid") {
-        val steps = subject.getSteps(artifact, version1)
+        val steps = subject.getSteps(artifact, listOf(version1))
         expectThat(steps).isEmpty()
       }
     }
@@ -228,7 +239,7 @@ abstract class LifecycleEventRepositoryTests<T: LifecycleEventRepository> : JUni
       }
 
       test("successful step generated") {
-        val steps = subject.getSteps(artifact, version1)
+        val steps = subject.getSteps(artifact, listOf(version1))
         expect {
           that(steps.size).isEqualTo(1)
           that(steps.first().status).isEqualTo(SUCCEEDED)
@@ -248,13 +259,13 @@ abstract class LifecycleEventRepositoryTests<T: LifecycleEventRepository> : JUni
         }
 
         test("one minute old event does not trigger re-monitoring") {
-          subject.getSteps(artifact, version1)
+          subject.getSteps(artifact, listOf(version1))
           verify { publisher wasNot Called }
         }
 
         test("ten minute old event does trigger re-monitoring") {
           clock.tickMinutes(10)
-          subject.getSteps(artifact, version1)
+          subject.getSteps(artifact, listOf(version1))
           verify(exactly = 1) { publisher.publishEvent(ofType<StartMonitoringEvent>())}
         }
       }
@@ -266,7 +277,7 @@ abstract class LifecycleEventRepositoryTests<T: LifecycleEventRepository> : JUni
         }
 
         test("succeeded event does not trigger re-monitoring") {
-          subject.getSteps(artifact, version1)
+          subject.getSteps(artifact, listOf(version1))
           verify { publisher wasNot Called }
         }
       }
@@ -280,7 +291,7 @@ abstract class LifecycleEventRepositoryTests<T: LifecycleEventRepository> : JUni
         }
 
         test("several events do not trigger a re-monitoring") {
-          subject.getSteps(artifact, version1)
+          subject.getSteps(artifact, listOf(version1))
           verify { publisher wasNot Called }
         }
       }
@@ -299,7 +310,7 @@ abstract class LifecycleEventRepositoryTests<T: LifecycleEventRepository> : JUni
         endTime = clock.instant()
       }
       test("time is correct") {
-        val steps = subject.getSteps(artifact, version1)
+        val steps = subject.getSteps(artifact, listOf(version1))
         expect {
           that(steps.size).isEqualTo(1)
           that(steps.first().startedAt).isEqualTo(startTime)

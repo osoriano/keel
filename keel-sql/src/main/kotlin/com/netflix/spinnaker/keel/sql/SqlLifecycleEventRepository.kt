@@ -94,14 +94,14 @@ class SqlLifecycleEventRepository(
 
   override fun getEvents(
     artifact: DeliveryArtifact,
-    artifactVersion: String
+    artifactVersions: List<String>
   ): List<LifecycleEvent> =
     sqlRetry.withRetry(READ) {
       jooq.select(LIFECYCLE_EVENT.JSON, LIFECYCLE_EVENT.TIMESTAMP)
         .from(LIFECYCLE_EVENT)
         .where(LIFECYCLE_EVENT.DELIVERY_CONFIG_NAME.eq(artifact.deliveryConfigName))
         .and(LIFECYCLE_EVENT.ARTIFACT_REFERENCE.eq(artifact.reference))
-        .and(LIFECYCLE_EVENT.ARTIFACT_VERSION.eq(artifactVersion))
+        .and(LIFECYCLE_EVENT.ARTIFACT_VERSION.`in`(artifactVersions))
         .orderBy(LIFECYCLE_EVENT.TIMESTAMP.asc()) // oldest first
         .fetch()
         .map { (event, timestamp) ->
@@ -135,9 +135,9 @@ class SqlLifecycleEventRepository(
    * events while the event is being monitored (RUNNING status). We also store this record instead
    * of the list of individual events. We could also cache finished steps.
    */
-  override fun getSteps(artifact: DeliveryArtifact, artifactVersion: String): List<LifecycleStep> {
+  override fun getSteps(artifact: DeliveryArtifact, artifactVersions: List<String>): List<LifecycleStep> {
     val startTime = clock.instant()
-    val events = getEvents(artifact, artifactVersion)
+    val events = getEvents(artifact, artifactVersions)
     val steps = calculateSteps(events)
     spectator.timer(
       LIFECYCLE_STEP_CALCULATION_DURATION_ID,
