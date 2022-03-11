@@ -3,6 +3,7 @@ package com.netflix.spinnaker.keel.dgs
 import com.netflix.graphql.dgs.DgsComponent
 import com.netflix.graphql.dgs.DgsData
 import com.netflix.graphql.dgs.DgsDataFetchingEnvironment
+import com.netflix.graphql.dgs.DgsEntityFetcher
 import com.netflix.graphql.dgs.DgsQuery
 import com.netflix.graphql.dgs.InputArgument
 import com.netflix.graphql.dgs.context.DgsContext
@@ -14,6 +15,7 @@ import com.netflix.spinnaker.keel.core.api.DependsOnConstraint
 import com.netflix.spinnaker.keel.events.EventLevel.ERROR
 import com.netflix.spinnaker.keel.events.EventLevel.WARNING
 import com.netflix.spinnaker.keel.graphql.DgsConstants
+import com.netflix.spinnaker.keel.graphql.DgsConstants.SPOT_SERVICE
 import com.netflix.spinnaker.keel.graphql.types.MD_Action
 import com.netflix.spinnaker.keel.graphql.types.MD_Application
 import com.netflix.spinnaker.keel.graphql.types.MD_ApplicationResult
@@ -32,12 +34,10 @@ import com.netflix.spinnaker.keel.graphql.types.MD_PackageDiff
 import com.netflix.spinnaker.keel.graphql.types.MD_PausedInfo
 import com.netflix.spinnaker.keel.graphql.types.MD_PinnedVersion
 import com.netflix.spinnaker.keel.graphql.types.MD_PullRequest
-import com.netflix.spinnaker.keel.graphql.types.MD_ResourceActuationState
 import com.netflix.spinnaker.keel.graphql.types.MD_VersionVeto
+import com.netflix.spinnaker.keel.graphql.types.SPOT_Service
 import com.netflix.spinnaker.keel.pause.ActuationPauser
-import com.netflix.spinnaker.keel.pause.PauseScope
 import com.netflix.spinnaker.keel.pause.PauseScope.APPLICATION
-import com.netflix.spinnaker.keel.pause.PauseScope.RESOURCE
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
@@ -64,14 +64,23 @@ class ApplicationFetcher(
   private val notificationRepository: DismissibleNotificationRepository,
   private val scmUtils: ScmUtils,
 ) {
+  @DgsEntityFetcher(name = SPOT_SERVICE.TYPE_NAME)
+  fun spot_service(values: Map<String, Any?>): SPOT_Service? {
+    val id = values["id"] as String?
+    return if (id != null) SPOT_Service(id = id) else null
+  }
 
   @DgsQuery
-  @PreAuthorize("""@authorizationSupport.hasApplicationPermission('READ', 'APPLICATION', #appName)""")
-  fun md_application(dfe: DataFetchingEnvironment, @InputArgument("appName") appName: String): MD_ApplicationResult {
+  @DgsData.List(
+    DgsData(parentType = DgsConstants.QUERY_TYPE),
+    DgsData(parentType = SPOT_SERVICE.TYPE_NAME, field = DgsConstants.SPOT_SERVICE.ManagedDelivery)
+  )
+  fun md_application(dfe: DataFetchingEnvironment, @InputArgument("appName") appName: String?): MD_ApplicationResult {
+    val appNameOrServiceId = appName ?: dfe.getSource<SPOT_Service>().id;
     val config = try {
-      keelRepository.getDeliveryConfigForApplication(appName)
+      keelRepository.getDeliveryConfigForApplication(appNameOrServiceId)
     } catch (ex: NoDeliveryConfigForApplication) {
-      return MD_Error(id = appName, message = "Delivery config not found")
+      return MD_Error(id = appNameOrServiceId, message = "Delivery config not found")
     }
     val context: ApplicationContext = DgsContext.getCustomContext(dfe)
     context.deliveryConfig = config
