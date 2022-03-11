@@ -431,3 +431,6 @@ databaseChangeLog:
 - include:
     file: changelog/20220224-add-app-is-inactive.yml
     relativeToChangelogFile: true
+- include:
+    file: changelog/20220310-lifecycle-event-index.yml
+    relativeToChangelogFile: true

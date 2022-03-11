@@ -1,0 +1,15 @@
+databaseChangeLog:
+- changeSet:
+    id: lifecycle-event-index
+    author: rhorev
+    changes:
+    - createIndex:
+        indexName: delivery_config_reference_idx
+        tableName: lifecycle_event
+        columns:
+        - column:
+            name: delivery_config_name
+        - column:
+            name: artifact_reference
+        - column:
+            name: timestamp
