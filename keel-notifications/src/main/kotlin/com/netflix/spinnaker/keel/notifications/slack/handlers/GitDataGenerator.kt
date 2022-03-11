@@ -66,10 +66,14 @@ class GitDataGenerator(
 
   fun toCode(env: String) = "`${env.lowercase()}`"
 
+  fun generateBuildUrlWithFallback(artifact: PublishedArtifact,
+                                   application: String) =
+    "<${generateArtifactUrl(application, artifact.reference, artifact.version)}|#${artifact.buildNumber ?: artifact.version}>"
+
   fun linkedTitleSnippet(artifact: PublishedArtifact,
                          application: String,
                          moreThanOneArtifact: Boolean? = false): String {
-    var text = "${linkedApp(application)} build <${generateArtifactUrl(application, artifact.reference, artifact.version)}|#${artifact.buildNumber ?: artifact.version}>"
+    var text = "${linkedApp(application)} build ${generateBuildUrlWithFallback(artifact, application)}"
 
     if (moreThanOneArtifact == true) {
         text+= " [${artifact.reference} _(${artifact.type})_]"

@@ -22,23 +22,24 @@ class PinnedNotificationHandler(
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
   private fun SlackPinnedNotification.headerText(): String {
-    return "[$application] ${pinnedArtifact.buildNumber ?: pinnedArtifact.version} is locked to ${pin.targetEnvironment.lowercase()}"
+    return "[$application]'s ${pin.targetEnvironment.lowercase()} environment was locked to build ${pinnedArtifact.buildNumber ?: pinnedArtifact.version}"
   }
 
   private fun SlackPinnedNotification.toBlocks(): List<LayoutBlock> {
+    val username = pin.pinnedBy?.let { slackService.getUsernameByEmail(it) }
+
     return withBlocks {
-      gitDataGenerator.notificationBodyWithEnv(this, ":lock:", application, pinnedArtifact, "locked", pin.targetEnvironment)
+      section {
+        markdownText(":lock: *${gitDataGenerator.linkedApp(application)}'s ${gitDataGenerator.toCode(pin.targetEnvironment)} environment was locked by $username to build ${gitDataGenerator.generateBuildUrlWithFallback(pinnedArtifact, application)}*")
+      }
+
+      section {
+        markdownText("locked on <!date^${time.epochSecond}^{date_num} {time_secs}|fallback-text-include-PST>: \"${pin.comment}\"")
+      }
 
       pinnedArtifact.gitMetadata?.let { gitMetadata ->
         section {
           gitDataGenerator.generateScmInfo(this, application, gitMetadata, pinnedArtifact)
-        }
-      }
-
-      val username = pin.pinnedBy?.let { slackService.getUsernameByEmail(it) }
-      context {
-        elements {
-          markdownText("$username locked on <!date^${time.epochSecond}^{date_num} {time_secs}|fallback-text-include-PST>: \"${pin.comment}\"")
         }
       }
     }
