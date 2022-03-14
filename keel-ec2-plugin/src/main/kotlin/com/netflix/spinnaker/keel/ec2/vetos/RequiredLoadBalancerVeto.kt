@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.ec2.vetos
 
+import com.netflix.spinnaker.config.DefaultWorkhorseCoroutineContext
+import com.netflix.spinnaker.config.WorkhorseCoroutineContext
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ec2.OverrideableClusterDependencyContainer
 import com.netflix.spinnaker.keel.api.ec2.loadBalancersByRegion
@@ -15,17 +17,19 @@ import com.netflix.spinnaker.keel.api.ResourceStatus.MISSING_DEPENDENCY
 import com.netflix.spinnaker.keel.veto.Veto
 import com.netflix.spinnaker.keel.veto.VetoResponse
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import kotlin.coroutines.CoroutineContext
 
 @Component
 class RequiredLoadBalancerVeto(
   private val cloudDriver: CloudDriverService,
   private val cloudDriverCache: CloudDriverCache,
-  private val coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
-) : Veto {
+  override val coroutineContext: WorkhorseCoroutineContext = DefaultWorkhorseCoroutineContext
+) : Veto, CoroutineScope {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
   override suspend fun check(resource: Resource<*>): VetoResponse {
@@ -52,15 +56,13 @@ class RequiredLoadBalancerVeto(
   }
 
   private suspend fun loadBalancers(spec: OverrideableClusterDependencyContainer<*>) =
-    withContext(coroutineDispatcher) {
-      runCatching {
-        cloudDriver.loadBalancersForApplication(DEFAULT_SERVICE_ACCOUNT, spec.application)
-      }
-        .onFailure { ex ->
-          log.error("error finding load balancers for ${spec.application}", ex)
-        }
-        .getOrDefault(emptyList())
+    runCatching {
+      cloudDriver.loadBalancersForApplication(DEFAULT_SERVICE_ACCOUNT, spec.application)
     }
+      .onFailure { ex ->
+        log.error("error finding load balancers for ${spec.application}", ex)
+      }
+      .getOrDefault(emptyList())
 
   private suspend fun List<AmazonLoadBalancer>.findMissingLoadBalancers(spec: OverrideableClusterDependencyContainer<*>): Collection<MissingDependency> {
     val missing = mutableListOf<MissingDependency>()

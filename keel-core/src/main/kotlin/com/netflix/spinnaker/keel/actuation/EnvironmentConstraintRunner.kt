@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.actuation
 
+import brave.Tracer
 import com.netflix.spinnaker.keel.api.Constraint
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
@@ -24,7 +25,8 @@ import org.springframework.stereotype.Component
 @Component
 class EnvironmentConstraintRunner(
   private val repository: KeelRepository,
-  constraints: List<ConstraintEvaluator<*>>
+  constraints: List<ConstraintEvaluator<*>>,
+  private val tracer: Tracer? = null
 ) {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
@@ -98,7 +100,7 @@ class EnvironmentConstraintRunner(
     selectedVersion = envContext.versions // all versions
       .filterNot { vetoedVersions.contains(it) }
       .firstOrNull { version ->
-        withCoroutineTracingContext(envContext.artifact, version) {
+        withCoroutineTracingContext(envContext.artifact, version, tracer) {
           versionsWithPendingStatefulConstraintStatus.removeIf { it.version == version } // remove to indicate we are rechecking this version
 
           val passesStatelessConstraints = checkStatelessConstraints(envContext.artifact, envContext.deliveryConfig, version, envContext.environment)
@@ -142,7 +144,7 @@ class EnvironmentConstraintRunner(
 
     if (selectedVersion != null && !versionIsPending) {
       // we've selected a version that passes all constraints, queue it for approval
-      withCoroutineTracingContext(envContext.artifact, selectedVersion) {
+      withCoroutineTracingContext(envContext.artifact, selectedVersion, tracer) {
         queueForApproval(envContext.deliveryConfig, envContext.artifact, selectedVersion, envContext.environment.name)
       }
     }
@@ -175,7 +177,7 @@ class EnvironmentConstraintRunner(
     versionsWithPendingStatefulConstraintStatus
       .reversed() // oldest first
       .forEach { artifactVersion ->
-        withCoroutineTracingContext(artifactVersion) {
+        withCoroutineTracingContext(artifactVersion, tracer) {
           val passesConstraints =
             checkStatelessConstraints(envContext.artifact, envContext.deliveryConfig, artifactVersion.version, envContext.environment) &&
               checkStatefulConstraints(envContext.artifact, envContext.deliveryConfig, artifactVersion.version, envContext.environment)

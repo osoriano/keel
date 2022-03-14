@@ -2,6 +2,7 @@ package com.netflix.spinnaker.keel.sql
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.convertValue
+import com.netflix.kotlin.OpenClass
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
@@ -73,6 +74,8 @@ import java.time.Instant
 import java.time.Instant.EPOCH
 import javax.xml.bind.DatatypeConverter
 
+@JvmDefaultWithoutCompatibility
+@OpenClass
 class SqlArtifactRepository(
   private val jooq: DSLContext,
   private val clock: Clock,

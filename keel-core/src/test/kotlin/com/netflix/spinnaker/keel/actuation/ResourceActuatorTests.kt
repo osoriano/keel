@@ -14,9 +14,6 @@ import com.netflix.spinnaker.keel.api.plugins.SupportedKind
 import com.netflix.spinnaker.keel.api.support.SpringEventPublisherBridge
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.core.ResourceCurrentlyUnresolvable
-import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactVeto
-import com.netflix.spinnaker.keel.core.api.PromotionStatus
-import com.netflix.spinnaker.keel.core.api.PromotionStatus.DEPLOYING
 import com.netflix.spinnaker.keel.core.api.randomUID
 import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.enforcers.ActiveVerifications
@@ -38,14 +35,12 @@ import com.netflix.spinnaker.keel.events.ResourceTaskSucceeded
 import com.netflix.spinnaker.keel.events.ResourceValid
 import com.netflix.spinnaker.keel.events.VerificationBlockedActuation
 import com.netflix.spinnaker.keel.pause.ActuationPauser
-import com.netflix.spinnaker.keel.persistence.ArtifactRepository
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
 import com.netflix.spinnaker.keel.persistence.DiffFingerprintRepository
 import com.netflix.spinnaker.keel.persistence.EnvironmentDeletionRepository
 import com.netflix.spinnaker.keel.persistence.ResourceRepository
 import com.netflix.spinnaker.keel.plugin.CannotResolveCurrentState
 import com.netflix.spinnaker.keel.plugin.CannotResolveDesiredState
-import com.netflix.spinnaker.keel.telemetry.ArtifactVersionVetoed
 import com.netflix.spinnaker.keel.telemetry.ResourceCheckSkipped
 import com.netflix.spinnaker.keel.test.DummyArtifactVersionedResourceSpec
 import com.netflix.spinnaker.keel.test.artifactVersionedResource
@@ -83,7 +78,6 @@ internal class ResourceActuatorTests : JUnit5Minutests {
 
   class Fixture {
     val resourceRepository = mockk<ResourceRepository>()
-    val artifactRepository = mockk<ArtifactRepository>()
     val deliveryConfigRepository = mockk<DeliveryConfigRepository>()
     val diffFingerprintRepository = mockk<DiffFingerprintRepository>(relaxUnitFun = true) {
       every { actionTakenCount(any()) } returns 0
@@ -115,7 +109,6 @@ internal class ResourceActuatorTests : JUnit5Minutests {
     }
     val subject = ResourceActuator(
       resourceRepository,
-      artifactRepository,
       deliveryConfigRepository,
       diffFingerprintRepository,
       environmentDeletionRepository,

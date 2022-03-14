@@ -42,6 +42,7 @@ import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import java.time.Clock
+import kotlin.coroutines.CoroutineContext
 
 @Configuration
 @ConditionalOnProperty("keel.plugins.ec2.enabled")
@@ -137,7 +138,7 @@ class EC2Config {
     applicationContext: ApplicationContext,
     featureRolloutRepository: FeatureRolloutRepository,
     eventPublisher: EventPublisher,
-    coroutineDispatcher: CoroutineDispatcher
+    coroutineContext: WorkhorseCoroutineContext
   ): InstanceMetadataServiceResolver {
     // This is necessary to avoid a circular bean dependency as Resolver instances (like we're creating here)
     // get wired into ResourceHandlers, but here the Resolver needs a capability provided by the ResourceHandler.
@@ -150,7 +151,7 @@ class EC2Config {
       { clusterHandler.current(it) },
       featureRolloutRepository,
       eventPublisher,
-      coroutineDispatcher
+      coroutineContext
     )
   }
 }

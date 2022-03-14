@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.artifacts
 
+import brave.Tracer
 import com.netflix.spinnaker.config.ArtifactConfig
 import com.netflix.spinnaker.keel.activation.DiscoveryActivated
 import com.netflix.spinnaker.keel.api.DeliveryConfig
@@ -25,7 +26,8 @@ class ArtifactListener(
   private val repository: KeelRepository,
   private val artifactSuppliers: List<ArtifactSupplier<*, *>>,
   private val artifactRefreshConfig: ArtifactRefreshConfig,
-  private val workQueueProcessor: WorkQueueProcessor
+  private val workQueueProcessor: WorkQueueProcessor,
+  private val tracer: Tracer? = null
 ): DiscoveryActivated() {
 
   /**
@@ -85,7 +87,7 @@ class ArtifactListener(
 
             if (newVersions.isNotEmpty()) {
               newVersions.forEach { publishedArtifact ->
-                withCoroutineTracingContext(publishedArtifact) {
+                withCoroutineTracingContext(publishedArtifact, tracer) {
                   log.debug("Detected missing version ${publishedArtifact.version} of $artifact. Persisting.")
                   workQueueProcessor.enrichAndStore(publishedArtifact, artifactSupplier)
                 }

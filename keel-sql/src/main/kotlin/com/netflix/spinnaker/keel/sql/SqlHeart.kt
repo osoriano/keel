@@ -1,18 +1,19 @@
 package com.netflix.spinnaker.keel.sql
 
 import com.netflix.spinnaker.keel.activation.DiscoveryActivated
+import com.netflix.kotlin.OpenClass
 import com.netflix.spinnaker.keel.persistence.Heart
 import com.netflix.spinnaker.keel.persistence.metamodel.tables.Heartbeat.HEARTBEAT
 import com.netflix.spinnaker.keel.sql.RetryCategory.READ
 import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
 import org.jooq.DSLContext
-import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import java.net.InetAddress
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 
+@OpenClass
 class SqlHeart(
   val jooq: DSLContext,
   val sqlRetry: SqlRetry,

@@ -17,6 +17,7 @@
  */
 package com.netflix.spinnaker.keel.sql
 
+import com.netflix.kotlin.OpenClass
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.persistence.UnhappyVetoRepository
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.RESOURCE
@@ -29,6 +30,7 @@ import org.jooq.Select
 import java.time.Clock
 import java.time.Instant
 
+@OpenClass
 class SqlUnhappyVetoRepository(
   override val clock: Clock,
   private val jooq: DSLContext,

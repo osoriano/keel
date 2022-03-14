@@ -3,6 +3,7 @@ package com.netflix.spinnaker.keel.sql
 import com.fasterxml.jackson.databind.JsonMappingException
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.netflix.kotlin.OpenClass
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.scm.CodeEvent
 import com.netflix.spinnaker.keel.artifacts.WorkQueueEventType
@@ -14,6 +15,7 @@ import org.jooq.DSLContext
 import org.slf4j.LoggerFactory
 import java.time.Clock
 
+@OpenClass
 class SqlWorkQueueRepository(
   private val jooq: DSLContext,
   private val clock: Clock,

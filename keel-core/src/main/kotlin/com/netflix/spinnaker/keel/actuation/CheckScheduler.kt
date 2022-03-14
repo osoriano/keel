@@ -77,10 +77,8 @@ class CheckScheduler(
   private val clock: Clock,
   private val springEnv: Environment,
   private val spectator: Registry,
-  coroutineDispatcher: CoroutineDispatcher
+  override val coroutineContext: CoroutineContext
   ) : DiscoveryActivated(), CoroutineScope {
-
-  override val coroutineContext: CoroutineContext = coroutineDispatcher
 
   // Used for resources, environments, and artifacts.
   private val checkMinAge: Duration
@@ -161,7 +159,7 @@ class CheckScheduler(
                  *  individual environments, allowing fairer timeouts.
                  */
                 withTimeout(environmentCheckConfig.timeoutDuration.toMillis() * max(it.environments.size, 1)) {
-                  launch {
+                  launch(blankMDC) {
                     publisher.publishEvent(EnvironmentCheckStarted(it))
                     environmentPromotionChecker.checkEnvironments(it)
                   }

@@ -18,3 +18,7 @@ compileTestKotlin {
     freeCompilerArgs += "-Xjvm-default=all-compatibility"
   }
 }
+
+allOpen {
+  annotation("com.netflix.kotlin.OpenClass")
+}

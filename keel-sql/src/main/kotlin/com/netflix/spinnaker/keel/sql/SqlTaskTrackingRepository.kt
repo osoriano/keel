@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.sql
 
+import com.netflix.kotlin.OpenClass
 import com.netflix.spinnaker.config.RetentionProperties
 import com.netflix.spinnaker.keel.activation.DiscoveryActivated
 import com.netflix.spinnaker.keel.api.TaskStatus
@@ -17,6 +18,7 @@ import org.springframework.scheduling.annotation.Scheduled
 import java.time.Clock
 import java.time.Instant
 
+@OpenClass
 class SqlTaskTrackingRepository(
   private val jooq: DSLContext,
   private val clock: Clock,

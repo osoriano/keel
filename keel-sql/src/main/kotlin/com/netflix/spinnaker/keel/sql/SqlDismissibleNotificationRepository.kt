@@ -2,6 +2,7 @@ package com.netflix.spinnaker.keel.sql
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.convertValue
+import com.netflix.kotlin.OpenClass
 import com.netflix.spinnaker.keel.api.UID
 import com.netflix.spinnaker.keel.events.EventLevel
 import com.netflix.spinnaker.keel.notifications.DismissibleNotification
@@ -20,6 +21,7 @@ import kotlin.reflect.KClass
 /**
  * SQL implementation of [DismissibleNotificationRepository].
  */
+@OpenClass
 class SqlDismissibleNotificationRepository(
   private val jooq: DSLContext,
   private val sqlRetry: SqlRetry,

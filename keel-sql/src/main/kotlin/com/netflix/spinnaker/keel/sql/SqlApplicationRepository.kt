@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.sql
 
+import com.netflix.kotlin.OpenClass
 import com.netflix.spinnaker.keel.application.ApplicationConfig
 import com.netflix.spinnaker.keel.persistence.ApplicationRepository
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.APPLICATION_CONFIG
@@ -7,6 +8,7 @@ import org.jooq.DSLContext
 import java.time.Clock
 import java.time.Instant
 
+@OpenClass
 class SqlApplicationRepository(
   private val jooq: DSLContext,
   private val clock: Clock,

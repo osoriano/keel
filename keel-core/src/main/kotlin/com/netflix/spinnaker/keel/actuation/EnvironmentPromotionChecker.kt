@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.actuation
 
+import brave.Tracer
 import com.netflix.spinnaker.config.ArtifactConfig
 import com.netflix.spinnaker.keel.actuation.EnvironmentConstraintRunner.EnvironmentContext
 import com.netflix.spinnaker.keel.api.DeliveryConfig
@@ -33,7 +34,8 @@ class EnvironmentPromotionChecker(
   private val constraintRunner: EnvironmentConstraintRunner,
   private val publisher: ApplicationEventPublisher,
   private val artifactConfig: ArtifactConfig,
-  private val clock: Clock
+  private val clock: Clock,
+  private val tracer: Tracer? = null
 ) {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
@@ -85,7 +87,7 @@ class EnvironmentPromotionChecker(
 
                 if (pinnedEnvs.hasPinFor(environment.name, artifact)) {
                   val pinnedVersion = checkNotNull(pinnedEnvs.versionFor(environment.name, artifact))
-                  withCoroutineTracingContext(artifact, pinnedVersion) {
+                  withCoroutineTracingContext(artifact, pinnedVersion, tracer) {
                     // approve version first to fast track deployment
                     approveVersion(deliveryConfig, artifact, pinnedVersion, environment)
                     triggerResourceRecheckForPinnedVersion(deliveryConfig, artifact, pinnedVersion, environment)
@@ -107,7 +109,7 @@ class EnvironmentPromotionChecker(
                   queuedForApproval
                     .reversed()
                     .forEach { artifactVersion ->
-                      withCoroutineTracingContext(artifactVersion) {
+                      withCoroutineTracingContext(artifactVersion, tracer) {
                         /**
                          * We don't need to re-invoke stateful constraint evaluators for these, but we still
                          * check stateless constraints to avoid approval outside of allowed-times.

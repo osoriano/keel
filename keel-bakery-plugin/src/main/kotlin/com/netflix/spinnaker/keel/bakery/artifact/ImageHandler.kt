@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.bakery.artifact
 
+import brave.Tracer
 import com.netflix.frigga.ami.AppVersion
 import com.netflix.spinnaker.keel.actuation.ArtifactHandler
 import com.netflix.spinnaker.keel.api.actuation.Task
@@ -44,7 +45,8 @@ class ImageHandler(
   private val taskLauncher: TaskLauncher,
   private val defaultCredentials: BakeCredentials,
   private val pausedRepository: PausedRepository,
-  private val springEnv: Environment
+  private val springEnv: Environment,
+  private val tracer: Tracer? = null
 ) : ArtifactHandler {
 
   override suspend fun handle(artifact: DeliveryArtifact) {
@@ -101,7 +103,7 @@ class ImageHandler(
           )
         } else {
           if (!artifact.wasPreviouslyBakedWith(appVersion, desiredBaseAmiName)) {
-            withCoroutineTracingContext(artifact, appVersion) {
+            withCoroutineTracingContext(artifact, appVersion, tracer) {
               val images = artifact.findLatestAmi(appVersion)
               val imagesWithOlderBaseImages = images.filterValues { it.baseImageName != desiredBaseAmiName }
               val missingRegions = artifact.vmOptions.regions - images.keys

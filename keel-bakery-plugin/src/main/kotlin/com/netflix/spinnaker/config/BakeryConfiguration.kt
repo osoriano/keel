@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.config
 
+import brave.Tracer
 import com.netflix.spinnaker.keel.api.actuation.TaskLauncher
 import com.netflix.spinnaker.keel.bakery.BaseImageCache
 import com.netflix.spinnaker.keel.bakery.BaseImageCacheProperties
@@ -38,7 +39,8 @@ class BakeryConfiguration {
     @Value("\${bakery.defaults.serviceAccount:keel@spinnaker.io}") defaultServiceAccount: String,
     @Value("\${bakery.defaults.application:keel}") defaultApplication: String,
     pausedRepository: PausedRepository,
-    springEnv: Environment
+    springEnv: Environment,
+    tracer: Tracer? = null
   ) = ImageHandler(
     keelRepository,
     baseImageCache,
@@ -49,7 +51,8 @@ class BakeryConfiguration {
     taskLauncher,
     BakeCredentials(defaultServiceAccount, defaultApplication),
     pausedRepository,
-    springEnv
+    springEnv,
+    tracer
   )
 
   @Bean

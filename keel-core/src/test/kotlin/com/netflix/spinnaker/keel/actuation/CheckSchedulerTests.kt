@@ -3,6 +3,7 @@ package com.netflix.spinnaker.keel.actuation
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.config.ArtifactCheckConfig
 import com.netflix.spinnaker.config.CoroutineProperties
+import com.netflix.spinnaker.config.DefaultWorkhorseCoroutineContext
 import com.netflix.spinnaker.config.EnvironmentCheckConfig
 import com.netflix.spinnaker.config.EnvironmentDeletionConfig
 import com.netflix.spinnaker.config.EnvironmentVerificationConfig
@@ -165,7 +166,7 @@ internal class CheckSchedulerTests : JUnit5Minutests {
         clock = MutableClock(),
         springEnv = springEnv,
         spectator = registry,
-        coroutineDispatcher = Executors.newFixedThreadPool(5).asCoroutineDispatcher()
+        coroutineContext = DefaultWorkhorseCoroutineContext
       )
     }
 

@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.sql
 
+import com.netflix.kotlin.OpenClass
 import com.netflix.spinnaker.keel.persistence.FeatureRolloutRepository
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.FEATURE_ROLLOUT
 import com.netflix.spinnaker.keel.rollout.RolloutStatus
@@ -10,6 +11,7 @@ import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
 import org.jooq.DSLContext
 import java.time.Clock
 
+@OpenClass
 class SqlFeatureRolloutRepository(
   private val jooq: DSLContext,
   private val sqlRetry: SqlRetry,

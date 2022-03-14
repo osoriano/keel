@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.artifacts
 
+import com.netflix.spinnaker.config.DefaultWorkhorseCoroutineContext
+import com.netflix.spinnaker.config.WorkhorseCoroutineContext
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
 import com.netflix.spinnaker.keel.api.artifacts.DEBIAN
@@ -14,10 +16,12 @@ import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactService
 import com.netflix.spinnaker.keel.parseAppVersionOrNull
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.springframework.core.env.Environment
 import org.springframework.stereotype.Component
+import kotlin.coroutines.CoroutineContext
 
 /**
  * Built-in keel implementation of [ArtifactSupplier] for Debian artifacts.
@@ -31,8 +35,8 @@ class DebianArtifactSupplier(
   private val artifactService: ArtifactService,
   override val artifactMetadataService: ArtifactMetadataService,
   private val springEnv: Environment,
-  private val coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
-) : BaseArtifactSupplier<DebianArtifact, DebianVersionSortingStrategy>(artifactMetadataService) {
+  override val coroutineContext: WorkhorseCoroutineContext = DefaultWorkhorseCoroutineContext
+) : BaseArtifactSupplier<DebianArtifact, DebianVersionSortingStrategy>(artifactMetadataService), CoroutineScope {
   override val supportedArtifact = SupportedArtifact("deb", DebianArtifact::class.java)
 
   private val forceSortByVersion: Boolean
@@ -45,42 +49,41 @@ class DebianArtifactSupplier(
     deliveryConfig: DeliveryConfig,
     artifact: DeliveryArtifact,
     limit: Int
-  ): List<PublishedArtifact> =
-    withContext(coroutineDispatcher) {
-      log.info("Fetching latest $limit debian versions for $artifact")
-      val versions = artifactService.getVersions(artifact.name, artifact.statusesForQuery, DEBIAN)
+  ): List<PublishedArtifact> {
+    log.info("Fetching latest $limit debian versions for $artifact")
+    val versions = artifactService.getVersions(artifact.name, artifact.statusesForQuery, DEBIAN)
 
-      val importantVersions = if (forceSortByVersion) {
-        versions.sortedWith(DEBIAN_VERSION_COMPARATOR)
-          .take(limit)
-          .map {
-            artifactService.getArtifact(artifact.name, it, DEBIAN)
-          }
-      } else {
-        versions
-          // FIXME: this is making N calls to fill in data for each version so we can sort.
-          //  Ideally, we'd make a single call to return the list with details for each version.
-          .also {
-            log.warn("About to make ${it.size} calls to artifact service to retrieve version details...")
-          }
-          .map { version ->
-            artifactService.getArtifact(artifact.name, version, DEBIAN)
-          }
-          .sortedWith(artifact.sortingStrategy.comparator)
-          .take(limit) // versioning strategies return descending by default... ¯\_(ツ)_/¯
-      }
-
-      importantVersions.map {
-        // add the correct architecture to the metadata
-        //  given a reference like debian-local:pool/w/my-deb/my-deb_1.0.0~rc.1-h5.23b8241_all.deb
-        //  pull out the arch (the 'all' before the '.deb') and add that to the metadata
-        val arch = it.reference.split("_").lastOrNull()?.split(".")?.firstOrNull()
-        if (arch != null) {
-          it.copy(metadata = it.metadata + mapOf("arch" to arch))
-        } else {
-          it
+    val importantVersions = if (forceSortByVersion) {
+      versions.sortedWith(DEBIAN_VERSION_COMPARATOR)
+        .take(limit)
+        .map {
+          artifactService.getArtifact(artifact.name, it, DEBIAN)
         }
+    } else {
+      versions
+        // FIXME: this is making N calls to fill in data for each version so we can sort.
+        //  Ideally, we'd make a single call to return the list with details for each version.
+        .also {
+          log.warn("About to make ${it.size} calls to artifact service to retrieve version details...")
+        }
+        .map { version ->
+          artifactService.getArtifact(artifact.name, version, DEBIAN)
+        }
+        .sortedWith(artifact.sortingStrategy.comparator)
+        .take(limit) // versioning strategies return descending by default... ¯\_(ツ)_/¯
+    }
+
+    return importantVersions.map {
+      // add the correct architecture to the metadata
+      //  given a reference like debian-local:pool/w/my-deb/my-deb_1.0.0~rc.1-h5.23b8241_all.deb
+      //  pull out the arch (the 'all' before the '.deb') and add that to the metadata
+      val arch = it.reference.split("_").lastOrNull()?.split(".")?.firstOrNull()
+      if (arch != null) {
+        it.copy(metadata = it.metadata + mapOf("arch" to arch))
+      } else {
+        it
       }
+    }
   }
 
   override fun getVersionDisplayName(artifact: PublishedArtifact): String {

@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.sql
 
+import com.netflix.kotlin.OpenClass
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.persistence.UnhealthyRepository
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.RESOURCE
@@ -12,6 +13,7 @@ import org.jooq.Select
 import java.time.Clock
 import java.time.Duration
 
+@OpenClass
 class SqlUnhealthyRepository(
   val clock: Clock,
   val jooq: DSLContext,

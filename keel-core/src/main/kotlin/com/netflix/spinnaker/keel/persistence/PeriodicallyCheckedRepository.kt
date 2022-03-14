@@ -19,5 +19,6 @@ interface PeriodicallyCheckedRepository<T : Any> {
    *
    * @param status if the check marks any kind of status
    */
+  @JvmDefault
   fun markCheckComplete(item: T, status: Any?) {}
 }

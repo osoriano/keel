@@ -1,18 +1,20 @@
 package com.netflix.spinnaker.keel.orca
 
+import com.netflix.spinnaker.config.DefaultWorkhorseCoroutineContext
+import com.netflix.spinnaker.config.WorkhorseCoroutineContext
 import com.netflix.spinnaker.keel.api.ClusterDeployStrategy
 import com.netflix.spinnaker.keel.api.Highlander
 import com.netflix.spinnaker.keel.api.RedBlack
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.retrofit.isNotFound
-import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import retrofit2.HttpException
 import java.time.Duration
+import kotlin.coroutines.CoroutineContext
 
 /**
  * Provides common logic for multiple cloud plugins to export aspects of compute clusters.
@@ -21,8 +23,8 @@ import java.time.Duration
 class ClusterExportHelper(
   private val cloudDriverService: CloudDriverService,
   private val orcaService: OrcaService,
-  private val coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
-) {
+  override val coroutineContext: WorkhorseCoroutineContext = DefaultWorkhorseCoroutineContext
+) : CoroutineScope {
   val log: Logger by lazy { LoggerFactory.getLogger(javaClass) }
 
   /**
@@ -36,105 +38,97 @@ class ClusterExportHelper(
     application: String,
     serverGroupName: String
   ): ClusterDeployStrategy? {
-    return kotlinx.coroutines.coroutineScope {
-      val entityTags = withContext(coroutineDispatcher) {
-        log.debug(
-          "Looking for entity tags on server group $serverGroupName in application $application, " +
-            "account $account in search of pipeline/task correlation."
-        )
-        cloudDriverService.getEntityTags(
-          cloudProvider = cloudProvider,
-          account = account,
-          application = application,
-          entityType = "servergroup",
-          entityId = serverGroupName
-        )
-      }
+    log.debug(
+      "Looking for entity tags on server group $serverGroupName in application $application, " +
+        "account $account in search of pipeline/task correlation."
+    )
+    val entityTags = cloudDriverService.getEntityTags(
+      cloudProvider = cloudProvider,
+      account = account,
+      application = application,
+      entityType = "servergroup",
+      entityId = serverGroupName
+    )
 
-      if (entityTags.isEmpty()) {
+    if (entityTags.isEmpty()) {
+      log.warn(
+        "Unable to find entity tags for server group $serverGroupName in application $application, account $account.")
+      return null
+    }
+
+    val spinnakerMetadata = entityTags.first().tags
+      .find { it.name == "spinnaker:metadata" }
+      ?.let { it.value as? Map<*, *> }
+
+    if (spinnakerMetadata == null ||
+      spinnakerMetadata["executionType"] == null ||
+      spinnakerMetadata["executionId"] == null
+    ) {
+      log.warn(
+        "Unable to find Spinnaker metadata for server group $serverGroupName in application $application, " +
+          "account $account in entity tags."
+      )
+      return null
+    }
+
+    val executionType = spinnakerMetadata["executionType"].toString()
+    val executionId = spinnakerMetadata["executionId"].toString()
+    val execution = try {
+      when (executionType) {
+        "orchestration" -> orcaService.getOrchestrationExecution(executionId)
+        "pipeline" -> orcaService.getPipelineExecution(executionId)
+        else -> null
+      }
+    } catch (e: HttpException) {
+      if (e.isNotFound) {
         log.warn(
-          "Unable to find entity tags for server group $serverGroupName in application $application, " +
-            "account $account."
+          "$executionType execution $executionId not found for server group $serverGroupName. " +
+            "Defaulting to red/black deployment strategy."
         )
-        return@coroutineScope null
+        null
+      } else {
+        throw e
       }
+    }
 
-      val spinnakerMetadata = entityTags.first().tags
-        .find { it.name == "spinnaker:metadata" }
-        ?.let { it.value as? Map<*, *> }
+    if (execution == null) {
+      log.error(
+        "Unsupported execution type $executionType in Spinnaker metadata. Unable to determine deployment " +
+          "strategy for server group $serverGroupName in application $application, account $account."
+      )
+      return null
+    }
 
-      if (spinnakerMetadata == null ||
-        spinnakerMetadata["executionType"] == null ||
-        spinnakerMetadata["executionId"] == null
-      ) {
-        log.warn(
-          "Unable to find Spinnaker metadata for server group $serverGroupName in application $application, " +
-            "account $account in entity tags."
-        )
-        return@coroutineScope null
-      }
+    val context = if (executionType == "pipeline") {
+      // TODO: or clone?
+      execution.getDeployStageContext()
+    } else { // orchestration (i.e. a task)
+      // TODO: or cloneServerGroup?
+      execution.getTaskContext("createServerGroup")
+    }
 
-      val executionType = spinnakerMetadata["executionType"].toString()
-      val executionId = spinnakerMetadata["executionId"].toString()
-      val execution = withContext(coroutineDispatcher) {
+    return when (val strategy = context?.get("strategy")) {
+      "redblack" -> {
         try {
-          when (executionType) {
-            "orchestration" -> orcaService.getOrchestrationExecution(executionId)
-            "pipeline" -> orcaService.getPipelineExecution(executionId)
-            else -> null
-          }
-        } catch (e: HttpException) {
-          if (e.isNotFound) {
-            log.warn(
-              "$executionType execution $executionId not found for server group $serverGroupName. " +
-                "Defaulting to red/black deployment strategy."
-            )
-            null
-          } else {
-            throw e
-          }
+          context.contextToRedBlack()
+        } catch (e: ClassCastException) {
+          log.error("Could not convert strategy to redblack, context is {}", context)
+          null
         }
       }
-
-      if (execution == null) {
+      "highlander" -> Highlander()
+      null -> null.also {
         log.error(
-          "Unsupported execution type $executionType in Spinnaker metadata. Unable to determine deployment " +
-            "strategy for server group $serverGroupName in application $application, account $account."
+          "Deployment strategy information not found for server group $serverGroupName " +
+            "in application $application, account $account"
         )
-        return@coroutineScope null
       }
-
-      val context = if (executionType == "pipeline") {
-        // TODO: or clone?
-        execution.getDeployStageContext()
-      } else { // orchestration (i.e. a task)
-        // TODO: or cloneServerGroup?
-        execution.getTaskContext("createServerGroup")
-      }
-
-      when (val strategy = context?.get("strategy")) {
-        "redblack" -> {
-          try {
-            context.contextToRedBlack()
-          } catch (e: ClassCastException) {
-            log.error("Could not convert strategy to redblack, context is {}", context)
-            null
-          }
-        }
-        "highlander" -> Highlander()
-        null -> null.also {
-          log.error(
-            "Deployment strategy information not found for server group $serverGroupName " +
-              "in application $application, account $account"
-          )
-        }
-        else -> null.also {
-          log.error(
-            "Deployment strategy $strategy associated with server group $serverGroupName " +
-              "in application $application, account $account is not supported. " +
-              "Only redblack and highlander are supported at this time."
-          )
-        }
+      else -> null.also {
+        log.error(
+          "Deployment strategy $strategy associated with server group $serverGroupName " +
+            "in application $application, account $account is not supported. " +
+            "Only redblack and highlander are supported at this time."
+        )
       }
     }
   }

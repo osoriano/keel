@@ -3,6 +3,8 @@ package com.netflix.spinnaker.keel.titus.postdeploy
 import com.netflix.spectator.api.BasicTag
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.config.BaseUrlConfig
+import com.netflix.spinnaker.config.DefaultWorkhorseCoroutineContext
+import com.netflix.spinnaker.config.WorkhorseCoroutineContext
 import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
 import com.netflix.spinnaker.keel.api.action.ActionState
 import com.netflix.spinnaker.keel.api.actuation.TaskLauncher
@@ -21,12 +23,14 @@ import com.netflix.spinnaker.keel.titus.OrcaLinkStrategy
 import com.netflix.spinnaker.keel.titus.TITUS_JOB_TASKS
 import com.netflix.spinnaker.keel.verification.ImageFinder
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.time.Instant
+import kotlin.coroutines.CoroutineContext
 
 /**
  * This class tags images after they've been verified, if they have the
@@ -46,8 +50,8 @@ class TagAmiHandler(
   private val spectator: Registry,
   private val baseUrlConfig: BaseUrlConfig,
   private val imageFinder: ImageFinder,
-  private val coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
-) : PostDeployActionHandler<TagAmiPostDeployAction> {
+  override val coroutineContext: WorkhorseCoroutineContext = DefaultWorkhorseCoroutineContext
+) : PostDeployActionHandler<TagAmiPostDeployAction>, CoroutineScope {
 
   private val TAG_AMI_JOB_LAUNCHED = "keel.image.tag"
 
@@ -116,9 +120,7 @@ class TagAmiHandler(
       return oldState.copy(status = FAIL, endedAt = Instant.now())
     }
 
-    val response = withContext(coroutineDispatcher) {
-      orca.getOrchestrationExecution(taskId)
-    }
+    val response = orca.getOrchestrationExecution(taskId)
 
     log.debug("Container test task $taskId status: ${response.status.name}")
 

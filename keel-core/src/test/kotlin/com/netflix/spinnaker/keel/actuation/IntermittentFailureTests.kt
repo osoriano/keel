@@ -107,7 +107,6 @@ class IntermittentFailureTests : JUnit5Minutests {
     val vetoEnforcer = VetoEnforcer(listOf(veto))
     val subject = ResourceActuator(
       resourceRepository,
-      artifactRepository,
       deliveryConfigRepository,
       diffFingerprintRepository,
       environmentDeletionRepository,

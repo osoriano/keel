@@ -2,14 +2,17 @@ package com.netflix.spinnaker.keel.titus.registry
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.convertValue
+import com.netflix.spinnaker.config.DefaultWorkhorseCoroutineContext
 import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.config.FeatureToggles.Companion.OPTIMIZED_DOCKER_FLOW
 import com.netflix.spinnaker.config.RegistryCacheProperties
+import com.netflix.spinnaker.config.WorkhorseCoroutineContext
 import com.netflix.spinnaker.keel.api.artifacts.DockerImage
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.kork.exceptions.IntegrationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.elasticsearch.action.search.SearchRequest
@@ -20,6 +23,7 @@ import org.elasticsearch.search.sort.SortOrder.DESC
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import kotlin.coroutines.CoroutineContext
 
 /**
  * Interface to the Titus Registry image data cache backed by ElasticSearch, with a fallback to the
@@ -36,8 +40,8 @@ class TitusRegistryService(
   private val cloudDriverService: CloudDriverService,
   private val featureToggles: FeatureToggles,
   private val objectMapper: ObjectMapper,
-  private val coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
-) {
+  override val coroutineContext: WorkhorseCoroutineContext = DefaultWorkhorseCoroutineContext
+) : CoroutineScope {
   companion object {
     private val log: Logger by lazy { LoggerFactory.getLogger(TitusRegistryService::class.java) }
     const val DEFAULT_MAX_RESULTS = 60 // (10 versions back * 3 regions * 2 registries)
@@ -66,14 +70,12 @@ class TitusRegistryService(
       // fallback to CloudDriver if the optimized flow is off or ElasticSearch returns no results
       val registry = titusAccount?.let { cloudDriverCache.getRegistryForTitusAccount(it) } ?: "*"
       log.debug("Searching CloudDriver image cache (repository: $image, tag: $tag, registry: $registry)")
-      withContext(coroutineDispatcher) {
-        cloudDriverService.findDockerImages(
-          registry = registry,
-          repository = image,
-          tag = tag,
-          includeDetails = true
-        )
-      }
+      cloudDriverService.findDockerImages(
+        registry = registry,
+        repository = image,
+        tag = tag,
+        includeDetails = true
+      )
     }
   }
 

@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.logging
 
+import brave.Tracer
 import com.netflix.spinnaker.keel.api.Exportable
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceSpec
@@ -15,31 +16,45 @@ import org.slf4j.MDC
  */
 const val X_MANAGED_DELIVERY_RESOURCE = "X-MANAGED-DELIVERY-RESOURCE"
 const val X_MANAGED_DELIVERY_ARTIFACT = "X-MANAGED-DELIVERY-ARTIFACT"
-val blankMDC: MDCContext = MDCContext(emptyMap())
+val blankMDC: MDCContext = MDCContext(
+  // clear out any left-over MDC headers we know about
+  MDC.getCopyOfContextMap().apply {
+    keys.forEach { key -> if (key.startsWith("X-MANAGED-DELIVERY")) remove(key) }
+  }
+)
 
 suspend fun <T : ResourceSpec, R> withTracingContext(
   resource: Resource<T>,
+  tracer: Tracer? = null,
   block: suspend CoroutineScope.() -> R
 ): R {
-  return withTracingContext(resource.id, block)
+  return withTracingContext(X_MANAGED_DELIVERY_RESOURCE, resource.id, tracer , block)
 }
 
 suspend fun <R> withTracingContext(
   exportable: Exportable,
+  tracer: Tracer? = null,
   block: suspend CoroutineScope.() -> R
 ): R {
-  return withTracingContext(exportable.toResourceId(), block)
+  return withTracingContext(X_MANAGED_DELIVERY_RESOURCE, exportable.toResourceId(), tracer, block)
 }
 
 private suspend fun <R> withTracingContext(
-  resourceId: String,
+  mdcHeader: String,
+  traceId: String,
+  tracer: Tracer? = null,
   block: suspend CoroutineScope.() -> R
 ): R {
+  // FIXME: parent span is null when checking resources
+  val parentSpan = tracer?.currentSpan()?.context()
+  val span = parentSpan?.run { tracer.startScopedSpanWithParent(mdcHeader.lowercase(), parentSpan) }
+    ?: tracer?.startScopedSpan(mdcHeader.lowercase())
   try {
-    MDC.put(X_MANAGED_DELIVERY_RESOURCE, resourceId)
+    MDC.put(mdcHeader, traceId)
     return withContext(MDCContext(), block)
   } finally {
-    MDC.remove(X_MANAGED_DELIVERY_RESOURCE)
+    MDC.remove(mdcHeader)
+    span?.finish()
   }
 }
 
@@ -64,22 +79,15 @@ fun <R> withThreadTracingContext(
 suspend fun <R> withCoroutineTracingContext(
   artifact: DeliveryArtifact,
   version: String,
+  tracer: Tracer? = null,
   block: suspend CoroutineScope.() -> R
-): R = withCoroutineTracingContext(artifact.toArtifactVersion(version), block)
+): R = withCoroutineTracingContext(artifact.toArtifactVersion(version), tracer, block)
 
 suspend fun <R> withCoroutineTracingContext(
   publishedArtifact: PublishedArtifact,
+  tracer: Tracer? = null,
   block: suspend CoroutineScope.() -> R
-): R {
-  return withContext(blankMDC) {
-    try {
-      MDC.put(X_MANAGED_DELIVERY_ARTIFACT, publishedArtifact.traceId)
-      withContext(MDCContext(), block)
-    } finally {
-      MDC.remove(X_MANAGED_DELIVERY_ARTIFACT)
-    }
-  }
-}
+): R = withTracingContext(X_MANAGED_DELIVERY_ARTIFACT, publishedArtifact.traceId, tracer, block)
 
 internal val PublishedArtifact.traceId: String
   get() = version.let {

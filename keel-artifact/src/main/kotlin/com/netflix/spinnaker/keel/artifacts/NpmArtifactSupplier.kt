@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.artifacts
 
+import com.netflix.spinnaker.config.DefaultWorkhorseCoroutineContext
+import com.netflix.spinnaker.config.WorkhorseCoroutineContext
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
@@ -13,9 +15,11 @@ import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactService
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.springframework.stereotype.Component
+import kotlin.coroutines.CoroutineContext
 
 /**
  * Built-in keel implementation of [ArtifactSupplier] for NPM artifacts.
@@ -28,8 +32,8 @@ class NpmArtifactSupplier(
   override val eventPublisher: EventPublisher,
   private val artifactService: ArtifactService,
   override val artifactMetadataService: ArtifactMetadataService,
-  private val coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
-) : BaseArtifactSupplier<NpmArtifact, NpmVersionSortingStrategy>(artifactMetadataService) {
+  override val coroutineContext: WorkhorseCoroutineContext = DefaultWorkhorseCoroutineContext
+) : BaseArtifactSupplier<NpmArtifact, NpmVersionSortingStrategy>(artifactMetadataService), CoroutineScope {
 
   override val supportedArtifact = SupportedArtifact(NPM, NpmArtifact::class.java)
 
@@ -40,21 +44,20 @@ class NpmArtifactSupplier(
     deliveryConfig: DeliveryConfig,
     artifact: DeliveryArtifact,
     limit: Int
-  ): List<PublishedArtifact> =
-    withContext(coroutineDispatcher) {
-      artifactService
-        .getVersions(artifact.nameForQuery, artifact.statusesForQuery, NPM)
-        // FIXME: this is making N calls to fill in data for each version so we can sort.
-        //  Ideally, we'd make a single call to return the list with details for each version.
-        .also {
-          log.warn("About to make ${it.size} calls to artifact service to retrieve version details...")
-        }
-        .map { version ->
-          artifactService.getArtifact(artifact.name, version, NPM)
-        }
-        .sortedWith(artifact.sortingStrategy.comparator)
-        .take(limit) // versioning strategies return descending by default... ¯\_(ツ)_/¯
-    }
+  ): List<PublishedArtifact> {
+    return artifactService
+      .getVersions(artifact.nameForQuery, artifact.statusesForQuery, NPM)
+      // FIXME: this is making N calls to fill in data for each version so we can sort.
+      //  Ideally, we'd make a single call to return the list with details for each version.
+      .also {
+        log.warn("About to make ${it.size} calls to artifact service to retrieve version details...")
+      }
+      .map { version ->
+        artifactService.getArtifact(artifact.name, version, NPM)
+      }
+      .sortedWith(artifact.sortingStrategy.comparator)
+      .take(limit) // versioning strategies return descending by default... ¯\_(ツ)_/¯
+  }
 
   /**
    * Extracts a version display name from version string using the Netflix semver convention.

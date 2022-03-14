@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.sql
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.netflix.kotlin.OpenClass
 import com.netflix.spinnaker.keel.api.ActionStateUpdateContext
 import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
 import com.netflix.spinnaker.keel.api.DeliveryConfig
@@ -35,6 +36,7 @@ import java.time.Clock
 import java.time.Duration
 import org.springframework.core.env.Environment as SpringEnvironment
 
+@OpenClass
 class SqlActionRepository(
   jooq: DSLContext,
   clock: Clock,

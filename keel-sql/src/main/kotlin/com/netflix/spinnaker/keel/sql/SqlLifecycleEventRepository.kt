@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.sql
 
 import com.fasterxml.jackson.databind.JsonMappingException
+import com.netflix.kotlin.OpenClass
 import com.netflix.spectator.api.BasicTag
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
@@ -22,6 +23,7 @@ import org.springframework.context.ApplicationEventPublisher
 import java.time.Clock
 import java.time.Duration
 
+@OpenClass
 class SqlLifecycleEventRepository(
   private val clock: Clock,
   private val jooq: DSLContext,

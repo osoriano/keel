@@ -5,6 +5,8 @@ import com.fasterxml.jackson.module.kotlin.convertValue
 import com.netflix.spectator.api.BasicTag
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.patterns.PolledMeter
+import com.netflix.spinnaker.config.DefaultWorkhorseCoroutineContext
+import com.netflix.spinnaker.config.WorkhorseCoroutineContext
 import com.netflix.spinnaker.keel.activation.DiscoveryActivated
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
@@ -55,7 +57,7 @@ import kotlin.coroutines.CoroutineContext
  */
 @EnableConfigurationProperties(WorkProcessingConfig::class)
 @Component
-final class WorkQueueProcessor(
+class WorkQueueProcessor(
   private val config: WorkProcessingConfig,
   private val workQueueRepository: WorkQueueRepository,
   private val repository: KeelRepository,
@@ -68,7 +70,7 @@ final class WorkQueueProcessor(
   private val objectMapper: ObjectMapper
 ): DiscoveryActivated(), CoroutineScope {
 
-  override val coroutineContext: CoroutineContext = Dispatchers.IO
+  override val coroutineContext: WorkhorseCoroutineContext = DefaultWorkhorseCoroutineContext
 
   companion object {
     private const val ARTIFACT_PROCESSING_DRIFT_GAUGE = "work.processing.artifact.drift"

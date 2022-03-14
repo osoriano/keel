@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.actuation
 
+import brave.Tracer
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.patterns.ThreadPoolMonitor
 import com.netflix.spinnaker.keel.api.CompleteVersionedArtifact
@@ -15,8 +16,6 @@ import com.netflix.spinnaker.keel.api.plugins.ActionDecision
 import com.netflix.spinnaker.keel.api.plugins.ResourceHandler
 import com.netflix.spinnaker.keel.api.plugins.supporting
 import com.netflix.spinnaker.keel.core.ResourceCurrentlyUnresolvable
-import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactVeto
-import com.netflix.spinnaker.keel.core.api.PromotionStatus.DEPLOYING
 import com.netflix.spinnaker.keel.enforcers.ActiveVerifications
 import com.netflix.spinnaker.keel.enforcers.EnvironmentExclusionEnforcer
 import com.netflix.spinnaker.keel.events.ResourceActuationLaunched
@@ -42,10 +41,8 @@ import com.netflix.spinnaker.keel.persistence.ResourceRepository
 import com.netflix.spinnaker.keel.plugin.CannotResolveCurrentState
 import com.netflix.spinnaker.keel.plugin.CannotResolveDesiredState
 import com.netflix.spinnaker.keel.plugin.ResourceResolutionException
-import com.netflix.spinnaker.keel.telemetry.ArtifactVersionVetoed
 import com.netflix.spinnaker.keel.telemetry.ResourceCheckSkipped
 import com.netflix.spinnaker.keel.veto.VetoEnforcer
-import com.netflix.spinnaker.keel.veto.VetoResponse
 import com.netflix.spinnaker.kork.exceptions.SpinnakerException
 import com.netflix.spinnaker.kork.exceptions.SystemException
 import com.netflix.spinnaker.kork.exceptions.UserException
@@ -77,7 +74,6 @@ import java.util.concurrent.ThreadPoolExecutor
 @Component
 class ResourceActuator(
   private val resourceRepository: ResourceRepository,
-  private val artifactRepository: ArtifactRepository,
   private val deliveryConfigRepository: DeliveryConfigRepository,
   private val diffFingerprintRepository: DiffFingerprintRepository,
   private val environmentDeletionRepository: EnvironmentDeletionRepository,
@@ -88,18 +84,22 @@ class ResourceActuator(
   private val clock: Clock,
   private val environmentExclusionEnforcer: EnvironmentExclusionEnforcer,
   spectator: Registry,
-  private val diffFactory: ResourceDiffFactory
+  private val diffFactory: ResourceDiffFactory,
+  private val tracer: Tracer? = null
 ) {
   companion object {
     val asyncExecutor: Executor = Executors.newCachedThreadPool()
   }
 
-  private val threadPoolMonitor = ThreadPoolMonitor.attach(spectator, asyncExecutor as ThreadPoolExecutor, "keel-resource-actuator-thread-pool")
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
+
+  init {
+    ThreadPoolMonitor.attach(spectator, asyncExecutor as ThreadPoolExecutor, "keel-resource-actuator-thread-pool")
+  }
 
   @Trace(dispatcher=true)
   suspend fun <T : ResourceSpec> checkResource(resource: Resource<T>) {
-    withTracingContext(resource) {
+    withTracingContext(resource, tracer) {
       val id = resource.id
       try {
         val plugin = handlers.supporting(resource.kind)

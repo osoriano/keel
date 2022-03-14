@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.rollout
 
+import com.netflix.spinnaker.config.DefaultWorkhorseCoroutineContext
+import com.netflix.spinnaker.config.WorkhorseCoroutineContext
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceSpec
 import com.netflix.spinnaker.keel.api.plugins.Resolver
@@ -14,11 +16,13 @@ import com.netflix.spinnaker.keel.rollout.RolloutStatus.NOT_STARTED
 import com.netflix.spinnaker.keel.rollout.RolloutStatus.SKIPPED
 import com.netflix.spinnaker.keel.rollout.RolloutStatus.SUCCESSFUL
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
+import kotlin.coroutines.CoroutineContext
 
 /**
  * Base class for [Resolver] implementations that are used to safely roll out features to each environment in an
@@ -36,8 +40,8 @@ abstract class RolloutAwareResolver<SPEC : ResourceSpec, RESOLVED : Any>(
   private val resourceToCurrentState: suspend (Resource<SPEC>) -> RESOLVED,
   private val featureRolloutRepository: FeatureRolloutRepository,
   private val eventPublisher: EventPublisher,
-  private val coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
-) : Resolver<SPEC> {
+  override val coroutineContext: WorkhorseCoroutineContext = DefaultWorkhorseCoroutineContext
+) : Resolver<SPEC>, CoroutineScope {
 
   /**
    * The name of the feature this resolver deals with.
@@ -73,7 +77,7 @@ abstract class RolloutAwareResolver<SPEC : ResourceSpec, RESOLVED : Any>(
 
   override fun invoke(resource: Resource<SPEC>): Resource<SPEC> {
     val currentState by lazy {
-      runBlocking(coroutineDispatcher) {
+      runBlocking {
         resourceToCurrentState(resource)
       }
     }
@@ -137,7 +141,7 @@ abstract class RolloutAwareResolver<SPEC : ResourceSpec, RESOLVED : Any>(
     !currentState.exists
 
   private fun isRolledOutToPreviousEnvironments(resource: Resource<SPEC>): Boolean =
-    runBlocking(coroutineDispatcher) {
+    runBlocking {
       dependentEnvironmentFinder.resourcesOfSameKindInDependentEnvironments(resource)
         .map { async { resourceToCurrentState(it) } }
         .awaitAll()

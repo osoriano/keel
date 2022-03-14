@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.sql
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.netflix.kotlin.OpenClass
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.persistence.EnvironmentDeletionRepository
@@ -18,6 +19,8 @@ import java.time.Duration
 /**
  * SQL-based implementation of [EnvironmentDeletionRepository].
  */
+@JvmDefaultWithoutCompatibility
+@OpenClass
 class SqlEnvironmentDeletionRepository(
   jooq: DSLContext,
   clock: Clock,

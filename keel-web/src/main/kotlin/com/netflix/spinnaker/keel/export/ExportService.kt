@@ -2,6 +2,8 @@ package com.netflix.spinnaker.keel.export
 
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import com.netflix.spinnaker.config.BaseUrlConfig
+import com.netflix.spinnaker.config.DefaultWorkhorseCoroutineContext
+import com.netflix.spinnaker.config.WorkhorseCoroutineContext
 import com.netflix.spinnaker.keel.activation.DiscoveryActivated
 import com.netflix.spinnaker.keel.api.AccountAwareLocations
 import com.netflix.spinnaker.keel.api.Constraint
@@ -100,11 +102,9 @@ class ExportService(
   private val slackService: SlackService,
   @Value("\${keel.export.slack-notification-channel}")
   private val slackNotificationChannel: String,
-  coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
+  override val coroutineContext: WorkhorseCoroutineContext = DefaultWorkhorseCoroutineContext
 ) : CoroutineScope, DiscoveryActivated() {
   private val prettyPrinter by lazy { yamlMapper.writerWithDefaultPrettyPrinter() }
-
-  override val coroutineContext: CoroutineContext = coroutineDispatcher
 
   companion object {
     /**

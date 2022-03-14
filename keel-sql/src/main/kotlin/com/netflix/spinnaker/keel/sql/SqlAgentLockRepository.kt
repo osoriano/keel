@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.sql
 
+import com.netflix.kotlin.OpenClass
 import com.netflix.spinnaker.keel.persistence.AgentLockRepository
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.AGENT_LOCK
 import com.netflix.spinnaker.keel.scheduled.ScheduledAgent
@@ -8,6 +9,7 @@ import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
 import org.jooq.DSLContext
 import java.time.Clock
 
+@OpenClass
 class SqlAgentLockRepository(
   private val jooq: DSLContext,
   private val clock: Clock,

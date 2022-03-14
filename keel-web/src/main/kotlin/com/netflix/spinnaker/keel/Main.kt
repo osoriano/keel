@@ -46,7 +46,7 @@ private val DEFAULT_PROPS = mapOf(
   PlatformComponents::class,
   PluginsAutoConfiguration::class
 )
-@EnableAsync
+@EnableAsync(proxyTargetClass = true)
 @ServletComponentScan
 class KeelApplication
 

@@ -1,6 +1,8 @@
 package com.netflix.spinnaker.keel.front50
 
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache
+import com.netflix.spinnaker.config.DefaultWorkhorseCoroutineContext
+import com.netflix.spinnaker.config.WorkhorseCoroutineContext
 import com.netflix.spinnaker.keel.activation.ApplicationUp
 import com.netflix.spinnaker.keel.caffeine.CacheFactory
 import com.netflix.spinnaker.keel.caffeine.CacheLoadingException
@@ -30,12 +32,10 @@ import kotlin.coroutines.CoroutineContext
 class Front50Cache(
   private val front50Service: Front50Service,
   cacheFactory: CacheFactory,
-  coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
+  override val coroutineContext: WorkhorseCoroutineContext = DefaultWorkhorseCoroutineContext
 ) : CoroutineScope {
 
   private val log by lazy { LoggerFactory.getLogger(Front50Cache::class.java) }
-
-  override val coroutineContext: CoroutineContext = coroutineDispatcher
 
   private val applicationsByNameCache: AsyncLoadingCache<String, Application> = cacheFactory
     .asyncLoadingCache(cacheName = "applicationsByName") { app ->

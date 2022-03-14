@@ -48,6 +48,7 @@ dependencies {
   implementation("org.liquibase:liquibase-core")
 
   runtimeOnly("mysql:mysql-connector-java")
+  runtimeOnly("io.zipkin.brave:brave-instrumentation-p6spy")
 
   testImplementation("com.netflix.spinnaker.kork.internal:kork-sql-test")
   testImplementation("io.strikt:strikt-core")

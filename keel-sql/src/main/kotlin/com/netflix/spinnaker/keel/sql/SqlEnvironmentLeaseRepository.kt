@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.sql
 
+import com.netflix.kotlin.OpenClass
 import com.netflix.spectator.api.Id
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.histogram.PercentileTimer
@@ -25,6 +26,7 @@ import java.time.Instant
  * An implementation of [EnvironmentLeaseRepository] that represents a lease as a record in the environment_lease
  * table.
  */
+@OpenClass
 class SqlEnvironmentLeaseRepository(
   private val jooq: DSLContext,
   private val clock: Clock,

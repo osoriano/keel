@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.enforcers
 
+import com.netflix.spinnaker.config.DefaultWorkhorseCoroutineContext
+import com.netflix.spinnaker.config.WorkhorseCoroutineContext
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PENDING
@@ -9,9 +11,11 @@ import com.netflix.spinnaker.keel.exceptions.EnvironmentCurrentlyBeingActedOn
 import com.netflix.spinnaker.keel.persistence.ArtifactRepository
 import com.netflix.spinnaker.keel.persistence.EnvironmentLeaseRepository
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.springframework.stereotype.Component
+import kotlin.coroutines.CoroutineContext
 import org.springframework.core.env.Environment as SpringEnvironment
 
 class ActiveVerifications(val active: Collection<ArtifactInEnvironmentContext>, deliveryConfig: DeliveryConfig, environment: Environment) :
@@ -47,8 +51,8 @@ class EnvironmentExclusionEnforcer(
   private val verificationRepository: ActionRepository,
   private val artifactRepository: ArtifactRepository,
   private val environmentLeaseRepository: EnvironmentLeaseRepository,
-  private val coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
-) {
+  override val coroutineContext: WorkhorseCoroutineContext = DefaultWorkhorseCoroutineContext
+) : CoroutineScope {
 
   private val enforcementEnabled: Boolean
     get() = springEnv.getProperty("keel.enforcement.environment-exclusion.enabled", Boolean::class.java, true)
@@ -92,15 +96,13 @@ class EnvironmentExclusionEnforcer(
     }
 
     // use IO context since the checks call the database, which will block the coroutine's thread
-    return withContext(coroutineDispatcher) {
-      environmentLeaseRepository.tryAcquireLease(deliveryConfig, environment, "actuation").use {
+    environmentLeaseRepository.tryAcquireLease(deliveryConfig, environment, "actuation").use {
 
-        // This will throw an exception if the check fails
-        ensureNoActiveVerifications(deliveryConfig, environment)
+      // This will throw an exception if the check fails
+      ensureNoActiveVerifications(deliveryConfig, environment)
 
-        // it's now safe to do the action
-        return@withContext action.invoke()
-      }
+      // it's now safe to do the action
+      return action.invoke()
     }
   }
 

@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.ec2.resolvers
 
+import com.netflix.spinnaker.config.DefaultWorkhorseCoroutineContext
+import com.netflix.spinnaker.config.WorkhorseCoroutineContext
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec
 import com.netflix.spinnaker.keel.api.ec2.EC2_CLUSTER_V1_1
@@ -17,7 +19,9 @@ import com.netflix.spinnaker.keel.optics.resourceSpecLens
 import com.netflix.spinnaker.keel.persistence.FeatureRolloutRepository
 import com.netflix.spinnaker.keel.rollout.RolloutAwareResolver
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlin.coroutines.CoroutineContext
 
 /**
  * Resolves the [LaunchConfigurationSpec.instanceMetadataServiceVersion] value if it is not explicitly specified.
@@ -25,18 +29,19 @@ import kotlinx.coroutines.Dispatchers
  * If the cluster already uses [InstanceMetadataServiceVersion.V2], or the setting has been applied to all clusters in
  * dependent environments, and those environments are stable, this resolver will select v2. Otherwise it will select v1.
  */
-class InstanceMetadataServiceResolver(
+class
+InstanceMetadataServiceResolver(
   dependentEnvironmentFinder: DependentEnvironmentFinder,
   resourceToCurrentState: suspend (Resource<ClusterSpec>) -> Map<String, ServerGroup>,
   featureRolloutRepository: FeatureRolloutRepository,
   eventPublisher: EventPublisher,
-  coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
-) : RolloutAwareResolver<ClusterSpec, Map<String, ServerGroup>>(
+  override val coroutineContext: WorkhorseCoroutineContext = DefaultWorkhorseCoroutineContext
+) : CoroutineScope, RolloutAwareResolver<ClusterSpec, Map<String, ServerGroup>>(
   dependentEnvironmentFinder,
   resourceToCurrentState,
   featureRolloutRepository,
   eventPublisher,
-  coroutineDispatcher
+  coroutineContext
 ) {
   override val supportedKind = EC2_CLUSTER_V1_1
   override val featureName = "imdsv2"

@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.sql
 
+import com.netflix.kotlin.OpenClass
 import com.netflix.spinnaker.keel.notifications.NotificationScope
 import com.netflix.spinnaker.keel.notifications.NotificationType
 import com.netflix.spinnaker.keel.persistence.NotificationRepository
@@ -10,6 +11,7 @@ import org.jooq.DSLContext
 import java.time.Clock
 import java.time.Duration
 
+@OpenClass
 class SqlNotificationRepository(
   val jooq: DSLContext,
   override val clock: Clock,

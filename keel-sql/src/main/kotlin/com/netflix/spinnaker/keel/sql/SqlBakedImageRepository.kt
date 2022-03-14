@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.sql
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.netflix.kotlin.OpenClass
 import com.netflix.spinnaker.keel.artifacts.BakedImage
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.persistence.BakedImageRepository
@@ -11,6 +12,7 @@ import org.jooq.DSLContext
 import org.slf4j.LoggerFactory
 import java.time.Clock
 
+@OpenClass
 class SqlBakedImageRepository(
   private val jooq: DSLContext,
   private val clock: Clock,

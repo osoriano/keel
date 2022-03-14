@@ -1,7 +1,9 @@
 package com.netflix.spinnaker.keel.lifecycle
 
 import com.netflix.spectator.api.Registry
+import com.netflix.spinnaker.config.DefaultWorkhorseCoroutineContext
 import com.netflix.spinnaker.config.LifecycleConfig
+import com.netflix.spinnaker.config.WorkhorseCoroutineContext
 import com.netflix.spinnaker.keel.activation.DiscoveryActivated
 import com.netflix.spinnaker.keel.telemetry.LifecycleMonitorLoadFailed
 import com.netflix.spinnaker.keel.telemetry.LifecycleMonitorTimedOut
@@ -35,7 +37,7 @@ class LifecycleMonitorScheduler(
   private val spectator: Registry,
   private val springEnv: Environment
 ) : DiscoveryActivated(), CoroutineScope {
-  override val coroutineContext: CoroutineContext = Dispatchers.IO
+  override val coroutineContext: WorkhorseCoroutineContext = DefaultWorkhorseCoroutineContext
 
   private val timerBuilder = spectator.createId("keel.scheduled.method.duration")
 

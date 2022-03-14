@@ -2,6 +2,7 @@ package com.netflix.spinnaker.keel.sql
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.convertValue
+import com.netflix.kotlin.OpenClass
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.config.ResourceEventPruneConfig
 import com.netflix.spinnaker.keel.api.Resource
@@ -58,7 +59,8 @@ import java.time.Duration
 import java.time.Instant
 import java.time.Instant.EPOCH
 
-open class SqlResourceRepository(
+@OpenClass
+class SqlResourceRepository(
   private val jooq: DSLContext,
   override val clock: Clock,
   private val objectMapper: ObjectMapper,

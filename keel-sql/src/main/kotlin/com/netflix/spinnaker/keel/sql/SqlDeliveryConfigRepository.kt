@@ -2,6 +2,7 @@ package com.netflix.spinnaker.keel.sql
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.netflix.kotlin.OpenClass
 import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.config.FeatureToggles.Companion.SKIP_PAUSED_APPS
 import com.netflix.spinnaker.keel.api.ArtifactChange
@@ -91,6 +92,7 @@ import java.time.Duration
 import java.time.Instant
 import java.time.Instant.EPOCH
 
+@OpenClass
 class SqlDeliveryConfigRepository(
   jooq: DSLContext,
   clock: Clock,

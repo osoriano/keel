@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.orca
 
+import com.netflix.spinnaker.config.DefaultWorkhorseCoroutineContext
+import com.netflix.spinnaker.config.WorkhorseCoroutineContext
 import com.netflix.spinnaker.keel.api.actuation.SubjectType.RESOURCE
 import com.netflix.spinnaker.keel.api.actuation.Task
 import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
@@ -14,6 +16,7 @@ import com.netflix.spinnaker.keel.retrofit.isNotFound
 import com.netflix.spinnaker.keel.scheduled.ScheduledAgent
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
@@ -24,6 +27,7 @@ import org.springframework.stereotype.Component
 import retrofit2.HttpException
 import java.time.Clock
 import java.util.concurrent.TimeUnit.MINUTES
+import kotlin.coroutines.CoroutineContext
 
 /**
  * This class monitors all tasks in flight.
@@ -38,8 +42,8 @@ class OrcaTaskMonitorAgent(
   private val orcaService: OrcaService,
   private val publisher: ApplicationEventPublisher,
   private val clock: Clock,
-  private val coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
-) : ScheduledAgent {
+  override val coroutineContext: WorkhorseCoroutineContext = DefaultWorkhorseCoroutineContext
+) : ScheduledAgent, CoroutineScope {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
@@ -59,26 +63,24 @@ class OrcaTaskMonitorAgent(
     coroutineScope {
       taskTrackingRepository.getIncompleteTasks().associateWith {
         // when we get not found exception from orca, we shouldn't try to get the status anymore
-        withContext(coroutineDispatcher) {
-          try {
-            orcaService.getOrchestrationExecution(it.id, DEFAULT_SERVICE_ACCOUNT)
-          } catch (e: HttpException) {
-            when (e.isNotFound) {
-              true -> {
-                log.warn(
-                  "Exception ${e.message} has caught while calling orca to fetch status for execution id: ${it.id}" +
-                    " Possible reason: orca is saving info for 2000 tasks/app and this task is older."
-                )
-                // when we get not found exception from orca, we shouldn't try to get the status anymore
-                taskTrackingRepository.delete(it.id)
-              }
-              else -> log.warn(
-                "Exception ${e.message} has caught while calling orca to fetch status for execution id: ${it.id}",
-                e
+        try {
+          orcaService.getOrchestrationExecution(it.id, DEFAULT_SERVICE_ACCOUNT)
+        } catch (e: HttpException) {
+          when (e.isNotFound) {
+            true -> {
+              log.warn(
+                "Exception ${e.message} has caught while calling orca to fetch status for execution id: ${it.id}" +
+                  " Possible reason: orca is saving info for 2000 tasks/app and this task is older."
               )
+              // when we get not found exception from orca, we shouldn't try to get the status anymore
+              taskTrackingRepository.delete(it.id)
             }
-            null
+            else -> log.warn(
+              "Exception ${e.message} has caught while calling orca to fetch status for execution id: ${it.id}",
+              e
+            )
           }
+          null
         }
       }
         .filterValues { it != null && it.status.isComplete() }

@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.artifacts
 
+import brave.Tracer
 import com.netflix.spinnaker.keel.api.events.ArtifactVersionDeploying
 import com.netflix.spinnaker.keel.api.events.ArtifactVersionMarkedDeploying
 import com.netflix.spinnaker.keel.api.support.EventPublisher
@@ -15,7 +16,8 @@ import java.time.Clock
 class ArtifactDeployingListener(
   private val repository: KeelRepository,
   private val publisher: EventPublisher,
-  private val clock: Clock
+  private val clock: Clock,
+  private val tracer: Tracer? = null
 ) {
 
   private val log = LoggerFactory.getLogger(javaClass)
@@ -35,7 +37,7 @@ class ArtifactDeployingListener(
         return@runBlocking
       }
 
-      withCoroutineTracingContext(artifact, event.artifactVersion) {
+      withCoroutineTracingContext(artifact, event.artifactVersion, tracer) {
         val approvedForEnv = repository.isApprovedFor(
           deliveryConfig = deliveryConfig,
           artifact = artifact,

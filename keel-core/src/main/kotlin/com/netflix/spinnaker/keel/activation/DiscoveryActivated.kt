@@ -11,9 +11,9 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Use this class if your component needs to do work only while an instance is up.
  */
 open class DiscoveryActivated {
-  val log: Logger by lazy { LoggerFactory.getLogger(javaClass) }
+  open val log: Logger by lazy { LoggerFactory.getLogger(DiscoveryActivated::class.java) }
 
-  val enabled = AtomicBoolean(false)
+  open val enabled = AtomicBoolean(false)
 
   @EventListener(ApplicationUp::class)
   fun onApplicationUp() {

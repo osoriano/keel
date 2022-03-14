@@ -2,6 +2,8 @@ package com.netflix.spinnaker.keel.titus
 
 import com.netflix.spectator.api.BasicTag
 import com.netflix.spectator.api.Registry
+import com.netflix.spinnaker.config.DefaultWorkhorseCoroutineContext
+import com.netflix.spinnaker.config.WorkhorseCoroutineContext
 import com.netflix.spinnaker.keel.api.action.ActionState
 import com.netflix.spinnaker.keel.api.actuation.SubjectType.VERIFICATION
 import com.netflix.spinnaker.keel.api.actuation.TaskLauncher
@@ -14,18 +16,20 @@ import com.netflix.spinnaker.keel.telemetry.safeIncrement
 import com.netflix.spinnaker.keel.titus.batch.ContainerJobConfig
 import com.netflix.spinnaker.keel.titus.batch.createRunJobStage
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import kotlin.coroutines.CoroutineContext
 
 @Component
 class ContainerRunner(
   private val taskLauncher: TaskLauncher,
   private val orca: OrcaService,
   private val spectator: Registry,
-  private val coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
-) {
+  override val coroutineContext: WorkhorseCoroutineContext = DefaultWorkhorseCoroutineContext
+) : CoroutineScope {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
   companion object {
@@ -43,9 +47,7 @@ class ContainerRunner(
       "No task id found in previous container state"
     }
 
-    val response = withContext(coroutineDispatcher) {
-      orca.getOrchestrationExecution(taskId)
-    }
+    val response = orca.getOrchestrationExecution(taskId)
 
     log.debug("Container test task $taskId status: ${response.status.name}")
 
@@ -72,31 +74,29 @@ class ContainerRunner(
     containerApplication: String = application,
     entrypoint: String = ""
   ): Map<String, Any?> {
-      return withContext(coroutineDispatcher) {
-        taskLauncher.submitJob(
-          type = VERIFICATION,
-          environmentName = environmentName,
-          resourceId = null,
-          description = description,
-          user = serviceAccount,
-          application = application,
-          notifications = emptySet(),
-          stages = listOf(
-            ContainerJobConfig(
-              application = containerApplication,
-              location = location,
-              credentials = location.account,
-              image = imageId,
-              environmentVariables = environmentVariables,
-              entrypoint = entrypoint
-            ).createRunJobStage()
-          )
-        )
-          .let { task ->
-            log.debug("Launched container task ${task.id} for $application environment $environmentName")
-            incrementContainerLaunchedCounter(application, environmentName, imageId)
-            mapOf(TITUS_JOB_TASKS to listOf(task.id))
-          }
+    return taskLauncher.submitJob(
+      type = VERIFICATION,
+      environmentName = environmentName,
+      resourceId = null,
+      description = description,
+      user = serviceAccount,
+      application = application,
+      notifications = emptySet(),
+      stages = listOf(
+        ContainerJobConfig(
+          application = containerApplication,
+          location = location,
+          credentials = location.account,
+          image = imageId,
+          environmentVariables = environmentVariables,
+          entrypoint = entrypoint
+        ).createRunJobStage()
+      )
+    )
+      .let { task ->
+        log.debug("Launched container task ${task.id} for $application environment $environmentName")
+        incrementContainerLaunchedCounter(application, environmentName, imageId)
+        mapOf(TITUS_JOB_TASKS to listOf(task.id))
       }
   }
 

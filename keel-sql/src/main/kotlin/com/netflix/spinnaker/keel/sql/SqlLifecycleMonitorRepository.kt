@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.sql
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.netflix.kotlin.OpenClass
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEvent
 import com.netflix.spinnaker.keel.lifecycle.LifecycleMonitorRepository
 import com.netflix.spinnaker.keel.lifecycle.MonitoredTask
@@ -16,6 +17,7 @@ import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 
+@OpenClass
 class SqlLifecycleMonitorRepository(
   private val jooq: DSLContext,
   private val clock: Clock,

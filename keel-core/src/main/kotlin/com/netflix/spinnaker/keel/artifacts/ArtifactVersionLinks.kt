@@ -27,8 +27,8 @@ import org.springframework.beans.factory.annotation.Qualifier
 @Component
 class ArtifactVersionLinks(
   private val scmBridge: ScmBridge,
-  cacheFactory: CacheFactory) {
-
+  cacheFactory: CacheFactory
+) {
   private val coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
   private val cacheName = "scmInfo"
   private val cache = cacheFactory.asyncLoadingCache<Any, Map<String, String?>>(cacheName) {

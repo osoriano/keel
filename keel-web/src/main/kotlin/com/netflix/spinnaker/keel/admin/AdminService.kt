@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.admin
 
+import com.netflix.spinnaker.config.DefaultWorkhorseCoroutineContext
+import com.netflix.spinnaker.config.WorkhorseCoroutineContext
 import com.netflix.spinnaker.keel.activation.DiscoveryActivated
 import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
 import com.netflix.spinnaker.keel.api.StatefulConstraint
@@ -44,10 +46,8 @@ class AdminService(
   private val executionSummaryService: ExecutionSummaryService,
   private val clock: Clock,
   private val applicationRepository: ApplicationRepository,
-  coroutineDispatcher: CoroutineDispatcher = Dispatchers.IO
+  override val coroutineContext: WorkhorseCoroutineContext = DefaultWorkhorseCoroutineContext
 ) : CoroutineScope, DiscoveryActivated() {
-  override val coroutineContext: CoroutineContext = coroutineDispatcher
-
   fun deleteApplicationData(application: String) {
     log.debug("Deleting all data for application: $application")
     repository.deleteDeliveryConfigByApplication(application)
