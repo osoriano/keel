@@ -52,7 +52,7 @@ class ActuationPauser(
   val clock: Clock,
   private val spectator: Registry,
 ): CoroutineScope {
-  override val coroutineContext: CoroutineContext = Dispatchers.Default
+  override val coroutineContext: CoroutineContext = Dispatchers.IO
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
   fun isPaused(resource: Resource<*>): Boolean =
