@@ -15,9 +15,46 @@
  */
 package com.netflix.spinnaker.keel.api.constraints
 
+import com.netflix.spinnaker.keel.api.Constraint
+import com.netflix.spinnaker.keel.api.DeliveryConfig
+import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.UID
+import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 
 interface ConstraintRepository {
+
+  /**
+   * @return the current state of the constraint, creating a new pending state if none exists
+   */
+  fun getCurrentState(
+    artifact: DeliveryArtifact,
+    version: String,
+    deliveryConfig: DeliveryConfig,
+    targetEnvironment: Environment,
+    constraint: Constraint,
+  ): ConstraintState {
+    var state = getConstraintState(
+      deliveryConfig.name,
+      targetEnvironment.name,
+      version,
+      constraint.type,
+      artifact.reference
+    )
+
+    if (state == null) {
+      state = ConstraintState(
+        deliveryConfigName = deliveryConfig.name,
+        environmentName = targetEnvironment.name,
+        artifactVersion = version,
+        artifactReference = artifact.reference,
+        type = constraint.type,
+        status = ConstraintStatus.PENDING
+      )
+      storeConstraintState(state)
+    }
+
+    return state
+  }
 
   fun storeConstraintState(state: ConstraintState)
 

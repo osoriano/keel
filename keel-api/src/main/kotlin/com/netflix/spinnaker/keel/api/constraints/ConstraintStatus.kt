@@ -24,7 +24,8 @@ enum class ConstraintStatus(private val passed: Boolean, private val failed: Boo
   PASS(true, false, false),
   FAIL(false, true, false),
   OVERRIDE_PASS(true, false, true),
-  OVERRIDE_FAIL(false, true, true);
+  OVERRIDE_FAIL(false, true, true),
+  SKIPPED(false, false, false);
 
   fun passes() = passed
   fun failed() = failed

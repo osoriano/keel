@@ -82,18 +82,6 @@ class DeliveryConfigYamlParsingTests @Autowired constructor(
         .isA<ApplicationLoadBalancerSpec>()
     }
 
-    test("titus cluster") {
-      parseSuccessfully("titus-cluster-example.yml")
-        .get { environments.first().resources.first().spec }
-        .isA<TitusClusterSpec>()
-    }
-
-    test("simple titus cluster") {
-      parseSuccessfully("simple-titus-cluster-example.yml")
-        .get { environments.first().resources.first().spec }
-        .isA<TitusClusterSpec>()
-    }
-
     test("titus cluster with artifact") {
       parseSuccessfully("titus-cluster-with-artifact-example.yml")
         .get { environments.first().resources.first().spec }

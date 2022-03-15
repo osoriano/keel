@@ -43,7 +43,6 @@ import com.netflix.spinnaker.keel.api.schema.Optional
 import com.netflix.spinnaker.keel.docker.ContainerProvider
 import com.netflix.spinnaker.keel.docker.DigestProvider
 import com.netflix.spinnaker.keel.docker.ReferenceProvider
-import com.netflix.spinnaker.keel.docker.VersionedTagProvider
 
 /**
  * "Simplified" representation of
@@ -120,22 +119,14 @@ data class TitusClusterSpec(
     get() = _defaults
 
   // Returns the artifact name set by resolvers, or attempts to find the artifact name from the container provider.
-  @Suppress("DEPRECATION")
   override val artifactName: String?
     get() = _artifactName
-      ?: when (container) {
-        is DigestProvider -> container.repository()
-        is VersionedTagProvider -> container.repository()
-        else -> null
-      }
+      ?: (container as? DigestProvider)?.repository()
 
   // Provides a hint as to cluster -> artifact linkage even _without_ resolvers being applied, by delegating to the
   // image provider.
   override val artifactReference: String?
-    get() = when (container) {
-      is ReferenceProvider -> container.reference
-      else -> null
-    }
+    get() = (container as? ReferenceProvider)?.reference
 
   @get:ExcludedFromDiff
   override val dependsOn: Set<Dependency>

@@ -4,6 +4,7 @@ import com.netflix.spinnaker.keel.api.Constraint
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
+import com.netflix.spinnaker.keel.api.plugins.ApprovalConstraintEvaluator
 import com.netflix.spinnaker.keel.api.plugins.ConstraintEvaluator
 
 /**
@@ -13,7 +14,7 @@ import com.netflix.spinnaker.keel.api.plugins.ConstraintEvaluator
  * summary. This does not apply to implicit constraints.
  */
 interface StatelessConstraintEvaluator<T: Constraint, A : ConstraintStateAttributes>
-  : ConstraintEvaluator<T>{
+  : ApprovalConstraintEvaluator<T>{
   /**
    * The type of the metadata saved about the constraint, surfaced here to automatically register it
    * for serialization

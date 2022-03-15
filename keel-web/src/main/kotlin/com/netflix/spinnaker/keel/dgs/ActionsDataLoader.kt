@@ -120,6 +120,7 @@ fun ConstraintStatus.toDgsActionStatus(): MD_ActionStatus = when(this) {
   ConstraintStatus.PASS -> MD_ActionStatus.PASS
   ConstraintStatus.OVERRIDE_FAIL -> MD_ActionStatus.FAIL
   ConstraintStatus.OVERRIDE_PASS -> MD_ActionStatus.FORCE_PASS
+  ConstraintStatus.SKIPPED -> MD_ActionStatus.SKIPPED
 }
 
 fun ArtifactInEnvironmentContext.getMdActionId(actionType: ActionType, actionId: String): String =

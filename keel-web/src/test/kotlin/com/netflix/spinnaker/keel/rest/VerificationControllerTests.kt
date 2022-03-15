@@ -130,7 +130,7 @@ internal class VerificationControllerTests
   }
 
   @ParameterizedTest(name = "verification can be retried when the current status is {0}")
-  @EnumSource(ConstraintStatus::class, names = ["NOT_EVALUATED", "PENDING"], mode = EXCLUDE)
+  @EnumSource(ConstraintStatus::class, names = ["NOT_EVALUATED", "PENDING", "SKIPPED"], mode = EXCLUDE)
   @NullSource
   fun `verification can be retried if not currently running`(currentStatus: ConstraintStatus?) {
     val payload = RetryVerificationRequest(
@@ -167,7 +167,7 @@ internal class VerificationControllerTests
   }
 
   @ParameterizedTest(name = "verification cannot be retried when the current status is {0}")
-  @EnumSource(ConstraintStatus::class, names = ["NOT_EVALUATED", "PENDING"])
+  @EnumSource(ConstraintStatus::class, names = ["NOT_EVALUATED", "PENDING", "SKIPPED"])
   fun `verification cannot be retried if running`(currentStatus: ConstraintStatus) {
     val payload = RetryVerificationRequest(
       verificationId = verification.id,

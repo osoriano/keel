@@ -54,6 +54,7 @@ import strikt.assertions.isNotNull
 import strikt.assertions.isNull
 import strikt.assertions.isTrue
 import java.time.Clock
+import java.time.Duration
 import java.time.Instant
 
 abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests {
@@ -1011,6 +1012,157 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
       }
     }
 
+    context("latest deployable version") {
+      before {
+        persist(manifest)
+        subject.register(versionedReleaseDebian)
+        subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(version1, RELEASE))
+        subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(version2, RELEASE))
+        subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(version3, RELEASE))
+        clock.tickMinutes(1)
+        subject.approveVersionFor(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        clock.tickMinutes(1)
+        subject.approveVersionFor(manifest, versionedReleaseDebian, version2, testEnvironment.name)
+        clock.tickMinutes(1)
+        subject.approveVersionFor(manifest, versionedReleaseDebian, version3, testEnvironment.name)
+        clock.tickMinutes(1)
+      }
 
+      test("no versions have started deploying, so version is null"){
+        val version = subject.latestDeployableVersionIn(manifest, versionedReleaseDebian, testEnvironment.name)
+        expectThat(version).isNull()
+      }
+
+      test("there is one version deploying, so that version in returned") {
+        subject.markAsDeployingTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        val version = subject.latestDeployableVersionIn(manifest, versionedReleaseDebian, testEnvironment.name)
+        expectThat(version).isEqualTo(version1)
+      }
+
+      test("there is one version that is current, so that version is returned") {
+        subject.markAsDeployingTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        clock.tickMinutes(1)
+        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+
+        val version = subject.latestDeployableVersionIn(manifest, versionedReleaseDebian, testEnvironment.name)
+        expectThat(version).isEqualTo(version1)
+      }
+
+      test("two versions have been deployed, we pick the correct one before and after a veto") {
+        subject.markAsDeployingTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        clock.tickMinutes(1)
+        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        clock.tickMinutes(1)
+
+        subject.markAsDeployingTo(manifest, versionedReleaseDebian, version2, testEnvironment.name)
+        clock.tickMinutes(1)
+        val version = subject.latestDeployableVersionIn(manifest, versionedReleaseDebian, testEnvironment.name)
+        expectThat(version).isEqualTo(version2)
+        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version2, testEnvironment.name)
+
+        val versionAfterSecondDeploy = subject.latestDeployableVersionIn(manifest, versionedReleaseDebian, testEnvironment.name)
+        expectThat(versionAfterSecondDeploy).isEqualTo(version2)
+
+        // veto version two
+        subject.markAsVetoedIn(manifest, EnvironmentArtifactVeto(testEnvironment.name, versionedReleaseDebian.reference, version2, "me", "it bad"), true)
+        val versionAfterVeto = subject.latestDeployableVersionIn(manifest, versionedReleaseDebian, testEnvironment.name)
+        expectThat(versionAfterVeto).isEqualTo(version1)
+      }
+
+      test("there is a deploying, current, and previous version, we pick the deploying one because it is newest") {
+        subject.markAsDeployingTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        clock.tickMinutes(1)
+        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        clock.tickMinutes(1)
+
+        subject.markAsDeployingTo(manifest, versionedReleaseDebian, version2, testEnvironment.name)
+        clock.tickMinutes(1)
+        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version2, testEnvironment.name)
+        clock.tickMinutes(1)
+
+        subject.markAsDeployingTo(manifest, versionedReleaseDebian, version3, testEnvironment.name)
+
+        val version = subject.latestDeployableVersionIn(manifest, versionedReleaseDebian, testEnvironment.name)
+        expectThat(version).isEqualTo(version3)
+      }
+    }
+
+    context("get deployment candidates") {
+      before {
+        val branch = "my-feature-branch"
+        persist(manifest)
+        subject.register(debianFilteredByBranch)
+        subject.storeArtifactVersion(
+          debianFilteredByBranch.toArtifactVersion(
+            version = version1,
+            status = RELEASE,
+            createdAt = clock.instant(),
+            gitMetadata = gitMetadata(branch)
+          )
+        )
+        clock.tickMinutes(5)
+        subject.storeArtifactVersion(
+          debianFilteredByBranch.toArtifactVersion(
+            version = version2,
+            status = RELEASE,
+            createdAt = clock.instant(),
+            gitMetadata = gitMetadata(branch)
+          )
+        )
+        clock.tickMinutes(5)
+        subject.storeArtifactVersion(
+          debianFilteredByBranch.toArtifactVersion(
+            version = version3,
+            status = RELEASE,
+            createdAt = clock.instant(),
+            gitMetadata = gitMetadata(branch)
+          )
+        )
+
+        clock.tickMinutes(5)
+        // approving 3 first, then 2, then 1, to make sure that we order candidates not by approval time,
+        //   but instead with the correct version sorting logic
+        subject.approveVersionFor(manifest, debianFilteredByBranch, version3, testEnvironment.name)
+        clock.tickMinutes(1)
+        subject.approveVersionFor(manifest, debianFilteredByBranch, version2, testEnvironment.name)
+        clock.tickMinutes(1)
+        subject.approveVersionFor(manifest, debianFilteredByBranch, version1, testEnvironment.name)
+        clock.tickMinutes(1)
+      }
+
+      test("all approved versions are candidates") {
+        val candidates = subject.deploymentCandidateVersions(manifest, debianFilteredByBranch, testEnvironment.name)
+        // order is important here, 3 is the newest.
+        expectThat(candidates).containsExactly(version3, version2, version1)
+      }
+
+      test("versions that have already started deploying or have been deployed are not candidates") {
+        subject.markAsDeployingTo(manifest, debianFilteredByBranch, version1, testEnvironment.name)
+        clock.tickMinutes(1)
+        subject.markAsSuccessfullyDeployedTo(manifest, debianFilteredByBranch, version1, testEnvironment.name)
+        clock.tickMinutes(1)
+
+        subject.markAsDeployingTo(manifest, debianFilteredByBranch, version2, testEnvironment.name)
+        clock.tickMinutes(1)
+        subject.markAsSuccessfullyDeployedTo(manifest, debianFilteredByBranch, version2, testEnvironment.name)
+        clock.tickMinutes(1)
+
+        subject.markAsDeployingTo(manifest, debianFilteredByBranch, version3, testEnvironment.name)
+        clock.tickMinutes(1)
+
+        val candidates = subject.deploymentCandidateVersions(manifest, debianFilteredByBranch, testEnvironment.name)
+
+        expectThat(candidates).isEmpty()
+      }
+
+      test("only approved versions newer than the latest deploying version are candidates") {
+        subject.markAsDeployingTo(manifest, debianFilteredByBranch, version3, testEnvironment.name)
+        clock.tickMinutes(1)
+
+        val candidates = subject.deploymentCandidateVersions(manifest, debianFilteredByBranch, testEnvironment.name)
+
+        expectThat(candidates).isEmpty()
+      }
+    }
   }
 }

@@ -9,11 +9,11 @@ import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.constraints.ConstraintState
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
-import com.netflix.spinnaker.keel.api.constraints.StatefulConstraintEvaluator
 import com.netflix.spinnaker.keel.api.constraints.StatelessConstraintEvaluator
+import com.netflix.spinnaker.keel.api.plugins.ApprovalConstraintEvaluator
 import com.netflix.spinnaker.keel.api.plugins.ConstraintEvaluator
+import com.netflix.spinnaker.keel.api.plugins.ConstraintType.APPROVAL
 import com.netflix.spinnaker.keel.logging.withCoroutineTracingContext
-import com.netflix.spinnaker.keel.logging.withTracingContext
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -30,19 +30,21 @@ class EnvironmentConstraintRunner(
 ) {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
-  private val implicitConstraints: List<ConstraintEvaluator<*>> = constraints.filter { it.isImplicit() }
-  private val explicitConstraints: List<ConstraintEvaluator<*>> = constraints - implicitConstraints
+  private val implicitConstraints: List<ApprovalConstraintEvaluator<*>> = constraints
+    .filter { it.isImplicit() && it.constraintType() == APPROVAL} as List<ApprovalConstraintEvaluator<*>>
+  private val explicitConstraints: List<ApprovalConstraintEvaluator<*>> = constraints
+    .filter { !it.isImplicit() && it.constraintType() == APPROVAL} as List<ApprovalConstraintEvaluator<*>>
 
   // constraints that are only run if they are defined in a delivery config
-  private val statefulEvaluators: List<ConstraintEvaluator<*>> = explicitConstraints
+  private val statefulEvaluators: List<ApprovalConstraintEvaluator<*>> = explicitConstraints
     .filter { it.isStateful() }
   private val statelessEvaluators = explicitConstraints
     .filterNot { it.isStateful() }
 
   // constraints that run for every environment in a delivery config but aren't shown to the user.
-  private val implicitStatefulEvaluators: List<ConstraintEvaluator<*>> = implicitConstraints
+  private val implicitStatefulEvaluators: List<ApprovalConstraintEvaluator<*>> = implicitConstraints
     .filter { it.isStateful() }
-  private val implicitStatelessEvaluators: List<ConstraintEvaluator<*>> = implicitConstraints
+  private val implicitStatelessEvaluators: List<ApprovalConstraintEvaluator<*>> = implicitConstraints
     .filterNot { it.isStateful() }
 
   /**
@@ -262,7 +264,7 @@ class EnvironmentConstraintRunner(
    * @return true if all constraints pass
    */
   private suspend fun checkConstraintForEveryEnvironment(
-    evaluators: List<ConstraintEvaluator<*>>,
+    evaluators: List<ApprovalConstraintEvaluator<*>>,
     artifact: DeliveryArtifact,
     deliveryConfig: DeliveryConfig,
     version: String,
@@ -278,7 +280,7 @@ class EnvironmentConstraintRunner(
    * @return true if all constraints pass
    */
   private suspend fun checkConstraintWhenSpecified(
-    evaluators: List<ConstraintEvaluator<*>>,
+    evaluators: List<ApprovalConstraintEvaluator<*>>,
     artifact: DeliveryArtifact,
     deliveryConfig: DeliveryConfig,
     version: String,

@@ -20,7 +20,7 @@ import java.time.Duration
 import java.time.Instant
 
 /**
- * TODO: Docs
+ * The state of a constraint, stored in the database, and displayed to the user
  */
 data class ConstraintState(
   val deliveryConfigName: String,
@@ -51,3 +51,4 @@ data class ConstraintState(
       createdAt.plus(timeout).isBefore(now)
     }
 }
+

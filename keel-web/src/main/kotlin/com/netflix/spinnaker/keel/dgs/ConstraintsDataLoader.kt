@@ -6,8 +6,9 @@ import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.StatefulConstraint
 import com.netflix.spinnaker.keel.api.constraints.ConstraintState
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
-import com.netflix.spinnaker.keel.api.constraints.StatefulConstraintEvaluator
+import com.netflix.spinnaker.keel.api.plugins.ApprovalConstraintEvaluator
 import com.netflix.spinnaker.keel.api.plugins.ConstraintEvaluator
+import com.netflix.spinnaker.keel.api.plugins.ConstraintType.APPROVAL
 import com.netflix.spinnaker.keel.constraints.AllowedTimesConstraintAttributes
 import com.netflix.spinnaker.keel.constraints.DependsOnConstraintAttributes
 import com.netflix.spinnaker.keel.core.api.DependsOnConstraint
@@ -36,9 +37,11 @@ class ConstraintsDataLoader(
   object Descriptor {
     const val name = "artifact-version-constraints"
   }
+  private val approvalConstraintEvaluators = constraintEvaluators.filter { it.constraintType() == APPROVAL } as List<ApprovalConstraintEvaluator<*>>
 
-  private val statelessEvaluators: List<ConstraintEvaluator<*>> =
-    constraintEvaluators.filter { !it.isImplicit() && it !is StatefulConstraintEvaluator<*, *> }
+  private val statelessEvaluators: List<ApprovalConstraintEvaluator<*>> =
+    approvalConstraintEvaluators
+      .filter { !it.isImplicit() && !it.isStateful()}
 
   // if key doesn't exist in persisted values, maybe it's all stateless or they haven't been evaluated
   private fun addMissingConstraints(
@@ -152,6 +155,7 @@ fun ConstraintState.toDgs() =
       } else {
         MD_ConstraintStatus.FORCE_PASS
       }
+      ConstraintStatus.SKIPPED -> MD_ConstraintStatus.SKIPPED
     },
     startedAt = createdAt,
     judgedAt = judgedAt,

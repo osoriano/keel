@@ -14,7 +14,8 @@ import com.netflix.spinnaker.keel.api.constraints.ConstraintState
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.OVERRIDE_PASS
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PENDING
 import com.netflix.spinnaker.keel.api.constraints.SupportedConstraintType
-import com.netflix.spinnaker.keel.api.plugins.ConstraintEvaluator
+import com.netflix.spinnaker.keel.api.plugins.ApprovalConstraintEvaluator
+import com.netflix.spinnaker.keel.api.plugins.ConstraintType.APPROVAL
 import com.netflix.spinnaker.keel.api.plugins.kind
 import com.netflix.spinnaker.keel.api.support.ConstraintRepositoryBridge
 import com.netflix.spinnaker.keel.api.support.SpringEventPublisherBridge
@@ -76,10 +77,11 @@ abstract class ApproveOldVersionTests<T : KeelRepository> : JUnit5Minutests {
     )
 
     val publisher = mockk<ApplicationEventPublisher>(relaxUnitFun = true)
-    val statelessEvaluator = mockk<ConstraintEvaluator<*>> {
+    val statelessEvaluator = mockk<ApprovalConstraintEvaluator<*>> {
       every { supportedType } returns SupportedConstraintType<DependsOnConstraint>("depends-on")
       every { isImplicit() } returns false
       every { isStateful() } returns false
+      every { constraintType() } returns APPROVAL
     }
     val statefulEvaluator = ManualJudgementConstraintEvaluator(
       ConstraintRepositoryBridge(repository),
@@ -87,11 +89,12 @@ abstract class ApproveOldVersionTests<T : KeelRepository> : JUnit5Minutests {
       SpringEventPublisherBridge(publisher)
     )
 
-    val implicitStatelessEvaluator = mockk<ConstraintEvaluator<DummyImplicitConstraint>> {
+    val implicitStatelessEvaluator = mockk<ApprovalConstraintEvaluator<DummyImplicitConstraint>> {
       every { supportedType } returns SupportedConstraintType("implicit")
       every { isImplicit() } returns true
       every { constraintPasses(any(), any(), any(), any()) } returns true
       every { isStateful() } returns false
+      every { constraintType() } returns APPROVAL
     }
     val environmentConstraintRunner = EnvironmentConstraintRunner(
       repository,

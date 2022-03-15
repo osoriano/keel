@@ -357,7 +357,8 @@ enum MD_ConstraintStatus {
   PENDING
   PASS
   FAIL
-  FORCE_PASS
+  FORCE_PASS,
+  SKIPPED
 }
 
 enum MD_ArtifactStatusInEnvironment {
@@ -385,7 +386,8 @@ enum MD_ActionStatus {
   PENDING
   PASS
   FAIL
-  FORCE_PASS
+  FORCE_PASS,
+  SKIPPED
 }
 
 enum MD_ActionType {

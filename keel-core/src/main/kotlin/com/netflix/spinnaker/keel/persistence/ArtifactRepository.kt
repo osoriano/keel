@@ -84,6 +84,11 @@ interface ArtifactRepository : PeriodicallyCheckedRepository<DeliveryArtifact> {
   fun getReleaseStatus(artifact: DeliveryArtifact, version: String): ArtifactStatus?
 
   /**
+   * @return the latest version of [artifact] that can be deployed in [targetEnvironment]
+   */
+  fun latestDeployableVersionIn(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact, targetEnvironment: String): String?
+
+  /**
    * @return the latest version of [artifact] approved for use in [targetEnvironment]
    *
    * Only versions that meet the status requirements for an artifact can be approved
@@ -93,6 +98,16 @@ interface ArtifactRepository : PeriodicallyCheckedRepository<DeliveryArtifact> {
     artifact: DeliveryArtifact,
     targetEnvironment: String
   ): String?
+
+  /**
+   * @return all versions that are candidates for deployment.
+   * Used to evaluate deployment constraints.
+   */
+  fun deploymentCandidateVersions(
+    deliveryConfig: DeliveryConfig,
+    artifact: DeliveryArtifact,
+    targetEnvironment: String
+  ): List<String>
 
   /**
    * Marks [version] as approved for deployment to [targetEnvironment]. This means it has passed
@@ -399,6 +414,7 @@ interface ArtifactRepository : PeriodicallyCheckedRepository<DeliveryArtifact> {
    * Returns true if the version is older (lower) than the existing version.
    * Note: the artifact comparitors are decending by default
    */
+  //todo eb: this should change if we're sorting by branch, to compare created at time.
   fun isOlder(artifact: DeliveryArtifact, new: PublishedArtifact, existingVersion: PublishedArtifact): Boolean =
     artifact.sortingStrategy.comparator.compare(new, existingVersion) > 0
 

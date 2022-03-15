@@ -169,6 +169,9 @@ class SqlActionRepository(
               ConstraintStatus.NOT_EVALUATED, ConstraintStatus.PENDING -> false.also {
                 log.info("${type.name} ($id) still running against version ${context.version} for app ${context.deliveryConfig.application}")
               }
+              ConstraintStatus.SKIPPED -> true.also {
+                log.info("${type.name} ($id) skipped against version ${context.version} for app ${context.deliveryConfig.application}")
+              }
               null -> false.also {
                 log.info("no database entry for ${type.name} ($id) against version ${context.version} for app ${context.deliveryConfig.application}")
               }

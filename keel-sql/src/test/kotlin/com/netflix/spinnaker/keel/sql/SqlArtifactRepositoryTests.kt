@@ -33,7 +33,7 @@ class SqlArtifactRepositoryTests : ArtifactRepositoryTests<SqlArtifactRepository
 
   private val deliveryConfigRepository = SqlDeliveryConfigRepository(
       jooq,
-      Clock.systemUTC(),
+      mutableClock,
       objectMapper,
       resourceFactory(),
       sqlRetry,

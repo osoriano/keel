@@ -361,6 +361,31 @@ class SqlArtifactRepository(
       throw NoSuchArtifactException(artifact)
     }
 
+  override fun latestDeployableVersionIn(
+    deliveryConfig: DeliveryConfig,
+    artifact: DeliveryArtifact,
+    targetEnvironment: String
+  ): String? {
+    val environment = deliveryConfig.environmentNamed(targetEnvironment)
+    val envUid = deliveryConfig.getUidFor(environment)
+    val artifactId = artifact.uid
+
+    return sqlRetry.withRetry(READ) {
+      jooq
+        .selectArtifactVersionColumns()
+        .from(ARTIFACT_VERSIONS, ENVIRONMENT_ARTIFACT_VERSIONS)
+        .where(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION.eq(ARTIFACT_VERSIONS.VERSION))
+        .and(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(envUid))
+        .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(artifactId))
+        .and(ARTIFACT_VERSIONS.NAME.eq(artifact.name)) // match name also, so if the artifact has been updated we match only the correct versions
+        .and(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT.isNotNull)
+        .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.`in`(DEPLOYING, CURRENT, PREVIOUS)) // these statuses indicate an artifact was already selected as a desired version
+        .fetchSortedArtifactVersions(artifact, 20)
+        .firstOrNull()
+        ?.version
+    }
+  }
+
   override fun latestVersionApprovedIn(
     deliveryConfig: DeliveryConfig,
     artifact: DeliveryArtifact,
@@ -405,6 +430,40 @@ class SqlArtifactRepository(
         .fetchArtifactVersions(artifact.reference)
         .sortedWith(artifact.sortingStrategy.comparator)
         .firstOrNull()
+    }
+  }
+
+  /**
+   * @return all versions that are approved and newer than current. If there is no current in the
+   * ENVIRONMENT_ARTIFACT_VERSIONS table (because it was vetoed) then take all the approved versions.
+   * This function is used when evaluating versions for deployment.
+   *
+   * deployment candidates are:
+   * - if there has been a version previously selected for deployment (current, deploying) then anything newer than that version.
+   *
+   */
+  override fun deploymentCandidateVersions(
+    deliveryConfig: DeliveryConfig,
+    artifact: DeliveryArtifact,
+    targetEnvironment: String
+  ): List<String> {
+    return sqlRetry.withRetry(READ) {
+      // we need to get approved versions newer than the latest version that has already started deploying
+      val candidateVersions = getArtifactVersionsByStatus(
+        deliveryConfig, artifact.reference, targetEnvironment, listOf(APPROVED, DEPLOYING, CURRENT)
+      )
+
+      candidateVersions
+        .sortedByDescending {
+          // we assume that sorting all artifacts by created at time will give us accurate ordering information
+          it.createdAt
+        }
+        .takeWhile {
+            // this key is added to the metadata in `getArtifactVersionsByStatus`
+            // all approved versions newer than the latest deploying version are candidates
+            it.metadata["statusInEnvironment"] == APPROVED.name
+          }
+        .map { it.version }
     }
   }
 
@@ -649,19 +708,7 @@ class SqlArtifactRepository(
         val txn = DSL.using(config)
         log.debug("markAsSuccessfullyDeployedTo: start transaction. name: ${artifact.name}. version: $version. env: $targetEnvironment")
 
-        //todo eb: remove once migration to new current table is complete
-        // this is to preserve the deplyedAt time
-        val previouslyDeployedTime: Instant? = txn.select(ENVIRONMENT_ARTIFACT_VERSIONS.DEPLOYED_AT)
-          .from(ENVIRONMENT_ARTIFACT_VERSIONS)
-          .where(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(environmentUid))
-          .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(artifact.uid))
-          .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION.eq(version))
-          .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.eq(CURRENT))
-          .fetch(ENVIRONMENT_ARTIFACT_VERSIONS.DEPLOYED_AT)
-          .firstOrNull()
-
-        val deployedAt = previouslyDeployedTime ?: clock.instant()
-
+        val deployedAt = clock.instant()
         val previouslyApprovedAt = getApprovedAt(deliveryConfig, artifact, version, targetEnvironment)
         val hasApprovedAtTime = previouslyApprovedAt != null
         val approvedAt = previouslyApprovedAt ?: deployedAt // Identical to deployedAt if missing
@@ -1172,7 +1219,8 @@ class SqlArtifactRepository(
           ARTIFACT_VERSIONS.RELEASE_STATUS,
           ARTIFACT_VERSIONS.CREATED_AT,
           ARTIFACT_VERSIONS.GIT_METADATA,
-          ARTIFACT_VERSIONS.BUILD_METADATA
+          ARTIFACT_VERSIONS.BUILD_METADATA,
+          ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS
         )
         .from(ENVIRONMENT_ARTIFACT_VERSIONS)
         .innerJoin(DELIVERY_ARTIFACT)
@@ -1184,7 +1232,7 @@ class SqlArtifactRepository(
         .where(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(deliveryConfig.getUidFor(environmentName)))
         .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.`in`(statuses))
         .and(DELIVERY_ARTIFACT.REFERENCE.eq(artifactReference))
-        .fetch { (name, type, version, reference, status, createdAt, gitMetadata, buildMetadata) ->
+        .fetch { (name, type, version, reference, status, createdAt, gitMetadata, buildMetadata, promotionStatus) ->
           PublishedArtifact(
             name = name,
             type = type,
@@ -1193,7 +1241,8 @@ class SqlArtifactRepository(
             status = status,
             createdAt = createdAt,
             gitMetadata = gitMetadata,
-            buildMetadata = buildMetadata
+            buildMetadata = buildMetadata,
+            statusInEnvironment = promotionStatus.name
           )
         }
     }

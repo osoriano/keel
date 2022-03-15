@@ -1,7 +1,6 @@
 package com.netflix.spinnaker.keel.ec2.resolvers
 
 import com.netflix.frigga.ami.AppVersion
-import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.Moniker
@@ -20,12 +19,11 @@ import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.clouddriver.ImageService
 import com.netflix.spinnaker.keel.clouddriver.model.NamedImage
 import com.netflix.spinnaker.keel.clouddriver.model.appVersion
-import com.netflix.spinnaker.keel.ec2.NoArtifactVersionHasBeenApproved
 import com.netflix.spinnaker.keel.ec2.NoImageFoundForRegions
-import com.netflix.spinnaker.keel.ec2.NoImageSatisfiesConstraints
 import com.netflix.spinnaker.keel.persistence.BakedImageRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
-import com.netflix.spinnaker.keel.resolvers.NoApprovedVersionForEnvironment
+import com.netflix.spinnaker.keel.resolvers.DesiredVersionResolver
+import com.netflix.spinnaker.keel.resolvers.NoDeployableVersionForEnvironment
 import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import dev.minutest.junit.JUnit5Minutests
@@ -74,8 +72,8 @@ internal class ImageResolverTests : JUnit5Minutests {
       every { getByArtifactVersion(any(), any()) } returns null
     }
 
-    val featureToggles: FeatureToggles = mockk() {
-      every { isEnabled(any(), any()) } returns false
+    val desiredVersionResolver: DesiredVersionResolver = mockk() {
+      every { getDesiredVersion(any(), any(), any()) } throws NoDeployableVersionForEnvironment(artifact, "blah", listOf("blah"))
     }
 
     private val subject = ImageResolver(
@@ -83,7 +81,7 @@ internal class ImageResolverTests : JUnit5Minutests {
       repository,
       imageService,
       bakedImageRepository,
-      featureToggles
+      desiredVersionResolver
     )
     val images = listOf(
       NamedImage(
@@ -206,7 +204,8 @@ internal class ImageResolverTests : JUnit5Minutests {
 
         context("a version of the artifact has been approved for the environment") {
           before {
-            every { repository.latestVersionApprovedIn(deliveryConfig, artifact, "test") } returns "${artifact.name}-$version2"
+            every { desiredVersionResolver.getDesiredVersion(deliveryConfig, deliveryConfig.environments.first(), artifact) } returns "${artifact.name}-$version2"
+
             every {
               imageService.getLatestNamedImage(AppVersion.parseName("${artifact.name}-$version2"), any(), resourceRegion, artifact.vmOptions.baseOs)
             } answers {
@@ -232,13 +231,13 @@ internal class ImageResolverTests : JUnit5Minutests {
           test("throws an exception") {
             expectCatching { resolve() }
               .isFailure()
-              .isA<NoApprovedVersionForEnvironment>()
+              .isA<NoDeployableVersionForEnvironment>() //todo eb: is this right?
           }
         }
 
         context("no image is found for the artifact version in clouddriver") {
           before {
-            every { repository.latestVersionApprovedIn(deliveryConfig, artifact, "test") } returns "${artifact.name}-$version2"
+            every { desiredVersionResolver.getDesiredVersion(deliveryConfig, deliveryConfig.environments.first(), artifact) } returns "${artifact.name}-$version2"
             every {
               imageService.getLatestNamedImage(AppVersion.parseName("${artifact.name}-$version2"), any(), resourceRegion, artifact.vmOptions.baseOs)
             } returns null
@@ -281,7 +280,7 @@ internal class ImageResolverTests : JUnit5Minutests {
           }
 
           before {
-            every { repository.latestVersionApprovedIn(deliveryConfig, artifact, "test") } returns "${artifact.name}-$version2"
+            every { desiredVersionResolver.getDesiredVersion(deliveryConfig, deliveryConfig.environments.first(), artifact) } returns "${artifact.name}-$version2"
             every {
               imageService.getLatestNamedImage(AppVersion.parseName("${artifact.name}-$version2"), any(), any(), any())
             } answers {

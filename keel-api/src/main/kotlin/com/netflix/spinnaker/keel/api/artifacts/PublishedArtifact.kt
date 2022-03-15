@@ -66,7 +66,8 @@ data class PublishedArtifact(
     createdAt: Instant? = null,
     storedAt: Instant? = null,
     gitMetadata: GitMetadata? = null,
-    buildMetadata: BuildMetadata? = null
+    buildMetadata: BuildMetadata? = null,
+    statusInEnvironment: String? = null
   ) : this(
     name = name,
     type = type.lowercase(),
@@ -74,7 +75,8 @@ data class PublishedArtifact(
     version = version,
     metadata = mapOf(
       "releaseStatus" to status?.name,
-      "createdAt" to createdAt
+      "createdAt" to createdAt,
+      "statusInEnvironment" to statusInEnvironment
     ),
     gitMetadata = gitMetadata,
     buildMetadata = buildMetadata,

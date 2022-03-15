@@ -28,7 +28,6 @@ import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy
   Type(DigestProvider::class),
   Type(MultiReferenceContainerProvider::class),
   Type(ReferenceProvider::class),
-  Type(VersionedTagProvider::class)
 )
 sealed class ContainerProvider
 
@@ -44,19 +43,6 @@ data class DigestProvider(
   val organization: String, // todo eb: should this be name = org/image instead, for consistency?
   val image: String,
   val digest: String
-) : ContainerProvider() {
-  fun repository() = "$organization/$image"
-}
-
-@Deprecated(
-  "Non-reference-based artifact providers are no longer supported.",
-  replaceWith = ReplaceWith("ReferenceArtifactImageProvider")
-)
-data class VersionedTagProvider(
-  val organization: String,
-  val image: String,
-  val tagVersionStrategy: TagVersionStrategy,
-  val captureGroupRegex: String? = null
 ) : ContainerProvider() {
   fun repository() = "$organization/$image"
 }

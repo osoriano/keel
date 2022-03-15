@@ -20,6 +20,7 @@ import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.events.ConstraintStateChanged
+import com.netflix.spinnaker.keel.api.plugins.ApprovalConstraintEvaluator
 import com.netflix.spinnaker.keel.api.plugins.ConstraintEvaluator
 import com.netflix.spinnaker.keel.api.plugins.PluginNotificationConfig
 
@@ -30,7 +31,8 @@ import com.netflix.spinnaker.keel.api.plugins.PluginNotificationConfig
  * If the state is 'done' (failed or passed) the specific implementations don't get called.
  * If the state is not 'done', underlying implementations [constraintPasses] functions get called.
  */
-interface StatefulConstraintEvaluator<CONSTRAINT : Constraint, ATTRIBUTES : ConstraintStateAttributes> : ConstraintEvaluator<CONSTRAINT> {
+interface StatefulConstraintEvaluator<CONSTRAINT : Constraint, ATTRIBUTES : ConstraintStateAttributes> :
+  ApprovalConstraintEvaluator<CONSTRAINT> {
   /**
    * The type of the metadata saved about the constraint, surfaced here to automatically register it
    * for serialization
@@ -53,6 +55,7 @@ interface StatefulConstraintEvaluator<CONSTRAINT : Constraint, ATTRIBUTES : Cons
       supportedType.type
     )
 
+    // todo eb: use the function in ConstraintRepository for this.
     var state = repository.getConstraintState(
       deliveryConfig.name,
       targetEnvironment.name,
@@ -80,7 +83,7 @@ interface StatefulConstraintEvaluator<CONSTRAINT : Constraint, ATTRIBUTES : Cons
         constraintPasses(artifact, version, deliveryConfig, targetEnvironment, constraint, state)
       }
       !state.judgedByUser() && !shouldAlwaysReevaluate() && state.failed() -> false
-      !state.judgedByUser() && !shouldAlwaysReevaluate() && state.passed() -> false
+      !state.judgedByUser() && !shouldAlwaysReevaluate() && state.passed() -> true
       else -> {
         constraintPasses(artifact, version, deliveryConfig, targetEnvironment, constraint, state)
       }

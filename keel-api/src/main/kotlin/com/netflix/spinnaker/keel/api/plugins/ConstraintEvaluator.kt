@@ -20,6 +20,7 @@ import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.constraints.SupportedConstraintType
+import com.netflix.spinnaker.keel.api.plugins.ConstraintType.APPROVAL
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.kork.plugins.api.internal.SpinnakerExtensionPoint
 
@@ -64,9 +65,9 @@ interface ConstraintEvaluator<CONSTRAINT : Constraint> :
   val eventPublisher: EventPublisher
 
   /**
-   * @return true if this is a stateful plugin, false if it's a stateless plugin
+   * @return the type of constraint
    */
-  fun isStateful(): Boolean
+  fun constraintType(): ConstraintType
 
   /**
    * @return true if a constraint should be run for every environment in every delivery config, without being
@@ -74,13 +75,4 @@ interface ConstraintEvaluator<CONSTRAINT : Constraint> :
    */
   fun isImplicit(): Boolean = false
 
-  /**
-   * @return true if the constraint passes, false otherwise.
-   */
-  suspend fun constraintPasses(
-    artifact: DeliveryArtifact,
-    version: String,
-    deliveryConfig: DeliveryConfig,
-    targetEnvironment: Environment
-  ): Boolean
 }
