@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.dgs
 
+import brave.Tracer
 import com.netflix.graphql.dgs.DgsComponent
 import com.netflix.graphql.dgs.DgsData
 import com.netflix.graphql.dgs.DgsDataFetchingEnvironment
@@ -45,6 +46,7 @@ import com.netflix.spinnaker.keel.scm.ScmUtils
 import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
 import org.dataloader.DataLoader
+import org.slf4j.LoggerFactory
 import org.springframework.security.access.prepost.PreAuthorize
 import java.util.concurrent.CompletableFuture
 
@@ -63,7 +65,10 @@ class ApplicationFetcher(
   private val applicationFetcherSupport: ApplicationFetcherSupport,
   private val notificationRepository: DismissibleNotificationRepository,
   private val scmUtils: ScmUtils,
+  private val tracer: Tracer? = null
 ) {
+  private val log by lazy { LoggerFactory.getLogger(javaClass) }
+
   @DgsEntityFetcher(name = SPOT_SERVICE.TYPE_NAME)
   fun spot_service(values: Map<String, Any?>): SPOT_Service? {
     val id = values["id"] as String?
@@ -77,6 +82,8 @@ class ApplicationFetcher(
   )
   fun md_application(dfe: DataFetchingEnvironment, @InputArgument("appName") appName: String?): MD_ApplicationResult {
     val appNameOrServiceId = appName ?: dfe.getSource<SPOT_Service>().id;
+    val traceId = tracer?.currentSpan()?.context()?.traceIdString() ?: "unavailable"
+    log.debug("GraphQL md_application query for $appNameOrServiceId (traceId: $traceId)")
     val config = try {
       keelRepository.getDeliveryConfigForApplication(appNameOrServiceId)
     } catch (ex: NoDeliveryConfigForApplication) {
