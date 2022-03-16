@@ -21,7 +21,11 @@ import com.netflix.spinnaker.keel.persistence.ArtifactRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.time.Clock
+import java.time.Duration
 
+/**
+ * Evaluator for [DependsOnConstraint].
+ */
 @Component
 class DependsOnConstraintEvaluator(
   private val artifactRepository: ArtifactRepository,
@@ -61,11 +65,24 @@ class DependsOnConstraintEvaluator(
       version,
       requiredEnvironment.name
     )
+
     val verificationsPassed = actionRepository.allPassed(context, VERIFICATION)
     val postDeployActionsStarted = actionRepository.allStarted(context, POST_DEPLOY)
+    val enoughTimeElapsed = if (constraint.deployAfter > Duration.ZERO) {
+      val deployedAt = artifactRepository.getDeployedAt(deliveryConfig, requiredEnvironment, artifact, version)
+      deployedAt.isBefore(clock.instant() - constraint.deployAfter)
+    } else {
+      true
+    }
+
     log.debug("Evaluating depends on for $version in environment ${targetEnvironment.name} for app ${deliveryConfig.application}: " +
-      "deployed: $successfullyDeployed, verificationsPassed: $verificationsPassed, postDeployActionsStarted: $postDeployActionsStarted")
-    return successfullyDeployed && verificationsPassed && postDeployActionsStarted
+      "deployed: $successfullyDeployed, " +
+      "verificationsPassed: $verificationsPassed, " +
+      "postDeployActionsStarted: $postDeployActionsStarted, " +
+      "enoughTimeElapsed: $enoughTimeElapsed"
+    )
+
+    return successfullyDeployed && verificationsPassed && postDeployActionsStarted && enoughTimeElapsed
   }
 
   override suspend fun generateConstraintStateSnapshot(

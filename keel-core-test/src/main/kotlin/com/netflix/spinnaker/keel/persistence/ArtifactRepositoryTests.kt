@@ -40,6 +40,7 @@ import dev.minutest.rootContext
 import io.mockk.mockk
 import org.springframework.context.ApplicationEventPublisher
 import strikt.api.expect
+import strikt.api.expectCatching
 import strikt.api.expectThat
 import strikt.api.expectThrows
 import strikt.assertions.containsExactly
@@ -49,11 +50,13 @@ import strikt.assertions.hasSize
 import strikt.assertions.isA
 import strikt.assertions.isEmpty
 import strikt.assertions.isEqualTo
+import strikt.assertions.isFailure
 import strikt.assertions.isFalse
 import strikt.assertions.isNotEmpty
 import strikt.assertions.isNotEqualTo
 import strikt.assertions.isNotNull
 import strikt.assertions.isNull
+import strikt.assertions.isSuccess
 import strikt.assertions.isTrue
 import java.time.Clock
 import java.time.Instant
@@ -1249,6 +1252,32 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
         val candidates = subject.deploymentCandidateVersions(manifest, debianFilteredByBranch, testEnvironment.name)
 
         expectThat(candidates).isEmpty()
+      }
+    }
+
+    context("recording and retrieving deployment timestamp") {
+      before {
+        persist(manifest)
+        subject.register(versionedReleaseDebian)
+        listOf(version1, version2).forEach {
+          subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(it, RELEASE))
+          subject.approveVersionFor(manifest, versionedReleaseDebian, it, testEnvironment.name)
+          clock.tickMinutes(1)
+        }
+      }
+
+      test("can retrieve deployment timestamp for versions marked as deployed") {
+        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        expectCatching {
+          subject.getDeployedAt(manifest, testEnvironment, versionedReleaseDebian, version1)
+        }.isSuccess()
+      }
+
+      test("cannot retrieve deployment timestamp for versions not marked as deployed") {
+        expectCatching {
+          subject.getDeployedAt(manifest, testEnvironment, versionedReleaseDebian, version2)
+        }.isFailure()
+          .isA<NoSuchDeploymentException>()
       }
     }
   }

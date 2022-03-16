@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.persistence
 
 import com.netflix.spinnaker.keel.api.DeliveryConfig
+import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
@@ -370,7 +371,6 @@ interface ArtifactRepository : PeriodicallyCheckedRepository<DeliveryArtifact> {
     versions: List<String>
   ): List<ArtifactSummaryInEnvironment>
 
-  @Deprecated("Replace with the bulk call `getArtifactSummariesInEnvironment(...)` above")
   /**
    * Given information about a delivery config, environment, artifact and version, returns a summary that can be
    * used by the UI.
@@ -380,7 +380,9 @@ interface ArtifactRepository : PeriodicallyCheckedRepository<DeliveryArtifact> {
     environmentName: String,
     artifactReference: String,
     version: String
-  ): ArtifactSummaryInEnvironment?
+  ): ArtifactSummaryInEnvironment? =
+    getArtifactSummariesInEnvironment(deliveryConfig, environmentName, artifactReference, listOf(version))
+      .firstOrNull()
 
   /**
    * Get a map of the versions and status for an environmnet
@@ -401,6 +403,17 @@ interface ArtifactRepository : PeriodicallyCheckedRepository<DeliveryArtifact> {
     version: String,
     environmentName: String
   ): PromotionStatus?
+
+  /**
+   * @return The timestamp the specified [version] of the [artifact] was deployed in the [environment].
+   * @throws NoSuchDeploymentException if the [version] has not been marked as deployed to the [environment].
+   */
+  fun getDeployedAt(
+    deliveryConfig: DeliveryConfig,
+    environment: Environment,
+    artifact: DeliveryArtifact,
+    version: String
+  ): Instant
 
   /**
    * Returns between zero and [limit] artifacts that have not been checked (i.e. returned by this
@@ -528,3 +541,13 @@ class NoSuchArtifactVersionException(name: String, type: ArtifactType, version: 
   NoSuchEntityException("Version $version of $type artifact named $name not found") {
   constructor(artifact: DeliveryArtifact, version: String) : this(artifact.name, artifact.type, version)
 }
+
+class NoSuchDeploymentException(
+  deliveryConfig: DeliveryConfig,
+  artifact: DeliveryArtifact,
+  environment: Environment,
+  version: String
+) : NoSuchEntityException(
+  "Version $version of ${artifact.type} artifact ${artifact.name} has not been deployed" +
+    " to environment ${environment.name} of application ${deliveryConfig.application}"
+)

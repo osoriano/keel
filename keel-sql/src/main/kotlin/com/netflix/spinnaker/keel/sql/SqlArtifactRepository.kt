@@ -39,6 +39,7 @@ import com.netflix.spinnaker.keel.persistence.ArtifactNotFoundException
 import com.netflix.spinnaker.keel.persistence.ArtifactRepository
 import com.netflix.spinnaker.keel.persistence.NoSuchArtifactException
 import com.netflix.spinnaker.keel.persistence.NoSuchArtifactVersionException
+import com.netflix.spinnaker.keel.persistence.NoSuchDeploymentException
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ACTIVE_ENVIRONMENT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ARTIFACT_LAST_CHECKED
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ARTIFACT_VERSIONS
@@ -1899,72 +1900,6 @@ class SqlArtifactRepository(
     }
   }
 
-  /**
-   * Replaced by the bulk call ^
-   */
-  @Suppress("OverridingDeprecatedMember")
-  override fun getArtifactSummaryInEnvironment(
-    deliveryConfig: DeliveryConfig,
-    environmentName: String,
-    artifactReference: String,
-    version: String
-  ): ArtifactSummaryInEnvironment? {
-    return sqlRetry.withRetry(READ) {
-
-      val artifact = deliveryConfig.artifacts.firstOrNull { it.reference == artifactReference }
-        ?: error("Artifact not found: name=$artifactReference, deliveryConfig=${deliveryConfig.name}")
-
-      jooq
-        .select(
-          ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION,
-          ENVIRONMENT_ARTIFACT_VERSIONS.DEPLOYED_AT,
-          ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS,
-          ENVIRONMENT_ARTIFACT_VERSIONS.REPLACED_BY,
-          ENVIRONMENT_ARTIFACT_VERSIONS.REPLACED_AT
-        )
-        .from(ENVIRONMENT_ARTIFACT_VERSIONS)
-        .where(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(deliveryConfig.getUidFor(environmentName)))
-        .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(artifact.uid))
-        .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION.eq(version))
-        .orderBy(ENVIRONMENT_ARTIFACT_VERSIONS.DEPLOYED_AT.desc())
-        .fetchOne { (version, deployedAt, promotionStatus, replacedBy, replacedAt) ->
-          val vetoed: ActionMetadata? = jooq
-            .select(ENVIRONMENT_ARTIFACT_VETO.VETOED_AT, ENVIRONMENT_ARTIFACT_VETO.VETOED_BY, ENVIRONMENT_ARTIFACT_VETO.COMMENT)
-            .from(ENVIRONMENT_ARTIFACT_VETO)
-            .where(ENVIRONMENT_ARTIFACT_VETO.ENVIRONMENT_UID.eq(deliveryConfig.getUidFor(environmentName)))
-            .and(ENVIRONMENT_ARTIFACT_VETO.ARTIFACT_UID.eq(artifact.uid))
-            .and(ENVIRONMENT_ARTIFACT_VETO.ARTIFACT_VERSION.eq(version))
-            .fetchOne { (vetoedAt, vetoedBy, comment) ->
-              ActionMetadata(at = vetoedAt, by = vetoedBy, comment = comment)
-            }
-          var pinned: ActionMetadata? = null
-          if (vetoed == null) {
-            // a version can't be vetoed and pinned
-            pinned = jooq
-              .select(ENVIRONMENT_ARTIFACT_PIN.PINNED_BY, ENVIRONMENT_ARTIFACT_PIN.PINNED_AT, ENVIRONMENT_ARTIFACT_PIN.COMMENT)
-              .from(ENVIRONMENT_ARTIFACT_PIN)
-              .where(ENVIRONMENT_ARTIFACT_PIN.ENVIRONMENT_UID.eq(deliveryConfig.getUidFor(environmentName)))
-              .and(ENVIRONMENT_ARTIFACT_PIN.ARTIFACT_UID.eq(artifact.uid))
-              .and(ENVIRONMENT_ARTIFACT_PIN.ARTIFACT_VERSION.eq(version))
-              .fetchOne { (pinnedBy, pinnedAt, comment) ->
-                ActionMetadata(at = pinnedAt, by = pinnedBy, comment = comment)
-              }
-          }
-
-          ArtifactSummaryInEnvironment(
-            environment = environmentName,
-            version = version,
-            state = promotionStatus.name.lowercase(),
-            deployedAt = deployedAt,
-            replacedAt = replacedAt,
-            replacedBy = replacedBy,
-            pinned = pinned,
-            vetoed = vetoed
-          )
-        }
-    }
-  }
-
   override fun getArtifactPromotionStatus(
     deliveryConfig: DeliveryConfig,
     artifact: DeliveryArtifact,
@@ -1979,6 +1914,24 @@ class SqlArtifactRepository(
         .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(artifact.uid))
         .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION.eq(version))
         .fetchOne(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS)
+    }
+  }
+
+  override fun getDeployedAt(
+    deliveryConfig: DeliveryConfig,
+    environment: Environment,
+    artifact: DeliveryArtifact,
+    version: String
+  ): Instant {
+    return sqlRetry.withRetry(READ) {
+      jooq
+        .select(ENVIRONMENT_ARTIFACT_VERSIONS.DEPLOYED_AT)
+        .from(ENVIRONMENT_ARTIFACT_VERSIONS)
+        .where(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(deliveryConfig.getUidFor(environment.name)))
+        .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(artifact.uid))
+        .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION.eq(version))
+        .fetchOne(ENVIRONMENT_ARTIFACT_VERSIONS.DEPLOYED_AT)
+        ?: throw NoSuchDeploymentException(deliveryConfig, artifact, environment, version)
     }
   }
 
