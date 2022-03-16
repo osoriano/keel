@@ -1,0 +1,82 @@
+databaseChangeLog:
+  - changeSet:
+      id: drop-artifact-promotion-events-table
+      author: emjburns
+      changes:
+        - dropTable:
+            tableName: artifact_promotion_event
+  - changeSet:
+      id: fix-artifact-promotion
+      author: emjburns
+      changes:
+        - createTable:
+            tableName: artifact_promotion_event
+            columns:
+              - column:
+                  name: uid
+                  type: char(26)
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: environment_uid
+                  type: char(26)
+                  constraints:
+                    foreignKeyName: fk_artifact_promotion_event_environment
+                    referencedTableName: environment
+                    referencedColumnNames: uid
+                    deleteCascade: true
+                    nullable: false
+              - column:
+                  name: artifact_uid
+                  type: char(26)
+                  constraints:
+                    foreignKeyName: fk_artifact_promotion_event_artifact
+                    referencedTableName: delivery_artifact
+                    referencedColumnNames: uid
+                    deleteCascade: true
+                    nullable: false
+              - column:
+                  name: artifact_version
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: timestamp
+                  type: timestamp(3)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: promotion_status
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+        - modifySql:
+            dbms: mysql
+            append:
+              value: " engine innodb"
+  - changeSet:
+      id: add-artifact-promotion-indices
+      author: emjburns
+      changes:
+        - createIndex:
+            indexName: artifact_promotion_event_timestamp_idx
+            tableName: artifact_promotion_event
+            columns:
+              - column:
+                  name: environment_uid
+              - column:
+                  name: artifact_uid
+              - column:
+                  name: timestamp
+        - createIndex:
+            indexName: artifact_promotion_event_timestamp_status_idx
+            tableName: artifact_promotion_event
+            columns:
+              - column:
+                  name: environment_uid
+              - column:
+                  name: artifact_uid
+              - column:
+                  name: timestamp
+              - column:
+                  name: promotion_status

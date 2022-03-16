@@ -440,3 +440,6 @@ databaseChangeLog:
 - include:
     file: changelog/20220315-env-artifact-version-events.yml
     relativeToChangelogFile: true
+- include:
+    file: changelog/20220316-artifact-promotion-event-non-null.yml
+    relativeToChangelogFile: true
