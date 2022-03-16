@@ -464,6 +464,29 @@ interface ArtifactRepository : PeriodicallyCheckedRepository<DeliveryArtifact> {
   ): Int
 
   /**
+   * @return number of artifact versions deployed to [environmentName] between [startTime] and [endTime].
+   */
+  fun versionsDeployedBetween(
+    deliveryConfig: DeliveryConfig,
+    artifact: DeliveryArtifact,
+    environmentName: String,
+    startTime: Instant,
+    endTime: Instant
+  ): Int
+
+  /**
+   * @return the number of versions that transitioned into [status] within the time range
+   */
+  fun versionsInStatusBetween(
+    deliveryConfig: DeliveryConfig,
+    artifact: DeliveryArtifact,
+    environmentName: String,
+    status: PromotionStatus,
+    startTime: Instant,
+    endTime: Instant
+  ): Int
+
+  /**
    * @return the latest artifact version of [artifact] approved for use in [environmentName]
    *
    */

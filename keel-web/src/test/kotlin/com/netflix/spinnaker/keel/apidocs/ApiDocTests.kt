@@ -148,7 +148,8 @@ class ApiDocTests
           "#/\$defs/PipelineConstraint",
           "#/\$defs/TimeWindowConstraint",
           "#/\$defs/ImageExistsConstraint",
-          "#/\$defs/OnOffConstraint"
+          "#/\$defs/OnOffConstraint",
+          "#/\$defs/AllowedTimesConstraint"
         )
     }
 

@@ -7,9 +7,11 @@ import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.SKIPPED
 import com.netflix.spinnaker.keel.api.plugins.ConstraintEvaluator
 import com.netflix.spinnaker.keel.api.plugins.ConstraintType.DEPLOYMENT
+import java.time.Clock
 
 abstract class DeploymentConstraintEvaluator<CONSTRAINT: Constraint, ATTRIBUTES : ConstraintStateAttributes>(
-  open val repository: ConstraintRepository
+  open val repository: ConstraintRepository,
+  open val clock: Clock
 ) : ConstraintEvaluator<CONSTRAINT> {
 
   override fun constraintType() = DEPLOYMENT
@@ -70,7 +72,11 @@ abstract class DeploymentConstraintEvaluator<CONSTRAINT: Constraint, ATTRIBUTES 
 
     val state = repository.getCurrentState(artifact, version, deliveryConfig, targetEnvironment, constraint)
     repository.storeConstraintState(
-      state.copy(status = SKIPPED, comment = "No longer evaluating constraint because a newer version was picked for deployment")
+      state.copy(
+        status = SKIPPED,
+        comment = "No longer evaluating constraint because a newer version was picked for deployment",
+        judgedAt = clock.instant()
+      )
     )
   }
 

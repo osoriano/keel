@@ -29,6 +29,7 @@ import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactPin
 import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactVeto
 import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactVetoes
 import com.netflix.spinnaker.keel.core.api.PromotionStatus
+import com.netflix.spinnaker.keel.core.api.PromotionStatus.APPROVED
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.CURRENT
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.SKIPPED
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.VETOED
@@ -54,7 +55,6 @@ import strikt.assertions.isNotNull
 import strikt.assertions.isNull
 import strikt.assertions.isTrue
 import java.time.Clock
-import java.time.Duration
 import java.time.Instant
 
 abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests {
@@ -541,6 +541,7 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
         subject.approveVersionFor(manifest, versionedReleaseDebian, version5, stagingEnvironment.name)
         subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version5, stagingEnvironment.name)
         subject.markAsVetoedIn(manifest, EnvironmentArtifactVeto(stagingEnvironment.name, versionedReleaseDebian.reference, version5, "tester", "you bad"))
+        clock.tickMinutes(1)
       }
 
       test("latestVersionApprovedIn reflects the veto") {
@@ -575,6 +576,42 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
         expectThat(subject.getCurrentlyDeployedArtifactVersion(manifest, versionedReleaseDebian, stagingEnvironment.name)?.version).isEqualTo(version5)
       }
 
+      test("correctly returns count of approved versions in time window") {
+        val numVersions = subject.versionsInStatusBetween(
+          manifest,
+          versionedReleaseDebian,
+          stagingEnvironment.name,
+          APPROVED,
+          clock.instant().minusSeconds(120),
+          clock.instant()
+        )
+        expectThat(numVersions).isEqualTo(2)
+      }
+
+      test("correctly returns count of current versions in time window") {
+        val numVersions = subject.versionsInStatusBetween(
+          manifest,
+          versionedReleaseDebian,
+          stagingEnvironment.name,
+          CURRENT,
+          clock.instant().minusSeconds(120),
+          clock.instant()
+        )
+        expectThat(numVersions).isEqualTo(1)
+      }
+
+      test("correctly returns count of recorded vetoed versions in time window") {
+        val numVersions = subject.versionsInStatusBetween(
+          manifest,
+          versionedReleaseDebian,
+          stagingEnvironment.name,
+          VETOED,
+          clock.instant().minusSeconds(120),
+          clock.instant()
+        )
+        expectThat(numVersions).isEqualTo(1)
+      }
+
       test("can get all information about the versions") {
         val versions = subject.getAllVersionsForEnvironment(versionedReleaseDebian, manifest, stagingEnvironment.name)
         expectThat(versions.size).isEqualTo(2)
@@ -593,7 +630,7 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
         )
         expect {
           that(envArtifactSummaries).isNotEmpty()
-          that(envArtifactSummaries.firstOrNull()?.vetoed).isEqualTo(ActionMetadata(by = "tester", at = clock.instant(), comment = "you bad"))
+          that(envArtifactSummaries.firstOrNull()?.vetoed).isEqualTo(ActionMetadata(by = "tester", at = clock.instant().minusSeconds(60), comment = "you bad"))
         }
       }
 
@@ -851,6 +888,19 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
         subject.approveVersionFor(manifest, versionedReleaseDebian, version1, testEnvironment.name)
         subject.approveVersionFor(manifest, versionedReleaseDebian, version2, testEnvironment.name)
         subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version2, testEnvironment.name)
+        clock.tickMinutes(1)
+      }
+
+      test("correctly returns count of recorded skipped versions in time window") {
+        val numVersions = subject.versionsInStatusBetween(
+          manifest,
+          versionedReleaseDebian,
+          testEnvironment.name,
+          SKIPPED,
+          clock.instant().minusSeconds(120),
+          clock.instant()
+        )
+        expectThat(numVersions).isEqualTo(1)
       }
 
       test("can fetch skipped and pending versions") {
@@ -1037,6 +1087,19 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
         subject.markAsDeployingTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
         val version = subject.latestDeployableVersionIn(manifest, versionedReleaseDebian, testEnvironment.name)
         expectThat(version).isEqualTo(version1)
+      }
+
+      test("deploying version is counted as a deployed version in the window") {
+        subject.markAsDeployingTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        clock.tickMinutes(1)
+        val numDeployed = subject.versionsDeployedBetween(
+          manifest,
+          versionedReleaseDebian,
+          testEnvironment.name,
+          clock.instant().minusSeconds(120),
+          clock.instant()
+        )
+        expectThat(numDeployed).isEqualTo(1)
       }
 
       test("there is one version that is current, so that version is returned") {

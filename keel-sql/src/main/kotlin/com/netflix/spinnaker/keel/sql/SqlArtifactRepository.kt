@@ -3,6 +3,7 @@ package com.netflix.spinnaker.keel.sql
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.convertValue
 import com.netflix.kotlin.OpenClass
+import com.netflix.spinnaker.keel.activation.ApplicationUp
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
@@ -49,10 +50,12 @@ import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_ARTIF
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_ARTIFACT_VERSIONS
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_ARTIFACT_VETO
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_VERSION_ARTIFACT_VERSION
+import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ARTIFACT_PROMOTION_EVENT
 import com.netflix.spinnaker.keel.services.StatusInfoForArtifactInEnvironment
 import com.netflix.spinnaker.keel.sql.RetryCategory.READ
 import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
 import com.netflix.spinnaker.keel.telemetry.AboutToBeChecked
+import de.huxhorn.sulky.ulid.ULID
 import io.github.resilience4j.retry.Retry
 import io.github.resilience4j.retry.RetryConfig
 import org.jooq.DSLContext
@@ -67,6 +70,7 @@ import org.jooq.impl.DSL.selectOne
 import org.jooq.util.mysql.MySQLDSL
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
+import org.springframework.context.event.EventListener
 import java.security.MessageDigest
 import java.time.Clock
 import java.time.Duration
@@ -483,19 +487,23 @@ class SqlArtifactRepository(
 
       when {
         alreadyApproved -> false // version did not change, so we return false
-        else -> jooq
-          .insertInto(ENVIRONMENT_ARTIFACT_VERSIONS)
-          .set(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID, deliveryConfig.getUidFor(environment))
-          .set(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID, artifact.uid)
-          .set(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION, version)
-          .set(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT, clock.instant())
-          .set(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS, APPROVED)
-          .onDuplicateKeyUpdate()
-          .set(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT, clock.instant())
-          .set(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS, APPROVED)
-          .setNull(ENVIRONMENT_ARTIFACT_VERSIONS.REPLACED_BY)
-          .setNull(ENVIRONMENT_ARTIFACT_VERSIONS.REPLACED_AT)
-          .execute() > 0
+        else -> {
+          val result = jooq
+            .insertInto(ENVIRONMENT_ARTIFACT_VERSIONS)
+            .set(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID, deliveryConfig.getUidFor(environment))
+            .set(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID, artifact.uid)
+            .set(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION, version)
+            .set(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT, clock.instant())
+            .set(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS, APPROVED)
+            .onDuplicateKeyUpdate()
+            .set(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT, clock.instant())
+            .set(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS, APPROVED)
+            .setNull(ENVIRONMENT_ARTIFACT_VERSIONS.REPLACED_BY)
+            .setNull(ENVIRONMENT_ARTIFACT_VERSIONS.REPLACED_AT)
+            .execute() > 0
+          recordEnvArtifactVersionEvent(deliveryConfig, environment, artifact, version, APPROVED, jooq)
+          result
+        }
       }
     }
   }
@@ -665,6 +673,7 @@ class SqlArtifactRepository(
             .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(artifact.uid))
             .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.eq(DEPLOYING))
             .execute()
+          batchRecordEnvArtifactVersionEvent(deliveryConfig, environment, artifact, stuckVersions, SKIPPED, txn)
         }
 
         txn
@@ -676,6 +685,7 @@ class SqlArtifactRepository(
           .onDuplicateKeyUpdate()
           .set(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS, DEPLOYING)
           .execute()
+        recordEnvArtifactVersionEvent(deliveryConfig, environment, artifact, version, DEPLOYING, txn)
       }
     }
   }
@@ -738,6 +748,7 @@ class SqlArtifactRepository(
             }
           }
           .execute()
+        recordEnvArtifactVersionEvent(deliveryConfig, environment, artifact, version, CURRENT, txn)
 
         // also insert into this table so the record for current doesn't get lost on a redeploy or a veto
         txn.insertInto(CURRENT_ENVIRONMENT_ARTIFACT_VERSIONS)
@@ -796,6 +807,7 @@ class SqlArtifactRepository(
             .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.eq(APPROVED))
             .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION.`in`(*approvedButOld))
             .execute()
+          batchRecordEnvArtifactVersionEvent(deliveryConfig, environment, artifact, approvedButOld.toList(), SKIPPED, txn)
 
           log.debug("markAsSuccessfullyDeployedTo: # of records marked SKIPPED: $skippedUpdates. name: ${artifact.name}. version: $version. env: $targetEnvironment")
         }
@@ -828,7 +840,7 @@ class SqlArtifactRepository(
               }
             }
             .execute()
-
+          batchRecordEnvArtifactVersionEvent(deliveryConfig, environment, artifact, pendingButOld.toList(), SKIPPED, txn)
           log.debug("markAsSuccessfullyDeployedTo: # of pending versions marked SKIPPED: $skippedUpdates. name: ${artifact.name}. version: $version. env: $targetEnvironment")
         }
       }
@@ -974,6 +986,7 @@ class SqlArtifactRepository(
         val txn = DSL.using(config)
         txn.upsertAsVetoedInEnvironmentArtifactVersionsTable(prior, veto, envUid, artUid)
         txn.addRecordToEnvironmentArtifactVetoTable(envUid, artUid, veto)
+        recordEnvArtifactVersionEvent(deliveryConfig, deliveryConfig.environmentNamed(veto.targetEnvironment), artifact, veto.version, VETOED, txn)
 
         /**
          * If there's a previously deployed version in [targetEnvironment], set `promotion_reference`
@@ -1200,6 +1213,8 @@ class SqlArtifactRepository(
         .set(ENVIRONMENT_ARTIFACT_VERSIONS.REPLACED_BY, supersededByVersion)
         .set(ENVIRONMENT_ARTIFACT_VERSIONS.REPLACED_AT, clock.instant())
         .execute()
+
+      recordEnvArtifactVersionEvent(deliveryConfig, environment, artifact, version, SKIPPED, jooq)
     }
   }
 
@@ -1986,15 +2001,56 @@ class SqlArtifactRepository(
       startTime,
       endTime
     )
-    return jooq
-      .selectCount()
-      .from(ENVIRONMENT_ARTIFACT_VERSIONS)
-      .join(ENVIRONMENT).on(ENVIRONMENT.UID.eq(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID))
-      .join(DELIVERY_CONFIG).on(DELIVERY_CONFIG.UID.eq(ENVIRONMENT.DELIVERY_CONFIG_UID))
-      .where(DELIVERY_CONFIG.NAME.eq(deliveryConfig.name))
-      .and(ENVIRONMENT.NAME.eq(environmentName))
-      .and(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT.between(startTime, endTime))
-      .fetchSingleInto<Int>()
+    return sqlRetry.withRetry(READ) {
+      jooq
+        .selectCount()
+        .from(ENVIRONMENT_ARTIFACT_VERSIONS)
+        .join(ENVIRONMENT).on(ENVIRONMENT.UID.eq(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID))
+        .join(DELIVERY_CONFIG).on(DELIVERY_CONFIG.UID.eq(ENVIRONMENT.DELIVERY_CONFIG_UID))
+        .where(DELIVERY_CONFIG.NAME.eq(deliveryConfig.name))
+        .and(ENVIRONMENT.NAME.eq(environmentName))
+        .and(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT.between(startTime, endTime))
+        .fetchSingleInto<Int>()
+    }
+  }
+
+  override fun versionsDeployedBetween(
+    deliveryConfig: DeliveryConfig,
+    artifact: DeliveryArtifact,
+    environmentName: String,
+    startTime: Instant,
+    endTime: Instant
+  ): Int =
+    versionsInStatusBetween(deliveryConfig, artifact, environmentName, DEPLOYING, startTime, endTime)
+
+  override fun versionsInStatusBetween(
+    deliveryConfig: DeliveryConfig,
+    artifact: DeliveryArtifact,
+    environmentName: String,
+    status: PromotionStatus,
+    startTime: Instant,
+    endTime: Instant
+  ): Int {
+    require(startTime < endTime) {
+      "Start time $startTime must be before end time $endTime"
+    }
+    log.debug(
+      "checking for artifact versions for {}:{} with $status status between {} and {}",
+      deliveryConfig.name,
+      environmentName,
+      startTime,
+      endTime
+    )
+    return sqlRetry.withRetry(READ) {
+      jooq
+        .selectCount()
+        .from(ARTIFACT_PROMOTION_EVENT)
+        .where(ARTIFACT_PROMOTION_EVENT.ENVIRONMENT_UID.eq(deliveryConfig.getUidFor(environmentName)))
+        .and(ARTIFACT_PROMOTION_EVENT.ARTIFACT_UID.eq(artifact.uid))
+        .and(ARTIFACT_PROMOTION_EVENT.PROMOTION_STATUS.eq(status.name))
+        .and(ARTIFACT_PROMOTION_EVENT.TIMESTAMP.between(startTime, endTime))
+        .fetchSingleInto<Int>()
+    }
   }
 
   override fun getApprovedInEnvArtifactVersion(
@@ -2086,6 +2142,49 @@ class SqlArtifactRepository(
         ENVIRONMENT_ARTIFACT_PIN.ARTIFACT_UID.eq(artUid)
       )
       .execute()
+  }
+
+  fun recordEnvArtifactVersionEvent(config: DeliveryConfig, environment: Environment, artifact: DeliveryArtifact, version: String, status: PromotionStatus, txn: DSLContext) {
+    sqlRetry.withRetry(WRITE) {
+      txn.insertInto(ARTIFACT_PROMOTION_EVENT)
+        .set(ARTIFACT_PROMOTION_EVENT.UID, ULID().nextULID(clock.millis())) // so that uids are cronologically sortable
+        .set(ARTIFACT_PROMOTION_EVENT.ENVIRONMENT_UID, config.getUidFor(environment))
+        .set(ARTIFACT_PROMOTION_EVENT.ARTIFACT_UID, artifact.uid)
+        .set(ARTIFACT_PROMOTION_EVENT.ARTIFACT_VERSION, version)
+        .set(ARTIFACT_PROMOTION_EVENT.PROMOTION_STATUS, status.name)
+        .set(ARTIFACT_PROMOTION_EVENT.TIMESTAMP, clock.instant())
+        .execute()
+    }
+  }
+  fun batchRecordEnvArtifactVersionEvent(config: DeliveryConfig, environment: Environment, artifact: DeliveryArtifact, versions: List<String>, status: PromotionStatus, txn: DSLContext) {
+    val envUid = config.getUidStringFor(environment)
+    val artifactId = artifact.uidString
+     txn
+      .insertInto(ARTIFACT_PROMOTION_EVENT,
+        ARTIFACT_PROMOTION_EVENT.UID,
+        ARTIFACT_PROMOTION_EVENT.ENVIRONMENT_UID,
+        ARTIFACT_PROMOTION_EVENT.ARTIFACT_UID,
+        ARTIFACT_PROMOTION_EVENT.ARTIFACT_VERSION,
+        ARTIFACT_PROMOTION_EVENT.PROMOTION_STATUS,
+        ARTIFACT_PROMOTION_EVENT.TIMESTAMP,
+      )
+       .apply {
+          versions.forEach {
+            values(ULID().nextULID(clock.millis()), envUid, artifactId, it, status.name, clock.instant())
+          }
+      }
+      .execute()
+    }
+
+  @EventListener(ApplicationUp::class)
+  fun cleanEnvArtifactVersionEvents() {
+    sqlRetry.withRetry(WRITE) {
+      val numDeleted = jooq
+        .deleteFrom(ARTIFACT_PROMOTION_EVENT)
+        .where(ARTIFACT_PROMOTION_EVENT.TIMESTAMP.lessOrEqual(clock.instant().minus(Duration.ofDays(30))))
+        .execute()
+      log.debug("Deleted $numDeleted records in ARTIFACT_PROMOTION_EVENT table")
+    }
   }
 
   private fun DeliveryConfig.getUidFor(environment: Environment): Select<Record1<String>> =

@@ -31,8 +31,8 @@ class OnOffDeploymentConstraintEvaluator(
   override val repository: ConstraintRepository,
   override val eventPublisher: EventPublisher,
   val featureToggles: FeatureToggles,
-  val clock: Clock
-): DeploymentConstraintEvaluator<OnOffConstraint, DefaultConstraintAttributes>(repository) {
+  override val clock: Clock
+): DeploymentConstraintEvaluator<OnOffConstraint, DefaultConstraintAttributes>(repository, clock) {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
@@ -52,7 +52,6 @@ class OnOffDeploymentConstraintEvaluator(
     val canDeploy = featureToggles.isEnabled(ON_OFF_CONSTRAINT, false)
     log.debug("on-off constraint says $canDeploy for version $version in environment $targetEnvironment and application ${deliveryConfig.application}")
 
-    // todo eb: should this be pending?
     return state.copy(
       status = if (canDeploy) PASS else PENDING,
       judgedAt = clock.instant(),

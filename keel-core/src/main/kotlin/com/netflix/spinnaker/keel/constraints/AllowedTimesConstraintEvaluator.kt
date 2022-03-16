@@ -51,6 +51,7 @@ import java.time.ZoneId
  */
 @JvmDefaultWithoutCompatibility  // see https://youtrack.jetbrains.com/issue/KT-39603
 @Component
+//todo eb: remove in favor of [AllowedTimesDeploymentConstraintEvaluator]
 class AllowedTimesConstraintEvaluator(
   private val clock: Clock,
   private val dynamicConfigService: DynamicConfigService,

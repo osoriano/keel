@@ -437,3 +437,6 @@ databaseChangeLog:
 - include:
     file: changelog/20220311-lifecycle-event-index-with-version.yml
     relativeToChangelogFile: true
+- include:
+    file: changelog/20220315-env-artifact-version-events.yml
+    relativeToChangelogFile: true
