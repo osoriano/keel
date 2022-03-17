@@ -9,6 +9,7 @@ import com.netflix.spinnaker.keel.api.plugins.UnsupportedKind
 import com.netflix.spinnaker.keel.events.ResourceState
 import com.netflix.spinnaker.keel.persistence.ResourceRepositoryPeriodicallyCheckedTests
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
+import com.netflix.spinnaker.keel.services.doInParallel
 import com.netflix.spinnaker.keel.test.TEST_API_V1
 import com.netflix.spinnaker.keel.test.deliveryConfig
 import com.netflix.spinnaker.keel.test.mockEnvironment
@@ -19,9 +20,6 @@ import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil.cleanupDb
 import dev.minutest.rootContext
 import io.mockk.mockk
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import strikt.api.expectCatching
 import strikt.api.expectThat
 import strikt.assertions.first
@@ -191,18 +189,6 @@ internal object SqlResourceRepositoryPeriodicallyCheckedTests :
         expectThat(nextResults())
           .isEmpty()
       }
-    }
-  }
-}
-
-private fun doInParallel(times: Int, block: () -> Unit) {
-  GlobalScope.launch {
-    repeat(times) {
-      launch { block() }
-    }
-  }.apply {
-    runBlocking {
-      join()
     }
   }
 }

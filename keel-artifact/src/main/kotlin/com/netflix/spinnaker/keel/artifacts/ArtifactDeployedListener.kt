@@ -100,22 +100,16 @@ class ArtifactDeployedListener(
               artifactVersion = event.artifactVersion
             )
           }
-          val markedCurrentlyDeployed = repository.getArtifactPromotionStatus(
+          val markedCurrentlyDeployed = repository.markAsSuccessfullyDeployedTo(
             deliveryConfig = deliveryConfig,
             artifact = artifact,
             version = event.artifactVersion,
             targetEnvironment = env.name
-          ) == CURRENT
-          if (!markedCurrentlyDeployed) {
+          )
+          if (markedCurrentlyDeployed) {
             log.info(
-              "Marking {} as deployed in {} for config {} because it's not currently marked as deployed",
-              event.artifactVersion, env.name, deliveryConfig.name
-            )
-            repository.markAsSuccessfullyDeployedTo(
-              deliveryConfig = deliveryConfig,
-              artifact = artifact,
-              version = event.artifactVersion,
-              targetEnvironment = env.name
+              "Marked {} as deployed in {} for app {} because it was not currently marked as deployed",
+              event.artifactVersion, env.name, deliveryConfig.application
             )
             publisher.publishEvent(
               ArtifactDeployedNotification(

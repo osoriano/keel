@@ -33,6 +33,7 @@ import com.netflix.spinnaker.keel.core.api.PromotionStatus.APPROVED
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.CURRENT
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.SKIPPED
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.VETOED
+import com.netflix.spinnaker.keel.services.doInParallel
 import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
@@ -56,6 +57,7 @@ import strikt.assertions.isNull
 import strikt.assertions.isTrue
 import java.time.Clock
 import java.time.Instant
+import java.util.Collections
 
 abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests {
   val publisher: ApplicationEventPublisher = mockk(relaxed = true)
@@ -649,6 +651,7 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
         expectThat(versionsIn(stagingEnvironment, versionedReleaseDebian)) {
           get(ArtifactVersionStatus::vetoed).isEmpty()
           get(ArtifactVersionStatus::approved).isEmpty()
+          get(ArtifactVersionStatus::skipped).containsExactly(version4)
           get(ArtifactVersionStatus::current).isEqualTo(version5)
         }
         expect {
@@ -873,6 +876,27 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
         expectThrows<IllegalArgumentException> {
           subject.getArtifactVersionByPromotionStatus(manifest, testEnvironment.name, versionedReleaseDebian, PromotionStatus.DEPLOYING)
         }
+      }
+    }
+
+
+    context("can only mark a version as deployed once") {
+      before {
+        persist(manifest)
+        subject.register(versionedReleaseDebian)
+        subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(version1, RELEASE).copy(
+          gitMetadata = artifactMetadata.gitMetadata
+        ))
+        subject.approveVersionFor(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+      }
+      test("only one is true") {
+        val results = Collections.synchronizedList<Boolean>(mutableListOf())
+        doInParallel(200) {
+          subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+            .let(results::add)
+        }
+        expectThat(results.size).isEqualTo(200)
+        expectThat(results.count { it == true }).isEqualTo(1)
       }
     }
 

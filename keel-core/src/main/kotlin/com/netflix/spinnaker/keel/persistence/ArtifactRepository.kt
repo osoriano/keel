@@ -203,13 +203,14 @@ interface ArtifactRepository : PeriodicallyCheckedRepository<DeliveryArtifact> {
    *
    * Marks previously approved but not deployed versions as skipped.
    * Marks pending versions as skipped.
+   * @return true if the version is newly marked as deployed
    */
   fun markAsSuccessfullyDeployedTo(
     deliveryConfig: DeliveryConfig,
     artifact: DeliveryArtifact,
     version: String,
     targetEnvironment: String
-  )
+  ): Boolean
 
   /**
    * @return the currently deployed artifact version for an artifact in an environment

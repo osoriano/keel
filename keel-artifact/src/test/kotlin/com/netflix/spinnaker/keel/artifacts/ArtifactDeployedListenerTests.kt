@@ -55,7 +55,6 @@ class ArtifactDeployedListenerTests : JUnit5Minutests {
       every { repository.getResource(resource.id) } returns resourceSpy
       every { repository.deliveryConfigFor(resource.id) } returns config
       every { repository.environmentFor(resource.id) } returns config.environments.first()
-      every { repository.getArtifactPromotionStatus(config, any(), event.artifactVersion, any()) } returns PENDING
     }
 
     after {
@@ -82,16 +81,20 @@ class ArtifactDeployedListenerTests : JUnit5Minutests {
 
         context("artifact has been marked currently deployed") {
           before {
-            every { repository.getArtifactPromotionStatus(any(), any(), event.artifactVersion, any()) } returns CURRENT
+            every { repository.markAsSuccessfullyDeployedTo(config, any(), event.artifactVersion, any()) } returns false
           }
 
           test("artifact is not marked as deployed again") {
             subject.onArtifactVersionDeployed(event)
-            verify(exactly = 0) { repository.markAsSuccessfullyDeployedTo(any(), any(), event.artifactVersion, any()) }
+            verify { publisher wasNot Called }
           }
         }
 
         context("artifact has not been marked currently deployed") {
+          before {
+            every { repository.markAsSuccessfullyDeployedTo(config, any(), event.artifactVersion, any()) } returns true
+          }
+
           test("version is marked as deployed") {
             subject.onArtifactVersionDeployed(event)
             verify(exactly = 1) { repository.markAsSuccessfullyDeployedTo(any(), any(), event.artifactVersion, any()) }
@@ -141,12 +144,14 @@ class ArtifactDeployedListenerTests : JUnit5Minutests {
               )
             )
             every { repository.storeConstraintState(any()) } just runs
+            every { repository.markAsSuccessfullyDeployedTo(config, any(), event.artifactVersion, any()) } returns true
           }
 
           test("marking the version as deployed") {
             subject.onArtifactVersionDeployed(event)
             verify(exactly = 1) { repository.markAsSuccessfullyDeployedTo(any(), any(), event.artifactVersion, any()) }
             verify(exactly = 1) { repository.storeConstraintState(any()) }
+            verify(exactly = 1) { publisher.publishEvent(ofType<ArtifactDeployedNotification>()) }
           }
         }
       }

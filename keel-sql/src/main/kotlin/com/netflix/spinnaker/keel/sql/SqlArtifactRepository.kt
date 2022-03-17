@@ -700,12 +700,17 @@ class SqlArtifactRepository(
       .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.eq(DEPLOYING))
       .fetchSingleInto<Int>() > 0
 
+
+  /**
+   * Mark current version as successfully deployed if the version is not already marked as [CURRENT]
+   * @return true if the version is newly marked as deployed
+   */
   override fun markAsSuccessfullyDeployedTo(
     deliveryConfig: DeliveryConfig,
     artifact: DeliveryArtifact,
     version: String,
     targetEnvironment: String
-  ) {
+  ): Boolean {
     val environment = deliveryConfig.environmentNamed(targetEnvironment)
     val environmentUid = deliveryConfig.getUidFor(environment)
     val environmentUidString = deliveryConfig.getUidStringFor(environment)
@@ -713,140 +718,176 @@ class SqlArtifactRepository(
     val artifactVersion = getArtifactVersion(artifact, version)
       ?: throw NoSuchArtifactVersionException(artifact, version)
 
-    sqlRetry.withRetry(WRITE) {
-      jooq.transaction { config ->
-        val txn = DSL.using(config)
-        log.debug("markAsSuccessfullyDeployedTo: start transaction. name: ${artifact.name}. version: $version. env: $targetEnvironment")
-
-        val deployedAt = clock.instant()
+    return sqlRetry.withRetry(WRITE) {
+      if (getArtifactPromotionStatus(deliveryConfig, artifact, version, targetEnvironment) == CURRENT) {
+        // This is a safety query to ensure that we don't try to update the promotion status of the current version again
+        // However, it's not thread-safe, so we'll check again below if we actaully updated anything
+        log.debug("version $version of ${artifact.name} in env $targetEnvironment of app ${deliveryConfig.application} is already marked as deployed")
+        false
+      } else {
         val previouslyApprovedAt = getApprovedAt(deliveryConfig, artifact, version, targetEnvironment)
-        val hasApprovedAtTime = previouslyApprovedAt != null
-        val approvedAt = previouslyApprovedAt ?: deployedAt // Identical to deployedAt if missing
+        jooq.transactionResult { config ->
+          val txn = DSL.using(config)
+          log.debug("markAsSuccessfullyDeployedTo: start transaction. name: ${artifact.name}. version: $version. env: $targetEnvironment")
 
-        if (!hasApprovedAtTime) {
-          log.debug("setting approvedAt of version $version of artifact ${artifact.name} while marking it as deployed")
-        }
+          val deployedAt = clock.instant()
 
-        val currentUpdates = txn
-          .insertInto(ENVIRONMENT_ARTIFACT_VERSIONS)
-          .set(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID, environmentUid)
-          .set(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID, artifact.uid)
-          .set(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION, version)
-          .set(ENVIRONMENT_ARTIFACT_VERSIONS.DEPLOYED_AT, deployedAt)
-          .set(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS, CURRENT)
-          .apply {
-            if (!hasApprovedAtTime) {
-              set(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT, approvedAt)
-            }
+          val hasApprovedAtTime = previouslyApprovedAt != null
+          val approvedAt = previouslyApprovedAt ?: deployedAt // Identical to deployedAt if missing
+
+          if (!hasApprovedAtTime) {
+            log.debug("setting approvedAt of version $version of artifact ${artifact.name} while marking it as deployed")
           }
-          .onDuplicateKeyUpdate()
-          .set(ENVIRONMENT_ARTIFACT_VERSIONS.DEPLOYED_AT, deployedAt)
-          .set(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS, CURRENT)
-          .apply {
-            if (!hasApprovedAtTime) {
-              set(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT, approvedAt)
-            }
+
+          // the affected-rows value per row is 1 if the row is inserted as a new row, 2 if an existing row is updated, and 0 if an existing row is set to its current values
+          // Source: https://dev.mysql.com/doc/refman/8.0/en/insert-on-duplicate.html
+          val currentUpdates = txn
+            .insertInto(ENVIRONMENT_ARTIFACT_VERSIONS)
+            .set(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID, environmentUid)
+            .set(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID, artifact.uid)
+            .set(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION, version)
+            .set(ENVIRONMENT_ARTIFACT_VERSIONS.DEPLOYED_AT, deployedAt)
+            .set(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS, CURRENT)
+            .onDuplicateKeyUpdate()
+            .set(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS, CURRENT)
+            .execute()
+
+          if (currentUpdates == 0) {
+            log.debug("version $version of ${artifact.name} in env $targetEnvironment of app ${deliveryConfig.application} was marked as deployed on another thread. Bailing...")
+            return@transactionResult false
           }
-          .execute()
-        recordEnvArtifactVersionEvent(deliveryConfig, environment, artifact, version, CURRENT, txn)
 
-        // also insert into this table so the record for current doesn't get lost on a redeploy or a veto
-        txn.insertInto(CURRENT_ENVIRONMENT_ARTIFACT_VERSIONS)
-          .set(CURRENT_ENVIRONMENT_ARTIFACT_VERSIONS.UID, randomUID().toString())
-          .set(CURRENT_ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID, environmentUid)
-          .set(CURRENT_ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID, artifactUid)
-          .set(CURRENT_ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION, version)
-          .set(CURRENT_ENVIRONMENT_ARTIFACT_VERSIONS.DEPLOYED_AT, deployedAt)
-          .set(CURRENT_ENVIRONMENT_ARTIFACT_VERSIONS.JSON, "{}") //todo: add baseimage details here
-          .execute()
+          // We need to update the [deployedAt] and [approvedAt] separately cause otherwise the query above might return the wrong value
+          txn.update(ENVIRONMENT_ARTIFACT_VERSIONS)
+            .set(ENVIRONMENT_ARTIFACT_VERSIONS.DEPLOYED_AT, deployedAt)
+            .apply {
+              if (!hasApprovedAtTime) {
+                set(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT, approvedAt)
+              }
+            }
+            .where(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(environmentUid))
+            .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(artifact.uid))
+            .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION.eq(version))
+            .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.eq(CURRENT))
+            .execute()
 
-        log.debug("markAsSuccessfullyDeployedTo: # of records marked CURRENT: $currentUpdates. name: ${artifact.name}. version: $version. env: $targetEnvironment")
 
-        // update old "CURRENT" to "PREVIOUS
-        val previousUpdates = txn
-          .update(ENVIRONMENT_ARTIFACT_VERSIONS)
-          .set(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS, PREVIOUS)
-          .set(ENVIRONMENT_ARTIFACT_VERSIONS.REPLACED_BY, version)
-          .set(ENVIRONMENT_ARTIFACT_VERSIONS.REPLACED_AT, deployedAt)
-          .where(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(environmentUid))
-          .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(artifact.uid))
-          .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.eq(CURRENT))
-          .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION.ne(version))
-          .execute()
+          recordEnvArtifactVersionEvent(deliveryConfig, environment, artifact, version, CURRENT, txn)
 
-        log.debug("markAsSuccessfullyDeployedTo: # of records marked PREVIOUS: $previousUpdates. name: ${artifact.name}. version: $version. env: $targetEnvironment")
-        // update any past artifacts that were "APPROVED" to be "SKIPPED"
-        // because the new version takes precedence
-        val approved = txn.selectArtifactVersionColumns()
-          .from(ENVIRONMENT_ARTIFACT_VERSIONS, DELIVERY_ARTIFACT, ARTIFACT_VERSIONS)
-          .where(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(environmentUid))
-          .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(artifact.uid))
-          .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.eq(APPROVED))
-          .and(DELIVERY_ARTIFACT.UID.eq(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID))
-          .and(ARTIFACT_VERSIONS.NAME.eq(DELIVERY_ARTIFACT.NAME))
-          .and(ARTIFACT_VERSIONS.TYPE.eq(DELIVERY_ARTIFACT.TYPE))
-          .and(ARTIFACT_VERSIONS.VERSION.eq(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION))
-          .fetchSortedArtifactVersions(artifact)
-        log.debug("markAsSuccessfullyDeployedTo: # of records marked APPROVED: ${approved.size}. name: ${artifact.name}. version: $version. env: $targetEnvironment")
+          // also insert into this table so the record for current doesn't get lost on a redeploy or a veto
+          txn.insertInto(CURRENT_ENVIRONMENT_ARTIFACT_VERSIONS)
+            .set(CURRENT_ENVIRONMENT_ARTIFACT_VERSIONS.UID, randomUID().toString())
+            .set(CURRENT_ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID, environmentUid)
+            .set(CURRENT_ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID, artifactUid)
+            .set(CURRENT_ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION, version)
+            .set(CURRENT_ENVIRONMENT_ARTIFACT_VERSIONS.DEPLOYED_AT, deployedAt)
+            .set(CURRENT_ENVIRONMENT_ARTIFACT_VERSIONS.JSON, "{}") //todo: add baseimage details here
+            .execute()
 
-        val approvedButOld = approved
-          .filter { isOlder(artifact, it, artifactVersion) }
-          .map { it.version }
-          .toTypedArray()
+          log.debug("markAsSuccessfullyDeployedTo: # of records marked CURRENT: $currentUpdates. name: ${artifact.name}. version: $version. env: $targetEnvironment")
 
-        log.debug("markAsSuccessfullyDeployedTo: # of approvedButOld: ${approvedButOld.size}. ${artifact.name}. version: $version. env: $targetEnvironment")
-
-        if (approvedButOld.isNotEmpty()) {
-          val skippedUpdates = txn
+          // update old "CURRENT" to "PREVIOUS
+          val previousUpdates = txn
             .update(ENVIRONMENT_ARTIFACT_VERSIONS)
-            .set(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS, SKIPPED)
+            .set(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS, PREVIOUS)
             .set(ENVIRONMENT_ARTIFACT_VERSIONS.REPLACED_BY, version)
-            .set(ENVIRONMENT_ARTIFACT_VERSIONS.REPLACED_AT, clock.instant())
+            .set(ENVIRONMENT_ARTIFACT_VERSIONS.REPLACED_AT, deployedAt)
+            .where(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(environmentUid))
+            .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(artifact.uid))
+            .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.eq(CURRENT))
+            .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION.ne(version))
+            .execute()
+
+          log.debug("markAsSuccessfullyDeployedTo: # of records marked PREVIOUS: $previousUpdates. name: ${artifact.name}. version: $version. env: $targetEnvironment")
+          // update any past artifacts that were "APPROVED" to be "SKIPPED"
+          // because the new version takes precedence
+          val approved = txn.selectArtifactVersionColumns()
+            .from(ENVIRONMENT_ARTIFACT_VERSIONS, DELIVERY_ARTIFACT, ARTIFACT_VERSIONS)
             .where(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(environmentUid))
             .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(artifact.uid))
             .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.eq(APPROVED))
-            .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION.`in`(*approvedButOld))
-            .execute()
-          batchRecordEnvArtifactVersionEvent(deliveryConfig, environment, artifact, approvedButOld.toList(), SKIPPED, txn)
+            .and(DELIVERY_ARTIFACT.UID.eq(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID))
+            .and(ARTIFACT_VERSIONS.NAME.eq(DELIVERY_ARTIFACT.NAME))
+            .and(ARTIFACT_VERSIONS.TYPE.eq(DELIVERY_ARTIFACT.TYPE))
+            .and(ARTIFACT_VERSIONS.VERSION.eq(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION))
+            .fetchSortedArtifactVersions(artifact)
+          log.debug("markAsSuccessfullyDeployedTo: # of records marked APPROVED: ${approved.size}. name: ${artifact.name}. version: $version. env: $targetEnvironment")
 
-          log.debug("markAsSuccessfullyDeployedTo: # of records marked SKIPPED: $skippedUpdates. name: ${artifact.name}. version: $version. env: $targetEnvironment")
-        }
+          val approvedButOld = approved
+            .filter { isOlder(artifact, it, artifactVersion) }
+            .map { it.version }
+            .toTypedArray()
 
-        val pendingButOld = getPendingVersionsInEnvironment(
-          deliveryConfig,
-          artifact.reference,
-          targetEnvironment
-        ).filter { isOlder(artifact, it, artifactVersion) }
-          .map { it.version }
-          .take(100) // only take some of the records so this isn't a giant query
-          .toTypedArray()
+          log.debug("markAsSuccessfullyDeployedTo: # of approvedButOld: ${approvedButOld.size}. ${artifact.name}. version: $version. env: $targetEnvironment")
 
-        log.debug("markAsSuccessfullyDeployedTo: # of pendingButOld: ${pendingButOld.size}. ${artifact.name}. version: $version. env: $targetEnvironment")
-
-        if (pendingButOld.isNotEmpty()) {
-          val skippedUpdates = txn
-            .insertInto(ENVIRONMENT_ARTIFACT_VERSIONS,
-              ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID,
-              ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID,
-              ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION,
-              ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS,
-              ENVIRONMENT_ARTIFACT_VERSIONS.REPLACED_BY,
-              ENVIRONMENT_ARTIFACT_VERSIONS.REPLACED_AT
+          if (approvedButOld.isNotEmpty()) {
+            val skippedUpdates = txn
+              .update(ENVIRONMENT_ARTIFACT_VERSIONS)
+              .set(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS, SKIPPED)
+              .set(ENVIRONMENT_ARTIFACT_VERSIONS.REPLACED_BY, version)
+              .set(ENVIRONMENT_ARTIFACT_VERSIONS.REPLACED_AT, clock.instant())
+              .where(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(environmentUid))
+              .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(artifact.uid))
+              .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.eq(APPROVED))
+              .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION.`in`(*approvedButOld))
+              .execute()
+            batchRecordEnvArtifactVersionEvent(
+              deliveryConfig,
+              environment,
+              artifact,
+              approvedButOld.toList(),
+              SKIPPED,
+              txn
             )
-            .apply {
-              // this should skip all pending old versions in the env
-              pendingButOld.forEach {
-                values(environmentUidString, artifactUid, it, SKIPPED, version, clock.instant())
+
+            log.debug("markAsSuccessfullyDeployedTo: # of records marked SKIPPED: $skippedUpdates. name: ${artifact.name}. version: $version. env: $targetEnvironment")
+          }
+
+          val pendingButOld = getPendingVersionsInEnvironment(
+            deliveryConfig,
+            artifact.reference,
+            targetEnvironment
+          ).filter { isOlder(artifact, it, artifactVersion) }
+            .map { it.version }
+            .take(100) // only take some of the records so this isn't a giant query
+            .toTypedArray()
+
+          log.debug("markAsSuccessfullyDeployedTo: # of pendingButOld: ${pendingButOld.size}. ${artifact.name}. version: $version. env: $targetEnvironment")
+
+          if (pendingButOld.isNotEmpty()) {
+            val skippedUpdates = txn
+              .insertInto(
+                ENVIRONMENT_ARTIFACT_VERSIONS,
+                ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID,
+                ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID,
+                ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION,
+                ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS,
+                ENVIRONMENT_ARTIFACT_VERSIONS.REPLACED_BY,
+                ENVIRONMENT_ARTIFACT_VERSIONS.REPLACED_AT
+              )
+              .apply {
+                // this should skip all pending old versions in the env
+                pendingButOld.forEach {
+                  values(environmentUidString, artifactUid, it, SKIPPED, version, clock.instant())
+                }
               }
-            }
-            .execute()
-          batchRecordEnvArtifactVersionEvent(deliveryConfig, environment, artifact, pendingButOld.toList(), SKIPPED, txn)
-          log.debug("markAsSuccessfullyDeployedTo: # of pending versions marked SKIPPED: $skippedUpdates. name: ${artifact.name}. version: $version. env: $targetEnvironment")
+              .execute()
+
+            batchRecordEnvArtifactVersionEvent(
+              deliveryConfig,
+              environment,
+              artifact,
+              pendingButOld.toList(),
+              SKIPPED,
+              txn
+            )
+            log.debug("markAsSuccessfullyDeployedTo: # of pending versions marked SKIPPED: $skippedUpdates. name: ${artifact.name}. version: $version. env: $targetEnvironment")
+          }
+          log.debug("markAsSuccessfullyDeployedTo complete. name: ${artifact.name}. version: $version. env: $targetEnvironment")
+          return@transactionResult true
         }
       }
     }
-
-    log.debug("markAsSuccessfullyDeployedTo complete. name: ${artifact.name}. version: $version. env: $targetEnvironment")
   }
 
   override fun vetoedEnvironmentVersions(deliveryConfig: DeliveryConfig): List<EnvironmentArtifactVetoes> {
