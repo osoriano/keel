@@ -7,6 +7,7 @@ import com.netflix.spinnaker.keel.actuation.ExecutionSummaryService
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.SubnetAwareLocations
 import com.netflix.spinnaker.keel.api.SubnetAwareRegionSpec
+import com.netflix.spinnaker.keel.api.action.ActionRepository
 import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
 import com.netflix.spinnaker.keel.api.artifacts.Commit
 import com.netflix.spinnaker.keel.api.artifacts.CurrentlyDeployedVersion
@@ -157,6 +158,9 @@ class QueryTests {
 
   @MockkBean
   lateinit var applicationRepository: ApplicationRepository
+
+  @MockkBean
+  lateinit var actionRepository: ActionRepository
 
   val clock = MutableClock()
 

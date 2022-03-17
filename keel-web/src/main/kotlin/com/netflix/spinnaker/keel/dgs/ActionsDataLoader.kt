@@ -3,10 +3,11 @@ package com.netflix.spinnaker.keel.dgs
 import com.netflix.graphql.dgs.DgsDataLoader
 import com.netflix.graphql.dgs.context.DgsContext
 import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
+import com.netflix.spinnaker.keel.api.DeliveryConfig
+import com.netflix.spinnaker.keel.api.action.ActionRepository
 import com.netflix.spinnaker.keel.api.action.ActionStateFull
 import com.netflix.spinnaker.keel.api.action.ActionType
-import com.netflix.spinnaker.keel.api.action.ActionType.POST_DEPLOY
-import com.netflix.spinnaker.keel.api.action.ActionType.VERIFICATION
+import com.netflix.spinnaker.keel.api.action.EnvironmentArtifactAndVersion
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
 import com.netflix.spinnaker.keel.graphql.types.MD_Action
 import com.netflix.spinnaker.keel.graphql.types.MD_ActionStatus
@@ -25,8 +26,8 @@ import com.netflix.spinnaker.keel.telemetry.InvalidVerificationIdSeen
  */
 @DgsDataLoader(name = ActionsDataLoader.Descriptor.name)
 class ActionsDataLoader(
-  private val keelRepository: KeelRepository,
   private val publisher: ApplicationEventPublisher,
+  private val actionRepository: ActionRepository
 ) : MappedBatchLoaderWithContext<EnvironmentArtifactAndVersion, List<MD_Action>> {
 
   object Descriptor {
@@ -35,6 +36,32 @@ class ActionsDataLoader(
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
+  fun loadData(
+    config: DeliveryConfig,
+    keys: MutableSet<EnvironmentArtifactAndVersion>
+  ): MutableMap<EnvironmentArtifactAndVersion, List<MD_Action>> {
+    val result = mutableMapOf<EnvironmentArtifactAndVersion, List<MD_Action>>()
+    keys.groupBy { it.artifactReference }.entries.forEach { (artifactReference, entries) ->
+      val allStates =
+        actionRepository.getStatesForVersions(deliveryConfig = config, artifactReference = artifactReference,
+                                              artifactVersions = entries.map { it.artifactVersion })
+
+      allStates.entries.forEach { (key, states) ->
+        result[key] = states.mapNotNull {
+          it.toMdAction(
+            ArtifactInEnvironmentContext(
+              deliveryConfig = config,
+              environmentName = key.environmentName,
+              artifactReference = key.artifactReference,
+              version = key.artifactVersion
+            )
+          )
+        }
+      }
+    }
+    return result
+  }
+
   /**
    * Loads verifications and actions for each context
    */
@@ -42,59 +69,26 @@ class ActionsDataLoader(
     CompletionStage<MutableMap<EnvironmentArtifactAndVersion, List<MD_Action>>> {
     val context: ApplicationContext = DgsContext.getCustomContext(environment)
     return CompletableFuture.supplyAsync {
-      // TODO: optimize that by querying only the needed versions
       val config = context.getConfig()
-      val actionContexts = keys.map {
-        ArtifactInEnvironmentContext(
-          deliveryConfig = config,
-          environmentName = it.environmentName,
-          artifactReference = it.artifactReference,
-          version = it.version
-        )
-      }
-      val states = keelRepository.getAllActionStatesBatch(actionContexts)
-
-      val result = mutableMapOf<EnvironmentArtifactAndVersion, List<MD_Action>>()
-
-      // an action context corresponds with a list of action states
-      actionContexts.zip(states).forEach { (ctx, actionState: List<ActionStateFull>) ->
-        val verificationKey = EnvironmentArtifactAndVersion(
-          environmentName = ctx.environmentName,
-          artifactReference = ctx.artifactReference,
-          version = ctx.version,
-          actionType = VERIFICATION
-        )
-        result[verificationKey] = actionState.filter { it.type == VERIFICATION }.toDgsList(ctx, VERIFICATION)
-
-        val postDeployKey = EnvironmentArtifactAndVersion(
-          environmentName = ctx.environmentName,
-          artifactReference = ctx.artifactReference,
-          version = ctx.version,
-          actionType = POST_DEPLOY
-        )
-        result[postDeployKey] = actionState.filter { it.type == POST_DEPLOY }.toDgsList(ctx, POST_DEPLOY)
-      }
-      result
+      loadData(config, keys)
     }
   }
 
-  fun List<ActionStateFull>.toDgsList(ctx: ArtifactInEnvironmentContext, actionType: ActionType): List<MD_Action> =
-    mapNotNull { it.toMdAction(ctx, actionType) }
 
-  fun ActionStateFull.toMdAction(ctx: ArtifactInEnvironmentContext, actionType: ActionType) =
-    ctx.action(actionType, id)?.id?.let { actionId ->
+  fun ActionStateFull.toMdAction(ctx: ArtifactInEnvironmentContext) =
+    ctx.action(type, id)?.id?.let { actionId ->
       MD_Action(
-        id = ctx.getMdActionId(actionType, id),
+        id = ctx.getMdActionId(type, id),
         type = actionId, // TODO: deprecated - remove after updating the frontend
         actionId = actionId,
         status = state.status.toDgsActionStatus(),
         startedAt = state.startedAt,
         completedAt = state.endedAt,
         link = state.link,
-        actionType = MD_ActionType.valueOf(actionType.name)
+        actionType = MD_ActionType.valueOf(type.name)
       )
     }
-      .also { if (ctx.action(actionType, id) == null) onInvalidVerificationId(id, ctx) }
+      .also { if (ctx.action(type, id) == null) onInvalidVerificationId(id, ctx) }
 
   /**
    * Actions to take when the verification state database table references a verification id that doesn't exist
@@ -113,7 +107,7 @@ class ActionsDataLoader(
   }
 }
 
-fun ConstraintStatus.toDgsActionStatus(): MD_ActionStatus = when(this) {
+fun ConstraintStatus.toDgsActionStatus(): MD_ActionStatus = when (this) {
   ConstraintStatus.NOT_EVALUATED -> MD_ActionStatus.NOT_EVALUATED
   ConstraintStatus.PENDING -> MD_ActionStatus.PENDING
   ConstraintStatus.FAIL -> MD_ActionStatus.FAIL

@@ -62,6 +62,15 @@ interface ActionRepository {
   fun getAllStatesBatch(contexts: List<ArtifactInEnvironmentContext>): List<List<ActionStateFull>>
 
   /**
+   * Get all states grouped by environment and artifact reference
+   */
+  fun getStatesForVersions(
+    deliveryConfig: DeliveryConfig,
+    artifactReference: String,
+    artifactVersions: List<String>
+  ): Map<EnvironmentArtifactAndVersion, List<ActionStateFull>>
+
+  /**
    * Updates the state of [action] run against [context]
    * @param metadata if non-empty this will overwrite any existing metadata.
    */
@@ -124,4 +133,13 @@ data class ActionStateFull(
   val type: ActionType,
   val id: String
 )
+
+data class EnvironmentArtifactAndVersion(
+  val environmentName: String,
+  val artifactReference: String,
+  val artifactVersion: String,
+  val actionType: ActionType? = null
+)
+
+
 

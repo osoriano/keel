@@ -10,8 +10,8 @@ import com.netflix.graphql.dgs.InputArgument
 import com.netflix.graphql.dgs.context.DgsContext
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.action.ActionType
+import com.netflix.spinnaker.keel.api.action.EnvironmentArtifactAndVersion
 import com.netflix.spinnaker.keel.artifacts.ArtifactVersionLinks
-import com.netflix.spinnaker.keel.auth.AuthorizationSupport
 import com.netflix.spinnaker.keel.core.api.DependsOnConstraint
 import com.netflix.spinnaker.keel.events.EventLevel.ERROR
 import com.netflix.spinnaker.keel.events.EventLevel.WARNING
@@ -47,7 +47,6 @@ import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
 import org.dataloader.DataLoader
 import org.slf4j.LoggerFactory
-import org.springframework.security.access.prepost.PreAuthorize
 import java.util.concurrent.CompletableFuture
 
 /**
@@ -58,7 +57,6 @@ import java.util.concurrent.CompletableFuture
  */
 @DgsComponent
 class ApplicationFetcher(
-  private val authorizationSupport: AuthorizationSupport,
   private val keelRepository: KeelRepository,
   private val actuationPauser: ActuationPauser,
   private val artifactVersionLinks: ArtifactVersionLinks,

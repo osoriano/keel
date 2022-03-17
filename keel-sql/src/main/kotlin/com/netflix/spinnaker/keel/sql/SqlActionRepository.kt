@@ -13,6 +13,7 @@ import com.netflix.spinnaker.keel.api.action.ActionStateFull
 import com.netflix.spinnaker.keel.api.action.ActionType
 import com.netflix.spinnaker.keel.api.action.ActionType.POST_DEPLOY
 import com.netflix.spinnaker.keel.api.action.ActionType.VERIFICATION
+import com.netflix.spinnaker.keel.api.action.EnvironmentArtifactAndVersion
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables
@@ -22,6 +23,7 @@ import com.netflix.spinnaker.keel.persistence.metamodel.Tables.DELIVERY_ARTIFACT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.DELIVERY_CONFIG
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_LAST_VERIFIED
 import com.netflix.spinnaker.keel.resources.ResourceFactory
+import com.netflix.spinnaker.keel.sql.RetryCategory.READ
 import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
 import com.netflix.spinnaker.keel.sql.deliveryconfigs.deliveryConfigByName
 import org.jooq.*
@@ -299,6 +301,53 @@ class SqlActionRepository(
         }
         .toList()
     } ?: emptyList()
+  }
+
+  override fun getStatesForVersions(
+    deliveryConfig: DeliveryConfig,
+    artifactReference: String,
+    artifactVersions: List<String>
+  ): Map<EnvironmentArtifactAndVersion, List<ActionStateFull>> {
+    return sqlRetry.withRetry(READ) {
+
+      jooq.select(
+        ACTION_STATE.ACTION_ID,
+        ACTION_STATE.STATUS,
+        ACTION_STATE.STARTED_AT,
+        ACTION_STATE.ENDED_AT,
+        ACTION_STATE.METADATA,
+        ACTION_STATE.LINK,
+        ACTION_STATE.TYPE,
+        ACTIVE_ENVIRONMENT.NAME,
+        ACTION_STATE.ARTIFACT_VERSION
+      )
+        .from(ACTION_STATE)
+        .join(ACTIVE_ENVIRONMENT)
+        .on(ACTION_STATE.ENVIRONMENT_UID.eq(ACTIVE_ENVIRONMENT.UID))
+        .join(DELIVERY_CONFIG)
+        .on(DELIVERY_CONFIG.UID.eq(ACTIVE_ENVIRONMENT.DELIVERY_CONFIG_UID))
+        .join(DELIVERY_ARTIFACT)
+        .on(DELIVERY_ARTIFACT.UID.eq(ACTION_STATE.ARTIFACT_UID))
+        .where(DELIVERY_CONFIG.NAME.eq(deliveryConfig.name))
+        .and(DELIVERY_ARTIFACT.REFERENCE.eq(artifactReference))
+        .and(ACTION_STATE.ARTIFACT_VERSION.`in`(artifactVersions))
+        .fetch()
+        .groupBy({ (_, _, _, _, _, _, type, environmentName, artifactVersion) ->
+                   EnvironmentArtifactAndVersion(
+                     environmentName = environmentName,
+                     artifactReference = artifactReference,
+                     artifactVersion = artifactVersion,
+                     actionType = type
+                   )
+                 },
+                 { (action_id, status, started_at, ended_at, metadata, link, type, _, _) ->
+                   ActionStateFull(
+                     state = ActionState(status, started_at, ended_at, metadata, link),
+                     type = type,
+                     id = action_id
+                   )
+                 })
+    }
   }
 
   /**
