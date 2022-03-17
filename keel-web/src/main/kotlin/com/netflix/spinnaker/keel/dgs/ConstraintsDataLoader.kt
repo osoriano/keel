@@ -4,6 +4,7 @@ import com.netflix.graphql.dgs.DgsDataLoader
 import com.netflix.graphql.dgs.context.DgsContext
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.StatefulConstraint
+import com.netflix.spinnaker.keel.api.action.EnvironmentArtifactAndVersion
 import com.netflix.spinnaker.keel.api.constraints.ConstraintState
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
 import com.netflix.spinnaker.keel.api.constraints.StatefulConstraintEvaluator
@@ -62,7 +63,7 @@ class ConstraintsDataLoader(
             var state = ConstraintState(
               deliveryConfigName = config.name,
               environmentName = key.environmentName,
-              artifactVersion = key.version,
+              artifactVersion = key.artifactVersion,
               artifactReference = key.artifactReference,
               type = envConstraint.type,
               status = ConstraintStatus.NOT_EVALUATED
@@ -85,12 +86,12 @@ class ConstraintsDataLoader(
 
             // Evaluate the current status of the constraint
             val artifact = config.matchingArtifactByReference(key.artifactReference) ?: return@forEach
-            val passes = evaluator.canPromote(artifact, version = key.version, deliveryConfig = config, targetEnvironment = environment)
+            val passes = evaluator.canPromote(artifact, version = key.artifactVersion, deliveryConfig = config, targetEnvironment = environment)
 
             ConstraintState(
               deliveryConfigName = config.name,
               environmentName = key.environmentName,
-              artifactVersion = key.version,
+              artifactVersion = key.artifactVersion,
               artifactReference = key.artifactReference,
               type = envConstraint.type,
               status = if (passes) ConstraintStatus.PASS else ConstraintStatus.PENDING,
@@ -117,7 +118,7 @@ class ConstraintsDataLoader(
         existingConstraints.contains(constraintState.type)
       }
       .groupByTo(mutableMapOf()) {
-        EnvironmentArtifactAndVersion(environmentName = it.environmentName, artifactReference = it.artifactReference, version = it.artifactVersion)
+        EnvironmentArtifactAndVersion(environmentName = it.environmentName, artifactReference = it.artifactReference, artifactVersion = it.artifactVersion)
       }
     addMissingConstraints(requestedVersions, persistedStates, config)
     return persistedStates

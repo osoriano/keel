@@ -2,6 +2,7 @@ package com.netflix.spinnaker.keel.dgs
 
 import com.netflix.graphql.dgs.DgsDataLoader
 import com.netflix.graphql.dgs.context.DgsContext
+import com.netflix.spinnaker.keel.api.action.EnvironmentArtifactAndVersion
 import com.netflix.spinnaker.keel.core.api.ArtifactVersionVetoData
 import com.netflix.spinnaker.keel.graphql.types.MdVersionVeto
 import com.netflix.spinnaker.keel.persistence.KeelRepository
@@ -32,7 +33,7 @@ class VetoedDataLoader(
       vetoed.forEach { envArtifact ->
         envArtifact.versions.map { version ->
           results.put(
-            EnvironmentArtifactAndVersion(environmentName = envArtifact.targetEnvironment, artifactReference = envArtifact.artifact.reference, version = version.version),
+            EnvironmentArtifactAndVersion(environmentName = envArtifact.targetEnvironment, artifactReference = envArtifact.artifact.reference, artifactVersion = version.version),
             version.toDgs()
           )
         }

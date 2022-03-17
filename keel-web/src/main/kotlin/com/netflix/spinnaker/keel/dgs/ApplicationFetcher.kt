@@ -9,8 +9,8 @@ import com.netflix.graphql.dgs.exceptions.DgsEntityNotFoundException
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.action.ActionType
 import com.netflix.spinnaker.keel.api.actuation.ExecutionSummaryService
+import com.netflix.spinnaker.keel.api.action.EnvironmentArtifactAndVersion
 import com.netflix.spinnaker.keel.artifacts.ArtifactVersionLinks
-import com.netflix.spinnaker.keel.auth.AuthorizationSupport
 import com.netflix.spinnaker.keel.events.EventLevel.ERROR
 import com.netflix.spinnaker.keel.events.EventLevel.WARNING
 import com.netflix.spinnaker.keel.graphql.DgsConstants
@@ -56,7 +56,6 @@ import java.util.concurrent.CompletableFuture
  */
 @DgsComponent
 class ApplicationFetcher(
-  private val authorizationSupport: AuthorizationSupport,
   private val keelRepository: KeelRepository,
   private val resourceStatusService: ResourceStatusService,
   private val actuationPauser: ActuationPauser,

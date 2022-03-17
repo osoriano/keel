@@ -11,7 +11,9 @@ import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PENDING
 import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
 import com.netflix.spinnaker.keel.api.action.ActionRepository
 import com.netflix.spinnaker.keel.api.action.ActionState
+import com.netflix.spinnaker.keel.api.action.ActionType.POST_DEPLOY
 import com.netflix.spinnaker.keel.api.action.ActionType.VERIFICATION
+import com.netflix.spinnaker.keel.api.action.EnvironmentArtifactAndVersion
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.NOT_EVALUATED
 import com.netflix.spinnaker.keel.api.postdeploy.PostDeployAction
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
@@ -28,6 +30,7 @@ import strikt.api.expectThat
 import strikt.assertions.contains
 import strikt.assertions.containsExactly
 import strikt.assertions.containsKey
+import strikt.assertions.containsKeys
 import strikt.assertions.first
 import strikt.assertions.get
 import strikt.assertions.hasSize
@@ -54,12 +57,12 @@ abstract class ActionRepositoryTests<IMPLEMENTATION : ActionRepository> {
   open fun ArtifactInEnvironmentContext.pauseApplication() {}
 
   protected data class DummyVerification(val value: String) : Verification {
-    override val type = "dummy"
+    override val type = "dummyVerification"
     override val id = "$type:$value"
   }
 
   protected data class DummyPostDeployAction(val value: String): PostDeployAction() {
-    override val type = "dummy"
+    override val type = "dummyPostDeploy"
     override val id = "$type:$value"
   }
 
@@ -617,5 +620,48 @@ abstract class ActionRepositoryTests<IMPLEMENTATION : ActionRepository> {
 
     expectThat(subject.getVerificationContextsWithStatus(deliveryConfig, environment, PENDING)).isEmpty()
     expectThat(subject.getVerificationContextsWithStatus(otherConfig, otherEnvironment, PENDING)).containsExactly(otherContext)
+  }
+
+  @Test
+  fun `get all states for versions`() {
+    val verification1 = DummyVerification("1")
+    val verification2 = DummyVerification("2")
+    val verification3 = DummyVerification("3")
+    val environments = setOf(
+      Environment(name = "test", verifyWith = listOf(verification1, verification2)),
+      Environment(name = "prod", verifyWith = listOf(verification3), postDeploy = listOf(postDeployAction))
+    )
+    val config = deliveryConfig.copy(environments = environments)
+    val c1 = ArtifactInEnvironmentContext(
+      deliveryConfig = config,
+      environmentName = "test",
+      artifactReference = "fnord-docker-stable",
+      version = "fnord-0.190.0-h378.eacb135"
+    )
+    val c2 = c1.copy(version = "fnord-0.191.0-h379.fbde246")
+    val c3 = c1.copy(environmentName = "prod")
+
+    val contexts = listOf(c1, c2, c3)
+    var keys = contexts.map {
+      EnvironmentArtifactAndVersion(
+        environmentName = it.environmentName,
+        artifactReference = it.artifactReference,
+        artifactVersion = it.version,
+        actionType = VERIFICATION
+      )
+    }
+    keys = keys + keys.last().copy(actionType = POST_DEPLOY)
+
+    contexts.forEach { it.setup() }
+
+    subject.updateState(c1, verification1, PASS, link = "http://www.example.com/pass")
+    subject.updateState(c1, verification2, PASS, link = "http://www.example.com/pass")
+    subject.updateState(c2, verification1, PASS, link = "http://www.example.com/pass")
+    subject.updateState(c3, verification2, PASS, link = "http://www.example.com/pass")
+    subject.updateState(c3, postDeployAction, PASS, link = "http://www.example.com/pass")
+
+    val result = subject.getStatesForVersions(config, context.artifactReference, contexts.map { it.version })
+    expectThat(result).isNotEmpty().hasSize(4).containsKeys(*keys.toTypedArray())
+    expectThat(result[keys[0]]).isNotNull().hasSize(2)
   }
 }

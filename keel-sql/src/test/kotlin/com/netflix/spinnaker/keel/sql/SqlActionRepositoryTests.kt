@@ -32,7 +32,8 @@ internal class SqlActionRepositoryTests :
   private val mapper = configuredObjectMapper()
     .registerKeelApiModule()
     .apply {
-      registerSubtypes(NamedType(DummyVerification::class.java, "dummy"))
+      registerSubtypes(NamedType(DummyVerification::class.java, "dummyVerification"))
+      registerSubtypes(NamedType(DummyPostDeployAction::class.java, "dummyPostDeploy"))
     }
 
   private val deliveryConfigRepository = SqlDeliveryConfigRepository(
