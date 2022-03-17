@@ -438,5 +438,5 @@ databaseChangeLog:
     file: changelog/20220311-lifecycle-event-index-with-version.yml
     relativeToChangelogFile: true
 - include:
-    file: changelog/20220316-artifact-promotion-event-non-null.yml
+    file: changelog/20220316-artifact-promotion-events-table.yml
     relativeToChangelogFile: true
