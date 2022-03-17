@@ -3,8 +3,8 @@ databaseChangeLog:
       id: drop-artifact-promotion-events-table
       author: emjburns
       changes:
-        - dropTable:
-            tableName: artifact_promotion_event
+        - sql:
+            sql: drop table if exists artifact_promotion_event;
   - changeSet:
       id: fix-artifact-promotion
       author: emjburns
