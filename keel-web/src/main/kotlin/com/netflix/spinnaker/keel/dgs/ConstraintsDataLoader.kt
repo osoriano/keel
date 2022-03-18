@@ -20,11 +20,12 @@ import com.netflix.spinnaker.keel.graphql.types.MD_Constraint
 import com.netflix.spinnaker.keel.graphql.types.MD_ConstraintStatus
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.services.removePrivateConstraintAttrs
+import com.netflix.springboot.scheduling.DefaultExecutor
 import kotlinx.coroutines.runBlocking
 import org.dataloader.BatchLoaderEnvironment
 import org.dataloader.MappedBatchLoaderWithContext
-import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
+import java.util.concurrent.Executor
 
 /**
  * Loads all constraint states for the given versions
@@ -33,6 +34,7 @@ import java.util.concurrent.CompletionStage
 class ConstraintsDataLoader(
   private val keelRepository: KeelRepository,
   constraintEvaluators: List<ConstraintEvaluator<*>>,
+  @DefaultExecutor private val executor: Executor
 ) : MappedBatchLoaderWithContext<EnvironmentArtifactAndVersion, List<MD_Constraint>> {
 
   object Descriptor {
@@ -133,7 +135,7 @@ class ConstraintsDataLoader(
     environment: BatchLoaderEnvironment
   ): CompletionStage<MutableMap<EnvironmentArtifactAndVersion, List<MD_Constraint>>> {
     val context: ApplicationContext = DgsContext.getCustomContext(environment)
-    return CompletableFuture.supplyAsync {
+    return executor.supplyAsync {
       // TODO: optimize that by querying only the needed versions
       val config = context.getConfig()
       val constraintStates = runBlocking { getConstraintsState(keys, config) }

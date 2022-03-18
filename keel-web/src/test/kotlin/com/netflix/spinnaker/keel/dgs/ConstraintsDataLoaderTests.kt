@@ -36,6 +36,7 @@ import strikt.assertions.isEqualTo
 import strikt.assertions.isNotNull
 import strikt.assertions.isNull
 import strikt.assertions.isTrue
+import java.util.concurrent.Executors
 
 class ConstraintsDataLoaderTests: JUnit5Minutests {
 
@@ -95,7 +96,7 @@ class ConstraintsDataLoaderTests: JUnit5Minutests {
       environment.copy(constraints = setOf(mjConstraint))
     ))
 
-    val subject = ConstraintsDataLoader(keelRepository, constraintEvaluators)
+    val subject = ConstraintsDataLoader(keelRepository, constraintEvaluators, Executors.newSingleThreadExecutor())
   }
 
   fun tests() = rootContext<Fixture> {

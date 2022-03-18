@@ -7,10 +7,11 @@ import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.core.api.PinnedEnvironment
 import com.netflix.spinnaker.keel.graphql.types.MD_PinnedVersion
 import com.netflix.spinnaker.keel.persistence.KeelRepository
+import com.netflix.springboot.scheduling.DefaultExecutor
 import org.dataloader.BatchLoaderEnvironment
 import org.dataloader.MappedBatchLoaderWithContext
-import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
+import java.util.concurrent.Executor
 
 /**
  * Loads pinned artifact versions for all of the environments and map them to artifact and environment.
@@ -18,7 +19,8 @@ import java.util.concurrent.CompletionStage
  */
 @DgsDataLoader(name = PinnedVersionInEnvironmentDataLoader.Descriptor.name)
 class PinnedVersionInEnvironmentDataLoader(
-  private val keelRepository: KeelRepository
+  private val keelRepository: KeelRepository,
+  @DefaultExecutor private val executor: Executor
 ) : MappedBatchLoaderWithContext<PinnedArtifactAndEnvironment, MD_PinnedVersion> {
 
   object Descriptor {
@@ -27,7 +29,7 @@ class PinnedVersionInEnvironmentDataLoader(
 
   override fun load(keys: MutableSet<PinnedArtifactAndEnvironment>, environment: BatchLoaderEnvironment): CompletionStage<MutableMap<PinnedArtifactAndEnvironment, MD_PinnedVersion>> {
     val context: ApplicationContext = DgsContext.getCustomContext(environment)
-    return CompletableFuture.supplyAsync {
+    return executor.supplyAsync {
       keelRepository.pinnedEnvironments(context.getConfig()).associateBy(
         { PinnedArtifactAndEnvironment(artifact = it.artifact, environment = it.targetEnvironment) },
         {

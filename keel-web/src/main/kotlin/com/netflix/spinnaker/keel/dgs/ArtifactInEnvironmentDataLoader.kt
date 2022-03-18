@@ -7,10 +7,11 @@ import com.netflix.spinnaker.keel.core.api.PublishedArtifactInEnvironment
 import com.netflix.spinnaker.keel.graphql.types.MD_ArtifactStatusInEnvironment
 import com.netflix.spinnaker.keel.graphql.types.MD_ArtifactVersionInEnvironment
 import com.netflix.spinnaker.keel.persistence.KeelRepository
+import com.netflix.springboot.scheduling.DefaultExecutor
 import org.dataloader.BatchLoaderEnvironment
 import org.dataloader.MappedBatchLoaderWithContext
-import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
+import java.util.concurrent.Executor
 
 /**
  * Loads all the version data for an artifacts in an environment.
@@ -18,7 +19,8 @@ import java.util.concurrent.CompletionStage
  */
 @DgsDataLoader(name = ArtifactInEnvironmentDataLoader.Descriptor.name)
 class ArtifactInEnvironmentDataLoader(
-  private val keelRepository: KeelRepository
+  private val keelRepository: KeelRepository,
+  @DefaultExecutor private val executor: Executor
 ) : MappedBatchLoaderWithContext<ArtifactAndEnvironment, List<MD_ArtifactVersionInEnvironment>> {
 
   object Descriptor {
@@ -29,7 +31,7 @@ class ArtifactInEnvironmentDataLoader(
     CompletionStage<MutableMap<ArtifactAndEnvironment, List<MD_ArtifactVersionInEnvironment>>> {
 
     val applicationContext: ApplicationContext = DgsContext.getCustomContext(environment)
-    return CompletableFuture.supplyAsync {
+    return executor.supplyAsync {
       val requestedStatuses = applicationContext.requestedStatuses
       val requestedVersionIds = applicationContext.requestedVersionIds
       val requestedLimit = applicationContext.requestedLimit

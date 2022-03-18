@@ -11,10 +11,11 @@ import io.mockk.mockk
 import org.junit.jupiter.api.Test
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo
+import java.util.concurrent.Executors
 
 class LifecycleEventsByVersionDataLoaderTests {
   private val lifecycleEventRepository: LifecycleEventRepository = mockk()
-  val subject = LifecycleEventsByVersionDataLoader(lifecycleEventRepository)
+  val subject = LifecycleEventsByVersionDataLoader(lifecycleEventRepository, Executors.newSingleThreadExecutor())
   val artifact = debianArtifact()
   private val versions = listOf("version1", "version2", "version3")
   private val artifactAndVersions = versions.map { ArtifactAndVersion(artifact, it) }.toMutableSet()

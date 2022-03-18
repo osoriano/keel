@@ -8,16 +8,18 @@ import com.netflix.spinnaker.keel.graphql.types.MD_LifecycleEventType
 import com.netflix.spinnaker.keel.graphql.types.MD_LifecycleStep
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventRepository
 import com.netflix.spinnaker.keel.lifecycle.LifecycleStep
+import com.netflix.springboot.scheduling.DefaultExecutor
 import org.dataloader.MappedBatchLoader
-import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
+import java.util.concurrent.Executor
 
 /**
  * Loads all lifecycle events for a single version of an artifact
  */
 @DgsDataLoader(name = LifecycleEventsByVersionDataLoader.Descriptor.name)
 class LifecycleEventsByVersionDataLoader(
-  private val lifecycleEventRepository: LifecycleEventRepository
+  private val lifecycleEventRepository: LifecycleEventRepository,
+  @DefaultExecutor private val executor: Executor
 ) : MappedBatchLoader<ArtifactAndVersion, List<MD_LifecycleStep>> {
 
   object Descriptor {
@@ -45,7 +47,7 @@ class LifecycleEventsByVersionDataLoader(
   }
 
   override fun load(keys: MutableSet<ArtifactAndVersion>): CompletionStage<MutableMap<ArtifactAndVersion, List<MD_LifecycleStep>>> {
-    return CompletableFuture.supplyAsync {
+    return executor.supplyAsync {
       loadData(keys)
     }
   }

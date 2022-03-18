@@ -15,11 +15,12 @@ import strikt.assertions.doesNotContainKey
 import strikt.assertions.hasSize
 import strikt.assertions.isEqualTo
 import strikt.assertions.isNull
+import java.util.concurrent.Executors
 
 class PausedDataLoaderTests {
   val actuationPauser: ActuationPauser = mockk()
   val clock = MutableClock()
-  val subject = PausedDataLoader(actuationPauser)
+  val subject = PausedDataLoader(actuationPauser, Executors.newSingleThreadExecutor())
 
   val appKey = PausedKey(APPLICATION, "hi")
   val resourceKey = PausedKey(RESOURCE, "hi-resource")

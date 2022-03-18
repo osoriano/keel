@@ -12,14 +12,14 @@ import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
 import com.netflix.spinnaker.keel.graphql.types.MD_Action
 import com.netflix.spinnaker.keel.graphql.types.MD_ActionStatus
 import com.netflix.spinnaker.keel.graphql.types.MD_ActionType
-import com.netflix.spinnaker.keel.persistence.KeelRepository
 import org.dataloader.BatchLoaderEnvironment
 import org.dataloader.MappedBatchLoaderWithContext
-import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
 import org.springframework.context.ApplicationEventPublisher
 import org.slf4j.LoggerFactory
 import com.netflix.spinnaker.keel.telemetry.InvalidVerificationIdSeen
+import com.netflix.springboot.scheduling.DefaultExecutor
+import java.util.concurrent.Executor
 
 /**
  * Loads all verification states for the given versions
@@ -27,7 +27,8 @@ import com.netflix.spinnaker.keel.telemetry.InvalidVerificationIdSeen
 @DgsDataLoader(name = ActionsDataLoader.Descriptor.name)
 class ActionsDataLoader(
   private val publisher: ApplicationEventPublisher,
-  private val actionRepository: ActionRepository
+  private val actionRepository: ActionRepository,
+  @DefaultExecutor private val executor: Executor
 ) : MappedBatchLoaderWithContext<EnvironmentArtifactAndVersion, List<MD_Action>> {
 
   object Descriptor {
@@ -68,12 +69,11 @@ class ActionsDataLoader(
   override fun load(keys: MutableSet<EnvironmentArtifactAndVersion>, environment: BatchLoaderEnvironment):
     CompletionStage<MutableMap<EnvironmentArtifactAndVersion, List<MD_Action>>> {
     val context: ApplicationContext = DgsContext.getCustomContext(environment)
-    return CompletableFuture.supplyAsync {
+    return executor.supplyAsync {
       val config = context.getConfig()
       loadData(config, keys)
     }
   }
-
 
   fun ActionStateFull.toMdAction(ctx: ArtifactInEnvironmentContext) =
     ctx.action(type, id)?.id?.let { actionId ->

@@ -6,10 +6,11 @@ import com.netflix.spinnaker.keel.api.action.EnvironmentArtifactAndVersion
 import com.netflix.spinnaker.keel.core.api.ArtifactVersionVetoData
 import com.netflix.spinnaker.keel.graphql.types.MD_VersionVeto
 import com.netflix.spinnaker.keel.persistence.KeelRepository
+import com.netflix.springboot.scheduling.DefaultExecutor
 import org.dataloader.BatchLoaderEnvironment
 import org.dataloader.MappedBatchLoaderWithContext
-import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
+import java.util.concurrent.Executor
 
 /**
  * Loads all constraint states for the given versions
@@ -17,6 +18,7 @@ import java.util.concurrent.CompletionStage
 @DgsDataLoader(name = VetoedDataLoader.Descriptor.name)
 class VetoedDataLoader(
   private val keelRepository: KeelRepository,
+  @DefaultExecutor private val executor: Executor
 ) : MappedBatchLoaderWithContext<EnvironmentArtifactAndVersion, MD_VersionVeto> {
 
   object Descriptor {
@@ -26,7 +28,7 @@ class VetoedDataLoader(
   override fun load(keys: MutableSet<EnvironmentArtifactAndVersion>, environment: BatchLoaderEnvironment):
     CompletionStage<MutableMap<EnvironmentArtifactAndVersion, MD_VersionVeto>> {
     val context: ApplicationContext = DgsContext.getCustomContext(environment)
-    return CompletableFuture.supplyAsync {
+    return executor.supplyAsync {
       val results: MutableMap<EnvironmentArtifactAndVersion, MD_VersionVeto> = mutableMapOf()
       val vetoed = keelRepository.vetoedEnvironmentVersions(context.getConfig())
 

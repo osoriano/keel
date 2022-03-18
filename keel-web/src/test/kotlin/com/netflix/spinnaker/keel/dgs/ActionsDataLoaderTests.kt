@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.context.ApplicationEventPublisher
 import strikt.api.expectThat
 import strikt.assertions.hasSize
+import java.util.concurrent.Executors
 
 class ActionsDataLoaderTests {
 
@@ -44,7 +45,7 @@ class ActionsDataLoaderTests {
     artifacts = setOf(artifact1, artifact2)
   )
 
-  val subject = ActionsDataLoader(publisher, actionRepository)
+  val subject = ActionsDataLoader(publisher, actionRepository, Executors.newSingleThreadExecutor())
 
   val key1 = EnvironmentArtifactAndVersion(
     environmentName = "test",

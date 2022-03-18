@@ -4,18 +4,20 @@ import com.netflix.graphql.dgs.DgsDataLoader
 import com.netflix.spinnaker.keel.graphql.types.MD_PausedInfo
 import com.netflix.spinnaker.keel.pause.ActuationPauser
 import com.netflix.spinnaker.keel.pause.PauseScope
+import com.netflix.springboot.scheduling.DefaultExecutor
 import org.dataloader.BatchLoaderEnvironment
 import org.dataloader.MappedBatchLoaderWithContext
 import org.slf4j.LoggerFactory
-import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionStage
+import java.util.concurrent.Executor
 
 /**
  * Loads all paused info for resources
  */
 @DgsDataLoader(name = PausedDataLoader.Descriptor.name)
 class PausedDataLoader(
-  val actuationPauser: ActuationPauser
+  val actuationPauser: ActuationPauser,
+  @DefaultExecutor private val executor: Executor
 ) : MappedBatchLoaderWithContext<PausedKey, MD_PausedInfo> {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
@@ -28,7 +30,7 @@ class PausedDataLoader(
     keys: MutableSet<PausedKey>,
     environment: BatchLoaderEnvironment?
   ): CompletionStage<MutableMap<PausedKey, MD_PausedInfo>> {
-    return CompletableFuture.supplyAsync {
+    return executor.supplyAsync {
       load(keys)
     }
   }
