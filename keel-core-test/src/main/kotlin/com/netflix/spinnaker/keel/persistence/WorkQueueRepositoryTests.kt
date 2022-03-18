@@ -1,12 +1,16 @@
 package com.netflix.spinnaker.keel.persistence
 
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
+import com.netflix.spinnaker.keel.core.api.randomUID
 import com.netflix.spinnaker.keel.scm.CommitCreatedEvent
+import com.netflix.spinnaker.keel.services.doInParallel
 import com.netflix.spinnaker.time.MutableClock
 import org.junit.jupiter.api.Test
+import strikt.api.expect
 import strikt.api.expectThat
 import strikt.assertions.hasSize
 import strikt.assertions.isEqualTo
+import java.util.Collections
 
 abstract class WorkQueueRepositoryTests<IMPLEMENTATION: WorkQueueRepository> {
 
@@ -49,5 +53,43 @@ abstract class WorkQueueRepositoryTests<IMPLEMENTATION: WorkQueueRepository> {
     expectThat(pendingCodeEvents).hasSize(1)
     expectThat(pendingCodeEvents.first()).isEqualTo(codeEvent)
     expectThat(subject.queueSize()).isEqualTo(0)
+  }
+
+  @Test
+  fun `removing code events many times in parallel produces unique results`() {
+    val results = Collections.synchronizedList<String>(mutableListOf())
+    repeat(100) {
+      subject.addToQueue(codeEvent.copy(commitHash = randomUID().toString()))
+    }
+    doInParallel(100) {
+      subject.removeCodeEventsFromQueue(1)
+        .let { event ->
+          results.add(event.first().commitHash ?: "none")
+        }
+    }
+    expect {
+      that(results.size).isEqualTo(100)
+      that(results.toSet().size).isEqualTo(100) // checks uniqueness
+      that(subject.queueSize()).isEqualTo(0)
+    }
+  }
+
+  @Test
+  fun `removing artifacts many times in parallel produces unique results`() {
+    val results = Collections.synchronizedList<String>(mutableListOf())
+    repeat(100) {
+      subject.addToQueue(publishedArtifact.copy(version = randomUID().toString()))
+    }
+    doInParallel(100) {
+      subject.removeArtifactsFromQueue(1)
+        .let { event ->
+          results.add(event.first().version)
+        }
+    }
+    expect {
+      that(results.size).isEqualTo(100)
+      that(results.toSet().size).isEqualTo(100) // checks uniqueness
+      that(subject.queueSize()).isEqualTo(0)
+    }
   }
 }

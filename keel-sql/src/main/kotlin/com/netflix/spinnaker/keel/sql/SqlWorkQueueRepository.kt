@@ -12,8 +12,10 @@ import com.netflix.spinnaker.keel.persistence.WorkQueueRepository
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.WORK_QUEUE
 import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
 import org.jooq.DSLContext
+import org.jooq.impl.DSL
 import org.slf4j.LoggerFactory
 import java.time.Clock
+import java.util.Collections
 
 @OpenClass
 class SqlWorkQueueRepository(
@@ -35,26 +37,32 @@ class SqlWorkQueueRepository(
     }
   }
 
-  override fun removeCodeEventsFromQueue(limit: Int): List<CodeEvent> =
+  override fun removeCodeEventsFromQueue(limit: Int): Collection<CodeEvent> =
     sqlRetry.withRetry(WRITE) {
+      val events = mutableListOf<String>()
       jooq.inTransaction {
         select(WORK_QUEUE.UID, WORK_QUEUE.JSON)
           .from(WORK_QUEUE)
           .where(WORK_QUEUE.TYPE.eq(WorkQueueEventType.CODE.name))
           .orderBy(WORK_QUEUE.FIRST_SEEN)
           .limit(limit)
-          .fetch { (uid, json) ->
+          .forUpdate()
+          .fetch()
+          .onEach { (uid, json) ->
+            events.add(json)
             deleteFrom(WORK_QUEUE)
               .where(WORK_QUEUE.UID.eq(uid))
               .execute()
+          }
+      }
 
-            try {
-              mapper.readValue<CodeEvent>(json)
-            } catch (e: JsonMappingException) {
-              log.warn("Unable to parse queued code event, ignoring: {}", json)
-              null
-            }
-          }.filterNotNull()
+      events.mapNotNull { event ->
+        try {
+          mapper.readValue<CodeEvent>(event)
+        } catch (e: JsonMappingException) {
+          log.warn("Unable to parse queued code event, ignoring: {}", event)
+          null
+        }
       }
     }
 
@@ -69,26 +77,31 @@ class SqlWorkQueueRepository(
     }
   }
 
-  override fun removeArtifactsFromQueue(limit: Int): List<PublishedArtifact> =
+  override fun removeArtifactsFromQueue(limit: Int): Collection<PublishedArtifact> =
     sqlRetry.withRetry(WRITE) {
+      val artifacts = mutableListOf<String>()
       jooq.inTransaction {
         select(WORK_QUEUE.UID, WORK_QUEUE.JSON)
           .from(WORK_QUEUE)
           .where(WORK_QUEUE.TYPE.eq(WorkQueueEventType.ARTIFACT.name))
           .orderBy(WORK_QUEUE.FIRST_SEEN)
           .limit(limit)
-          .fetch { (uid, json) ->
+          .forUpdate()
+          .fetch()
+          .onEach { (uid, json) ->
+            artifacts.add(json)
             deleteFrom(WORK_QUEUE)
               .where(WORK_QUEUE.UID.eq(uid))
               .execute()
-
-            try {
-              mapper.readValue<PublishedArtifact>(json)
-            } catch (e: JsonMappingException) {
-              log.warn("Unable to parse queued published artifact, ignoring: {}", json)
-              null
-            }
-          }.filterNotNull()
+          }
+      }
+      artifacts.mapNotNull { artifact ->
+        try {
+          mapper.readValue<PublishedArtifact>(artifact)
+        } catch (e: JsonMappingException) {
+          log.warn("Unable to parse queued published artifact, ignoring: {}", artifact)
+          null
+        }
       }
     }
 

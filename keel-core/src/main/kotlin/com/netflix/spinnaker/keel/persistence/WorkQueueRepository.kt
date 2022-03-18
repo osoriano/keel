@@ -24,7 +24,7 @@ interface WorkQueueRepository {
    * This method is _not_ intended to be idempotent, subsequent calls are expected to return
    * different values.
    */
-  fun removeArtifactsFromQueue(limit: Int = 1): List<PublishedArtifact>
+  fun removeArtifactsFromQueue(limit: Int = 1): Collection<PublishedArtifact>
 
   /**
    * Returns up to the specified [count] of events to process,and removes them from the queue.
@@ -32,7 +32,7 @@ interface WorkQueueRepository {
    * This method is _not_ intended to be idempotent, subsequent calls are expected to return
    * different values.
    */
-  fun removeCodeEventsFromQueue(limit: Int = 1): List<CodeEvent>
+  fun removeCodeEventsFromQueue(limit: Int = 1): Collection<CodeEvent>
 
   fun queueSize(): Int
 }
