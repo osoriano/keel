@@ -72,4 +72,18 @@ class SqlApplicationRepositoryTests {
     repository.store(config)
     expectThat(repository.isAutoImportEnabled(config.application)).isTrue()
   }
+
+  @Test
+  fun `do not overwrite if missing auto import`() {
+    repository.store(config)
+    repository.store(config.copy(autoImport = null))
+    expectThat(repository.isAutoImportEnabled(config.application)).isTrue()
+  }
+
+  @Test
+  fun `do not overwrite if missing config path`() {
+    repository.store(config.copy(deliveryConfigPath = "random"))
+    repository.store(config.copy(deliveryConfigPath = null))
+    expectThat(repository.get("fnord")).isNotNull().get { deliveryConfigPath }.isEqualTo("random")
+  }
 }

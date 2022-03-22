@@ -42,13 +42,25 @@ class SqlApplicationRepository(
     sqlRetry.withRetry(RetryCategory.WRITE) {
       jooq.insertInto(APPLICATION_CONFIG)
         .set(APPLICATION_CONFIG.APPLICATION, config.application)
-        .set(APPLICATION_CONFIG.AUTO_IMPORT, config.autoImport)
-        .set(APPLICATION_CONFIG.DELIVERY_CONFIG_PATH, config.deliveryConfigPath)
+        .apply {
+          if(config.autoImport != null) {
+            set(APPLICATION_CONFIG.AUTO_IMPORT, config.autoImport)
+          }
+          if (config.deliveryConfigPath != null) {
+            set(APPLICATION_CONFIG.DELIVERY_CONFIG_PATH, config.deliveryConfigPath)
+          }
+        }
         .set(APPLICATION_CONFIG.UPDATED_AT, now)
         .set(APPLICATION_CONFIG.UPDATED_BY, config.updatedBy)
         .onDuplicateKeyUpdate()
-        .set(APPLICATION_CONFIG.AUTO_IMPORT, config.autoImport)
-        .set(APPLICATION_CONFIG.DELIVERY_CONFIG_PATH, config.deliveryConfigPath)
+        .apply {
+          if(config.autoImport != null) {
+            set(APPLICATION_CONFIG.AUTO_IMPORT, config.autoImport)
+          }
+          if (config.deliveryConfigPath != null) {
+            set(APPLICATION_CONFIG.DELIVERY_CONFIG_PATH, config.deliveryConfigPath)
+          }
+        }
         .set(APPLICATION_CONFIG.UPDATED_AT, now)
         .set(APPLICATION_CONFIG.UPDATED_BY, config.updatedBy)
         .execute()

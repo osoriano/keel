@@ -72,7 +72,7 @@ class GitIntegration(
 
     val appConfig = ApplicationConfig(
       application = payload.application,
-      autoImport = payload.isEnabled == true,
+      autoImport = payload.isEnabled,
       deliveryConfigPath = payload.manifestPath,
       updatedBy = user
     )
