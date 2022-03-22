@@ -66,12 +66,14 @@ class TagAmiHandler(
      * The finder retrieves the images that are currently running in the environment
      */
     val images =  imageFinder.getImages(context.deliveryConfig, context.environmentName)
+    log.debug("Found the following images for ${context.shortName()}: $images")
 
     val jobs = images
       .filter { it.kind.group == "ec2" } // spinnaker only supports tagging amis
       .map { it.toJob(context.environmentName) }
 
     val tasksIds = mutableListOf<String>()
+    log.debug("Launching ${jobs.size} tasks to tag images for ${context.shortName()}")
     jobs.forEach { job ->
       val names = job["imageNames"].toString()
       val task = runBlocking {

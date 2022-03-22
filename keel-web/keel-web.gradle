@@ -52,6 +52,7 @@ dependencies {
   implementation(platform("com.netflix.graphql.dgs:graphql-dgs-netflix-platform:${dgsVersion}"))
   implementation("com.netflix.graphql.dgs:graphql-dgs-starter")
   implementation("com.fasterxml.jackson.datatype:jackson-datatype-joda")
+  implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310")
   implementation("com.graphql-java:graphql-java-extended-scalars:16.0.1")
 
   runtimeOnly("com.netflix.spinnaker.kork.internal:kork-runtime")
