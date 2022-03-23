@@ -103,7 +103,7 @@ class ActionsDataLoader(
         ctx.environmentName
       )
     )
-    log.error("verification_state table contains invalid verification id: $vId  config: ${ctx.deliveryConfig.name} env: ${ctx.environmentName}. Valid ids in this env: ${ctx.environment.verifyWith.map { it.id }}")
+    log.debug("verification_state table contains invalid verification id: $vId  config: ${ctx.deliveryConfig.name} env: ${ctx.environmentName}. Valid ids in this env: ${ctx.environment.verifyWith.map { it.id }}")
   }
 }
 
