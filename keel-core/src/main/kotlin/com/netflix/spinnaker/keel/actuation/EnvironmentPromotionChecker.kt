@@ -59,6 +59,7 @@ class EnvironmentPromotionChecker(
             log.warn("No versions for ${artifact.type} artifact name ${artifact.name} and reference ${artifact.reference} are known")
           } else {
             deliveryConfig.environments.forEach { environment ->
+              log.debug("Checking app ${deliveryConfig.application} env ${environment.name}")
               if (artifact.isUsedIn(environment)) {
 
                 val latestVersions = versions.map { it.version }

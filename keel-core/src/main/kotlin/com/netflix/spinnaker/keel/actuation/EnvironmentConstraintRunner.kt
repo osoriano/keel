@@ -55,6 +55,7 @@ class EnvironmentConstraintRunner(
   suspend fun checkEnvironment(
     envContext: EnvironmentContext
   ) {
+    log.debug("Checking constraints of app ${envContext.deliveryConfig.name} env ${envContext.environment.name} for artifact ${envContext.artifact.name} versions ${envContext.versions}")
     val versionsWithPendingStatefulConstraintStatus: MutableList<PublishedArtifact> =
       if (envContext.environment.constraints.anyStateful) {
         repository
