@@ -49,6 +49,11 @@ data class PreviewEnvironmentSpec(
   val verifyWith: List<Verification> = emptyList(),
 
   /**
+   * Allows the user to specify specific resources from the base environment when creating a preview environment.
+   */
+  val includeResources: Set<NamedResource>? = null,
+
+  /**
    * Allows the user to specify resources from the base environment that should be ignored (i.e. not copied)
    * when creating a preview environment.
    */

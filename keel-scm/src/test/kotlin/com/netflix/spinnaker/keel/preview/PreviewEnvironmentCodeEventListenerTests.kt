@@ -89,6 +89,8 @@ import strikt.assertions.contains
 import strikt.assertions.containsExactlyInAnyOrder
 import strikt.assertions.containsKeys
 import strikt.assertions.endsWith
+import strikt.assertions.first
+import strikt.assertions.hasSize
 import strikt.assertions.isA
 import strikt.assertions.isEmpty
 import strikt.assertions.isEqualTo
@@ -280,6 +282,27 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
     val previewEnv by lazy { previewEnvSlot.captured }
     val previewArtifacts by lazy { previewArtifactsSlot.captured }
 
+    val submittedDeliveryConfig = with(deliveryConfig) {
+      SubmittedDeliveryConfig(
+        application = application,
+        name = name,
+        serviceAccount = serviceAccount,
+        metadata = metadata,
+        artifacts = artifacts,
+        previewEnvironments = previewEnvironments,
+        environments = environments.map { env ->
+          SubmittedEnvironment(
+            name = env.name,
+            resources = env.resources.map { res ->
+              submittedResource(res.kind, res.spec)
+            }.toSet(),
+            constraints = env.constraints,
+            postDeploy = env.postDeploy
+          )
+        }.toSet()
+      )
+    }
+
     fun setupMocks() {
       every {
         springEnv.getProperty("keel.previewEnvironments.enabled", Boolean::class.java, true)
@@ -323,26 +346,7 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
 
       every {
         importer.import(any(), manifestPath = any())
-      } returns with(deliveryConfig) {
-        SubmittedDeliveryConfig(
-          application = application,
-          name = name,
-          serviceAccount = serviceAccount,
-          metadata = metadata,
-          artifacts = artifacts,
-          previewEnvironments = previewEnvironments,
-          environments = environments.map { env ->
-            SubmittedEnvironment(
-              name = env.name,
-              resources = env.resources.map { res ->
-                submittedResource(res.kind, res.spec)
-              }.toSet(),
-              constraints = env.constraints,
-              postDeploy = env.postDeploy
-            )
-          }.toSet()
-        )
-      }
+      } returns submittedDeliveryConfig
 
       every { repository.getDeliveryConfig(deliveryConfig.name) } returns deliveryConfig
 
@@ -560,6 +564,36 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
 
           test("resources can be ignored by kind") {
             expectThat(previewEnv.resources).none { get { kind }.isEqualTo(resourceIgnoredByKind.kind) }
+          }
+        }
+
+        context("include only specific resources") {
+          modifyFixture {
+            deliveryConfig = deliveryConfig.copy(
+              previewEnvironments = setOf(
+                previewEnvSpec.copy(
+                  excludeResources = emptySet(),
+                  includeResources = setOf(
+                    NamedResource(cluster.kind, cluster.name)
+                  )
+                )
+              )
+            )
+
+            every { importer.import(any(), manifestPath = any()) } returns submittedDeliveryConfig.copy(
+              previewEnvironments = deliveryConfig.previewEnvironments
+            )
+            every { repository.getDeliveryConfig(deliveryConfig.name) } returns deliveryConfig
+
+            every { repository.allDeliveryConfigs(any()) } returns setOf(deliveryConfig)
+          }
+
+          before {
+            subject.handlePrEvent(prEvent)
+          }
+
+          test("only one resource should be in the preview environment") {
+            expectThat(previewEnv.resources).hasSize(1).first().get { kind }.isEqualTo(cluster.kind)
           }
         }
       }

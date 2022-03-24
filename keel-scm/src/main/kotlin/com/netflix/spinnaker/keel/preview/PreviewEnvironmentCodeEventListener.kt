@@ -291,6 +291,8 @@ class PreviewEnvironmentCodeEventListener(
         previewArtifact
       }.toSet()
 
+      val includeResources = previewEnvSpec.includeResources
+
       val previewEnv = baseEnv.copy(
         name = "${baseEnv.name}-$suffix",
         isPreview = true,
@@ -299,7 +301,11 @@ class PreviewEnvironmentCodeEventListener(
         verifyWith = previewEnvSpec.verifyWith,
         notifications = previewEnvSpec.notifications,
         resources = baseEnv.resources
+          .asSequence()
           .filter { res -> res.spec.isPreviewable() }
+          .filter { res ->
+            includeResources == null || includeResources.any { it.matches(res) }
+          }
           .filterNot { res -> previewEnvSpec.excludeResources.any { it.matches(res) } }
           .mapNotNull { res ->
             res.toPreviewResource(configFromBranch, previewEnvSpec, previewArtifacts, suffix)

@@ -40,3 +40,6 @@ previewEnvironments:
     excludeResources:
       - kind: ec2/security-group@v1
         name: "*"
+    includeResources:
+      - kind: titus/cluster@v1
+        name: "*"
