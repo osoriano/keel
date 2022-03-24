@@ -159,7 +159,7 @@ class CheckScheduler(
                  *  individual environments, allowing fairer timeouts.
                  */
                 withTimeout(environmentCheckConfig.timeoutDuration.toMillis() * max(it.environments.size, 1)) {
-                  launch(blankMDC) {
+                  launch {
                     publisher.publishEvent(EnvironmentCheckStarted(it))
                     environmentPromotionChecker.checkEnvironments(it)
                   }
@@ -191,7 +191,9 @@ class CheckScheduler(
             .forEach {
               try {
                 withTimeout(environmentDeletionConfig.check.timeoutDuration.toMillis()) {
-                  launch { environmentCleaner.cleanupEnvironment(it) }
+                  launch {
+                    environmentCleaner.cleanupEnvironment(it)
+                  }
                 }
               } catch (e: TimeoutCancellationException) {
                 log.error("Timed out checking environment ${it.name} for deletion", e)

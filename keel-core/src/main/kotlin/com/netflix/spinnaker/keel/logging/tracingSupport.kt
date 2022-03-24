@@ -16,12 +16,7 @@ import org.slf4j.MDC
  */
 const val X_MANAGED_DELIVERY_RESOURCE = "X-MANAGED-DELIVERY-RESOURCE"
 const val X_MANAGED_DELIVERY_ARTIFACT = "X-MANAGED-DELIVERY-ARTIFACT"
-val blankMDC: MDCContext = MDCContext(
-  // clear out any left-over MDC headers we know about
-  MDC.getCopyOfContextMap().apply {
-    keys.forEach { key -> if (key.startsWith("X-MANAGED-DELIVERY")) remove(key) }
-  }
-)
+val blankMDC: MDCContext = MDCContext(emptyMap())
 
 suspend fun <T : ResourceSpec, R> withTracingContext(
   resource: Resource<T>,
@@ -45,7 +40,6 @@ private suspend fun <R> withTracingContext(
   tracer: Tracer? = null,
   block: suspend CoroutineScope.() -> R
 ): R {
-  // FIXME: parent span is null when checking resources
   val parentSpan = tracer?.currentSpan()?.context()
   val span = parentSpan?.run { tracer.startScopedSpanWithParent(mdcHeader.lowercase(), parentSpan) }
     ?: tracer?.startScopedSpan(mdcHeader.lowercase())
