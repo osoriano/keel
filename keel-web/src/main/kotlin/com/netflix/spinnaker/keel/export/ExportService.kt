@@ -63,15 +63,9 @@ import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.validators.DeliveryConfigValidator
 import com.netflix.spinnaker.keel.verification.jenkins.JenkinsJobVerification
 import com.netflix.spinnaker.keel.veto.unhealthy.UnsupportedResourceTypeException
-import com.slack.api.app_backend.interactive_components.payload.BlockActionPayload.BlockActionPayloadBuilder
-import com.slack.api.model.block.LayoutBlock
 import com.slack.api.model.block.SectionBlock
 import com.slack.api.model.block.composition.MarkdownTextObject
-import com.slack.api.model.block.composition.TextObject
-import com.slack.api.rtm.message.Message.MessageBuilder
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -82,7 +76,6 @@ import org.springframework.stereotype.Component
 import java.time.DayOfWeek
 import java.time.Duration
 import java.time.Instant
-import kotlin.coroutines.CoroutineContext
 
 /**
  * Encapsulates logic to export delivery configs from pipelines.
@@ -147,23 +140,23 @@ class ExportService(
     const val TESTING_ENV = "testing"
   }
 
-  private val isScheduledExportEnabled : Boolean
+  private val isScheduledExportEnabled: Boolean
     get() = springEnv.getProperty("keel.pipelines-export.scheduled.is-enabled", Boolean::class.java, false)
 
-  private val exportMinAge : Duration
+  private val exportMinAge: Duration
     get() = springEnv.getProperty("keel.pipelines-export.scheduled.min-age-duration", Duration::class.java, Duration.ofDays(1))
 
-  private val exportBatchSize : Int
+  private val exportBatchSize: Int
     get() = springEnv.getProperty("keel.pipelines-export.scheduled.batch-size", Int::class.java, 5)
 
-  private val shouldExportVerifications : Boolean
+  private val shouldExportVerifications: Boolean
     get() = springEnv.getProperty("keel.pipelines-export.scheduled.export-verifications", Boolean::class.java, false)
 
   /**
    * Converts a [cloudProvider] and resource [type] passed to an export function to a [ResourceKind].
    */
   private fun typeToKind(cloudProvider: String, type: String): ResourceKind =
-    when(type) {
+    when (type) {
       "classicloadbalancer" -> EC2_CLASSIC_LOAD_BALANCER_V1.kind
       "classicloadbalancers" -> EC2_CLASSIC_LOAD_BALANCER_V1.kind
       "applicationloadbalancer" -> EC2_APPLICATION_LOAD_BALANCER_V1_2.kind
@@ -227,7 +220,8 @@ class ExportService(
    * exported resource with a fresh export, hence the name "re-export".
    */
   suspend fun reExportResource(resource: SubmittedResource<*>, user: String): SubmittedResource<*> {
-    val moniker = (resource.spec as? Monikered)?.moniker ?: throw IllegalArgumentException("We can only export resources with a moniker currently.")
+    val moniker = (resource.spec as? Monikered)?.moniker
+      ?: throw IllegalArgumentException("We can only export resources with a moniker currently.")
 
     val locations = (resource.spec as? Locatable<*>)?.let {
       (it.locations as? AccountAwareLocations<*>)
@@ -235,13 +229,13 @@ class ExportService(
 
     val handler = handlers.supporting(resource.kind)
     val exportable = Exportable(
-        cloudProvider = resource.kind.group,
-        account = locations.account,
-        moniker = moniker,
-        regions = locations.regions.map { it.name }.toSet(),
-        kind = resource.kind,
-        user = user
-      )
+      cloudProvider = resource.kind.group,
+      account = locations.account,
+      moniker = moniker,
+      regions = locations.regions.map { it.name }.toSet(),
+      kind = resource.kind,
+      user = user
+    )
 
     log.info("Re-exporting resource ${resource.id}")
     return SubmittedResource(
@@ -368,7 +362,7 @@ class ExportService(
         val verifications = if (includeVerifications) {
           try {
             pipeline.exportVerifications(deploy)
-          } catch(e: UnsupportedJenkinsStage) {
+          } catch (e: UnsupportedJenkinsStage) {
             log.debug("Failed to export verifications due to unsupported Jenkins stage: $e")
             return@mapValues emptyList()
           }
@@ -401,6 +395,7 @@ class ExportService(
     // 7. find test pipelines
     val testPipelines = pipelines.filter { it.shape in EXPORTABLE_TEST_PIPELINE_SHAPES }
     val testPipelinesToEnvironments = mutableMapOf<Pipeline, List<SubmittedEnvironment>>()
+    var pipelineNotifications = listOf<PipelineNotifications>()
     var deliveryConfig = SubmittedDeliveryConfig(
       application = applicationName,
       name = applicationName,
@@ -425,6 +420,7 @@ class ExportService(
             emptyMap()
           }
 
+          pipelineNotifications = pipelineNotifications + deployPipeline.notifications
           environment.copy(
             constraints = environment.constraints + additionalConstraints,
             notifications = notifications(environment.name, application.slackChannel?.name, deployPipeline.notifications),
@@ -434,8 +430,7 @@ class ExportService(
           )
         }
       }.toSet()
-        .dedupe()
-
+        .dedupe(application.slackChannel?.name, pipelineNotifications)
 
       val finalArtifacts = artifacts.dedupe()
 
@@ -807,7 +802,7 @@ class ExportService(
    * Removes duplicate environments in the set by merging together environments with the same name.
    */
   @JvmName("dedupeEnvironments")
-  private fun Set<SubmittedEnvironment>.dedupe(): Set<SubmittedEnvironment> {
+  private fun Set<SubmittedEnvironment>.dedupe(slackChannel: String?, pipelineNotifications: List<PipelineNotifications>): Set<SubmittedEnvironment> {
     val dedupedEnvironments = mutableSetOf<SubmittedEnvironment>()
     forEach { environment ->
       val previouslyFound = dedupedEnvironments.find { it.name == environment.name }
@@ -825,6 +820,18 @@ class ExportService(
         else -> environment
       }
       dedupedEnvironments.add(dedupedEnvironment)
+    }
+    val noNotificationsSoFar = dedupedEnvironments.all {
+      it.notifications.isEmpty()
+    }
+    if (noNotificationsSoFar && dedupedEnvironments.isNotEmpty()) {
+      val firstEnv = dedupedEnvironments.first()
+      dedupedEnvironments.remove(firstEnv)
+      val firstEnvWithNotifications = firstEnv.copy(
+        //Sending here "PRODUCTION_ENV" to bypass the condition at the notification function. We can fix it later to be more generic.
+        notifications = notifications(PRODUCTION_ENV, slackChannel, pipelineNotifications)
+      )
+      dedupedEnvironments.add(firstEnvWithNotifications)
     }
     return dedupedEnvironments
   }

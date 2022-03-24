@@ -323,7 +323,7 @@ internal class ExportServiceTests {
   }
 
   @Test
-  fun `don't set slack notification for non-production environments`() {
+  fun `set notifications if we can't infer the production environments`() {
     val result = runBlocking {
       subject.exportFromPipelines(appName)
     }
@@ -331,9 +331,11 @@ internal class ExportServiceTests {
     expectThat(result) {
       isA<PipelineExportResult>().and {
         get { deliveryConfig.environments }
+          .hasSize(1)
           .first()
           .get { notifications }
-          .isEmpty()
+          .first()
+          .get { address }.isEqualTo(pipelineSlackChannel)
       }
     }
   }
