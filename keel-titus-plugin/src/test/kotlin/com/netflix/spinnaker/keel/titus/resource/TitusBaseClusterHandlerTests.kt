@@ -10,6 +10,7 @@ import com.netflix.spinnaker.keel.api.RolloutConfig
 import com.netflix.spinnaker.keel.api.SimpleLocations
 import com.netflix.spinnaker.keel.api.SimpleRegionSpec
 import com.netflix.spinnaker.keel.api.actuation.TaskLauncher
+import com.netflix.spinnaker.keel.api.artifacts.DockerImage
 import com.netflix.spinnaker.keel.api.ec2.Capacity
 import com.netflix.spinnaker.keel.api.ec2.ClusterDependencies
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec
@@ -24,7 +25,6 @@ import com.netflix.spinnaker.keel.api.titus.TitusServerGroupSpec
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.clouddriver.model.Credential
-import com.netflix.spinnaker.keel.api.artifacts.DockerImage
 import com.netflix.spinnaker.keel.core.serverGroup
 import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.docker.DigestProvider
@@ -34,10 +34,10 @@ import com.netflix.spinnaker.keel.titus.TitusClusterHandler
 import com.netflix.spinnaker.keel.titus.byRegion
 import com.netflix.spinnaker.keel.titus.registry.TitusRegistryService
 import com.netflix.spinnaker.keel.titus.resolve
-import io.mockk.coEvery as every
 import io.mockk.mockk
 import io.mockk.spyk
 import java.time.Clock
+import io.mockk.coEvery as every
 
 class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, TitusServerGroup, TitusClusterHandler>() {
   val cloudDriverService: CloudDriverService = mockk(relaxed = true)
@@ -73,7 +73,7 @@ class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, T
     )
   }
 
-  val metadata = mapOf("id" to "1234", "application" to "waffles", "serviceAccount" to "me@you.com" )
+  val metadata = mapOf("id" to "1234", "application" to "waffles", "serviceAccount" to "me@you.com", "displayName" to "waffles-cluster")
 
   val baseSpec = TitusClusterSpec(
     moniker = Moniker("waffles"),

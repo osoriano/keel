@@ -113,8 +113,6 @@ data class TitusClusterSpec(
     const val MAX_NAME_LENGTH = 255
   }
 
-  override val id = "${locations.account}:$moniker"
-
   val defaults: TitusServerGroupSpec
     get() = _defaults
 

@@ -130,10 +130,16 @@ internal class ResourceActuatorTests : JUnit5Minutests {
     before {
       every { plugin1.name } returns "plugin1"
       every { plugin1.willTakeAction(any(), any()) } returns ActionDecision()
-      every { plugin1.supportedKind } returns SupportedKind(parseKind("plugin1/foo@v1"), DummyArtifactVersionedResourceSpec::class.java)
+      every { plugin1.supportedKind } returns SupportedKind(
+        parseKind("plugin1/foo@v1"),
+        DummyArtifactVersionedResourceSpec::class.java
+      )
       every { plugin2.name } returns "plugin2"
       every { plugin2.willTakeAction(any(), any()) } returns ActionDecision()
-      every { plugin2.supportedKind } returns SupportedKind(parseKind("plugin2/bar@v1"), DummyArtifactVersionedResourceSpec::class.java)
+      every { plugin2.supportedKind } returns SupportedKind(
+        parseKind("plugin2/bar@v1"),
+        DummyArtifactVersionedResourceSpec::class.java
+      )
     }
 
     context("a managed resource exists") {
@@ -689,7 +695,7 @@ internal class ResourceActuatorTests : JUnit5Minutests {
       context("checking a resource managed by a Java plugin") {
         val resource = resource(
           kind = SLEEPY_RESOURCE_KIND,
-          spec = MapBackedResourceSpec("test", "fnord", mapOf("nada" to "nada"))
+          spec = MapBackedResourceSpec("test", mapOf("nada" to "nada"))
         )
 
         before {
@@ -720,7 +726,7 @@ internal class ResourceActuatorTests : JUnit5Minutests {
       context("Java plugin blocks in calls to get current/desired state") {
         val resource = resource(
           kind = SLEEPY_RESOURCE_KIND,
-          spec = MapBackedResourceSpec("test", "fnord", mapOf("delay" to "2000"))
+          spec = MapBackedResourceSpec("test", mapOf("delay" to "2000"))
         )
 
         before {

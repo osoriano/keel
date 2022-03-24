@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.api
 
 interface Locations<T : RegionSpec> {
+  val account: String
   val regions: Set<T>
 }
 

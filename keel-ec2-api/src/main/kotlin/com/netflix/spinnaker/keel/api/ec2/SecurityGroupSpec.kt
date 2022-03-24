@@ -28,8 +28,6 @@ data class SecurityGroupSpec(
   val inboundRules: Set<SecurityGroupRule> = emptySet(),
   val overrides: Map<String, SecurityGroupOverride> = emptyMap()
 ) : Monikered, Locatable<SimpleLocations> {
-  override val id = "${locations.account}:$moniker"
-
   companion object {
     const val MAX_NAME_LENGTH = 255
   }

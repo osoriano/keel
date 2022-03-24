@@ -9,9 +9,9 @@ import com.netflix.spinnaker.keel.api.DependencyType.LOAD_BALANCER
 import com.netflix.spinnaker.keel.api.DependencyType.SECURITY_GROUP
 import com.netflix.spinnaker.keel.api.Dependent
 import com.netflix.spinnaker.keel.api.Environment
-import com.netflix.spinnaker.keel.api.NamedResource
 import com.netflix.spinnaker.keel.api.InvalidMonikerException
 import com.netflix.spinnaker.keel.api.Moniker
+import com.netflix.spinnaker.keel.api.NamedResource
 import com.netflix.spinnaker.keel.api.PreviewEnvironmentSpec
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactOriginFilter
@@ -169,7 +169,7 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
 
     val defaultAppSecurityGroup = Resource(
       kind = EC2_SECURITY_GROUP_V1.kind,
-      metadata = mapOf("id" to "fnord", "application" to "fnord"),
+      metadata = mapOf("id" to "fnord", "application" to "fnord", "displayName" to "fnord"),
       spec = SecurityGroupSpec(
         moniker = Moniker("fnord"),
         locations = cluster.spec.locations,
@@ -179,7 +179,7 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
 
     val defaultElbSecurityGroup = Resource(
       kind = EC2_SECURITY_GROUP_V1.kind,
-      metadata = mapOf("id" to "fnord", "application" to "fnord"),
+      metadata = mapOf("id" to "fnord", "application" to "fnord", "displayName" to "fnord-elb"),
       spec = SecurityGroupSpec(
         moniker = Moniker("fnord", "elb"),
         locations = cluster.spec.locations,

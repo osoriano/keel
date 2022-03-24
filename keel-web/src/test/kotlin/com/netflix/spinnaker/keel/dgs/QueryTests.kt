@@ -216,7 +216,7 @@ class QueryTests {
   )
 
   private val submittedDeliveryConfig = submittedDeliveryConfig(artifact = artifact, resource = resource)
-  private val deliveryConfig = deliveryConfig(artifact = artifact, resources = setOf(resource.normalize()))
+  private val deliveryConfig = deliveryConfig(artifact = artifact, resources = setOf(resource.normalize("fnord")))
 
   @BeforeEach
   fun setup() {

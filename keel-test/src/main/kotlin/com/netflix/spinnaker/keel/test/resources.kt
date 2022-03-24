@@ -1,6 +1,5 @@
 package com.netflix.spinnaker.keel.test
 
-import com.netflix.spinnaker.keel.api.AccountAwareLocations
 import com.netflix.spinnaker.keel.api.ApiVersion
 import com.netflix.spinnaker.keel.api.ArtifactReferenceProvider
 import com.netflix.spinnaker.keel.api.ComputeResourceSpec
@@ -8,6 +7,7 @@ import com.netflix.spinnaker.keel.api.Dependency
 import com.netflix.spinnaker.keel.api.Dependent
 import com.netflix.spinnaker.keel.api.ExcludedFromDiff
 import com.netflix.spinnaker.keel.api.Locatable
+import com.netflix.spinnaker.keel.api.Locations
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.Monikered
 import com.netflix.spinnaker.keel.api.Resource
@@ -15,7 +15,6 @@ import com.netflix.spinnaker.keel.api.ResourceKind
 import com.netflix.spinnaker.keel.api.ResourceSpec
 import com.netflix.spinnaker.keel.api.SimpleLocations
 import com.netflix.spinnaker.keel.api.SimpleRegionSpec
-import com.netflix.spinnaker.keel.api.SimpleRegions
 import com.netflix.spinnaker.keel.api.SubnetAwareLocations
 import com.netflix.spinnaker.keel.api.SubnetAwareRegionSpec
 import com.netflix.spinnaker.keel.api.VersionedArtifactProvider
@@ -53,7 +52,7 @@ import com.netflix.spinnaker.keel.resources.SpecMigrator
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
 import io.mockk.mockk
 import java.time.Duration
-import java.util.*
+import java.util.UUID
 
 val TEST_API_V1 = ApiVersion("test", "1")
 val TEST_API_V2 = ApiVersion("test", "2")
@@ -65,7 +64,7 @@ fun resource(
 ): Resource<DummyResourceSpec> =
   resource(
     kind = kind,
-    spec = DummyResourceSpec(id = id, application = application),
+    spec = DummyResourceSpec(id = id),
     application = application
   )
 
@@ -76,7 +75,7 @@ fun artifactVersionedResource(
 ): Resource<DummyArtifactVersionedResourceSpec> =
   resource(
     kind = kind,
-    spec = DummyArtifactVersionedResourceSpec(id = id, application = application),
+    spec = DummyArtifactVersionedResourceSpec(id = id),
     application = application
   )
 
@@ -86,12 +85,11 @@ fun submittedResource(
 ): SubmittedResource<DummyResourceSpec> =
   submittedResource(
     kind = kind,
-    spec = DummyResourceSpec(application = application)
+    spec = DummyResourceSpec()
   )
 
 fun locatableResource(
   kind: ResourceKind = TEST_API_V1.qualify("locatable"),
-  id: String = randomString(),
   application: String = "fnord",
   locations: SimpleLocations = SimpleLocations(
     account = "test",
@@ -102,13 +100,12 @@ fun locatableResource(
 ): Resource<DummyLocatableResourceSpec> =
   resource(
     kind = kind,
-    spec = DummyLocatableResourceSpec(id = id, application = application, locations = locations, moniker = moniker),
+    spec = DummyLocatableResourceSpec(locations = locations, moniker = moniker),
     application = application
   )
 
 fun dependentResource(
   kind: ResourceKind = TEST_API_V1.qualify("dependent"),
-  id: String = randomString(),
   application: String = "fnord",
   locations: SimpleLocations = SimpleLocations(
     account = "test",
@@ -120,29 +117,21 @@ fun dependentResource(
 ): Resource<DummyDependentResourceSpec> =
   resource(
     kind = kind,
-    spec = DummyDependentResourceSpec(id = id, application = application, locations = locations, moniker = moniker, dependsOn = dependsOn),
+    spec = DummyDependentResourceSpec(locations = locations, moniker = moniker, dependsOn = dependsOn),
     application = application
   )
-
-fun <T : Monikered> resource(
-  kind: ResourceKind = TEST_API_V1.qualify("whatever"),
-  spec: T
-): Resource<T> = resource(
-  kind = kind,
-  spec = spec,
-  application = spec.application
-)
 
 fun <T : ResourceSpec> resource(
   kind: ResourceKind = TEST_API_V1.qualify("whatever"),
   spec: T,
-  application: String = "fnord"
+  metadata: Map<String, Any?> = emptyMap(),
+  application: String = if (spec is Monikered) spec.moniker.app else "fnord"
 ): Resource<T> =
   Resource(
     kind = kind,
     spec = spec,
-    metadata = mapOf(
-      "id" to generateId(kind, spec),
+    metadata = metadata + mapOf(
+      "id" to generateId(kind, spec, metadata),
       "version" to 1,
       "application" to application,
       "serviceAccount" to "keel@spinnaker"
@@ -168,41 +157,37 @@ fun versionedArtifactResource(
 ): Resource<DummyArtifactVersionedResourceSpec> =
   resource(
     kind = kind,
-    spec = DummyArtifactVersionedResourceSpec(id = id, application = application),
+    spec = DummyArtifactVersionedResourceSpec(id = id),
     application = application
   )
 
 fun artifactReferenceResource(
   kind: ResourceKind = TEST_API_V1.qualify("artifactReference"),
-  id: String = randomString(),
   application: String = "fnord",
   artifactReference: String = "fnord"
 ): Resource<DummyArtifactReferenceResourceSpec> =
   resource(
     kind = kind,
-    spec = DummyArtifactReferenceResourceSpec(id = id, application = application, artifactReference = artifactReference),
+    spec = DummyArtifactReferenceResourceSpec(artifactReference = artifactReference),
     application = application
   )
 
 enum class DummyEnum { VALUE }
 
 data class DummyResourceSpec(
-  override val id: String = randomString(),
-  val data: String = randomString(),
-  override val application: String = "fnord",
-  override val displayName: String = "fnord-dummy"
+  val id: String = randomString(),
+  val data: String = randomString()
 ) : ResourceSpec {
   val intData: Int = 1234
   val boolData: Boolean = true
   val timeData: Duration = Duration.ofMinutes(5)
   val enumData: DummyEnum = DummyEnum.VALUE
+
+  override fun generateId(metadata: Map<String, Any?>) = id
 }
 
 data class DummyLocatableResourceSpec(
-  override val id: String = randomString(),
   val data: String = randomString(),
-  override val application: String = "fnord",
-  override val displayName: String = "fnord-locatable-dummy",
   override val locations: SimpleLocations = SimpleLocations(
     account = "test",
     vpc = "vpc0",
@@ -212,10 +197,7 @@ data class DummyLocatableResourceSpec(
 ) : ResourceSpec, Locatable<SimpleLocations>, Monikered
 
 data class DummyDependentResourceSpec(
-  override val id: String = randomString(),
   val data: String = randomString(),
-  override val application: String = "fnord",
-  override val displayName: String = "fnord-dependent-dummy",
   override val locations: SimpleLocations = SimpleLocations(
     account = "test",
     vpc = "vpc0",
@@ -227,33 +209,22 @@ data class DummyDependentResourceSpec(
 
 data class DummyArtifactVersionedResourceSpec(
   @get:ExcludedFromDiff
-  override val id: String = randomString(),
+  val id: String = randomString(),
   val data: String = randomString(),
-  override val application: String = "fnord",
   override val artifactVersion: String? = "fnord-42.0",
   override val artifactName: String? = "fnord",
-  override val artifactType: ArtifactType? = DEBIAN,
-  override val displayName: String = "fnord-artifact-versioned-dummy",
-) : ResourceSpec, VersionedArtifactProvider
-
-data class DummyArtifactReferenceResourceSpec(
-  @get:ExcludedFromDiff
-  override val id: String = randomString(),
-  val data: String = randomString(),
-  override val application: String = "fnord",
-  override val artifactReference: String? = "fnord",
-  override val displayName: String = "fnord-artifact-reference-dummy",
-  override val moniker: Moniker = Moniker("fnord", "artifactReference", "dummy"),
-  override val locations: SimpleRegions = SimpleRegions(setOf(SimpleRegionSpec("us-east-1")))
-) : ResourceSpec, ArtifactReferenceProvider, Monikered, Locatable<SimpleRegions> {
-  override fun withArtifactReference(reference: String) = copy(artifactReference = reference)
+  override val artifactType: ArtifactType? = DEBIAN
+) : ResourceSpec, VersionedArtifactProvider {
+  override fun generateId(metadata: Map<String, Any?>) = id
 }
 
-data class DummyResource(
-  val id: String = randomString(),
-  val data: String = randomString()
-) {
-  constructor(spec: DummyResourceSpec) : this(spec.id, spec.data)
+data class DummyArtifactReferenceResourceSpec(
+  val data: String = randomString(),
+  override val artifactReference: String? = "fnord",
+  override val moniker: Moniker = Moniker("fnord", "artifactreference", "dummy"),
+  override val locations: SimpleLocations = SimpleLocations(account = "test", regions = setOf(SimpleRegionSpec("us-east-1")))
+) : ResourceSpec, ArtifactReferenceProvider, Monikered, Locatable<SimpleLocations> {
+  override fun withArtifactReference(reference: String) = copy(artifactReference = reference)
 }
 
 fun randomString(length: Int = 8) =
@@ -274,18 +245,6 @@ object DummyResourceHandlerV1 : SimpleResourceHandler<DummyResourceSpec>(emptyLi
   }
 }
 
-object DummyResourceHandlerV2 : SimpleResourceHandler<DummyResourceSpec>(emptyList()) {
-  override val supportedKind =
-    SupportedKind(TEST_API_V2.qualify("whatever"), DummyResourceSpec::class.java)
-
-  override val eventPublisher: EventPublisher = mockk(relaxed = true)
-
-  override suspend fun current(resource: Resource<DummyResourceSpec>): DummyResourceSpec? {
-    TODO("not implemented")
-  }
-}
-
-
 object DummyLocatableResourceHandler : SimpleResourceHandler<DummyLocatableResourceSpec>(emptyList()) {
   override val supportedKind =
     SupportedKind(TEST_API_V1.qualify("locatable"), DummyLocatableResourceSpec::class.java)
@@ -300,21 +259,17 @@ object DummyDependentResourceHandler : SimpleResourceHandler<DummyDependentResou
   override val eventPublisher: EventPublisher = mockk(relaxed = true)
 }
 
-object DummyAccountAwareLocations : AccountAwareLocations<SimpleRegionSpec> {
+object DummyAccountAwareLocations : Locations<SimpleRegionSpec> {
   override val account: String = "test"
   override val regions: Set<SimpleRegionSpec> = setOf(SimpleRegionSpec("us-east-1"))
 }
 
 data class DummyComputeResourceSpec(
-  @get:ExcludedFromDiff
-  override val id: String = randomString(),
   val data: String = randomString(),
-  override val application: String = "fnord",
   override val artifactType: ArtifactType? = DEBIAN,
   override val artifactReference: String? = "fnord",
   override val artifactName: String? = "fnord",
   override val artifactVersion: String? = "fnord-1.0.0",
-  override val displayName: String = "fnord-dummy-compute-resource",
   override val moniker: Moniker = Moniker("fnord", "computeResource", "dummy"),
   override val locations: DummyAccountAwareLocations = DummyAccountAwareLocations
 ) : ComputeResourceSpec<DummyAccountAwareLocations> {

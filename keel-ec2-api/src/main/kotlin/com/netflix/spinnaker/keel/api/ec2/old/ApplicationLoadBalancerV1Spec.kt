@@ -31,8 +31,6 @@ data class ApplicationLoadBalancerV1Spec(
 
   override val loadBalancerType: LoadBalancerType = APPLICATION
 
-  override val id: String = "${locations.account}:$moniker"
-
   data class TargetGroupV1(
     val name: String,
     val targetType: String = "instance",

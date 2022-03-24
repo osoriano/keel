@@ -2,6 +2,7 @@ package com.netflix.spinnaker.keel.diff
 
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
+import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.NotificationConfig
 import com.netflix.spinnaker.keel.api.NotificationFrequency.quiet
 import com.netflix.spinnaker.keel.api.NotificationFrequency.verbose
@@ -26,9 +27,9 @@ import strikt.assertions.isTrue
 
 internal class DeliveryConfigDiffTests : JUnit5Minutests {
   class Fixture {
-    val resource = locatableResource()
+    val resource = locatableResource(moniker = Moniker("fnord", "1"))
     val resource2 = artifactVersionedResource()
-    val resource3 = locatableResource()
+    val resource3 = locatableResource(moniker = Moniker("fnord", "3"))
 
     val deliveryConfig = deliveryConfig(resource)
     val deliveryConfig2 = deliveryConfig(resource2)

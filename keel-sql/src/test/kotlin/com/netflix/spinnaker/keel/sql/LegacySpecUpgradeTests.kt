@@ -32,18 +32,14 @@ internal class LegacySpecUpgradeTests : JUnit5Minutests {
   data class SpecV1(
     val name: String
   ) : ResourceSpec {
-    override val id = name
-    override val application = "fnord"
-    override val displayName: String = "$application-$name"
+    override fun generateId(metadata: Map<String, Any?>) = name
   }
 
   data class SpecV2(
     val name: String,
     val number: Int
   ) : ResourceSpec {
-    override val id = name
-    override val application = "fnord"
-    override val displayName: String = "$application-$name"
+    override fun generateId(metadata: Map<String, Any?>) = name
   }
 
   data class SpecV3(
@@ -51,9 +47,7 @@ internal class LegacySpecUpgradeTests : JUnit5Minutests {
     val number: Int,
     val timestamp: Instant
   ) : ResourceSpec {
-    override val id = name
-    override val application = "fnord"
-    override val displayName: String = "$application-$name"
+    override fun generateId(metadata: Map<String, Any?>) = name
   }
 
   object Fixture {
