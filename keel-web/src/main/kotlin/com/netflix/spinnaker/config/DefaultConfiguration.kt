@@ -71,7 +71,7 @@ class DefaultConfiguration(
   @Bean
   fun jsonComponentModule() = JsonComponentModule()
 
-  @Bean(name = ["jsonMapper", "objectMapper"])
+  @Bean(name = ["objectMapper", "jsonMapper", "dgsObjectMapper"])
   @Primary
   fun objectMapper(jsonComponentModule: JsonComponentModule): ObjectMapper =
     configuredObjectMapper().registerModule(jsonComponentModule)

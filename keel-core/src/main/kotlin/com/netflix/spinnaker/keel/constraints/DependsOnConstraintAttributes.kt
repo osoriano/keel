@@ -6,7 +6,5 @@ import java.time.Duration
 data class DependsOnConstraintAttributes(
   val dependsOnEnvironment: String,
   val currentlyPassing: Boolean = true,
-  // FIXME: DGS does not register JavaTimeModule which causes serialization of Duration to break
-  // val deployAfter: Duration = Duration.ZERO
-  val deployAfter: String = "PT0S"
+  val deployAfter: Duration = Duration.ZERO
 ) : ConstraintStateAttributes("depends-on")
