@@ -3,7 +3,9 @@ package com.netflix.spinnaker.keel.rest
 import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.config.FeatureToggles.Companion.OPTIMIZED_DOCKER_FLOW
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
+import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 import com.netflix.spinnaker.keel.api.events.ArtifactPublishedEvent
+import com.netflix.spinnaker.keel.api.events.AllArtifactsSyncEvent
 import com.netflix.spinnaker.keel.api.events.ArtifactSyncEvent
 import com.netflix.spinnaker.keel.api.plugins.UnsupportedArtifactException
 import com.netflix.spinnaker.keel.artifacts.WorkQueueProcessor
@@ -24,13 +26,13 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping(path = ["/artifacts"])
 class ArtifactController(
-  private val eventPublisher: ApplicationEventPublisher,
   private val artifactMetadataService: ArtifactMetadataService,
   private val workQueueProcessor: WorkQueueProcessor,
   private val featureToggles: FeatureToggles
@@ -86,14 +88,6 @@ class ArtifactController(
         else -> log.debug("Ignoring unsupported artifact event: $artifact")
       }
     }
-  }
-
-  @PostMapping(
-    path = ["/sync"]
-  )
-  @ResponseStatus(ACCEPTED)
-  fun sync() {
-    eventPublisher.publishEvent(ArtifactSyncEvent(true))
   }
 
   // This endpoint is calling Igor (and then the CI provider) under the covers.

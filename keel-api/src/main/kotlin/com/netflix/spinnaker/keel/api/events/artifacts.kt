@@ -2,6 +2,7 @@ package com.netflix.spinnaker.keel.api.events
 
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
+import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import java.time.Instant
@@ -25,8 +26,17 @@ data class ArtifactRegisteredEvent(
 /**
  * Event emitted to trigger synchronization of artifact information.
  */
-data class ArtifactSyncEvent(
+data class AllArtifactsSyncEvent(
   val controllerTriggered: Boolean = false
+)
+
+/**
+ * Event emitted to trigger synchronization of artifact information.
+ */
+data class ArtifactSyncEvent(
+  val application: String,
+  val artifactReference: String,
+  val limit: Int,
 )
 
 /**

@@ -22,10 +22,6 @@ import strikt.assertions.isSuccess
 
 internal class ArtifactControllerTests {
 
-  private val publisher: ApplicationEventPublisher = mockk {
-    every { publishEvent(any()) } just runs
-  }
-
   private val workQueueProcessor: WorkQueueProcessor = mockk {
     every { queueCodeEventForProcessing(any()) } just Runs
     every { queueArtifactForProcessing(any()) } just Runs
@@ -37,7 +33,7 @@ internal class ArtifactControllerTests {
     every { isEnabled(any(), any()) } returns true
   }
 
-  private val subject = ArtifactController(publisher, artifactMetadataService, workQueueProcessor, featureToggles)
+  private val subject = ArtifactController(artifactMetadataService, workQueueProcessor, featureToggles)
 
   private val disguisedCodeEvent = EchoArtifactEvent(
     eventName = "test",

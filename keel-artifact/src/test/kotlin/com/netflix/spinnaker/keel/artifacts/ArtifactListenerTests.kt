@@ -210,7 +210,7 @@ internal class ArtifactListenerTests : JUnit5Minutests {
         }
 
         test("latest versions are stored") {
-          listener.syncLastLimitArtifactVersions()
+          listener.syncLastLimitAllArtifactsVersions()
 
           val artifactVersions = mutableListOf<PublishedArtifact>()
 
@@ -240,7 +240,7 @@ internal class ArtifactListenerTests : JUnit5Minutests {
         }
 
         test("store not called") {
-          listener.syncLastLimitArtifactVersions()
+          listener.syncLastLimitAllArtifactsVersions()
           verify(exactly = 0) { workQueueProcessor.enrichAndStore(any(), any()) }
         }
       }
@@ -260,7 +260,7 @@ internal class ArtifactListenerTests : JUnit5Minutests {
         }
 
         test("new versions are stored") {
-          listener.syncLastLimitArtifactVersions()
+          listener.syncLastLimitAllArtifactsVersions()
 
           verify(exactly = 2) {
             workQueueProcessor.enrichAndStore(any(), any())

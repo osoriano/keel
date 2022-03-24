@@ -2,6 +2,8 @@ package com.netflix.spinnaker.keel.rest
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.keel.admin.AdminService
+import com.netflix.spinnaker.keel.api.events.AllArtifactsSyncEvent
+import com.netflix.spinnaker.keel.api.events.ArtifactSyncEvent
 import com.netflix.spinnaker.keel.auth.AuthorizationResourceType.SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport
 import com.netflix.spinnaker.keel.auth.PermissionLevel.WRITE
@@ -17,6 +19,8 @@ import com.slack.api.model.block.LayoutBlock
 import com.slack.api.util.json.GsonFactory
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory.getLogger
+import org.springframework.context.ApplicationEventPublisher
+import org.springframework.http.HttpStatus
 import org.springframework.http.HttpStatus.NO_CONTENT
 import org.springframework.http.MediaType.APPLICATION_JSON_VALUE
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -40,7 +44,8 @@ class AdminController(
   private val authorizationSupport: AuthorizationSupport,
   private val applicationService: ApplicationService,
   private val slackService: SlackService,
-  private val objectMapper: ObjectMapper
+  private val objectMapper: ObjectMapper,
+  private val eventPublisher: ApplicationEventPublisher
 ) {
   private val log by lazy { getLogger(javaClass) }
   private val slackJsonFactory = GsonFactory.createSnakeCase()
@@ -288,6 +293,34 @@ class AdminController(
     val fallbackText = body["fallbackText"] as? String
     slackService.postChatMessage(channel, blocks, fallbackText = fallbackText ?: "Fallback")
   }
+
+
+  @PostMapping(
+    path = ["/sync"]
+  )
+  @ResponseStatus(HttpStatus.ACCEPTED)
+  fun sync() {
+    eventPublisher.publishEvent(AllArtifactsSyncEvent(true))
+  }
+
+  @PostMapping(
+    path = ["/sync/{application}/{artifactReference}"]
+  )
+  @ResponseStatus(HttpStatus.ACCEPTED)
+  fun syncArtifact(
+    @PathVariable application: String,
+    @PathVariable artifactReference: String,
+    @RequestParam limit: Int,
+  ) {
+    eventPublisher.publishEvent(
+      ArtifactSyncEvent(
+        application = application,
+        artifactReference = artifactReference,
+        limit = limit
+      )
+    )
+  }
+
 }
 
 data class CheckPermissionBody(

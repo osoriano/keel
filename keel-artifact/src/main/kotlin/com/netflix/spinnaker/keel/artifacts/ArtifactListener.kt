@@ -6,6 +6,7 @@ import com.netflix.spinnaker.keel.activation.DiscoveryActivated
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.events.ArtifactRegisteredEvent
+import com.netflix.spinnaker.keel.api.events.AllArtifactsSyncEvent
 import com.netflix.spinnaker.keel.api.events.ArtifactSyncEvent
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.api.plugins.supporting
@@ -55,49 +56,63 @@ class ArtifactListener(
     }
   }
 
-  @EventListener(ArtifactSyncEvent::class)
-  fun triggerArtifactSync(event: ArtifactSyncEvent) {
+  @EventListener(AllArtifactsSyncEvent::class)
+  fun triggerAllArtifactsSync(event: AllArtifactsSyncEvent) {
      if (event.controllerTriggered) {
       log.info("Fetching latest ${artifactRefreshConfig.scheduledSyncLimit} version(s) of all registered artifacts...")
     }
-    syncLastLimitArtifactVersions()
+    syncLastLimitAllArtifactsVersions()
+  }
+
+  @EventListener(ArtifactSyncEvent::class)
+  fun triggerArtifactSync(event: ArtifactSyncEvent) {
+    log.info("Fetching latest ${event.limit} version(s) of ${event.artifactReference} in app ${event.application}...")
+    val config = repository.getDeliveryConfigForApplication(event.application)
+    val artifact = repository.getArtifact(config.name, event.artifactReference)
+    runBlocking {
+      syncLastLimitArtifactVersions(artifact, event.limit)
+    }
   }
 
   /**
    * For each registered artifact, get the last [ArtifactRefreshConfig.scheduledSyncLimit] versions, and persist if it's newer than what we have.
    */
   @Scheduled(fixedDelayString = "\${keel.artifact-refresh.frequency:PT6H}")
-  fun syncLastLimitArtifactVersions() {
+  fun syncLastLimitAllArtifactsVersions() {
     if (enabled.get()) {
       runBlocking {
         log.debug("Syncing last ${artifactRefreshConfig.scheduledSyncLimit} artifact version(s)...")
         repository.getAllArtifacts().forEach { artifact ->
           launch {
-            val lastStoredVersions = repository.artifactVersions(artifact, artifactRefreshConfig.scheduledSyncLimit)
-            val currentVersions = lastStoredVersions.map { it.version }
-            log.debug("Last recorded versions of $artifact: $currentVersions")
-
-            val artifactSupplier = artifactSuppliers.supporting(artifact.type)
-            val latestAvailableVersions = artifactSupplier.getLatestArtifacts(artifact.deliveryConfig, artifact, artifactRefreshConfig.scheduledSyncLimit)
-            log.debug("Latest available versions of $artifact: ${latestAvailableVersions.map { it.version }}")
-
-            val newVersions = latestAvailableVersions
-              .filterNot { currentVersions.contains(it.normalized().version) }
-              .filter { artifactSupplier.shouldProcessArtifact(it) }
-
-            if (newVersions.isNotEmpty()) {
-              newVersions.forEach { publishedArtifact ->
-                withCoroutineTracingContext(publishedArtifact, tracer) {
-                  log.debug("Detected missing version ${publishedArtifact.version} of $artifact. Persisting.")
-                  workQueueProcessor.enrichAndStore(publishedArtifact, artifactSupplier)
-                }
-              }
-            } else {
-              log.debug("No new versions to persist for $artifact")
-            }
+            syncLastLimitArtifactVersions(artifact, artifactRefreshConfig.scheduledSyncLimit)
           }
         }
       }
+    }
+  }
+
+  suspend fun syncLastLimitArtifactVersions(artifact: DeliveryArtifact, limit: Int) {
+    val lastStoredVersions = repository.artifactVersions(artifact, limit)
+    val currentVersions = lastStoredVersions.map { it.version }
+    log.debug("Last recorded versions of $artifact: $currentVersions")
+
+    val artifactSupplier = artifactSuppliers.supporting(artifact.type)
+    val latestAvailableVersions = artifactSupplier.getLatestArtifacts(artifact.deliveryConfig, artifact, limit)
+    log.debug("Latest available versions of $artifact: ${latestAvailableVersions.map { it.version }}")
+
+    val newVersions = latestAvailableVersions
+      .filterNot { currentVersions.contains(it.version) }
+      .filter { artifactSupplier.shouldProcessArtifact(it) }
+
+    if (newVersions.isNotEmpty()) {
+      newVersions.forEach { publishedArtifact ->
+        withCoroutineTracingContext(publishedArtifact, tracer) {
+          log.debug("Detected missing version ${publishedArtifact.version} of $artifact. Persisting.")
+          workQueueProcessor.enrichAndStore(publishedArtifact, artifactSupplier)
+        }
+      }
+    } else {
+      log.debug("No new versions to persist for $artifact")
     }
   }
 
