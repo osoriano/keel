@@ -372,7 +372,7 @@ class TitusClusterHandler(
     val buildNumber = matchingImage.buildNumber
     if (buildNumber != null && commitId != null) {
       if (artifactBridge.getArtifactMetadata(buildNumber, commitId, 1) == null) {
-        throw ArtifactNotSupportedException("Failed to fetch information for artifact ${matchingImage.repository}. Is your build Rocket-enabled?")
+        throw ArtifactNotSupportedException("Failed to fetch information for artifact ${matchingImage.repository}")
       }
     } else {
       throw ArtifactNotSupportedException("Artifact ${matchingImage.repository} is missing commit $commitId and/or build $buildNumber details")

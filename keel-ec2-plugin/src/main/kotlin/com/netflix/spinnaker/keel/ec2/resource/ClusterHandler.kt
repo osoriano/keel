@@ -367,20 +367,8 @@ class ClusterHandler(
       artifactService.getArtifact(artifactName, artifactVersion, DEBIAN)
     } catch (e: HttpException) {
       if (e.isNotFound)
-        throw ArtifactNotSupportedException("Failed to fetch information for artifact $artifactName. Is your build Rocket-enabled?")
+        throw ArtifactNotSupportedException("Failed to fetch information for artifact $artifactName")
       else throw ExportError("Error fetching information for artifact $artifactName: ${e.message}")
-    }
-
-    // we need to make sure the artifact is coming from a rocket job, otherwise it is not supported
-    val jobName = artifact.provenance?.substringBeforeLast("/")?.substringAfterLast("/")
-      ?: throw ArtifactNotSupportedException("Missing build job information for artifact $artifactName")
-
-    try {
-      if (!jenkinsService.hasRocketJob(jobName)) {
-        throw ArtifactNotSupportedException("Build job $jobName for artifact $artifactName is not a Rocket job.")
-      }
-    } catch (e: HttpException) {
-      throw ExportError("Error retrieving information for build job $jobName: ${e.message}")
     }
 
     // prefer branch-based artifact spec, fallback to release statuses

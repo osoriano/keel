@@ -263,7 +263,6 @@ internal class ClusterExportTests : JUnit5Minutests {
             metadata = mapOf("branch" to "main"),
             provenance = "https://blablabla.net/job/users-my-app-build/"
           )
-          every { jenkinsService.hasRocketJob(any()) } returns true
         }
 
         test("deb is exported correctly and includes `from` spec with branch") {
@@ -305,7 +304,6 @@ internal class ClusterExportTests : JUnit5Minutests {
             // the branch has a commit hash instead of a branch name, which is not allowed in the export
             gitMetadata = GitMetadata(commit = "b84af827736", branch = "b84af827736")
           )
-          every { jenkinsService.hasRocketJob(any()) } returns true
         }
 
         test("deb is exported correctly using status and not branch") {

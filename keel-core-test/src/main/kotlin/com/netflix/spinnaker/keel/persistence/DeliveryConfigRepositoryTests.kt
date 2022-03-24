@@ -1152,7 +1152,7 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
           .get { isMigratable }.isFalse()
       }
 
-      test("App cannot be migrated - not scm powered") {
+      test("App can be migrated even if not scm powered") {
         repository.storeAppForPotentialMigration(deliveryConfig.application, true)
         repository.storePipelinesExportResult(submittedConfig, emptyList(), true, isInactive = false)
         repository.updateMigratingAppScmStatus(deliveryConfig.application, false)
@@ -1160,7 +1160,7 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
           repository.getApplicationMigrationStatus(deliveryConfig.application)
         }
           .isSuccess()
-          .get { isMigratable }.isFalse()
+          .get { isMigratable }.isTrue()
       }
 
       test("App is not in the migration list") {

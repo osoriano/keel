@@ -12,7 +12,7 @@ data class ApplicationMigrationStatus(
   val jiraLink: String? = null
 ) {
   val isMigratable: Boolean
-    get() = exportSucceeded && isScmPowered && inAllowList
+    get() = exportSucceeded && inAllowList
 
   val isBlocked: Boolean
     get() = assistanceNeeded
