@@ -51,7 +51,7 @@ data class SubmittedDeliveryConfig(
       artifact.withDeliveryConfigName(safeName)
     },
     environments = environments.mapTo(mutableSetOf()) { env ->
-      env.toEnvironment(this)
+      env.toEnvironment()
     },
     previewEnvironments = previewEnvironments,
     metadata = metadata ?: emptyMap(),
@@ -83,12 +83,12 @@ data class SubmittedEnvironment(
       this.metadata.putAll(metadata)
     }
 
-  fun toEnvironment(deliveryConfig: SubmittedDeliveryConfig, serviceAccount: String? = null) = Environment(
+  fun toEnvironment(serviceAccount: String? = null) = Environment(
     name = name,
     resources = resources.mapTo(mutableSetOf()) { resource ->
       resource
         .copy(metadata = mapOf("serviceAccount" to serviceAccount) + resource.metadata)
-        .normalize(deliveryConfig)
+        .normalize()
     },
     constraints = constraints,
     verifyWith = verifyWith,

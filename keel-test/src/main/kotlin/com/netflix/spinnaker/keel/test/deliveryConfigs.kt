@@ -94,7 +94,7 @@ fun deliveryConfigWithClusterAndLoadBalancer() =
       resources = setOf(
         Resource(
           kind = TITUS_CLUSTER_V1.kind,
-          metadata = mapOf("id" to "fnord-test-cluster", "application" to "fnord", "displayName" to "fnord-test-cluster"),
+          metadata = mapOf("id" to "fnord-test-cluster", "application" to "fnord"),
           spec = TitusClusterSpec(
             moniker = Moniker("fnord", "test", "cluster"),
             locations = SimpleLocations(
@@ -111,7 +111,7 @@ fun deliveryConfigWithClusterAndLoadBalancer() =
         ),
         Resource(
           kind = EC2_APPLICATION_LOAD_BALANCER_V1_2.kind,
-          metadata = mapOf("id" to "fnord-test-alb", "application" to "fnord", "displayName" to "fnord-test-alb"),
+          metadata = mapOf("id" to "fnord-test-alb", "application" to "fnord"),
           spec = ApplicationLoadBalancerSpec(
             moniker = Moniker("fnord", "test", "alb"),
             locations = SubnetAwareLocations(

@@ -311,7 +311,7 @@ internal class RequiredLoadBalancerVetoTests : JUnit5Minutests {
     every {
       cloudDriver.loadBalancersForApplication(
         user = DEFAULT_SERVICE_ACCOUNT,
-        application = resource.application
+        application = resourceSpec.application
       )
     } answers {
       regions.flatMap { region ->
@@ -364,9 +364,9 @@ internal class RequiredLoadBalancerVetoTests : JUnit5Minutests {
     region: String
   ) =
     ApplicationLoadBalancerModel(
-      moniker = Moniker(resource.application, "stub", "alb"),
-      loadBalancerName = "${resource.application}-stub-alb",
-      dnsName = "${resource.application}-stub-alb-1234567890.$region.elb.amazonaws.com",
+      moniker = Moniker(resourceSpec.application, "stub", "alb"),
+      loadBalancerName = "${resourceSpec.application}-stub-alb",
+      dnsName = "${resourceSpec.application}-stub-alb-1234567890.$region.elb.amazonaws.com",
       targetGroups = targetGroupNames.map { targetGroupName ->
         TargetGroup(
           targetGroupName = targetGroupName,
@@ -403,9 +403,9 @@ internal class RequiredLoadBalancerVetoTests : JUnit5Minutests {
     region: String
   ) =
     NetworkLoadBalancerModel(
-      moniker = Moniker(resource.application, "stub", "nlb"),
-      loadBalancerName = "${resource.application}-stub-nlb",
-      dnsName = "${resource.application}-stub-nlb-1234567890.$region.elb.amazonaws.com",
+      moniker = Moniker(resourceSpec.application, "stub", "nlb"),
+      loadBalancerName = "${resourceSpec.application}-stub-nlb",
+      dnsName = "${resourceSpec.application}-stub-nlb-1234567890.$region.elb.amazonaws.com",
       vpcId = vpcIds.getValue(account to region),
       subnets = emptySet(),
       availabilityZones = setOf("a", "b", "c").map { "$region$it" }.toSet(),

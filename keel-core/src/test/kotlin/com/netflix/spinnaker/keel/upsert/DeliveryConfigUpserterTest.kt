@@ -22,6 +22,7 @@ import com.netflix.spinnaker.keel.persistence.OverwritingExistingResourcesDisall
 import com.netflix.spinnaker.keel.persistence.PersistenceRetry
 import com.netflix.spinnaker.keel.test.DummyResourceHandlerV1
 import com.netflix.spinnaker.keel.test.DummyResourceSpec
+import com.netflix.spinnaker.keel.test.TEST_API_V1
 import com.netflix.spinnaker.keel.test.TEST_API_V2
 import com.netflix.spinnaker.keel.test.deliveryArtifact
 import com.netflix.spinnaker.keel.test.submittedDeliveryConfig

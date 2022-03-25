@@ -100,11 +100,11 @@ internal class InstanceMetadataServiceResolverTests :
         ),
         launchConfiguration = LaunchConfiguration(
           imageId = "ami-001",
-          appVersion = "${moniker.app}-v001",
+          appVersion = "$application-v001",
           baseImageName = "bionic-v001",
           instanceType = "m5.xl",
-          iamRole = "${moniker.app}Role",
-          keyPair = "${moniker.app}KeyPair",
+          iamRole = "${application}Role",
+          keyPair = "${application}KeyPair",
           requireIMDSv2 = featureActive
         )
       )

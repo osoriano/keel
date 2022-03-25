@@ -33,6 +33,8 @@ data class ApplicationLoadBalancerV1_1Spec(
 
   override val loadBalancerType: LoadBalancerType = APPLICATION
 
+  override val id: String = "${locations.account}:$moniker"
+
   data class ListenerV1_1(
     val port: Int,
     val protocol: String,

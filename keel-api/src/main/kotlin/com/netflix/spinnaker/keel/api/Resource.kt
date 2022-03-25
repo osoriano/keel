@@ -11,22 +11,13 @@ data class Resource<out T : ResourceSpec>(
 ) {
   init {
     require(metadata["id"].isValidId()) { "resource id must be a valid id" }
-    require(metadata["application"].isValidApplication()) { "resource application must be a valid application" }
+    require(metadata["application"].isValidApplication()) { "application must be a valid application" }
   }
 
-  /**
-   * The formal resource id. This formed of the resource's API version prefix and kind and the result of
-   * [ResourceSpec.generateId].
-   */
   val id: String
     get() = metadata.getValue("id").toString()
 
-  /**
-   * A more descriptive name than the [id], intended for displaying in the UI. This property is
-   * not persisted.
-   */
-  val displayName: String
-    get() = (spec as? Monikered)?.moniker?.toString() ?: id
+  val displayName: String = spec.displayName
 
   @get:ExcludedFromDiff
   val version: Int
@@ -67,7 +58,7 @@ data class Resource<out T : ResourceSpec>(
       spec = updatedSpec as T,
       metadata = metadata + mapOf(
         // this is so the resource ID is updated with the new name/ID (which is in the spec)
-        "id" to generateId(kind, updatedSpec, metadata),
+        "id" to generateId(kind, updatedSpec),
         "application" to application
       )
     )
@@ -96,8 +87,8 @@ data class Resource<out T : ResourceSpec>(
 /**
  * Creates a resource id in the correct format.
  */
-fun generateId(kind: ResourceKind, spec: ResourceSpec, metadata: Map<String, Any?>) =
-  "${kind.group}:${kind.kind}:${spec.generateId(metadata)}"
+fun generateId(kind: ResourceKind, spec: ResourceSpec) =
+  "${kind.group}:${kind.kind}:${spec.id}"
 
 private fun Any?.isValidId() =
   when (this) {

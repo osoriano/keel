@@ -705,7 +705,8 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
             with(deliveryConfig.resources.first()) {
               val newResourceVersion = resource(
                 kind = kind,
-                id = spec.generateId(emptyMap())
+                id = spec.id,
+                application = application
               )
               val updatedResource = resourceRepository.store(newResourceVersion)
               repository.store(deliveryConfig.withUpdatedResource(updatedResource))
@@ -795,7 +796,7 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
 
           val resource = deliveryConfig.environments.first().resources.first { it.kind == parseKind("ec2/cluster@v1") }
             .run {
-              copy(spec = DummyResourceSpec(id = id))
+              copy(spec = DummyResourceSpec(id = id, application = application))
             }
 
           val updatedResource = resourceRepository.store(resource)

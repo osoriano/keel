@@ -7,12 +7,15 @@ import com.netflix.spinnaker.keel.api.LocationConstants.defaultVPC
 /**
  * A resource spec which is located in an account and one or more regions.
  */
-interface Locatable<T : Locations<*>> : Monikered {
+interface Locatable<T : Locations<*>> : ResourceSpec {
   val locations: T
-  val id: String
-    get() = "${locations.account}:$moniker"
+}
 
-  override fun generateId(metadata: Map<String, Any?>): String = "${locations.account}:$moniker"
+/** A [Locations] type for resources where the regions alone are sufficient information */
+data class SimpleRegions(override val regions: Set<SimpleRegionSpec>) : Locations<SimpleRegionSpec>
+
+interface AccountAwareLocations<T : RegionSpec> : Locations<T> {
+  val account: String
 }
 
 /** A [Locations] type for resources where the VPC and subnet matter. */
@@ -25,7 +28,7 @@ data class SubnetAwareLocations(
   // TODO: this is not ideal as we'd like this default to be configurable
   val vpc: String? = defaultVPC(subnet),
   override val regions: Set<SubnetAwareRegionSpec>
-) : Locations<SubnetAwareRegionSpec> {
+) : AccountAwareLocations<SubnetAwareRegionSpec> {
   // TODO: probably should be an extension at use-site
   fun withDefaultsOmitted() =
     copy(
@@ -48,7 +51,7 @@ data class SimpleLocations(
   // TODO: this is not ideal as we'd like this default to be configurable
   val vpc: String? = DEFAULT_VPC_NAME,
   override val regions: Set<SimpleRegionSpec>
-) : Locations<SimpleRegionSpec>
+) : AccountAwareLocations<SimpleRegionSpec>
 
 object LocationConstants {
   const val DEFAULT_VPC_NAME = "vpc0"

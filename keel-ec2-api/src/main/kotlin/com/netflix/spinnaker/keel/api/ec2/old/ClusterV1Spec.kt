@@ -62,6 +62,8 @@ data class ClusterV1Spec (
     const val MAX_NAME_LENGTH = 255
   }
 
+  override val id = "${locations.account}:$moniker"
+
   override val defaults: ServerGroupSpec
     get() = _defaults
 

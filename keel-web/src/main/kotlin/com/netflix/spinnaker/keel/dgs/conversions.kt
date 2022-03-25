@@ -4,6 +4,7 @@ import com.netflix.spinnaker.keel.actuation.ExecutionSummary
 import com.netflix.spinnaker.keel.actuation.RolloutStatus
 import com.netflix.spinnaker.keel.actuation.RolloutTargetWithStatus
 import com.netflix.spinnaker.keel.actuation.Stage
+import com.netflix.spinnaker.keel.api.AccountAwareLocations
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.DeployableResourceSpec
 import com.netflix.spinnaker.keel.api.Locatable
@@ -94,10 +95,14 @@ fun Resource<*>.toDgs(config: DeliveryConfig, environmentName: String): MD_Resou
         reference = artifact.reference
       )
     },
-    displayName = displayName,
+    displayName = spec.displayName,
     moniker = getMdMoniker(),
     location = (spec as? Locatable<*>)?.let {
-      MD_Location(account = it.locations.account, regions = it.locations.regions.map { r -> r.name })
+      val account = when (val locations = it.locations) {
+        is AccountAwareLocations -> locations.account
+        else -> null
+      }
+      MD_Location(account = account, regions = it.locations.regions.map { r -> r.name })
     },
     // TODO: replace this with isRedeployable indicating whether the resource can *currently*
     //  be redeployed (e.g. there are no verifications running, it's not locked, etc.)

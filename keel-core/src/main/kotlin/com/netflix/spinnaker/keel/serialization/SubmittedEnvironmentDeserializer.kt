@@ -3,8 +3,11 @@ package com.netflix.spinnaker.keel.serialization
 import com.fasterxml.jackson.databind.BeanProperty
 import com.fasterxml.jackson.databind.DeserializationContext
 import com.fasterxml.jackson.databind.InjectableValues
+import com.fasterxml.jackson.databind.JsonMappingException
 import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.deser.std.StdNodeBasedDeserializer
+import com.fasterxml.jackson.module.kotlin.convertValue
 import com.netflix.spinnaker.keel.api.Constraint
 import com.netflix.spinnaker.keel.api.NotificationConfig
 import com.netflix.spinnaker.keel.api.SimpleLocations
@@ -38,6 +41,13 @@ class SubmittedEnvironmentDeserializer : StdNodeBasedDeserializer<SubmittedEnvir
       } catch (e: Exception) {
         throw context.instantiationException<SubmittedEnvironment>(e)
       }
+    }
+
+  private inline fun <reified T : Any> ObjectMapper.convert(root: JsonNode, path: String): T? =
+    try {
+      convertValue(root.path(path))
+    } catch (e: IllegalArgumentException) {
+      throw JsonMappingException.wrapWithPath(e, root, path)
     }
 }
 

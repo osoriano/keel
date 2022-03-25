@@ -5,6 +5,7 @@ import com.netflix.spinnaker.config.BaseUrlConfig
 import com.netflix.spinnaker.config.DefaultWorkhorseCoroutineContext
 import com.netflix.spinnaker.config.WorkhorseCoroutineContext
 import com.netflix.spinnaker.keel.activation.DiscoveryActivated
+import com.netflix.spinnaker.keel.api.AccountAwareLocations
 import com.netflix.spinnaker.keel.api.Constraint
 import com.netflix.spinnaker.keel.api.Dependency
 import com.netflix.spinnaker.keel.api.DependencyType
@@ -222,8 +223,9 @@ class ExportService(
     val moniker = (resource.spec as? Monikered)?.moniker
       ?: throw IllegalArgumentException("We can only export resources with a moniker currently.")
 
-    val locations = (resource.spec as? Locatable<*>)?.locations
-      ?: throw IllegalArgumentException("We can only export resources with locations currently.")
+    val locations = (resource.spec as? Locatable<*>)?.let {
+      (it.locations as? AccountAwareLocations<*>)
+    } ?: throw IllegalArgumentException("We can only export resources with locations currently.")
 
     val handler = handlers.supporting(resource.kind)
     val exportable = Exportable(
@@ -675,7 +677,7 @@ class ExportService(
         it.spec is SecurityGroupSpec
       }.map {
         val sg = it.spec as SecurityGroupSpec
-        if (sg.locations.account == account && sg.moniker.toName() == name) {
+        if (sg.locations.account == account && it.spec.displayName == name) {
           return true
         }
       }
@@ -689,7 +691,7 @@ class ExportService(
         it.spec is ClassicLoadBalancerSpec
       }.map {
         val clb = it.spec as ClassicLoadBalancerSpec
-        if (clb.locations.account == account && clb.moniker.toName() == name) {
+        if (clb.locations.account == account && it.spec.displayName == name) {
           return true
         }
       }
@@ -703,7 +705,7 @@ class ExportService(
         it.spec is ApplicationLoadBalancerSpec
       }.map {
         val alb = it.spec as ApplicationLoadBalancerSpec
-        if (alb.locations.account == account && alb.moniker.toName() == name) {
+        if (alb.locations.account == account && it.spec.displayName == name) {
           return true
         }
       }

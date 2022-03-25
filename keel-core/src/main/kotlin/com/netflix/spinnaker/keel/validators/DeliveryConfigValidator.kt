@@ -52,7 +52,7 @@ class DeliveryConfigValidator {
 
     if (duplicateResources.isNotEmpty()) {
       val envToResources: Map<String, MutableList<String>> =
-        config.environments.associate { env -> env.name to env.resources.map { it.id }.toMutableList() }
+        config.environments.associate { env -> env.name to env.resources.map { it.spec.id }.toMutableList() }
       val envsAndDuplicateResources = envToResources
         .filterValues { rs: MutableList<String> ->
           // remove all the resources we don't care about from this mapping

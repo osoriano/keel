@@ -177,13 +177,15 @@ internal class SqlDeliveryConfigRepositoryPeriodicallyCheckedTests :
       val createAndStore: Fixture<DeliveryConfig, SqlDeliveryConfigRepository>.(count: Int) -> Collection<DeliveryConfig> = { count ->
         (1..count)
           .map { i ->
-            val resource = DummyResourceSpec().let { spec ->
+            val resource = DummyResourceSpec(
+              application = "fnord-$i"
+            ).let { spec ->
               Resource(
                 kind = v1.kind,
                 metadata = mapOf(
                   "id" to spec.id,
                   "version" to 1,
-                  "application" to "fnord"
+                  "application" to spec.application
                 ),
                 spec = spec
               )

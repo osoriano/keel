@@ -3,18 +3,25 @@ package com.netflix.spinnaker.keel.auth
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.fiat.shared.FiatPermissionEvaluator
 import com.netflix.spinnaker.fiat.shared.triggers.ManagedDeliveryTriggerIdentity
+import com.netflix.spinnaker.keel.api.AccountAwareLocations
 import com.netflix.spinnaker.keel.api.Locatable
+import com.netflix.spinnaker.keel.persistence.KeelRepository
+import com.netflix.spinnaker.keel.persistence.NoSuchEntityException
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport.TargetEntity.APPLICATION
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport.TargetEntity.DELIVERY_CONFIG
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport.TargetEntity.RESOURCE
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport.TargetEntity.SERVICE_ACCOUNT
-import com.netflix.spinnaker.keel.persistence.KeelRepository
-import com.netflix.spinnaker.keel.persistence.NoSuchEntityException
+import com.netflix.spinnaker.keel.logging.blankMDC
+import com.netflix.spinnaker.kork.common.Header.AUTH_TOKEN
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import com.netflix.spinnaker.kork.web.exceptions.InvalidRequestException
 import com.netflix.spinnaker.security.AuthenticatedRequest
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.slf4j.MDCContext
+import kotlinx.coroutines.withContext
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import org.slf4j.MDC
 import org.springframework.security.access.AccessDeniedException
 import org.springframework.security.core.Authentication
 import org.springframework.security.core.context.SecurityContextHolder
@@ -133,11 +140,11 @@ class AuthorizationSupport(
         APPLICATION -> repository.getDeliveryConfigForApplication(identifier).resources
         DELIVERY_CONFIG -> repository.getDeliveryConfig(identifier).resources
         else -> throw InvalidRequestException("Invalid target type ${target.name} for cloud account permission check")
-      }
+      }.filter { (it.spec as? Locatable<*>)?.locations is AccountAwareLocations<*> }
 
       locatableResources.forEach {
         val locations = (it.spec as Locatable<*>).locations
-        val account = locations.account
+        val account = (locations as AccountAwareLocations<*>).account
         checkPermission(auth, account, AuthorizationResourceType.ACCOUNT, action.name)
       }
     }

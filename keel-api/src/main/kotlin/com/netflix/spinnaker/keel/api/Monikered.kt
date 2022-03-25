@@ -22,4 +22,13 @@ package com.netflix.spinnaker.keel.api
  */
 interface Monikered : ResourceSpec {
   val moniker: Moniker
+
+  /**
+   * Application is derived from the moniker.
+   */
+  override val application: String
+    get() = moniker.app
+
+  override val displayName: String
+    get() = moniker.toString()
 }

@@ -443,6 +443,3 @@ databaseChangeLog:
 - include:
     file: changelog/20220317-recreate-artifact-promotion-event.yml
     relativeToChangelogFile: true
-- include:
-    file: changelog/20220321-resource-additional-metadata.yml
-    relativeToChangelogFile: true

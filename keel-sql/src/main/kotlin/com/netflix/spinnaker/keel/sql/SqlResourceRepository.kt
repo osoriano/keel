@@ -8,8 +8,6 @@ import com.netflix.spinnaker.config.ResourceEventPruneConfig
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceKind.Companion.parseKind
 import com.netflix.spinnaker.keel.api.ResourceSpec
-import com.netflix.spinnaker.keel.api.ResourceStatus
-import com.netflix.spinnaker.keel.api.ResourceStatusSnapshot
 import com.netflix.spinnaker.keel.core.api.randomUID
 import com.netflix.spinnaker.keel.events.ApplicationEvent
 import com.netflix.spinnaker.keel.events.NonRepeatableEvent
@@ -23,6 +21,10 @@ import com.netflix.spinnaker.keel.pause.PauseScope
 import com.netflix.spinnaker.keel.persistence.NoSuchResourceId
 import com.netflix.spinnaker.keel.persistence.ResourceHeader
 import com.netflix.spinnaker.keel.persistence.ResourceRepository
+import com.netflix.spinnaker.keel.api.ResourceStatus
+import com.netflix.spinnaker.keel.api.ResourceStatusSnapshot
+import com.netflix.spinnaker.keel.events.PersistentEvent.EventScope.RESOURCE
+import com.netflix.spinnaker.keel.persistence.metamodel.Tables
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ACTIVE_ENVIRONMENT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ACTIVE_RESOURCE
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.DELIVERY_CONFIG
@@ -45,6 +47,7 @@ import org.jooq.Select
 import org.jooq.impl.DSL
 import org.jooq.impl.DSL.coalesce
 import org.jooq.impl.DSL.max
+import org.jooq.impl.DSL.rowNumber
 import org.jooq.impl.DSL.select
 import org.jooq.impl.DSL.value
 import org.slf4j.LoggerFactory
@@ -196,7 +199,6 @@ class SqlResourceRepository(
       jooq.insertInto(RESOURCE_VERSION)
         .set(RESOURCE_VERSION.RESOURCE_UID, uid)
         .set(RESOURCE_VERSION.VERSION, version + 1)
-        .set(RESOURCE_VERSION.METADATA, objectMapper.writeValueAsString(resource.metadata))
         .set(RESOURCE_VERSION.SPEC, objectMapper.writeValueAsString(resource.spec))
         .set(RESOURCE_VERSION.CREATED_AT, clock.instant())
         .execute()

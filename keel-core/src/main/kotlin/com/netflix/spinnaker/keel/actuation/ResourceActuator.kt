@@ -153,7 +153,7 @@ class ResourceActuator(
               resource.kind,
               resource.id,
               resource.version,
-              resource.application,
+              resource.spec.application,
               response.message,
               response.vetoName,
               response.suggestedStatus,

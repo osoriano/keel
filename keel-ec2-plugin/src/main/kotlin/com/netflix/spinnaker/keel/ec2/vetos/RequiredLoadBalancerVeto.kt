@@ -3,7 +3,6 @@ package com.netflix.spinnaker.keel.ec2.vetos
 import com.netflix.spinnaker.config.DefaultWorkhorseCoroutineContext
 import com.netflix.spinnaker.config.WorkhorseCoroutineContext
 import com.netflix.spinnaker.keel.api.Resource
-import com.netflix.spinnaker.keel.api.ResourceStatus.MISSING_DEPENDENCY
 import com.netflix.spinnaker.keel.api.ec2.OverrideableClusterDependencyContainer
 import com.netflix.spinnaker.keel.api.ec2.loadBalancersByRegion
 import com.netflix.spinnaker.keel.api.ec2.targetGroupsByRegion
@@ -14,6 +13,7 @@ import com.netflix.spinnaker.keel.clouddriver.model.ApplicationLoadBalancerModel
 import com.netflix.spinnaker.keel.clouddriver.model.ClassicLoadBalancerModel
 import com.netflix.spinnaker.keel.clouddriver.model.NetworkLoadBalancerModel
 import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
+import com.netflix.spinnaker.keel.api.ResourceStatus.MISSING_DEPENDENCY
 import com.netflix.spinnaker.keel.veto.Veto
 import com.netflix.spinnaker.keel.veto.VetoResponse
 import kotlinx.coroutines.CoroutineDispatcher
@@ -41,7 +41,7 @@ class RequiredLoadBalancerVeto(
       return allowedResponse()
     }
 
-    val loadBalancers = loadBalancers(resource.application)
+    val loadBalancers = loadBalancers(spec)
     val missingLoadBalancers = loadBalancers.findMissingLoadBalancers(spec)
 
     return if (missingLoadBalancers.isEmpty()) {
@@ -55,12 +55,12 @@ class RequiredLoadBalancerVeto(
     }
   }
 
-  private suspend fun loadBalancers(application: String) =
+  private suspend fun loadBalancers(spec: OverrideableClusterDependencyContainer<*>) =
     runCatching {
-      cloudDriver.loadBalancersForApplication(DEFAULT_SERVICE_ACCOUNT, application)
+      cloudDriver.loadBalancersForApplication(DEFAULT_SERVICE_ACCOUNT, spec.application)
     }
       .onFailure { ex ->
-        log.error("error finding load balancers for ${application}", ex)
+        log.error("error finding load balancers for ${spec.application}", ex)
       }
       .getOrDefault(emptyList())
 

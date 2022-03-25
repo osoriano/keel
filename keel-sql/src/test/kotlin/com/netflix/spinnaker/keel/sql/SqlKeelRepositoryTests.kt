@@ -442,7 +442,7 @@ class SqlKeelRepositoryTests : JUnit5Minutests {
           metadata = mapOf("serviceAccount" to "keel@spinnaker"),
           kind = TEST_API_V1.qualify("whatever"),
           spec = DummyResourceSpec(data = "o hai")
-        ).normalize(application)
+        ).normalize()
 
         context("creation") {
           before {

@@ -46,7 +46,7 @@ internal class DeliveryConfigValidatorTests : JUnit5Minutests {
             resources = setOf(
               SubmittedResource(
                 kind = TEST_API_V1.qualify("whatever"),
-                spec = DummyResourceSpec("test", "im a twin")
+                spec = DummyResourceSpec("test", "im a twin", "keel")
               )
             ),
             constraints = emptySet()
@@ -73,7 +73,7 @@ internal class DeliveryConfigValidatorTests : JUnit5Minutests {
             resources = setOf(
               SubmittedResource(
                 kind = TEST_API_V1.qualify("whatever"),
-                spec = DummyResourceSpec("test", "im a twin")
+                spec = DummyResourceSpec("test", "im a twin", "keel")
               )
             ),
             constraints = emptySet()
@@ -83,7 +83,7 @@ internal class DeliveryConfigValidatorTests : JUnit5Minutests {
             resources = setOf(
               SubmittedResource(
                 kind = TEST_API_V1.qualify("whatever"),
-                spec = DummyResourceSpec("test", "im a twin")
+                spec = DummyResourceSpec("test", "im a twin", "keel")
               )
             ),
             constraints = emptySet()

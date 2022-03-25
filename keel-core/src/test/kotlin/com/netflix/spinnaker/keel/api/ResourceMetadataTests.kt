@@ -77,14 +77,12 @@ internal class ResourceMetadataTests : JUnit5Minutests {
       fixture {
         Resource(
           kind = TEST_API_V1.qualify("whatever"),
-          spec = DummyResourceSpec(id = "myResource"),
-          metadata = mapOf(
-            "id" to "myResource",
-            "serviceAccount" to "myAccount",
-            "application" to "fnord",
-            "displayName" to "my resource"
-          )
-        )
+          spec = DummyResourceSpec(id = "myResource", application = "fnord"),
+          metadata =  mapOf(
+          "id" to "myResource",
+          "serviceAccount" to "myAccount",
+          "application" to "fnord"
+        ))
       }
 
       test("are exposed via field accessors") {

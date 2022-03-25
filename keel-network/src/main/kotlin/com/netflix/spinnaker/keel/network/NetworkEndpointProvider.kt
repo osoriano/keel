@@ -55,17 +55,18 @@ class NetworkEndpointProvider(
     }
   }
 
+  /**
+   * todo: this is the default for SBN apps, as documented here, but won't be the case for every app:
+   * https://manuals.netflix.net/view/runtime-java/mkdocs/master/spring-reference/ipc/service_discovery/#advertising-myself-server-vips
+   *
+   * We might have to do something different in the future, but we will do that when asked for it.
+   */
+  fun Moniker.generateVipPrefix(): String =
+    app + if (stack != null) stack else ""
+
+
   private val String.environment: String
     get() = runBlocking {
       cloudDriverCache.credentialBy(this@environment).environment
     }
 }
-
-/**
- * todo: this is the default for SBN apps, as documented here, but won't be the case for every app:
- * https://manuals.netflix.net/view/runtime-java/mkdocs/master/spring-reference/ipc/service_discovery/#advertising-myself-server-vips
- *
- * We might have to do something different in the future, but we will do that when asked for it.
- */
-internal fun Moniker.generateVipPrefix(): String =
-  app + if (stack != null) stack else ""

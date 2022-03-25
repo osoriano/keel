@@ -25,8 +25,8 @@ import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.Monikered
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceKind
-import com.netflix.spinnaker.keel.api.ResourceStatus
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
+import com.netflix.spinnaker.keel.api.ResourceStatus
 import com.netflix.spinnaker.keel.pause.Pause
 
 /**
@@ -44,7 +44,7 @@ data class ResourceSummary(
 ) {
   val id: String = resource.id
   val kind: ResourceKind = resource.kind
-  val displayName: String = resource.displayName
+  val displayName: String = resource.spec.displayName
   val moniker: Moniker?
     get() = if (resource.spec is Monikered) {
       (resource.spec as Monikered).moniker
