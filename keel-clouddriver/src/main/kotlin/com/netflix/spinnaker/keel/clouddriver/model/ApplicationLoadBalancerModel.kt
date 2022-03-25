@@ -12,7 +12,6 @@ data class ApplicationLoadBalancerModel(
   override val vpcId: String,
   override val subnets: Set<String>,
   override val scheme: String?,
-  @JsonAlias("dnsname")
   override val dnsName: String,
   val idleTimeout: Int,
   val securityGroups: Set<String>,
