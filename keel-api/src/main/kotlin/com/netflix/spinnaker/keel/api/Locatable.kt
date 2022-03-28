@@ -7,11 +7,12 @@ import com.netflix.spinnaker.keel.api.LocationConstants.defaultVPC
 /**
  * A resource spec which is located in an account and one or more regions.
  */
-interface Locatable<T : Locations<*>> : ResourceSpec {
-  val locations: T
+interface Locatable<LOCATIONS : Locations<*>> : ResourceSpec {
+  val locations: LOCATIONS
 }
 
 /** A [Locations] type for resources where the regions alone are sufficient information */
+@Suppress("unused") // used by Treasure plugin
 data class SimpleRegions(override val regions: Set<SimpleRegionSpec>) : Locations<SimpleRegionSpec>
 
 interface AccountAwareLocations<T : RegionSpec> : Locations<T> {

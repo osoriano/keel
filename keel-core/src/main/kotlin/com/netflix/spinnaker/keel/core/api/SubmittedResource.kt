@@ -16,14 +16,15 @@
 package com.netflix.spinnaker.keel.core.api
 
 import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.annotation.JsonTypeInfo.As
 import com.fasterxml.jackson.annotation.JsonTypeInfo.Id
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceKind
 import com.netflix.spinnaker.keel.api.ResourceSpec
-import com.netflix.spinnaker.keel.api.schema.Description
 import com.netflix.spinnaker.keel.api.generateId
+import com.netflix.spinnaker.keel.api.schema.Description
 import com.netflix.spinnaker.keel.api.schema.Discriminator
 
 /**
@@ -31,7 +32,7 @@ import com.netflix.spinnaker.keel.api.schema.Discriminator
  */
 @Description("A resource as submitted to the Managed Delivery API.")
 data class SubmittedResource<T : ResourceSpec>(
-  @get:JsonInclude(JsonInclude.Include.NON_EMPTY)
+  @get:JsonInclude(NON_EMPTY)
   @Description("Optional metadata about the resource.")
   val metadata: Map<String, Any?> = emptyMap(),
 
@@ -45,15 +46,18 @@ data class SubmittedResource<T : ResourceSpec>(
 )
 
 val <T : ResourceSpec> SubmittedResource<T>.id: String
-  get() = generateId(kind, spec)
+  get() = generateId(kind,spec,metadata)
 
-fun <T : ResourceSpec> SubmittedResource<T>.normalize(): Resource<T> =
+fun <T : ResourceSpec> SubmittedResource<T>.normalize(deliveryConfig: SubmittedDeliveryConfig): Resource<T> =
+  normalize(deliveryConfig.application)
+
+fun <T : ResourceSpec> SubmittedResource<T>.normalize(application: String): Resource<T> =
   Resource(
     kind = kind,
     metadata = metadata + mapOf(
       "id" to id,
       "uid" to randomUID().toString(),
-      "application" to spec.application
+      "application" to application
     ),
     spec = spec
   )

@@ -95,7 +95,7 @@ fun Resource<*>.toDgs(config: DeliveryConfig, environmentName: String): MD_Resou
         reference = artifact.reference
       )
     },
-    displayName = spec.displayName,
+    displayName = displayName,
     moniker = getMdMoniker(),
     location = (spec as? Locatable<*>)?.let {
       val account = when (val locations = it.locations) {

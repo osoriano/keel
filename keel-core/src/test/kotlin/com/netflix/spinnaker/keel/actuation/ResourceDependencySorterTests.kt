@@ -49,7 +49,7 @@ class ResourceDependencySorterTests {
     description = "secgroup",
     locations = SimpleLocations("test", "vpc0", setOf(SimpleRegionSpec("us-east-1"))),
   )
-  
+
   private val secGroupSpec2 = secGroupSpec1.copy(moniker = Moniker("fnord", "test", "secgroup2"))
 
   private val targetGroup = TargetGroup("fnord-internal-tg1", port = 8080)

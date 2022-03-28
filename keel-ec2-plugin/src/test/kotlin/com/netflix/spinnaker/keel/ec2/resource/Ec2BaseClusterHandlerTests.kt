@@ -45,7 +45,7 @@ class Ec2BaseClusterHandlerTests : BaseClusterHandlerTests<ClusterSpec, ServerGr
   val jenkinsService = mockk<JenkinsService>()
   val diffFactory = DefaultResourceDiffFactory()
 
-  val metadata = mapOf("id" to "1234", "application" to "waffles", "serviceAccount" to "me@you.com" )
+  val metadata = mapOf("id" to "1234", "application" to "waffles", "serviceAccount" to "me@you.com", "displayName" to "the cluster")
 
   val launchConfigurationSpec = LaunchConfigurationSpec(
     image = VirtualMachineImage("id-1", "my-app-1.2.3", "base-1"),

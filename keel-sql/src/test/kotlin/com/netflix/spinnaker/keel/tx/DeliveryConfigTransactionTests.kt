@@ -80,7 +80,7 @@ internal class DeliveryConfigTransactionTests
             SubmittedResource(
               kind = parseKind("test/whatever@v1"),
               metadata = mapOf("serviceAccount" to "keel@spinnaker"),
-              spec = DummyResourceSpec("test", "resource in test", "keel")
+              spec = DummyResourceSpec("test", "resource in test")
             )
           )
         ),
@@ -90,7 +90,7 @@ internal class DeliveryConfigTransactionTests
             SubmittedResource(
               kind = parseKind("test/whatever@v1"),
               metadata = mapOf("serviceAccount" to "keel@spinnaker"),
-              spec = DummyResourceSpec("prod", "resource in prod", "keel")
+              spec = DummyResourceSpec("prod", "resource in prod")
             )
           )
         )

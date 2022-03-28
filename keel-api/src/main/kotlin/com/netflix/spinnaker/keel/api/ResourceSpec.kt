@@ -6,29 +6,11 @@ package com.netflix.spinnaker.keel.api
 interface ResourceSpec {
 
   /**
-   * The formal resource name. This is combined with the resource's API version prefix and kind to
-   * form the fully-qualified resource id.
-   *
-   * This can be a property that is part of the spec, or derived from other properties. If the
-   * latter, remember to annotate the overridden property with [com.fasterxml.jackson.annotation.JsonIgnore].
+   * The standard implementation requires a `name` property in [metadata].
    */
-  val id: String
-
-  /**
-   * The Spinnaker application this resource belongs to.
-   *
-   * This can be a property that is part of the spec, or derived from other properties. If the
-   * latter remember to annotate the overridden property with
-   * [com.fasterxml.jackson.annotation.JsonIgnore].
-   */
-  val application: String
-
-  /**
-   * A more descriptive name than the [id], intended for displaying in the UI. This property is
-   * not persisted, as it's expected to be calculated by the [ResourceSpec] implementation from
-   * other fields.
-   */
-  val displayName: String
+  fun generateId(metadata: Map<String, Any?>): String = requireNotNull(metadata["name"]?.toString()) {
+    "A name property is required in the metadata for a ${javaClass.simpleName}"
+  }
 
   /**
    * Indicates whether this resource should be added to a preview environment

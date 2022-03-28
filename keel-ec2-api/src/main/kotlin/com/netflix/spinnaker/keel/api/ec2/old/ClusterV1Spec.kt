@@ -4,10 +4,9 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.annotation.JsonTypeInfo.Id.DEDUCTION
 import com.netflix.spinnaker.keel.api.ArtifactReferenceProvider
 import com.netflix.spinnaker.keel.api.ClusterDeployStrategy
-import com.netflix.spinnaker.keel.api.Locatable
 import com.netflix.spinnaker.keel.api.Moniker
-import com.netflix.spinnaker.keel.api.Monikered
 import com.netflix.spinnaker.keel.api.RedBlack
+import com.netflix.spinnaker.keel.api.SpinnakerResourceSpec
 import com.netflix.spinnaker.keel.api.SubnetAwareLocations
 import com.netflix.spinnaker.keel.api.ec2.ClusterDependencies
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec.CapacitySpec
@@ -27,7 +26,7 @@ data class ClusterV1Spec (
   override val locations: SubnetAwareLocations,
   private val _defaults: ServerGroupSpec,
   override val overrides: Map<String, ServerGroupSpec> = emptyMap()
-) : Monikered, Locatable<SubnetAwareLocations>, OverrideableClusterDependencyContainer<ServerGroupSpec>, ArtifactReferenceProvider {
+) : SpinnakerResourceSpec<SubnetAwareLocations>, OverrideableClusterDependencyContainer<ServerGroupSpec>, ArtifactReferenceProvider {
   @Factory
   constructor(
     moniker: Moniker,
@@ -61,8 +60,6 @@ data class ClusterV1Spec (
   companion object {
     const val MAX_NAME_LENGTH = 255
   }
-
-  override val id = "${locations.account}:$moniker"
 
   override val defaults: ServerGroupSpec
     get() = _defaults

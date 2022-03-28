@@ -981,7 +981,7 @@ private fun jsonStringify(arguments: Map<String, Any>?) =
       cloudDriverService
         .listTitusServerGroups(
           user = resource.serviceAccount,
-          app = resource.spec.application,
+          app = resource.application,
           account = resource.spec.locations.account,
           cluster = resource.spec.moniker.toString()
         )

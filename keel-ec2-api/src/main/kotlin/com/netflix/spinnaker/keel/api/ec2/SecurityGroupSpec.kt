@@ -15,10 +15,9 @@
  */
 package com.netflix.spinnaker.keel.api.ec2
 
-import com.netflix.spinnaker.keel.api.Locatable
 import com.netflix.spinnaker.keel.api.Moniker
-import com.netflix.spinnaker.keel.api.Monikered
 import com.netflix.spinnaker.keel.api.SimpleLocations
+import com.netflix.spinnaker.keel.api.SpinnakerResourceSpec
 import com.netflix.spinnaker.keel.api.schema.Optional
 
 data class SecurityGroupSpec(
@@ -27,9 +26,7 @@ data class SecurityGroupSpec(
   val description: String?,
   val inboundRules: Set<SecurityGroupRule> = emptySet(),
   val overrides: Map<String, SecurityGroupOverride> = emptyMap()
-) : Monikered, Locatable<SimpleLocations> {
-  override val id = "${locations.account}:$moniker"
-
+) : SpinnakerResourceSpec<SimpleLocations> {
   companion object {
     const val MAX_NAME_LENGTH = 255
   }

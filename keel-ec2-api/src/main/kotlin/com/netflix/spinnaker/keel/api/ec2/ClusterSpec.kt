@@ -67,7 +67,7 @@ private fun ClusterSpec.resolveLaunchConfiguration(region: SubnetAwareRegionSpec
       overrides[region.name]?.launchConfiguration?.instanceType
         ?: defaults.launchConfiguration?.instanceType
     ) {
-      "No instance type resolved for $id (region ${region.name}) and cannot determine a default"
+      "No instance type resolved for $moniker (region ${region.name}) and cannot determine a default"
     },
     ebsOptimized = checkNotNull(
       overrides[region.name]?.launchConfiguration?.ebsOptimized
@@ -83,7 +83,7 @@ private fun ClusterSpec.resolveLaunchConfiguration(region: SubnetAwareRegionSpec
       overrides[region.name]?.launchConfiguration?.keyPair
         ?: defaults.launchConfiguration?.keyPair
     ) {
-      "No keypair resolved for $id (region ${region.name}) and cannot determine a default"
+      "No keypair resolved for $moniker (region ${region.name}) and cannot determine a default"
     },
     instanceMonitoring = overrides[region.name]?.launchConfiguration?.instanceMonitoring
       ?: defaults.launchConfiguration?.instanceMonitoring
@@ -202,8 +202,6 @@ data class ClusterSpec(
     ),
     overrides
   )
-
-  override val id = "${locations.account}:$moniker"
 
   /**
    * I have no idea why, but if I annotate the constructor property with @get:JsonUnwrapped, the

@@ -2,6 +2,8 @@ package com.netflix.spinnaker.keel.serialization
 
 import com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL
 import com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES
+import com.fasterxml.jackson.databind.JsonMappingException
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS
@@ -13,6 +15,7 @@ import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator.Feature.USE_NATIVE_TYPE_ID
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import com.fasterxml.jackson.module.kotlin.convertValue
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.netflix.spinnaker.keel.jackson.registerKeelApiModule
 import de.huxhorn.sulky.ulid.ULID
@@ -56,3 +59,17 @@ private fun ObjectMapper.configureSaneDateTimeRepresentation(): ObjectMapper =
     .disable(WRITE_DURATIONS_AS_TIMESTAMPS)
     .setTimeZone(TimeZone.getTimeZone("UTC"))
     .setDateFormat(SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ"))
+
+internal inline fun <reified T : Any> ObjectMapper.convert(root: JsonNode, path: String): T? =
+  try {
+    convertValue(root.path(path))
+  } catch (e: IllegalArgumentException) {
+    throw JsonMappingException.wrapWithPath(e, root, path)
+  }
+
+internal inline fun <reified T : Any> ObjectMapper.convertRequired(root: JsonNode, path: String): T =
+  try {
+    requireNotNull(convert(root, path)) { "$path is required" }
+  } catch (e : IllegalArgumentException) {
+    throw JsonMappingException.wrapWithPath(e, root, path)
+  }

@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.jsontype.NamedType
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.netflix.spinnaker.keel.api.Locatable
+import com.netflix.spinnaker.keel.api.Moniker
+import com.netflix.spinnaker.keel.api.Monikered
 import com.netflix.spinnaker.keel.api.ResourceKind.Companion.parseKind
 import com.netflix.spinnaker.keel.api.SimpleLocations
 import com.netflix.spinnaker.keel.api.SubnetAwareLocations
@@ -41,8 +43,8 @@ class SubmittedEnvironmentDeserializerTests : JUnit5Minutests {
           |  metadata:
           |    serviceAccount: mickey@disney.com
           |  spec:
-          |    id: my-resource
-          |    application: whatever
+          |    moniker:
+          |      app: whatever
           |    locations:
           |      account: prod
           |      subnet: internal (vpc0)
@@ -82,8 +84,8 @@ class SubmittedEnvironmentDeserializerTests : JUnit5Minutests {
           |  metadata:
           |    serviceAccount: mickey@disney.com
           |  spec:
-          |    id: my-resource
-          |    application: whatever
+          |    moniker:
+          |      app: whatever
           |locations:
           |  account: test
           |  subnet: internal (vpc0)
@@ -116,8 +118,8 @@ class SubmittedEnvironmentDeserializerTests : JUnit5Minutests {
           |  metadata:
           |    serviceAccount: mickey@disney.com
           |  spec:
-          |    id: my-resource
-          |    application: whatever
+          |    moniker:
+          |      app: whatever
           |locations:
           |  account: test
           |  subnet: internal (vpc0)
@@ -150,8 +152,9 @@ class SubmittedEnvironmentDeserializerTests : JUnit5Minutests {
           |    metadata:
           |      serviceAccount: mickey@disney.com
           |    spec:
-          |      id: my-test-resource
-          |      application: whatever
+          |      moniker:
+          |        app: whatever
+          |        stack: test
           |  locations:
           |    account: test
           |    subnet: internal (vpc0)
@@ -165,8 +168,9 @@ class SubmittedEnvironmentDeserializerTests : JUnit5Minutests {
           |    metadata:
           |      serviceAccount: mickey@disney.com
           |    spec:
-          |      id: my-prod-resource
-          |      application: whatever
+          |      moniker:
+          |        app: whatever
+          |        stack: prod
           """.trimMargin()
         )
       }
@@ -189,8 +193,8 @@ class SubmittedEnvironmentDeserializerTests : JUnit5Minutests {
           |  metadata:
           |    serviceAccount: mickey@disney.com
           |  spec:
-          |    id: my-resource
-          |    application: whatever
+          |    moniker:
+          |      app: whatever
           """.trimMargin()
         )
       }
@@ -205,17 +209,11 @@ class SubmittedEnvironmentDeserializerTests : JUnit5Minutests {
 }
 
 private data class TestSubnetAwareLocatableResource(
-  override val id: String,
-  override val application: String,
-  override val locations: SubnetAwareLocations
-) : Locatable<SubnetAwareLocations> {
-  override val displayName: String = "$application-$id"
-}
+  override val locations: SubnetAwareLocations,
+  override val moniker: Moniker
+) : Monikered, Locatable<SubnetAwareLocations>
 
 private data class TestSimpleLocatableResource(
-  override val id: String,
-  override val application: String,
-  override val locations: SimpleLocations
-) : Locatable<SimpleLocations> {
-  override val displayName: String = "$application-$id"
-}
+  override val locations: SimpleLocations,
+  override val moniker: Moniker
+) : Monikered, Locatable<SimpleLocations>

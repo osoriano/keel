@@ -80,7 +80,8 @@ class TitusImageResolverTests {
       metadata = mapOf(
         "id" to "${TEST_API_V1}:sample:sample-resource",
         "application" to "myapp",
-        "serviceAccount" to "keel@spinnaker"
+        "serviceAccount" to "keel@spinnaker",
+        "displayName" to "sample:sample-resource"
       )
     )
 
