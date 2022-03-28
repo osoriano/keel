@@ -253,6 +253,7 @@ data class ClusterSpec(
     val capacity: CapacitySpec? = null,
     override val dependencies: ClusterDependencies? = null,
     val health: HealthSpec? = null,
+    @JsonTypeInfo(use = DEDUCTION, defaultImpl = EC2ScalingSpec::class)
     val scaling: ScalingSpec? = null,
     val tags: Map<String, String>? = null
   ) : ClusterDependencyContainer {

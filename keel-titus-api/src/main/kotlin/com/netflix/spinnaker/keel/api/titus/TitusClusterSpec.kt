@@ -18,7 +18,7 @@
 package com.netflix.spinnaker.keel.api.titus
 
 import com.fasterxml.jackson.annotation.JsonTypeInfo
-import com.fasterxml.jackson.annotation.JsonTypeInfo.Id
+import com.fasterxml.jackson.annotation.JsonTypeInfo.Id.DEDUCTION
 import com.netflix.spinnaker.keel.api.ClusterDeployStrategy
 import com.netflix.spinnaker.keel.api.ComputeResourceSpec
 import com.netflix.spinnaker.keel.api.Dependency
@@ -79,7 +79,7 @@ data class TitusClusterSpec(
     migrationPolicy: TitusServerGroup.MigrationPolicy? = null,
     dependencies: ClusterDependencies? = null,
     tags: Map<String, String> = emptyMap(),
-    @JsonTypeInfo(use = Id.DEDUCTION, defaultImpl = TitusScalingSpec::class)
+    @JsonTypeInfo(use = DEDUCTION, defaultImpl = TitusScalingSpec::class)
     scaling: ScalingSpec? = null,
     overrides: Map<String, TitusServerGroupSpec> = emptyMap(),
     rolloutWith: RolloutConfig? = null,
@@ -175,6 +175,7 @@ data class TitusServerGroupSpec(
   val migrationPolicy: TitusServerGroup.MigrationPolicy? = null,
   val resources: ResourcesSpec? = null,
   val tags: Map<String, String>? = null,
+  @JsonTypeInfo(use = DEDUCTION, defaultImpl = TitusScalingSpec::class)
   val scaling: ScalingSpec? = null,
   val efs: ElasticFileSystem? = null,
   val platformSidecars: List<TitusServerGroup.PlatformSidecar>? = null,
