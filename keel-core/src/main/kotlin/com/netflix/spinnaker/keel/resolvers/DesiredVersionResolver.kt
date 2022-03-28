@@ -34,47 +34,35 @@ class DesiredVersionResolver(
     environment: Environment,
     artifact: DeliveryArtifact
   ): String {
-    if (featureToggles.isEnabled(FeatureToggles.DEPLOYMENT_CONSTRAINTS, false)) {
-      val identifier = "${artifact.reference} in env ${environment.name} in application ${deliveryConfig.application}"
-      log.debug("Evaluating deployment constraints for {}", identifier)
-      val pinnedVersion = repository.getPinnedVersion(deliveryConfig, environment.name, artifact.reference)
-      if (pinnedVersion != null) {
-        log.debug("Deploying pinned version $pinnedVersion for {}", identifier)
-        // pinned version overrides deployment constraints.
-        // this logic is taken care of in `latestVersionApprovedIn` for approved versions
-        return pinnedVersion
-      }
-
-      // first we check all versions that are approved and newer than the latest deploying or current version
-      val candidates = repository.deploymentCandidateVersions(deliveryConfig, artifact, environment.name)
-
-      val candidateToDeploy = candidates.firstOrNull { version ->
-        val passesDeploymentConstraints = runBlocking {
-          checkConstraintWhenSpecified(artifact, deliveryConfig, version, environment)
-        }
-        passesDeploymentConstraints // take the first one that passes
-      }
-      if (candidateToDeploy != null) {
-        val olderVersions = candidates.takeLastWhile { it != candidateToDeploy }
-        markOlderVersionsAsSkipped(olderVersions, artifact, deliveryConfig, environment)
-      }
-
-      // if none of the candidate versions can be approved, select the latest version that started deploying
-      // in the environment, because that will be the desired version.
-      val versionToDeploy = candidateToDeploy
-        ?: repository.latestDeployableVersionIn(deliveryConfig, artifact, environment.name)
-
-      return versionToDeploy ?: throw NoDeployableVersionForEnvironment(artifact, environment.name, candidates)
-
-    } else {
-      // current behavior, unchanged.
-      // todo eb: remove once deployment constraints has been vetted.
-      return repository.latestVersionApprovedIn(
-        deliveryConfig,
-        artifact,
-        environment.name
-      ) ?: throw NoApprovedVersionForEnvironment(artifact, environment.name)
+    val identifier = "${artifact.reference} in env ${environment.name} in application ${deliveryConfig.application}"
+    log.debug("Evaluating deployment constraints for {}", identifier)
+    val pinnedVersion = repository.getPinnedVersion(deliveryConfig, environment.name, artifact.reference)
+    if (pinnedVersion != null) {
+      log.debug("Deploying pinned version $pinnedVersion for {}", identifier)
+      // pinned version overrides deployment constraints.
+      return pinnedVersion
     }
+
+    // first we check all versions that are approved and newer than the latest deploying or current version
+    val candidates = repository.deploymentCandidateVersions(deliveryConfig, artifact, environment.name)
+
+    val candidateToDeploy = candidates.firstOrNull { version ->
+      val passesDeploymentConstraints = runBlocking {
+        checkConstraintWhenSpecified(artifact, deliveryConfig, version, environment)
+      }
+      passesDeploymentConstraints // take the first one that passes
+    }
+    if (candidateToDeploy != null) {
+      val olderVersions = candidates.takeLastWhile { it != candidateToDeploy }
+      markOlderVersionsAsSkipped(olderVersions, artifact, deliveryConfig, environment)
+    }
+
+    // if none of the candidate versions can be approved, select the latest version that started deploying
+    // in the environment, because that will be the desired version.
+    val versionToDeploy = candidateToDeploy
+      ?: repository.latestDeployableVersionIn(deliveryConfig, artifact, environment.name)
+
+    return versionToDeploy ?: throw NoDeployableVersionForEnvironment(artifact, environment.name, candidates)
   }
 
   fun markOlderVersionsAsSkipped(

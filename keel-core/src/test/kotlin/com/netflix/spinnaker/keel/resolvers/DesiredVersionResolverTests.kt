@@ -33,25 +33,14 @@ class DesiredVersionResolverTests {
     every { deploymentCandidateVersions(any(), any(), any()) } returns listOf(latestApprovedVersion, secondToLatestApprovedVersion, "8", "7", "6")
     every { getPinnedVersion(deliveryConfig, env.name, artifact.reference) } returns null
   }
-  val featureToggles = mockk<FeatureToggles>() {
-    every { isEnabled(DEPLOYMENT_CONSTRAINTS, any()) } returns true
-  }
+  val featureToggles = mockk<FeatureToggles>()
 
   // checking of the deployment constraints is mocked so that we can test the desired version logic without
   //   wiring in the actual evaluators and testing that logic.
   val deploymentConstraintEvaluators: List<DeploymentConstraintEvaluator<*, *>> = emptyList()
 
   val subject = spyk(DesiredVersionResolver(repository, featureToggles, deploymentConstraintEvaluators))
-
-  @Test
-  fun `falls back to old logic when feature flag is off`() {
-    every { featureToggles.isEnabled(DEPLOYMENT_CONSTRAINTS, any()) } returns false
-
-    val desiredVersion = subject.getDesiredVersion(deliveryConfig, env, artifact)
-    verify { repository.latestVersionApprovedIn(deliveryConfig, artifact, env.name) }
-    expectThat(desiredVersion).isEqualTo(latestApprovedVersion)
-  }
-
+  
   @Test
   fun `selects pinned version if there is one`(){
     every { repository.getPinnedVersion(deliveryConfig, env.name, artifact.reference) } returns "6"
