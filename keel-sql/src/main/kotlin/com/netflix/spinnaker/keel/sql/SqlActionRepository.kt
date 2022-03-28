@@ -34,6 +34,7 @@ import org.jooq.impl.DSL.name
 import org.jooq.impl.DSL.select
 import org.jooq.impl.DSL.value
 import org.slf4j.LoggerFactory
+import org.springframework.cloud.sleuth.annotation.NewSpan
 import java.time.Clock
 import java.time.Duration
 import org.springframework.core.env.Environment as SpringEnvironment
@@ -303,6 +304,7 @@ class SqlActionRepository(
     } ?: emptyList()
   }
 
+  @NewSpan
   override fun getStatesForVersions(
     deliveryConfig: DeliveryConfig,
     artifactReference: String,

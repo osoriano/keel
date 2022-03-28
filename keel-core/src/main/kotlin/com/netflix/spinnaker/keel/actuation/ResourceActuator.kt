@@ -52,6 +52,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.future.asDeferred
 import kotlinx.coroutines.supervisorScope
 import org.slf4j.LoggerFactory
+import org.springframework.cloud.sleuth.annotation.NewSpan
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import java.lang.reflect.Proxy
@@ -98,6 +99,7 @@ class ResourceActuator(
   }
 
   @Trace(dispatcher=true)
+  @NewSpan
   suspend fun <T : ResourceSpec> checkResource(resource: Resource<T>) {
     withTracingContext(resource, tracer) {
       val id = resource.id
@@ -259,6 +261,7 @@ class ResourceActuator(
       else -> SystemException(this)
     } as SpinnakerException
 
+  @NewSpan
   private suspend fun <T : Any> ResourceHandler<*, T>.resolve(resource: Resource<ResourceSpec>): Pair<T, T?> {
     return supervisorScope {
       if (isKotlin) {
@@ -319,30 +322,35 @@ class ResourceActuator(
   // These extensions get round the fact tht we don't know the spec type of the resource from
   // the repository. I don't want the `ResourceHandler` interface to be untyped though.
   @Suppress("UNCHECKED_CAST")
+  @NewSpan
   private suspend fun <S : ResourceSpec, R : Any> ResourceHandler<S, R>.desired(
     resource: Resource<*>
   ): R =
     desired(resource as Resource<S>)
 
   @Suppress("UNCHECKED_CAST")
+  @NewSpan
   private suspend fun <S : ResourceSpec, R : Any> ResourceHandler<S, R>.desiredAsync(
     resource: Resource<*>, executor: Executor
   ): CompletableFuture<R> =
     desiredAsync(resource as Resource<S>, executor)
 
   @Suppress("UNCHECKED_CAST")
+  @NewSpan
   private suspend fun <S : ResourceSpec, R : Any> ResourceHandler<S, R>.current(
     resource: Resource<*>
   ): R? =
     current(resource as Resource<S>)
 
   @Suppress("UNCHECKED_CAST")
+  @NewSpan
   private suspend fun <S : ResourceSpec, R : Any> ResourceHandler<S, R>.currentAsync(
     resource: Resource<*>, executor: Executor
   ): CompletableFuture<R?> =
     currentAsync(resource as Resource<S>, executor)
 
   @Suppress("UNCHECKED_CAST")
+  @NewSpan
   private suspend fun <S : ResourceSpec, R : Any> ResourceHandler<S, R>.willTakeAction(
     resource: Resource<*>,
     resourceDiff: ResourceDiff<*>
@@ -350,6 +358,7 @@ class ResourceActuator(
     willTakeAction(resource as Resource<S>, resourceDiff as ResourceDiff<R>)
 
   @Suppress("UNCHECKED_CAST")
+  @NewSpan
   private suspend fun <S : ResourceSpec, R : Any> ResourceHandler<S, R>.create(
     resource: Resource<*>,
     resourceDiff: ResourceDiff<*>
@@ -357,6 +366,7 @@ class ResourceActuator(
     create(resource as Resource<S>, resourceDiff as ResourceDiff<R>)
 
   @Suppress("UNCHECKED_CAST")
+  @NewSpan
   private suspend fun <S : ResourceSpec, R : Any> ResourceHandler<S, R>.update(
     resource: Resource<*>,
     resourceDiff: ResourceDiff<*>
@@ -364,6 +374,7 @@ class ResourceActuator(
     update(resource as Resource<S>, resourceDiff as ResourceDiff<R>)
 
   @Suppress("UNCHECKED_CAST")
+  @NewSpan
   private suspend fun <S : ResourceSpec> ResourceHandler<S, *>.actuationInProgress(
     resource: Resource<*>
   ): Boolean =

@@ -38,6 +38,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withTimeout
 import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.cloud.sleuth.annotation.NewSpan
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.core.env.Environment
 import org.springframework.scheduling.annotation.Scheduled
@@ -100,6 +101,7 @@ class CheckScheduler(
     get() = springEnv.getProperty("keel.post-deploy.batch-size", Int::class.java, postDeployConfig.batchSize)
 
   @Scheduled(fixedDelayString = "\${keel.resource-check.frequency:PT1S}")
+  @NewSpan
   fun checkResources() {
     if (enabled.get()) {
       val startTime = clock.instant()
@@ -140,6 +142,7 @@ class CheckScheduler(
   }
 
   @Scheduled(fixedDelayString = "\${keel.environment-check.frequency:PT1S}")
+  @NewSpan
   fun checkEnvironments() {
     if (enabled.get()) {
       val startTime = clock.instant()
@@ -180,6 +183,7 @@ class CheckScheduler(
   }
 
   @Scheduled(fixedDelayString = "\${keel.environment-deletion.check.frequency:PT1S}")
+  @NewSpan
   fun checkEnvironmentsForDeletion() {
     if (enabled.get()) {
       val startTime = clock.instant()
@@ -208,6 +212,7 @@ class CheckScheduler(
   }
 
   @Scheduled(fixedDelayString = "\${keel.artifact-check.frequency:PT1S}")
+  @NewSpan
   fun checkArtifacts() {
     if (enabled.get()) {
       val startTime = clock.instant()
@@ -238,6 +243,7 @@ class CheckScheduler(
   }
 
   @Scheduled(fixedDelayString = "\${keel.environment-verification.frequency:PT1S}")
+  @NewSpan
   fun verifyEnvironments() {
     if (enabled.get()) {
       val startTime = clock.instant()
@@ -273,6 +279,7 @@ class CheckScheduler(
   }
 
   @Scheduled(fixedDelayString = "\${keel.environment-post-deploy.frequency:PT1S}")
+  @NewSpan
   fun runPostDeployActions() {
     if (enabled.get()) {
       val startTime = clock.instant()

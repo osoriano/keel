@@ -47,6 +47,7 @@ import graphql.execution.DataFetcherResult
 import graphql.schema.DataFetchingEnvironment
 import org.dataloader.DataLoader
 import org.slf4j.LoggerFactory
+import org.springframework.cloud.sleuth.annotation.NewSpan
 import java.util.concurrent.CompletableFuture
 
 /**
@@ -98,6 +99,7 @@ class ApplicationFetcher(
   }
 
   @DgsData(parentType = DgsConstants.MD_APPLICATION.TYPE_NAME)
+  @NewSpan
   fun environments(dfe: DgsDataFetchingEnvironment): List<DataFetcherResult<MD_Environment>> {
     val config = applicationFetcherSupport.getDeliveryConfigFromContext(dfe)
     return config.environments.sortedWith { env1, env2 ->
@@ -170,6 +172,7 @@ class ApplicationFetcher(
   }
 
   @DgsData(parentType = DgsConstants.MD_ARTIFACT.TYPE_NAME, field = DgsConstants.MD_ARTIFACT.Versions)
+  @NewSpan
   fun versions(
     dfe: DataFetchingEnvironment,
     @InputArgument("statuses", collectionType = MD_ArtifactStatusInEnvironment::class) statuses: List<MD_ArtifactStatusInEnvironment>?,

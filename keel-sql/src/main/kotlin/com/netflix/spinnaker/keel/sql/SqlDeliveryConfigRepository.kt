@@ -85,6 +85,7 @@ import org.jooq.impl.DSL.sql
 import org.jooq.impl.DSL.value
 import org.jooq.util.mysql.MySQLDSL.values
 import org.slf4j.LoggerFactory
+import org.springframework.cloud.sleuth.annotation.NewSpan
 import org.springframework.context.ApplicationEventPublisher
 import java.net.InetAddress
 import java.time.Clock
@@ -123,7 +124,7 @@ class SqlDeliveryConfigRepository(
         .fetchOne()
     } != null
 
-
+  @NewSpan
   override fun getByApplication(application: String): DeliveryConfig =
     sqlRetry.withRetry(READ) {
       jooq

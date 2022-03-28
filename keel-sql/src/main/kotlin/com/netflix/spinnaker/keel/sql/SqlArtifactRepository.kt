@@ -70,6 +70,7 @@ import org.jooq.impl.DSL.select
 import org.jooq.impl.DSL.selectOne
 import org.jooq.util.mysql.MySQLDSL
 import org.slf4j.LoggerFactory
+import org.springframework.cloud.sleuth.annotation.NewSpan
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.event.EventListener
 import java.security.MessageDigest
@@ -1305,6 +1306,7 @@ class SqlArtifactRepository(
     }
   }
 
+  @NewSpan
   override fun getAllVersionsForEnvironment(
     artifact: DeliveryArtifact,
     config: DeliveryConfig,
