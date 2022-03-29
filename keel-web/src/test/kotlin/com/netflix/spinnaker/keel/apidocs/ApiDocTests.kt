@@ -146,7 +146,6 @@ class ApiDocTests
           "#/\$defs/DependsOnConstraint",
           "#/\$defs/ManualJudgementConstraint",
           "#/\$defs/PipelineConstraint",
-          "#/\$defs/TimeWindowConstraint",
           "#/\$defs/ImageExistsConstraint",
           "#/\$defs/OnOffConstraint",
           "#/\$defs/AllowedTimesConstraint"

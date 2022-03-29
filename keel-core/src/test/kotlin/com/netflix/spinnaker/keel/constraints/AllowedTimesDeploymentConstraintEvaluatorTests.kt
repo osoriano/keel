@@ -10,7 +10,6 @@ import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PASS
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PENDING
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
-import com.netflix.spinnaker.keel.core.api.ALLOWED_TIMES_CONSTRAINT_TYPE
 import com.netflix.spinnaker.keel.core.api.AllowedTimesConstraint
 import com.netflix.spinnaker.keel.core.api.TimeWindow
 import com.netflix.spinnaker.keel.core.api.TimeWindowNumeric
@@ -242,7 +241,7 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
       }
 
       before {
-        every { repository.getConstraintState(manifest.name, environment.name, any(), ALLOWED_TIMES_CONSTRAINT_TYPE, any()) } returns passState
+        every { repository.getConstraintState(manifest.name, environment.name, any(), AllowedTimesDeploymentConstraintEvaluator.CONSTRAINT_NAME, any()) } returns passState
       }
 
       test("can't promote, out of window") {

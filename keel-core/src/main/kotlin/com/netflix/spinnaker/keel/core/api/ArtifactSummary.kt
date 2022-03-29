@@ -94,5 +94,5 @@ data class AllowedTimesConstraintMetadata(
   val windows: List<TimeWindowNumeric>,
   val timezone: String? = null
 ) : ConstraintMetadata() {
-  constructor(constraint: TimeWindowConstraint): this(constraint.windowsNumeric, constraint.tz)
+  constructor(constraint: AllowedTimesConstraint): this(constraint.windowsNumeric, constraint.tz)
 }

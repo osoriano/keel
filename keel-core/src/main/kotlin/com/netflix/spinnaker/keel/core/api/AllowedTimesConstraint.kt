@@ -221,14 +221,14 @@ fun String.dayAlias(): Set<DayOfWeek> =
   when (this) {
     "weekdays" -> setOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY)
     "weekends" -> setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
-    else -> throw InvalidConstraintException(ALLOWED_TIMES_CONSTRAINT_TYPE, "Failed parsing day alias $this")
+    else -> throw InvalidConstraintException(AllowedTimesDeploymentConstraintEvaluator.CONSTRAINT_NAME, "Failed parsing day alias $this")
   }
 
 fun String.toDayOfWeek(): DayOfWeek =
   (fullDayFormatter.parseUnresolved(this.capitalize(), ParsePosition(0))
     ?: shortDayFormatter.parseUnresolved(this.capitalize(), ParsePosition(0)))
     ?.let { DayOfWeek.from(it) }
-    ?: throw InvalidConstraintException(ALLOWED_TIMES_CONSTRAINT_TYPE, "Failed parsing day '$this'")
+    ?: throw InvalidConstraintException(AllowedTimesDeploymentConstraintEvaluator.CONSTRAINT_NAME, "Failed parsing day '$this'")
 
 fun String.dayRange(): Set<DayOfWeek> {
   /**
