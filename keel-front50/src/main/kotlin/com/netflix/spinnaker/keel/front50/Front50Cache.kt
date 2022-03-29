@@ -13,17 +13,14 @@ import com.netflix.spinnaker.keel.front50.model.DisablePipeline
 import com.netflix.spinnaker.keel.front50.model.GitRepository
 import com.netflix.spinnaker.keel.front50.model.ManagedDeliveryConfig
 import com.netflix.spinnaker.keel.front50.model.Pipeline
-import kotlinx.coroutines.CoroutineDispatcher
+import com.netflix.spinnaker.keel.retrofit.isNotFound
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.future.await
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import java.util.concurrent.CompletableFuture
-import javax.annotation.PostConstruct
-import kotlin.coroutines.CoroutineContext
 
 /**
  * Memory-based cache for Front50 data.
@@ -41,8 +38,12 @@ class Front50Cache(
     .asyncLoadingCache(cacheName = "applicationsByName") { app ->
       runCatching {
         front50Service.applicationByName(app)
-      }.getOrElse { e ->
-        throw CacheLoadingException("applicationsByName", app, e)
+      }.getOrElse { ex ->
+        if (ex.isNotFound) {
+          null
+        } else {
+          throw CacheLoadingException("applicationsByName", app, ex)
+        }
       }
     }
 
@@ -50,8 +51,12 @@ class Front50Cache(
     .asyncLoadingCache(cacheName = "applicationsBySearchParams") { searchParams ->
       runCatching {
         front50Service.searchApplications(searchParams)
-      }.getOrElse { e ->
-        throw CacheLoadingException("applicationsBySearchParams", searchParams, e)
+      }.getOrElse { ex ->
+        if (ex.isNotFound) {
+          null
+        } else {
+          throw CacheLoadingException("applicationsBySearchParams", searchParams, ex)
+        }
       }
     }
 
@@ -60,7 +65,11 @@ class Front50Cache(
       runCatching {
         front50Service.pipelinesByApplication(app)
       }.getOrElse { ex ->
-        throw CacheLoadingException("pipelinesByApplication", app, ex)
+        if (ex.isNotFound) {
+          null
+        } else {
+          throw CacheLoadingException("pipelinesByApplication", app, ex)
+        }
       }
     }
 
