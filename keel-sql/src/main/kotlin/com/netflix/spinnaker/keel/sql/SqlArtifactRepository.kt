@@ -741,8 +741,20 @@ class SqlArtifactRepository(
             log.debug("setting approvedAt of version $version of artifact ${artifact.name} while marking it as deployed")
           }
 
-          // the affected-rows value per row is 1 if the row is inserted as a new row, 2 if an existing row is updated, and 0 if an existing row is set to its current values
-          // Source: https://dev.mysql.com/doc/refman/8.0/en/insert-on-duplicate.html
+          val current = txn.select(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS)
+            .from(ENVIRONMENT_ARTIFACT_VERSIONS)
+            .where(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(environmentUid))
+            .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(artifact.uid))
+            .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION.eq(version))
+            .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.eq(CURRENT))
+            .forUpdate()
+            .fetchOneInto(PromotionStatus::class.java)
+
+          if (current == CURRENT) {
+            log.debug("version $version of ${artifact.name} in env $targetEnvironment of app ${deliveryConfig.application} was marked as deployed on another thread. Bailing...")
+            return@transactionResult false
+          }
+
           val currentUpdates = txn
             .insertInto(ENVIRONMENT_ARTIFACT_VERSIONS)
             .set(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID, environmentUid)
@@ -753,11 +765,6 @@ class SqlArtifactRepository(
             .onDuplicateKeyUpdate()
             .set(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS, CURRENT)
             .execute()
-
-          if (currentUpdates == 0) {
-            log.debug("version $version of ${artifact.name} in env $targetEnvironment of app ${deliveryConfig.application} was marked as deployed on another thread. Bailing...")
-            return@transactionResult false
-          }
 
           // We need to update the [deployedAt] and [approvedAt] separately cause otherwise the query above might return the wrong value
           txn.update(ENVIRONMENT_ARTIFACT_VERSIONS)
@@ -848,7 +855,8 @@ class SqlArtifactRepository(
           val pendingButOld = getPendingVersionsInEnvironment(
             deliveryConfig,
             artifact.reference,
-            targetEnvironment
+            targetEnvironment,
+            txn
           ).filter { isOlder(artifact, it, artifactVersion) }
             .map { it.version }
             .take(100) // only take some of the records so this isn't a giant query
@@ -1436,31 +1444,43 @@ class SqlArtifactRepository(
     artifactReference: String,
     environmentName: String
   ): List<PublishedArtifact> {
+    return sqlRetry.withRetry(READ) {
+      jooq.transactionResult { config ->
+        val txn = DSL.using(config)
+        getPendingVersionsInEnvironment(deliveryConfig, artifactReference, environmentName, txn)
+      }
+    }
+  }
+
+  private fun getPendingVersionsInEnvironment(
+    deliveryConfig: DeliveryConfig,
+    artifactReference: String,
+    environmentName: String,
+    txn: DSLContext
+  ): List<PublishedArtifact> {
     val artifact = deliveryConfig.matchingArtifactByReference(artifactReference)
       ?: throw ArtifactNotFoundException(artifactReference, deliveryConfig.name)
     val environment = deliveryConfig.environmentNamed(environmentName)
-    return sqlRetry.withRetry(READ) {
-      jooq
-        .selectArtifactVersionColumns()
-        .from(
-          ARTIFACT_VERSIONS,
-          DELIVERY_ARTIFACT,
-          ACTIVE_ENVIRONMENT,
-          DELIVERY_CONFIG
-        )
-        .whereArtifactVersionsMatch(deliveryConfig, environment, artifact)
-        .andNotExists(
-          selectOne()
-            .from(ENVIRONMENT_ARTIFACT_VERSIONS)
-            .where(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION.eq(ARTIFACT_VERSIONS.VERSION))
-            .and(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(ACTIVE_ENVIRONMENT.UID))
-            .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(DELIVERY_ARTIFACT.UID))
-        )
-        .fetchArtifactVersions(artifactReference)
-        .filter {
-          artifact.hasMatchingSource(it.gitMetadata)
-        }
-    }
+    return txn
+      .selectArtifactVersionColumns()
+      .from(
+        ARTIFACT_VERSIONS,
+        DELIVERY_ARTIFACT,
+        ACTIVE_ENVIRONMENT,
+        DELIVERY_CONFIG
+      )
+      .whereArtifactVersionsMatch(deliveryConfig, environment, artifact)
+      .andNotExists(
+        selectOne()
+          .from(ENVIRONMENT_ARTIFACT_VERSIONS)
+          .where(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION.eq(ARTIFACT_VERSIONS.VERSION))
+          .and(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(ACTIVE_ENVIRONMENT.UID))
+          .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(DELIVERY_ARTIFACT.UID))
+      )
+      .fetchArtifactVersions(artifactReference)
+      .filter {
+        artifact.hasMatchingSource(it.gitMetadata)
+      }
   }
 
   override fun getNotYetDeployedVersionsInEnvironment(
@@ -2141,16 +2161,15 @@ class SqlArtifactRepository(
   }
 
   fun recordEnvArtifactVersionEvent(config: DeliveryConfig, environment: Environment, artifact: DeliveryArtifact, version: String, status: PromotionStatus, txn: DSLContext) {
-    sqlRetry.withRetry(WRITE) {
-      txn.insertInto(ARTIFACT_PROMOTION_EVENT)
-        .set(ARTIFACT_PROMOTION_EVENT.UID, ULID().nextULID(clock.millis())) // so that uids are cronologically sortable
-        .set(ARTIFACT_PROMOTION_EVENT.ENVIRONMENT_UID, config.getUidFor(environment))
-        .set(ARTIFACT_PROMOTION_EVENT.ARTIFACT_UID, artifact.uid)
-        .set(ARTIFACT_PROMOTION_EVENT.ARTIFACT_VERSION, version)
-        .set(ARTIFACT_PROMOTION_EVENT.PROMOTION_STATUS, status.name)
-        .set(ARTIFACT_PROMOTION_EVENT.TIMESTAMP, clock.instant())
-        .execute()
-    }
+    txn.insertInto(ARTIFACT_PROMOTION_EVENT)
+      .set(ARTIFACT_PROMOTION_EVENT.UID, ULID().nextULID(clock.millis())) // so that uids are cronologically sortable
+      .set(ARTIFACT_PROMOTION_EVENT.ENVIRONMENT_UID, config.getUidFor(environment))
+      .set(ARTIFACT_PROMOTION_EVENT.ARTIFACT_UID, artifact.uid)
+      .set(ARTIFACT_PROMOTION_EVENT.ARTIFACT_VERSION, version)
+      .set(ARTIFACT_PROMOTION_EVENT.PROMOTION_STATUS, status.name)
+      .set(ARTIFACT_PROMOTION_EVENT.TIMESTAMP, clock.instant())
+      .execute()
+
   }
   fun batchRecordEnvArtifactVersionEvent(config: DeliveryConfig, environment: Environment, artifact: DeliveryArtifact, versions: List<String>, status: PromotionStatus, txn: DSLContext) {
     val envUid = config.getUidStringFor(environment)

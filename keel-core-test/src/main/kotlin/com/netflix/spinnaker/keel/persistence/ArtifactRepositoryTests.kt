@@ -894,7 +894,7 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
         ))
         subject.approveVersionFor(manifest, versionedReleaseDebian, version1, testEnvironment.name)
       }
-      SKIP - test("only one is true") {
+      test("only one is true") {
         val results = Collections.synchronizedList<Boolean>(mutableListOf())
         doInParallel(200) {
           subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
