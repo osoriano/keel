@@ -5,24 +5,25 @@ import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
 import com.netflix.spinnaker.keel.api.constraints.ConstraintRepository
 import com.netflix.spinnaker.keel.api.constraints.ConstraintState
-import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
+import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.FAIL
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PASS
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PENDING
-import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.core.api.ALLOWED_TIMES_CONSTRAINT_TYPE
-import com.netflix.spinnaker.keel.core.api.AllowedTimesConstraint
 import com.netflix.spinnaker.keel.core.api.TimeWindow
+import com.netflix.spinnaker.keel.core.api.TimeWindowConstraint
 import com.netflix.spinnaker.keel.core.api.TimeWindowNumeric
 import com.netflix.spinnaker.keel.core.api.windowsNumeric
 import com.netflix.spinnaker.keel.core.api.zone
 import com.netflix.spinnaker.keel.persistence.ArtifactRepository
+import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
+import io.mockk.verify
 import kotlinx.coroutines.runBlocking
 import strikt.api.expect
 import strikt.api.expectCatching
@@ -31,15 +32,16 @@ import strikt.assertions.containsExactlyInAnyOrder
 import strikt.assertions.isA
 import strikt.assertions.isEqualTo
 import strikt.assertions.isFailure
+import strikt.assertions.isFalse
+import strikt.assertions.isTrue
 import strikt.mockk.captured
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
-import org.springframework.core.env.Environment as SpringEnv
 
-class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
+internal class AllowedTimesConstraintEvaluatorTests : JUnit5Minutests {
   companion object {
     // In America/Los_Angeles, this was 1pm on a Thursday
     val businessHoursClock: Clock = Clock.fixed(Instant.parse("2019-10-31T20:00:00Z"), ZoneId.of("UTC"))
@@ -53,7 +55,7 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
 
   data class Fixture(
     val clock: Clock,
-    val constraint: AllowedTimesConstraint
+    val constraint: TimeWindowConstraint
   ) {
     val artifact = DebianArtifact("fnord", vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2")))
     val environment = Environment(
@@ -69,10 +71,9 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
       environments = setOf(environment)
     )
 
-    private val eventPublisher: EventPublisher = mockk(relaxed = true)
-    val springEnv: SpringEnv = mockk(relaxUnitFun = true) {
+    private val dynamicConfigService: DynamicConfigService = mockk(relaxUnitFun = true) {
       every {
-        getProperty("default.time-zone", String::class.java, "America/Los_Angeles")
+        getConfig(String::class.java, "default.time-zone", any())
       } returns "UTC"
     }
 
@@ -87,24 +88,22 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
       judgedAt = clock.instant()
     )
     val passState = pendingState.copy(status = PASS)
-    val failState = pendingState.copy(status = ConstraintStatus.FAIL)
-
-    val constraintName = AllowedTimesDeploymentConstraintEvaluator.CONSTRAINT_NAME
+    val failState = pendingState.copy(status = FAIL)
 
     val repository: ConstraintRepository = mockk(relaxed = true) {
-      every { getConstraintState(manifest.name, environment.name, any(), constraintName, any()) } returns pendingState
+      every { getConstraintState(manifest.name, environment.name, any(), ALLOWED_TIMES_CONSTRAINT_TYPE, any()) } returns pendingState
     }
 
     val artifactRepository: ArtifactRepository = mockk()
 
-    val subject = AllowedTimesDeploymentConstraintEvaluator(repository, eventPublisher, artifactRepository, springEnv, clock)
+    val subject = AllowedTimesConstraintEvaluator(clock, dynamicConfigService, mockk(), repository, artifactRepository)
   }
 
   fun tests() = rootContext<Fixture> {
     fixture {
       Fixture(
         clock = businessHoursClock,
-        constraint = AllowedTimesConstraint(
+        constraint = TimeWindowConstraint(
           windows = listOf(
             TimeWindow(
               days = "Monday-Tuesday,Thursday-Friday",
@@ -117,8 +116,18 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
     }
 
     test("canPromote when in-window") {
-      val newState = runBlocking { subject.calculateConstraintState(artifact, "1.1", manifest, environment, constraint, pendingState) }
-      expectThat(newState.status).isEqualTo(PASS)
+      expectThat(runBlocking { subject.constraintPasses(artifact, "1.1", manifest, environment) })
+        .isTrue()
+      val newState = slot<ConstraintState>()
+      verify(exactly = 1) { repository.storeConstraintState(capture(newState)) }
+      expectThat(newState.captured.status).isEqualTo(PASS)
+    }
+
+    test("saved status changes from pending to pass") {
+      runBlocking { subject.constraintPasses(artifact, "1.1", manifest, environment) }
+      val newState = slot<ConstraintState>()
+      verify(exactly = 1) { repository.storeConstraintState(capture(newState)) }
+      expectThat(newState.captured.status).isEqualTo(PASS)
     }
 
     context("with a limit on deployments") {
@@ -132,13 +141,13 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
 
         before {
           every {
-            artifactRepository.versionsDeployedBetween(manifest, artifact, environment.name, capture(start), capture(end))
+            artifactRepository.versionsApprovedBetween(manifest, environment.name, capture(start), capture(end))
           } returns 0
         }
 
         test("we can promote") {
-          val newState = runBlocking { subject.calculateConstraintState(artifact, "1.1", manifest, environment, constraint, pendingState) }
-          expectThat(newState.status).isEqualTo(PASS)
+          expectThat(runBlocking { subject.constraintPasses(artifact, "1.1", manifest, environment) })
+            .isTrue()
         }
 
         test("we used the correct boundaries for the time window") {
@@ -149,16 +158,16 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
         }
       }
 
-      context("we have already deployed several versions") {
+      context("we have already approved several versions") {
         before {
           every {
-            artifactRepository.versionsDeployedBetween(manifest, artifact, environment.name, any(), any())
+            artifactRepository.versionsApprovedBetween(manifest, environment.name, any(), any())
           } returns 2
         }
 
         test("we cannot promote") {
-          val newState = runBlocking { subject.calculateConstraintState(artifact, "1.1", manifest, environment, constraint, pendingState) }
-          expectThat(newState.status).isEqualTo(PENDING)
+          expectThat(runBlocking { subject.constraintPasses(artifact, "1.1", manifest, environment) })
+            .isFalse()
         }
       }
     }
@@ -167,7 +176,7 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
       fixture {
         Fixture(
           clock = mutableClock,
-          constraint = AllowedTimesConstraint(
+          constraint = TimeWindowConstraint(
             windows = listOf(),
             tz = "America/Los_Angeles"
           )
@@ -175,15 +184,17 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
       }
 
       before {
-        every { repository.getConstraintState(manifest.name, environment.name, any(), constraintName, any()) } returns failState
+        every { repository.getConstraintState(manifest.name, environment.name, any(), ALLOWED_TIMES_CONSTRAINT_TYPE, any()) } returns failState
       }
 
       test("time is updated to last judged time") {
         mutableClock.incrementBy(Duration.ofMinutes(1))
         val currentTime = mutableClock.instant()
-        val newState = runBlocking { subject.calculateConstraintState(artifact, "1.1", manifest, environment, constraint, pendingState) }
-        expectThat(newState.status).isEqualTo(PENDING)
-        expectThat(newState.judgedAt).isEqualTo(currentTime)
+        runBlocking { subject.constraintPasses(artifact, "1.1", manifest, environment) }
+        val newState = slot<ConstraintState>()
+        verify(exactly = 1) { repository.storeConstraintState(capture(newState)) }
+        expectThat(newState.captured.status).isEqualTo(FAIL)
+        expectThat(newState.captured.judgedAt).isEqualTo(currentTime)
       }
     }
 
@@ -192,7 +203,7 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
         Fixture(
           // In America/Los_Angeles, this was 1pm on a Thursday
           clock = businessHoursClock,
-          constraint = AllowedTimesConstraint(
+          constraint = TimeWindowConstraint(
             windows = listOf(
               TimeWindow(
                 days = "Monday",
@@ -209,8 +220,8 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
       }
 
       test("canPromote due to second window") {
-        val newState = runBlocking { subject.calculateConstraintState(artifact, "1.1", manifest, environment, constraint, pendingState) }
-        expectThat(newState.status).isEqualTo(PASS)
+        expectThat(runBlocking { subject.constraintPasses(artifact, "1.1", manifest, environment) })
+          .isTrue()
       }
 
       test("ui format is correct") {
@@ -229,7 +240,7 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
       fixture {
         Fixture(
           clock = weekendClock,
-          constraint = AllowedTimesConstraint(
+          constraint = TimeWindowConstraint(
             windows = listOf(
               TimeWindow(
                 days = "Monday-Friday",
@@ -246,13 +257,15 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
       }
 
       test("can't promote, out of window") {
-        val newState = runBlocking { subject.calculateConstraintState(artifact, "1.1", manifest, environment, constraint, pendingState) }
-        expectThat(newState.status).isEqualTo(PENDING)
+        expectThat(runBlocking { subject.constraintPasses(artifact, "1.1", manifest, environment) })
+          .isFalse()
       }
 
       test("saved status flips from pass to fail") {
-        val newState = runBlocking { subject.calculateConstraintState(artifact, "1.1", manifest, environment, constraint, pendingState) }
-        expectThat(newState.status).isEqualTo(PENDING)
+        runBlocking { subject.constraintPasses(artifact, "1.1", manifest, environment) }
+        val newState = slot<ConstraintState>()
+        verify(exactly = 1) { repository.storeConstraintState(capture(newState)) }
+        expectThat(newState.captured.status).isEqualTo(FAIL)
       }
 
       test("ui format is correct") {
@@ -270,7 +283,7 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
       fixture {
         Fixture(
           clock = weekendClock,
-          constraint = AllowedTimesConstraint(
+          constraint = TimeWindowConstraint(
             windows = listOf(
               TimeWindow(
                 days = "weekdays"
@@ -282,8 +295,8 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
       }
 
       test("can't promote, not a weekday") {
-        val newState = runBlocking { subject.calculateConstraintState(artifact, "1.1", manifest, environment, constraint, pendingState) }
-        expectThat(newState.status).isEqualTo(PENDING)
+        expectThat(runBlocking { subject.constraintPasses(artifact, "1.1", manifest, environment) })
+          .isFalse()
       }
 
       test("ui format is correct") {
@@ -301,7 +314,7 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
       fixture {
         Fixture(
           clock = weekendClock,
-          constraint = AllowedTimesConstraint(
+          constraint = TimeWindowConstraint(
             windows = listOf(
               TimeWindow(
                 days = "weekends"
@@ -313,8 +326,8 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
       }
 
       test("can't promote, not a weekday") {
-        val newState = runBlocking { subject.calculateConstraintState(artifact, "1.1", manifest, environment, constraint, pendingState) }
-        expectThat(newState.status).isEqualTo(PASS)
+        expectThat(runBlocking {  subject.constraintPasses(artifact, "1.1", manifest, environment) })
+          .isTrue()
       }
 
       test("ui format is correct") {
@@ -332,7 +345,7 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
       fixture {
         Fixture(
           clock = businessHoursClock,
-          constraint = AllowedTimesConstraint(
+          constraint = TimeWindowConstraint(
             windows = listOf(
               TimeWindow(
                 days = "thu",
@@ -349,8 +362,8 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
       }
 
       test("in window with short day format") {
-        val newState = runBlocking { subject.calculateConstraintState(artifact, "1.1", manifest, environment, constraint, pendingState) }
-        expectThat(newState.status).isEqualTo(PASS)
+        expectThat(runBlocking { subject.constraintPasses(artifact, "1.1", manifest, environment)})
+          .isTrue()
       }
 
       test("ui format is correct") {
@@ -369,7 +382,7 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
       fixture {
         Fixture(
           clock = businessHoursClock,
-          constraint = AllowedTimesConstraint(
+          constraint = TimeWindowConstraint(
             windows = listOf(
               TimeWindow(
                 days = "mon-fri",
@@ -381,8 +394,8 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
       }
 
       test("11-16 is outside of allowed times when defaulting tz to UTC") {
-        val newState = runBlocking { subject.calculateConstraintState(artifact, "1.1", manifest, environment, constraint, pendingState) }
-        expectThat(newState.status).isEqualTo(PENDING)
+        expectThat(runBlocking { subject.constraintPasses(artifact, "1.1", manifest, environment)})
+          .isFalse()
       }
     }
 
@@ -390,7 +403,7 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
       fixture {
         Fixture(
           clock = mondayClock,
-          constraint = AllowedTimesConstraint(
+          constraint = TimeWindowConstraint(
             windows = listOf(
               TimeWindow(
                 days = "sat-tue",
@@ -403,8 +416,8 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
       }
 
       test("in window due to day and hour wrap-around") {
-        val newState = runBlocking { subject.calculateConstraintState(artifact, "1.1", manifest, environment, constraint, pendingState) }
-        expectThat(newState.status).isEqualTo(PASS)
+        expectThat(runBlocking { subject.constraintPasses(artifact, "1.1", manifest, environment)})
+          .isTrue()
       }
 
       test("ui format is correct") {
@@ -422,7 +435,7 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
       fixture {
         Fixture(
           clock = mondayClock,
-          constraint = AllowedTimesConstraint(
+          constraint = TimeWindowConstraint(
             windows = listOf(
               TimeWindow(
                 days = "sat-tue",
@@ -435,15 +448,15 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
       }
 
       test("not in window, hour does not wrap-around") {
-        val newState = runBlocking { subject.calculateConstraintState(artifact, "1.1", manifest, environment, constraint, pendingState) }
-        expectThat(newState.status).isEqualTo(PENDING)
+        expectThat(runBlocking { subject.constraintPasses(artifact, "1.1", manifest, environment)})
+          .isFalse()
       }
     }
 
     context("window is validated at construction") {
       test("invalid day range") {
         expectCatching {
-          AllowedTimesConstraint(
+          TimeWindowConstraint(
             windows = listOf(
               TimeWindow(
                 days = "mon-frizzay",
@@ -459,7 +472,7 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
 
       test("invalid hour range") {
         expectCatching {
-          AllowedTimesConstraint(
+          TimeWindowConstraint(
             windows = listOf(
               TimeWindow(
                 days = "weekdays",
@@ -475,7 +488,7 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
 
       test("invalid tz") {
         expectCatching {
-          AllowedTimesConstraint(
+          TimeWindowConstraint(
             windows = listOf(
               TimeWindow(
                 days = "weekdays",

@@ -12,9 +12,9 @@ import com.netflix.spinnaker.keel.api.plugins.ConstraintEvaluator
 import com.netflix.spinnaker.keel.api.plugins.ConstraintType.APPROVAL
 import com.netflix.spinnaker.keel.constraints.AllowedTimesConstraintAttributes
 import com.netflix.spinnaker.keel.constraints.DependsOnConstraintAttributes
-import com.netflix.spinnaker.keel.core.api.AllowedTimesConstraint
 import com.netflix.spinnaker.keel.core.api.DependsOnConstraint
 import com.netflix.spinnaker.keel.core.api.MANUAL_JUDGEMENT_CONSTRAINT_TYPE
+import com.netflix.spinnaker.keel.core.api.TimeWindowConstraint
 import com.netflix.spinnaker.keel.core.api.windowsNumeric
 import com.netflix.spinnaker.keel.graphql.types.MD_Constraint
 import com.netflix.spinnaker.keel.graphql.types.MD_ConstraintStatus
@@ -74,7 +74,7 @@ class ConstraintsDataLoader(
               type = envConstraint.type,
               status = ConstraintStatus.NOT_EVALUATED
             )
-            if (envConstraint is AllowedTimesConstraint) {
+            if (envConstraint is TimeWindowConstraint) {
               // we need to load in allowed time attrs to display in the UI
               state = state.copy(
                 attributes = AllowedTimesConstraintAttributes(

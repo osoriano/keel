@@ -12,18 +12,18 @@ import com.netflix.spinnaker.keel.api.constraints.SupportedConstraintType
 import com.netflix.spinnaker.keel.api.plugins.ApprovalConstraintEvaluator
 import com.netflix.spinnaker.keel.api.plugins.ConstraintType.APPROVAL
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
-import com.netflix.spinnaker.keel.core.api.AllowedTimesConstraint
 import com.netflix.spinnaker.keel.core.api.DependsOnConstraint
 import com.netflix.spinnaker.keel.core.api.ManualJudgementConstraint
+import com.netflix.spinnaker.keel.core.api.TimeWindowConstraint
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
+import io.mockk.coEvery as every
 import io.mockk.mockk
+import io.mockk.coVerify as verify
 import kotlinx.coroutines.runBlocking
 import strikt.api.expectCatching
 import strikt.assertions.isSuccess
-import io.mockk.coEvery as every
-import io.mockk.coVerify as verify
 
 internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
   class DummyImplicitConstraint : Constraint("implicit")
@@ -49,7 +49,7 @@ internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
     }
 
     val allowedTimesEvaluator = mockk<ApprovalConstraintEvaluator<*>> {
-      every { supportedType } returns SupportedConstraintType<AllowedTimesConstraint>("allowed-times")
+      every { supportedType } returns SupportedConstraintType<TimeWindowConstraint>("allowed-times")
       every { isImplicit() } returns false
       every { isStateful() } returns true
       every { constraintType() } returns APPROVAL
@@ -356,7 +356,7 @@ internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
           copy(
             environment = Environment(
               name = "staging",
-              constraints = setOf(DependsOnConstraint("test"), ManualJudgementConstraint(), AllowedTimesConstraint(windows = emptyList()))
+              constraints = setOf(DependsOnConstraint("test"), ManualJudgementConstraint(), TimeWindowConstraint(windows = emptyList()))
             )
           )
         }

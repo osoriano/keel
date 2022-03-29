@@ -34,7 +34,6 @@ import com.netflix.spinnaker.keel.api.plugins.supporting
 import com.netflix.spinnaker.keel.api.titus.TITUS_CLUSTER_V1
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
-import com.netflix.spinnaker.keel.core.api.AllowedTimesConstraint
 import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.core.api.DependsOnConstraint
 import com.netflix.spinnaker.keel.core.api.ManualJudgementConstraint
@@ -42,6 +41,7 @@ import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.core.api.SubmittedEnvironment
 import com.netflix.spinnaker.keel.core.api.SubmittedResource
 import com.netflix.spinnaker.keel.core.api.TimeWindow
+import com.netflix.spinnaker.keel.core.api.TimeWindowConstraint
 import com.netflix.spinnaker.keel.core.api.id
 import com.netflix.spinnaker.keel.core.parseMoniker
 import com.netflix.spinnaker.keel.exceptions.ArtifactNotSupportedException
@@ -473,8 +473,7 @@ class ExportService(
       val timeWindow = executionWindow.whitelist?.joinToString(",") { time ->
         "${time.startHour}-${time.endHour}"
       }
-      setOf(
-        AllowedTimesConstraint(
+      setOf(TimeWindowConstraint(
         windows = listOf(
           TimeWindow(
             days = executionWindow.days?.joinToString(",") {
@@ -483,8 +482,7 @@ class ExportService(
             hours = timeWindow
           )
         )
-      )
-    )
+      ))
     } else {
       emptySet()
     }

@@ -13,13 +13,13 @@ import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PASS
 import com.netflix.spinnaker.keel.api.plugins.ConstraintEvaluator
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.constraints.AllowedTimesConstraintAttributes
-import com.netflix.spinnaker.keel.constraints.AllowedTimesDeploymentConstraintEvaluator
+import com.netflix.spinnaker.keel.constraints.AllowedTimesConstraintEvaluator
 import com.netflix.spinnaker.keel.constraints.ManualJudgementConstraintAttributes
 import com.netflix.spinnaker.keel.constraints.ManualJudgementConstraintEvaluator
 import com.netflix.spinnaker.keel.constraints.OriginalSlackMessageDetail
-import com.netflix.spinnaker.keel.core.api.AllowedTimesConstraint
 import com.netflix.spinnaker.keel.core.api.ManualJudgementConstraint
 import com.netflix.spinnaker.keel.core.api.TimeWindow
+import com.netflix.spinnaker.keel.core.api.TimeWindowConstraint
 import com.netflix.spinnaker.keel.core.api.windowsNumeric
 import com.netflix.spinnaker.keel.persistence.ArtifactRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
@@ -47,12 +47,12 @@ class ConstraintsDataLoaderTests: JUnit5Minutests {
 
     val clock = MutableClock()
 
-    val twEvaluator = AllowedTimesDeploymentConstraintEvaluator(
+    val twEvaluator = AllowedTimesConstraintEvaluator(
+      clock,
+      mockk(relaxed = true),
+      mockk(relaxed = true),
       constraintRepository,
-      mockk(relaxed = true),
-      artifactRepository,
-      mockk(relaxed = true),
-      clock
+      artifactRepository
     )
     val repo: ConstraintRepository = mockk(relaxed = true)
     val mjEvaluator = ManualJudgementConstraintEvaluator(
@@ -66,7 +66,7 @@ class ConstraintsDataLoaderTests: JUnit5Minutests {
       mjEvaluator
     )
 
-    val twConstraint = AllowedTimesConstraint(
+    val twConstraint = TimeWindowConstraint(
       windows = listOf(
         TimeWindow(
           days = "Monday-Tuesday,Thursday-Friday",

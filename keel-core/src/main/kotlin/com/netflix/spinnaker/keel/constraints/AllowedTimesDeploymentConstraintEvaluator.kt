@@ -59,7 +59,7 @@ class AllowedTimesDeploymentConstraintEvaluator(
   override val clock: Clock
 ): DeploymentConstraintEvaluator<AllowedTimesConstraint, AllowedTimesConstraintAttributes>(repository, clock) {
   companion object {
-    const val CONSTRAINT_NAME = "allowed-times"
+    const val CONSTRAINT_NAME = "allowed-times-new" //todo eb: change to allowed-times
   }
 
   override val attributeType = SupportedConstraintAttributesType<AllowedTimesConstraintAttributes>(CONSTRAINT_NAME)
@@ -164,6 +164,3 @@ class AllowedTimesDeploymentConstraintEvaluator(
 
   override fun shouldAlwaysReevaluate(): Boolean = true
 }
-
-
-const val ALLOWED_TIMES_CONSTRAINT_NAME = "allowed-times"
