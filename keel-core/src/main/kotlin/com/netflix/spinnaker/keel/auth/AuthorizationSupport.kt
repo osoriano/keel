@@ -134,6 +134,9 @@ class AuthorizationSupport(
         APPLICATION -> repository.getDeliveryConfigForApplication(identifier).resources
         DELIVERY_CONFIG -> repository.getDeliveryConfig(identifier).resources
         else -> throw InvalidRequestException("Invalid target type ${target.name} for cloud account permission check")
+      }.filter {
+        // pick only locatable resources that have account information
+        (it.spec as? Locatable<*>)?.locations is AccountAwareLocations<*>
       }
 
       locatableResources.forEach {

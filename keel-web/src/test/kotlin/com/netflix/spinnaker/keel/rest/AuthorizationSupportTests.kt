@@ -10,45 +10,43 @@ import com.netflix.spinnaker.keel.auth.AuthorizationSupport.TargetEntity.APPLICA
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport.TargetEntity.DELIVERY_CONFIG
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport.TargetEntity.RESOURCE
 import com.netflix.spinnaker.keel.persistence.KeelRepository
-import com.netflix.spinnaker.keel.test.locatableResource
+import com.netflix.spinnaker.keel.test.computeResource
+import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
-import io.mockk.clearAllMocks
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import org.springframework.security.access.AccessDeniedException
-import org.springframework.security.core.Authentication
 import org.springframework.security.core.context.SecurityContextHolder
+import strikt.api.DescribeableBuilder
 import strikt.api.expectCatching
 import strikt.api.expectThat
-import strikt.api.expectThrows
-import strikt.assertions.isFalse
+import strikt.assertions.isA
+import strikt.assertions.isEqualTo
+import strikt.assertions.isFailure
 import strikt.assertions.isSuccess
 import strikt.assertions.isTrue
 
 internal class AuthorizationSupportTests : JUnit5Minutests {
-  private val dynamicConfigService: DynamicConfigService = mockk(relaxed = true)
-  private val permissionEvaluator: FiatPermissionEvaluator = mockk(relaxed = true)
-  private val combinedRepository: KeelRepository = mockk(relaxed = true)
-  private val resource = locatableResource()
+  private val dynamicConfigService: DynamicConfigService = mockk()
+  private val permissionEvaluator: FiatPermissionEvaluator = mockk()
+  private val combinedRepository: KeelRepository = mockk()
+  private val locatableResource = computeResource()
+  private val nonLocatableResource = resource()
   private val deliveryConfig = DeliveryConfig(
     name = "manifest",
     application = ApplicationControllerTests.application,
     serviceAccount = "keel@spinnaker",
     artifacts = emptySet(),
-    environments = setOf(Environment("test", setOf(resource)))
+    environments = setOf(Environment("test", setOf(locatableResource, nonLocatableResource)))
   )
   private val application = deliveryConfig.application
 
   fun tests() = rootContext<AuthorizationSupport> {
     fixture {
       AuthorizationSupport(permissionEvaluator, combinedRepository, dynamicConfigService)
-    }
-
-    after {
-      clearAllMocks()
     }
 
     context("authorization is enabled") {
@@ -64,8 +62,12 @@ internal class AuthorizationSupportTests : JUnit5Minutests {
         } returns true
 
         every {
-          combinedRepository.getResource(resource.id)
-        } returns resource
+          combinedRepository.getResource(locatableResource.id)
+        } returns locatableResource
+
+        every {
+          combinedRepository.getResource(nonLocatableResource.id)
+        } returns nonLocatableResource
 
         every {
           combinedRepository.getDeliveryConfig(deliveryConfig.name)
@@ -76,112 +78,122 @@ internal class AuthorizationSupportTests : JUnit5Minutests {
         } returns deliveryConfig
       }
 
-      listOf(READ, WRITE).forEach { action ->
-        context("user has no ${action.name} access to application") {
-          before {
-            every {
-              permissionEvaluator.hasPermission(any() as Authentication, application, "APPLICATION", action.name)
-            } returns false
-          }
-
-          test("permission check specifying application name fails") {
-            expectThrows<AccessDeniedException> {
-              checkApplicationPermission(action, APPLICATION, application)
+      mapOf("has" to true, "does not have" to false).forEach { (verb, grantPermission) ->
+        val expectedResult = if (grantPermission) "succeeds" else "fails"
+        listOf(READ, WRITE).forEach { action ->
+          context("user $verb ${action.name} access to application") {
+            before {
+              every {
+                permissionEvaluator.hasPermission(any<String>(), application, APPLICATION.name, action.name)
+              } returns grantPermission
             }
-            expectThat(
-              hasApplicationPermission(action.name, APPLICATION.name, application)
-            ).isFalse()
-          }
 
-          test("permission check specifying resource id fails") {
-            expectThrows<AccessDeniedException> {
-              checkApplicationPermission(action, RESOURCE, resource.id)
+            test("permission check specifying application name $expectedResult") {
+              expectCatching {
+                checkApplicationPermission(action, APPLICATION, application)
+              }.passesAsExpected(grantPermission)
+
+              expectThat(
+                hasApplicationPermission(action.name, APPLICATION.name, application)
+              ).isEqualTo(grantPermission)
             }
-            expectThat(
-              hasApplicationPermission(action.name, RESOURCE.name, resource.id)
-            ).isFalse()
-          }
 
-          test("permission check specifying delivery config name fails") {
-            expectThrows<AccessDeniedException> {
-              checkApplicationPermission(action, DELIVERY_CONFIG, deliveryConfig.name)
+            test("permission check specifying resource id $expectedResult") {
+              expectCatching {
+                checkApplicationPermission(action, RESOURCE, locatableResource.id)
+              }.passesAsExpected(grantPermission)
+
+              expectThat(
+                hasApplicationPermission(action.name, RESOURCE.name, locatableResource.id)
+              ).isEqualTo(grantPermission)
             }
-            expectThat(
-              hasApplicationPermission(action.name, DELIVERY_CONFIG.name, deliveryConfig.name)
-            ).isFalse()
-          }
-        }
-      }
 
-      listOf(READ, WRITE).forEach { action ->
-        context("user has no ${action.name} access to cloud account") {
-          before {
-            every {
-              permissionEvaluator.hasPermission(any() as Authentication, any(), "ACCOUNT", action.name)
-            } returns false
-          }
+            test("permission check specifying delivery config name $expectedResult") {
+              expectCatching {
+                checkApplicationPermission(action, DELIVERY_CONFIG, deliveryConfig.name)
+              }.passesAsExpected(grantPermission)
 
-          test("permission check specifying application name fails") {
-            expectThrows<AccessDeniedException> {
-              checkCloudAccountPermission(action, APPLICATION, application)
+              expectThat(
+                hasApplicationPermission(action.name, DELIVERY_CONFIG.name, deliveryConfig.name)
+              ).isEqualTo(grantPermission)
             }
-            expectThat(
-              hasCloudAccountPermission(action.name, APPLICATION.name, application)
-            ).isFalse()
           }
 
-          test("permission check specifying resource id fails") {
-            expectThrows<AccessDeniedException> {
-              checkCloudAccountPermission(action, RESOURCE, resource.id)
+          context("user $verb ${action.name} access to cloud account") {
+            before {
+              every {
+                permissionEvaluator.hasPermission(any<String>(), any(), "ACCOUNT", action.name)
+              } returns grantPermission
             }
-            expectThat(
-              hasCloudAccountPermission(action.name, RESOURCE.name, resource.id)
-            ).isFalse()
-          }
 
-          test("permission check specifying delivery config name fails") {
-            expectThrows<AccessDeniedException> {
-              checkCloudAccountPermission(action, DELIVERY_CONFIG, deliveryConfig.name)
+            test("permission check specifying application name $expectedResult") {
+              expectCatching {
+                checkCloudAccountPermission(action, APPLICATION, application)
+              }.passesAsExpected(grantPermission)
+
+              expectThat(
+                hasCloudAccountPermission(action.name, APPLICATION.name, application)
+              ).isEqualTo(grantPermission)
             }
-            expectThat(
-              hasCloudAccountPermission(action.name, DELIVERY_CONFIG.name, deliveryConfig.name)
-            ).isFalse()
-          }
-        }
-      }
 
-      context("user has no access to service account") {
-        before {
-          every {
-            permissionEvaluator.hasPermission(any() as Authentication, any(), "SERVICE_ACCOUNT", any())
-          } returns false
-        }
+            test("permission check specifying resource id $expectedResult") {
+              expectCatching {
+                checkCloudAccountPermission(action, RESOURCE, locatableResource.id)
+              }.passesAsExpected(grantPermission)
 
-        test("permission check specifying application name fails") {
-          expectThrows<AccessDeniedException> {
-            checkServiceAccountAccess(APPLICATION, application)
-          }
-          expectThat(
-            hasServiceAccountAccess(APPLICATION.name, application)
-          ).isFalse()
-        }
+              expectThat(
+                hasCloudAccountPermission(action.name, RESOURCE.name, locatableResource.id)
+              ).isEqualTo(grantPermission)
+            }
 
-        test("permission check specifying resource id fails") {
-          expectThrows<AccessDeniedException> {
-            checkServiceAccountAccess(RESOURCE, resource.id)
-          }
-          expectThat(
-            hasServiceAccountAccess(RESOURCE.name, resource.id)
-          ).isFalse()
-        }
+            test("permission check specifying delivery config name $expectedResult") {
+              expectCatching {
+                checkCloudAccountPermission(action, DELIVERY_CONFIG, deliveryConfig.name)
+              }.passesAsExpected(grantPermission)
 
-        test("permission check specifying delivery config name fails") {
-          expectThrows<AccessDeniedException> {
-            checkServiceAccountAccess(DELIVERY_CONFIG, deliveryConfig.name)
+              expectThat(
+                hasCloudAccountPermission(action.name, DELIVERY_CONFIG.name, deliveryConfig.name)
+              ).isEqualTo(grantPermission)
+            }
           }
-          expectThat(
-            hasServiceAccountAccess(DELIVERY_CONFIG.name, deliveryConfig.name)
-          ).isFalse()
+
+          context("user $verb access to service account") {
+            before {
+              every {
+                permissionEvaluator.hasPermission(any<String>(), any(), "SERVICE_ACCOUNT", any())
+              } returns grantPermission
+            }
+
+            test("permission check specifying application name $expectedResult") {
+              expectCatching {
+                checkServiceAccountAccess(APPLICATION, application)
+              }.passesAsExpected(grantPermission)
+
+              expectThat(
+                hasServiceAccountAccess(APPLICATION.name, application)
+              ).isEqualTo(grantPermission)
+            }
+
+            test("permission check specifying resource id $expectedResult") {
+              expectCatching {
+                checkServiceAccountAccess(RESOURCE, locatableResource.id)
+              }.passesAsExpected(grantPermission)
+
+              expectThat(
+                hasServiceAccountAccess(RESOURCE.name, locatableResource.id)
+              ).isEqualTo(grantPermission)
+            }
+
+            test("permission check specifying delivery config name $expectedResult") {
+              expectCatching {
+                checkServiceAccountAccess(DELIVERY_CONFIG, deliveryConfig.name)
+              }.passesAsExpected(grantPermission)
+
+              expectThat(
+                hasServiceAccountAccess(DELIVERY_CONFIG.name, deliveryConfig.name)
+              ).isEqualTo(grantPermission)
+            }
+          }
         }
       }
     }
@@ -231,6 +243,12 @@ internal class AuthorizationSupportTests : JUnit5Minutests {
           hasServiceAccountAccess(APPLICATION.name, application)
         ).isTrue()
       }
+    }
+  }
+
+  private fun DescribeableBuilder<Result<Unit>>.passesAsExpected(grantPermission: Boolean) {
+    apply {
+      if (grantPermission) isSuccess() else isFailure().isA<AccessDeniedException>()
     }
   }
 }
