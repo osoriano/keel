@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.core.api
 
 import com.netflix.spinnaker.keel.api.StatefulConstraint
+import com.netflix.spinnaker.keel.constraints.ALLOWED_TIMES_CONSTRAINT_NAME
 import com.netflix.spinnaker.keel.constraints.AllowedTimesDeploymentConstraintEvaluator
 import com.netflix.spinnaker.keel.exceptions.InvalidConstraintException
 import java.text.ParsePosition
@@ -22,7 +23,7 @@ data class AllowedTimesConstraint(
   val windows: List<TimeWindow>,
   val tz: String? = null,
   val maxDeploysPerWindow: Int? = null
-) : StatefulConstraint(AllowedTimesDeploymentConstraintEvaluator.CONSTRAINT_NAME) {
+) : StatefulConstraint(ALLOWED_TIMES_CONSTRAINT_NAME) {
   init {
     if (tz != null) {
       val zoneId: ZoneId? = try {
@@ -221,14 +222,14 @@ fun String.dayAlias(): Set<DayOfWeek> =
   when (this) {
     "weekdays" -> setOf(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY)
     "weekends" -> setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
-    else -> throw InvalidConstraintException(AllowedTimesDeploymentConstraintEvaluator.CONSTRAINT_NAME, "Failed parsing day alias $this")
+    else -> throw InvalidConstraintException(ALLOWED_TIMES_CONSTRAINT_NAME, "Failed parsing day alias $this")
   }
 
 fun String.toDayOfWeek(): DayOfWeek =
   (fullDayFormatter.parseUnresolved(this.capitalize(), ParsePosition(0))
     ?: shortDayFormatter.parseUnresolved(this.capitalize(), ParsePosition(0)))
     ?.let { DayOfWeek.from(it) }
-    ?: throw InvalidConstraintException(AllowedTimesDeploymentConstraintEvaluator.CONSTRAINT_NAME, "Failed parsing day '$this'")
+    ?: throw InvalidConstraintException(ALLOWED_TIMES_CONSTRAINT_NAME, "Failed parsing day '$this'")
 
 fun String.dayRange(): Set<DayOfWeek> {
   /**

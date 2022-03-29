@@ -10,6 +10,7 @@ import com.netflix.spinnaker.keel.api.constraints.ConstraintState
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PASS
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
+import com.netflix.spinnaker.keel.constraints.ALLOWED_TIMES_CONSTRAINT_NAME
 import com.netflix.spinnaker.keel.constraints.AllowedTimesConstraintAttributes
 import com.netflix.spinnaker.keel.constraints.AllowedTimesDeploymentConstraintEvaluator
 import com.netflix.spinnaker.keel.core.api.AllowedTimesConstraint
@@ -53,7 +54,7 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
           environmentName = "env",
           artifactVersion = "version",
           artifactReference = "my-artifact",
-          type = AllowedTimesDeploymentConstraintEvaluator.CONSTRAINT_NAME,
+          type = ALLOWED_TIMES_CONSTRAINT_NAME,
           status = PASS,
           attributes = AllowedTimesConstraintAttributes(constraint.windowsNumeric, null),
           judgedAt = null,

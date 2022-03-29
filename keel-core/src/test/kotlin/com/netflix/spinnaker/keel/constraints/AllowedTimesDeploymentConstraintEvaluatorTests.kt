@@ -88,7 +88,7 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
     val passState = pendingState.copy(status = PASS)
     val failState = pendingState.copy(status = ConstraintStatus.FAIL)
 
-    val constraintName = AllowedTimesDeploymentConstraintEvaluator.CONSTRAINT_NAME
+    val constraintName = ALLOWED_TIMES_CONSTRAINT_NAME
 
     val repository: ConstraintRepository = mockk(relaxed = true) {
       every { getConstraintState(manifest.name, environment.name, any(), constraintName, any()) } returns pendingState
@@ -241,7 +241,7 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
       }
 
       before {
-        every { repository.getConstraintState(manifest.name, environment.name, any(), AllowedTimesDeploymentConstraintEvaluator.CONSTRAINT_NAME, any()) } returns passState
+        every { repository.getConstraintState(manifest.name, environment.name, any(), ALLOWED_TIMES_CONSTRAINT_NAME, any()) } returns passState
       }
 
       test("can't promote, out of window") {

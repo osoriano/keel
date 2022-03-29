@@ -164,3 +164,6 @@ class AllowedTimesDeploymentConstraintEvaluator(
 
   override fun shouldAlwaysReevaluate(): Boolean = true
 }
+
+
+const val ALLOWED_TIMES_CONSTRAINT_NAME = "allowed-times"

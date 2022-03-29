@@ -9,4 +9,4 @@ data class AllowedTimesConstraintAttributes(
   val maxDeploys: Int? = null,
   val actualDeploys: Int? = null,
   val currentlyPassing: Boolean = true
-) : ConstraintStateAttributes(AllowedTimesDeploymentConstraintEvaluator.CONSTRAINT_NAME)
+) : ConstraintStateAttributes(ALLOWED_TIMES_CONSTRAINT_NAME)
