@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.titus.postdeploy
 
+import com.google.common.hash.Hashing
 import com.netflix.spectator.api.BasicTag
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.config.BaseUrlConfig
@@ -22,15 +23,12 @@ import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.titus.OrcaLinkStrategy
 import com.netflix.spinnaker.keel.titus.TITUS_JOB_TASKS
 import com.netflix.spinnaker.keel.verification.ImageFinder
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import java.nio.charset.StandardCharsets
 import java.time.Instant
-import kotlin.coroutines.CoroutineContext
 
 /**
  * This class tags images after they've been verified, if they have the
@@ -84,7 +82,7 @@ class TagAmiHandler(
           resourceId = null,
           notifications = emptySet(),
           description = "Automatically tagging image(s) as verified $names",
-          correlationId = names,
+          correlationId = hash(names), // hash guarantees this won't exceed 255 chars, otherwise orca returns a 500
           stages = listOf(job)
         )
       }
@@ -98,6 +96,18 @@ class TagAmiHandler(
 
     return mapOf(TITUS_JOB_TASKS to tasksIds)
   }
+
+  /**
+   * Generate a 128-bit (32 hexadecimal characters) hash of a string of arbitrary length
+   *
+   * Example output: "02b6a6ab9b634d31e8adb0daa0922520"
+   */
+  @Suppress("UnstableApiUsage") // Hashing class is currently marked as beta
+  private fun hash(s: String) =
+    Hashing
+      .murmur3_128()
+      .hashString(s, StandardCharsets.UTF_8)
+      .toString()
 
   /**
    * Checks if the orchestration execution associated with the tag ami  has completed.

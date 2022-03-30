@@ -4,23 +4,24 @@ import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
+import com.netflix.spinnaker.keel.api.ResourceKind.Companion.parseKind
 import com.netflix.spinnaker.keel.api.TaskStatus
 import com.netflix.spinnaker.keel.api.action.ActionState
 import com.netflix.spinnaker.keel.api.actuation.TaskLauncher
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
+import com.netflix.spinnaker.keel.api.plugins.CurrentImages
+import com.netflix.spinnaker.keel.api.plugins.ImageInRegion
 import com.netflix.spinnaker.keel.core.api.TagAmiPostDeployAction
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.test.DummyArtifact
 import com.netflix.spinnaker.keel.titus.TITUS_JOB_TASKS
 import com.netflix.spinnaker.keel.verification.ImageFinder
-import io.mockk.coEvery
-import io.mockk.coVerify
-import io.mockk.every
-import io.mockk.mockk
+import io.mockk.*
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo
+import strikt.assertions.isLessThanOrEqualTo
 import java.time.Instant.now
 
 internal class TagAmiHandlerTests {
@@ -121,6 +122,53 @@ internal class TagAmiHandlerTests {
     }
 
     expectThat(newState.status).isEqualTo(ConstraintStatus.FAIL)
+  }
+
+  @Test
+  fun `correlation id does not exceed 255 chars`() {
+    every { finder.getImages(deliveryConfig, "testing") } returns listOf(
+      mockk {
+        every { kind } returns mockk {
+          every { group } returns "ec2"
+        }
+        every { images } returns listOf(
+          ImageInRegion(region="us-west-2",
+            imageName="super-long-image-name-0.21.2_rc.722-h2427.4378063-x86_64-20220324215630-bionic-classic-hvm-sriov-ebs",
+            account="test"
+        ),
+          ImageInRegion(region="us-east-1",
+            imageName="super-long-image-name-0.21.2_rc.722-h2427.4378063-x86_64-20220324215630-bionic-classic-hvm-sriov-ebs",
+            account="test"
+          ),
+        ImageInRegion(region="eu-west-1",
+          imageName="super-long-image-name-0.21.2_rc.722-h2427.4378063-x86_64-20220324215630-bionic-classic-hvm-sriov-ebs",
+          account="test"
+        ))
+      }
+    )
+
+    val slot = slot<String>()
+
+    coEvery {
+      launcher.submitJob(
+        user = any(),
+        application = any(),
+        environmentName = any(),
+        resourceId = any(),
+        notifications = any(),
+        description = any(),
+        correlationId = capture(slot),
+        stages = any()
+      )
+    } returns mockk {
+      every { id } returns "01FAP29KG410CVJHKXTEW5CA20"
+    }
+
+    runBlocking {
+      handler.start(context, TagAmiPostDeployAction())
+    }
+
+    expectThat(slot.captured.length).isLessThanOrEqualTo(255)
   }
 
   private val handler = TagAmiHandler(
