@@ -108,6 +108,7 @@ class GitIntegration(
     try {
       scmUtils.getDefaultBranch(front50App)
     } catch (e: Exception) {
+      log.warn("Error retrieving default branch for app ${front50App.name}", e)
       throw DgsEntityNotFoundException("Unable to retrieve your app's git repo details. Please check the app config.")
     }.let { branch ->
       return MD_GitIntegration(
