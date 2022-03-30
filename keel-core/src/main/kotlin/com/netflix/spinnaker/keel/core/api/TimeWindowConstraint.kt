@@ -6,7 +6,7 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.zone.ZoneRulesException
 
-const val ALLOWED_TIMES_CONSTRAINT_TYPE = "allowed-times"
+const val OLD_ALLOWED_TIMES_CONSTRAINT_TYPE = "allowed-times-old"
 
 /**
  * A constraint that requires the current time to fall within an allowed window
@@ -16,7 +16,7 @@ data class TimeWindowConstraint(
   val windows: List<TimeWindow>,
   val tz: String? = null,
   val maxDeploysPerWindow: Int? = null
-) : StatefulConstraint(ALLOWED_TIMES_CONSTRAINT_TYPE) {
+) : StatefulConstraint(OLD_ALLOWED_TIMES_CONSTRAINT_TYPE) {
   init {
     if (tz != null) {
       val zoneId: ZoneId? = try {

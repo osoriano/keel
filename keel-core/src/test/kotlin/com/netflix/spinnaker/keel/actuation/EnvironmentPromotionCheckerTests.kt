@@ -18,7 +18,7 @@ import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactVetoes
 import com.netflix.spinnaker.keel.core.api.PinnedEnvironment
 import com.netflix.spinnaker.keel.core.api.PromotionStatus
 import com.netflix.spinnaker.keel.core.api.TimeWindow
-import com.netflix.spinnaker.keel.core.api.TimeWindowConstraint
+import com.netflix.spinnaker.keel.core.api.AllowedTimesConstraint
 import com.netflix.spinnaker.keel.core.api.windowsNumeric
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.telemetry.ArtifactVersionApproved
@@ -44,7 +44,7 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
 
     val publisher = mockk<ApplicationEventPublisher>(relaxUnitFun = true)
 
-    val constraint = TimeWindowConstraint(windows = listOf(TimeWindow(days = "Monday-Sunday", hours = "0-23")))
+    val constraint = AllowedTimesConstraint(windows = listOf(TimeWindow(days = "Monday-Sunday", hours = "0-23")))
 
     val environmentConstraintRunner: EnvironmentConstraintRunner = mockk(relaxed = true) {
       every { getStatelessConstraintSnapshots(any(), any(), any(), any(), PASS) } returns

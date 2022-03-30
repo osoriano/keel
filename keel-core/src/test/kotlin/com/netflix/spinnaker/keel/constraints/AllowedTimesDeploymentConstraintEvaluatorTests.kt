@@ -11,6 +11,7 @@ import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PENDING
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.core.api.ALLOWED_TIMES_CONSTRAINT_TYPE
+import com.netflix.spinnaker.keel.core.api.OLD_ALLOWED_TIMES_CONSTRAINT_TYPE
 import com.netflix.spinnaker.keel.core.api.AllowedTimesConstraint
 import com.netflix.spinnaker.keel.core.api.TimeWindow
 import com.netflix.spinnaker.keel.core.api.TimeWindowNumeric
@@ -89,10 +90,8 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
     val passState = pendingState.copy(status = PASS)
     val failState = pendingState.copy(status = ConstraintStatus.FAIL)
 
-    val constraintName = AllowedTimesDeploymentConstraintEvaluator.CONSTRAINT_NAME
-
     val repository: ConstraintRepository = mockk(relaxed = true) {
-      every { getConstraintState(manifest.name, environment.name, any(), constraintName, any()) } returns pendingState
+      every { getConstraintState(manifest.name, environment.name, any(), ALLOWED_TIMES_CONSTRAINT_TYPE, any()) } returns pendingState
     }
 
     val artifactRepository: ArtifactRepository = mockk()
@@ -175,7 +174,7 @@ class AllowedTimesDeploymentConstraintEvaluatorTests : JUnit5Minutests {
       }
 
       before {
-        every { repository.getConstraintState(manifest.name, environment.name, any(), constraintName, any()) } returns failState
+        every { repository.getConstraintState(manifest.name, environment.name, any(), ALLOWED_TIMES_CONSTRAINT_TYPE, any()) } returns failState
       }
 
       test("time is updated to last judged time") {

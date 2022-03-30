@@ -11,6 +11,7 @@ import com.netflix.spinnaker.keel.api.constraints.DeploymentConstraintEvaluator
 import com.netflix.spinnaker.keel.api.constraints.SupportedConstraintAttributesType
 import com.netflix.spinnaker.keel.api.constraints.SupportedConstraintType
 import com.netflix.spinnaker.keel.api.support.EventPublisher
+import com.netflix.spinnaker.keel.core.api.ALLOWED_TIMES_CONSTRAINT_TYPE
 import com.netflix.spinnaker.keel.core.api.AllowedTimesConstraint
 import com.netflix.spinnaker.keel.core.api.ZonedDateTimeRange
 import com.netflix.spinnaker.keel.core.api.activeWindowOrNull
@@ -58,13 +59,10 @@ class AllowedTimesDeploymentConstraintEvaluator(
   private val environment: SpringEnv,
   override val clock: Clock
 ): DeploymentConstraintEvaluator<AllowedTimesConstraint, AllowedTimesConstraintAttributes>(repository, clock) {
-  companion object {
-    const val CONSTRAINT_NAME = "allowed-times-new" //todo eb: change to allowed-times
-  }
 
-  override val attributeType = SupportedConstraintAttributesType<AllowedTimesConstraintAttributes>(CONSTRAINT_NAME)
+  override val attributeType = SupportedConstraintAttributesType<AllowedTimesConstraintAttributes>(ALLOWED_TIMES_CONSTRAINT_TYPE)
 
-  override val supportedType = SupportedConstraintType<AllowedTimesConstraint>(CONSTRAINT_NAME)
+  override val supportedType = SupportedConstraintType<AllowedTimesConstraint>(ALLOWED_TIMES_CONSTRAINT_TYPE)
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 

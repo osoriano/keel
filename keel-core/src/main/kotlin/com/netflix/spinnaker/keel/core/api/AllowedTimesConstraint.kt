@@ -10,10 +10,11 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
-import java.time.temporal.ChronoUnit
 import java.time.temporal.ChronoUnit.HOURS
 import java.time.zone.ZoneRulesException
 import java.util.Locale
+
+const val ALLOWED_TIMES_CONSTRAINT_TYPE = "allowed-times"
 
 /**
  * A constraint that requires the current time to fall within an allowed window
@@ -22,7 +23,7 @@ data class AllowedTimesConstraint(
   val windows: List<TimeWindow>,
   val tz: String? = null,
   val maxDeploysPerWindow: Int? = null
-) : StatefulConstraint(AllowedTimesDeploymentConstraintEvaluator.CONSTRAINT_NAME) {
+) : StatefulConstraint(ALLOWED_TIMES_CONSTRAINT_TYPE) {
   init {
     if (tz != null) {
       val zoneId: ZoneId? = try {

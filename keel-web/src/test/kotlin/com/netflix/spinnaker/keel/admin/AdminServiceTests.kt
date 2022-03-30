@@ -11,7 +11,7 @@ import com.netflix.spinnaker.keel.core.api.ManualJudgementConstraint
 import com.netflix.spinnaker.keel.core.api.PipelineConstraint
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.CURRENT
 import com.netflix.spinnaker.keel.core.api.TimeWindow
-import com.netflix.spinnaker.keel.core.api.TimeWindowConstraint
+import com.netflix.spinnaker.keel.core.api.AllowedTimesConstraint
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.Front50Service
 import com.netflix.spinnaker.keel.front50.model.Application
@@ -58,7 +58,7 @@ class AdminServiceTests : JUnit5Minutests {
       constraints = setOf(
         ManualJudgementConstraint(),
         PipelineConstraint(pipelineId = "wowapipeline"),
-        TimeWindowConstraint(windows = listOf(TimeWindow(days = "Monday")))
+        AllowedTimesConstraint(windows = listOf(TimeWindow(days = "Monday")))
       )
     )
 
