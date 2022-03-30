@@ -22,7 +22,7 @@ import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
-internal class TimeWindowConstraintTests {
+internal class AllowedTimesConstraintTests {
   val aMondayAt2am: ZonedDateTime = ZonedDateTime.of(
     LocalDate.of(2021, 8, 2),
     LocalTime.of(2, 0),
@@ -65,7 +65,7 @@ internal class TimeWindowConstraintTests {
 
   @Test
   fun `window hours include all hours in a simple window`() {
-    val constraint = TimeWindowConstraint(
+    val constraint = AllowedTimesConstraint(
       windows = listOf(
         TimeWindow(
           days = "Mon-Fri",
@@ -83,7 +83,7 @@ internal class TimeWindowConstraintTests {
 
   @Test
   fun `window range is null if currently outside the window`() {
-    val constraint = TimeWindowConstraint(
+    val constraint = AllowedTimesConstraint(
       windows = listOf(
         TimeWindow(
           days = "Mon-Fri",
@@ -97,7 +97,7 @@ internal class TimeWindowConstraintTests {
 
   @Test
   fun `window range is based on time passed`() {
-    val constraint = TimeWindowConstraint(
+    val constraint = AllowedTimesConstraint(
       windows = listOf(
         TimeWindow(
           days = "Mon-Fri",
@@ -114,7 +114,7 @@ internal class TimeWindowConstraintTests {
 
   @Test
   fun `window range does not consider the end hour part of the window`() {
-    val constraint = TimeWindowConstraint(
+    val constraint = AllowedTimesConstraint(
       windows = listOf(
         TimeWindow(
           days = "Mon-Fri",
@@ -128,7 +128,7 @@ internal class TimeWindowConstraintTests {
 
   @Test
   fun `window range does consider one second before the end hour part of the window`() {
-    val constraint = TimeWindowConstraint(
+    val constraint = AllowedTimesConstraint(
       windows = listOf(
         TimeWindow(
           days = "Mon-Fri",
@@ -143,7 +143,7 @@ internal class TimeWindowConstraintTests {
   @Test
   @Disabled("Not supported yet")
   fun `window range treats multiple hour ranges on the same day independently`() {
-    val constraint = TimeWindowConstraint(
+    val constraint = AllowedTimesConstraint(
       windows = listOf(
         TimeWindow(
           days = "Mon-Fri",
@@ -161,7 +161,7 @@ internal class TimeWindowConstraintTests {
   @Test
   @Disabled("Not supported yet")
   fun `window range treats a window that spans midnight as continuing to the next day`() {
-    val constraint = TimeWindowConstraint(
+    val constraint = AllowedTimesConstraint(
       windows = listOf(
         TimeWindow(
           days = "Mon",

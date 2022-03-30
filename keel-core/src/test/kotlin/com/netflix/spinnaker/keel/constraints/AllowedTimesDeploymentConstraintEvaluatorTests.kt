@@ -11,7 +11,6 @@ import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PENDING
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.core.api.ALLOWED_TIMES_CONSTRAINT_TYPE
-import com.netflix.spinnaker.keel.core.api.OLD_ALLOWED_TIMES_CONSTRAINT_TYPE
 import com.netflix.spinnaker.keel.core.api.AllowedTimesConstraint
 import com.netflix.spinnaker.keel.core.api.TimeWindow
 import com.netflix.spinnaker.keel.core.api.TimeWindowNumeric

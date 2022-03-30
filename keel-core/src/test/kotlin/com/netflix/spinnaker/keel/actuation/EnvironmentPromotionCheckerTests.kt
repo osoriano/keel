@@ -11,14 +11,14 @@ import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PASS
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
 import com.netflix.spinnaker.keel.constraints.AllowedTimesConstraintAttributes
-import com.netflix.spinnaker.keel.constraints.AllowedTimesConstraintEvaluator
+import com.netflix.spinnaker.keel.core.api.ALLOWED_TIMES_CONSTRAINT_TYPE
+import com.netflix.spinnaker.keel.core.api.AllowedTimesConstraint
 import com.netflix.spinnaker.keel.core.api.ArtifactVersionVetoData
 import com.netflix.spinnaker.keel.core.api.DependsOnConstraint
 import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactVetoes
 import com.netflix.spinnaker.keel.core.api.PinnedEnvironment
 import com.netflix.spinnaker.keel.core.api.PromotionStatus
 import com.netflix.spinnaker.keel.core.api.TimeWindow
-import com.netflix.spinnaker.keel.core.api.AllowedTimesConstraint
 import com.netflix.spinnaker.keel.core.api.windowsNumeric
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.telemetry.ArtifactVersionApproved
@@ -27,16 +27,16 @@ import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
-import io.mockk.coEvery as every
 import io.mockk.mockk
 import io.mockk.slot
-import io.mockk.coVerify as verify
 import kotlinx.coroutines.runBlocking
 import org.springframework.context.ApplicationEventPublisher
 import strikt.api.expectCatching
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo
 import strikt.assertions.isSuccess
+import io.mockk.coEvery as every
+import io.mockk.coVerify as verify
 
 internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
   class Fixture {
@@ -53,7 +53,7 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
           environmentName = "env",
           artifactVersion = "version",
           artifactReference = "my-artifact",
-          type = AllowedTimesConstraintEvaluator.CONSTRAINT_NAME,
+          type = ALLOWED_TIMES_CONSTRAINT_TYPE,
           status = PASS,
           attributes = AllowedTimesConstraintAttributes(constraint.windowsNumeric, null),
           judgedAt = null,
