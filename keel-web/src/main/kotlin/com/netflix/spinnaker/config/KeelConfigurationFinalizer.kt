@@ -13,6 +13,7 @@ import com.netflix.spinnaker.keel.api.ResourceSpec
 import com.netflix.spinnaker.keel.api.RollingPush
 import com.netflix.spinnaker.keel.api.RolloutStrategy
 import com.netflix.spinnaker.keel.api.Staggered
+import com.netflix.spinnaker.keel.api.constraints.DeploymentConstraintEvaluator
 import com.netflix.spinnaker.keel.api.constraints.StatefulConstraintEvaluator
 import com.netflix.spinnaker.keel.api.constraints.StatelessConstraintEvaluator
 import com.netflix.spinnaker.keel.api.ec2.ApplicationLoadBalancerSpec.Action
@@ -107,7 +108,7 @@ class KeelConfigurationFinalizer(
   }
 
   @PostConstruct
-  fun resisterStatefulConstraintAttributeSubtypes() {
+  fun resisterConstraintAttributeSubtypes() {
     constraintEvaluators
       .filterIsInstance<StatefulConstraintEvaluator<*, *>>()
       .map { it.attributeType }
@@ -118,6 +119,14 @@ class KeelConfigurationFinalizer(
 
     constraintEvaluators
       .filterIsInstance<StatelessConstraintEvaluator<*, *>>()
+      .map { it.attributeType }
+      .forEach { attributeType ->
+        log.info("Registering Constraint Attributes sub-type {}: {}", attributeType.name, attributeType.type.simpleName)
+        extensionRegistry.register(attributeType.type, attributeType.name)
+      }
+
+    constraintEvaluators
+      .filterIsInstance<DeploymentConstraintEvaluator<*, *>>()
       .map { it.attributeType }
       .forEach { attributeType ->
         log.info("Registering Constraint Attributes sub-type {}: {}", attributeType.name, attributeType.type.simpleName)
