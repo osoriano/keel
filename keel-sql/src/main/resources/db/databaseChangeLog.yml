@@ -446,3 +446,6 @@ databaseChangeLog:
 - include:
     file: changelog/20220321-resource-additional-metadata.yml
     relativeToChangelogFile: true
+- include:
+    file: changelog/20220331-verification-post-deploy-index.yml
+    relativeToChangelogFile: true

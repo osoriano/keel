@@ -1,0 +1,17 @@
+databaseChangeLog:
+  - changeSet:
+      id: verification-post-deploy-index
+      author: emjburns
+      changes:
+        - createIndex:
+            indexName: environment_last_verified_timestamp_idx
+            tableName: environment_last_verified
+            columns:
+              - column:
+                  name: at
+        - createIndex:
+            indexName: environment_last_post_deploy_timestamp_idx
+            tableName: environment_last_post_deploy
+            columns:
+              - column:
+                  name: at
