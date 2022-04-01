@@ -1,0 +1,9 @@
+databaseChangeLog:
+  - changeSet:
+      id: drop-diff-fingerprint-index
+      author: rhorev
+      changes:
+        - dropIndex:
+            tableName: diff_fingerprint
+            indexName: entity_id_idx
+
