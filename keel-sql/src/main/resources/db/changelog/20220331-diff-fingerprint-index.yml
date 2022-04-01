@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - changeSet:
+      id: diff-fingerprint-index
+      author: rhorev
+      changes:
+        - createIndex:
+            indexName: entity_id_idx
+            tableName: diff_fingerprint
+            columns:
+              - column:
+                  name: entity_id
