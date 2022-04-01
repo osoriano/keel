@@ -10,16 +10,24 @@ import com.netflix.spinnaker.keel.api.ec2.Scaling
 import com.netflix.spinnaker.keel.api.ec2.ScalingPolicy
 import com.netflix.spinnaker.keel.api.ec2.StepScalingPolicy
 import com.netflix.spinnaker.keel.api.ec2.TargetTrackingPolicy
+import com.netflix.spinnaker.keel.api.plugins.DiffMixin
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
 import de.danielbechler.diff.ObjectDiffer
 import de.danielbechler.diff.ObjectDifferBuilder
 import de.danielbechler.diff.comparison.ComparisonStrategy
 import de.danielbechler.diff.comparison.EqualsOnlyComparisonStrategy
 import de.danielbechler.diff.inclusion.Inclusion
+import de.danielbechler.diff.inclusion.Inclusion.EXCLUDED
+import de.danielbechler.diff.inclusion.Inclusion.INCLUDED
 import de.danielbechler.diff.inclusion.InclusionResolver
 import de.danielbechler.diff.node.DiffNode
 import java.time.Duration
 import java.time.Instant
+import java.util.*
+import kotlin.Comparator
+import kotlin.reflect.KClass
+import kotlin.reflect.full.declaredMemberProperties
+import kotlin.reflect.full.hasAnnotation
 
 /**
  * You shouldn't use this class directly. Create instances using [DefaultResourceDiffFactory.compare].
@@ -93,8 +101,14 @@ fun <T : Any> ResourceDiffFactory.toIndividualDiffs(diff: ResourceDiff<Map<Strin
  * Factory for producing [DefaultResourceDiff] instances by comparing two objects.
  */
 class DefaultResourceDiffFactory(
-  identityServiceCustomizers: Iterable<IdentityServiceCustomizer> = emptyList()
+  identityServiceCustomizers: Iterable<IdentityServiceCustomizer> = emptyList(),
 ) : ResourceDiffFactory {
+  private val diffMixins: MutableSet<DiffMixin> = mutableSetOf()
+
+  override fun addMixins(mixins: Iterable<DiffMixin>) {
+    diffMixins.addAll(mixins)
+  }
+
   /**
    * Because [Scaling] contains sets of [ScalingPolicy] types that have properties that should be ignored for the
    * purposes of diffing we need to customize the way the differ treats this type. By default, it has to rely on
@@ -146,12 +160,19 @@ class DefaultResourceDiffFactory(
           ofType<Scaling>().toUse(ScalingComparisonStrategy)
         }
       inclusion()
-        .resolveUsing(object : InclusionResolver {
-          override fun getInclusion(node: DiffNode): Inclusion =
-            if (node.getPropertyAnnotation<ExcludedFromDiff>() != null) Inclusion.EXCLUDED else Inclusion.INCLUDED
+        .apply {
+          resolveUsing(object : InclusionResolver {
+            override fun getInclusion(node: DiffNode): Inclusion {
+              return when {
+                node.isExcludedFromDiff() -> EXCLUDED
+                node.isInternalProtobufField() -> EXCLUDED
+                else -> INCLUDED
+              }
+            }
 
-          override fun enablesStrictIncludeMode() = false
-        })
+            override fun enablesStrictIncludeMode() = false
+          })
+        }
       identity()
         .apply {
           identityServiceCustomizers.forEach { it.customize(this) }
@@ -163,4 +184,46 @@ class DefaultResourceDiffFactory(
 
   override fun <T : Any> compare(desired: T, current: T?) =
     DefaultResourceDiff(objectDiffer, desired, current)
+
+  private fun Class<*>?.isAssignableTo(dest: KClass<*>) =
+    this != null && dest.java.isAssignableFrom(this)
+
+  private fun DiffNode.isExcludedFromDiff(): Boolean =
+    getPropertyAnnotation<ExcludedFromDiff>() != null || isExcludedViaMixin()
+
+  private fun DiffNode.isExcludedViaMixin() = diffMixins.any { mixin ->
+    if (mixin.targetType.java == parentNode?.valueType) {
+      mixin.mixinSource.declaredMemberProperties.find { it.name == propertyName }?.let {
+        it.hasAnnotation<ExcludedFromDiff>() || it.getter.hasAnnotation<ExcludedFromDiff>()
+      } ?: false
+    } else {
+      false
+    }
+  }
+
+  private fun DiffNode.isInternalProtobufField(): Boolean {
+    return if (parentNode?.valueType.isAssignableTo(com.google.protobuf.GeneratedMessageV3::class)) {
+      when {
+        valueType.isAssignableTo(com.google.protobuf.Descriptors.Descriptor::class) -> true
+        valueType.isAssignableTo(com.google.protobuf.UnknownFieldSet::class) -> true
+        valueType.isAssignableTo(Optional::class) && propertyName.startsWith("optional") -> true
+        propertyName in KNOWN_INTERNAL_PROTOBUF_FIELDS -> true
+        KNOWN_INTERNAL_PROTOBUF_FIELD_PREFIXES.any { propertyName.startsWith(it) } -> true
+        KNOWN_INTERNAL_PROTOBUF_FIELD_SUFFIXES.any { propertyName.endsWith(it) } -> true
+        else -> false
+      }
+    } else {
+      false
+    }
+  }
+
+  companion object {
+    private val KNOWN_INTERNAL_PROTOBUF_FIELDS = listOf(
+      "allFields", "initializationErrorString", "initialized", "serializedSize"
+    )
+
+    private val KNOWN_INTERNAL_PROTOBUF_FIELD_SUFFIXES = listOf("OrBuilder", "ForType", "Bytes")
+
+    private val KNOWN_INTERNAL_PROTOBUF_FIELD_PREFIXES = listOf("boxed")
+  }
 }

@@ -20,12 +20,10 @@ import com.netflix.spinnaker.keel.clouddriver.model.Credential
 import com.netflix.spinnaker.keel.clouddriver.model.Network
 import com.netflix.spinnaker.keel.clouddriver.model.SecurityGroupSummary
 import com.netflix.spinnaker.keel.clouddriver.model.Subnet
-import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.exceptions.AwsAccountConfigurationException
 import com.netflix.spinnaker.keel.exceptions.RegistryNotFoundException
 import com.netflix.spinnaker.keel.exceptions.TitusAccountConfigurationException
 import com.netflix.spinnaker.kork.exceptions.IntegrationException
-import kotlinx.coroutines.runBlocking
 
 interface CloudDriverCache {
   fun securityGroupById(account: String, region: String, id: String): SecurityGroupSummary

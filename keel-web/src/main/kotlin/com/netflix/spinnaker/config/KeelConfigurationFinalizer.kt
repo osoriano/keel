@@ -8,6 +8,7 @@ import com.netflix.spinnaker.keel.api.Highlander
 import com.netflix.spinnaker.keel.api.NoStrategy
 import com.netflix.spinnaker.keel.api.OffStreamingPeak
 import com.netflix.spinnaker.keel.api.RedBlack
+import com.netflix.spinnaker.keel.api.ResourceDiffFactory
 import com.netflix.spinnaker.keel.api.ResourceKind
 import com.netflix.spinnaker.keel.api.ResourceSpec
 import com.netflix.spinnaker.keel.api.RollingPush
@@ -51,10 +52,17 @@ class KeelConfigurationFinalizer(
   private val artifactSuppliers: List<ArtifactSupplier<*, *>> = emptyList(),
   private val objectMappers: List<ObjectMapper>,
   private val extensionRegistry: ExtensionRegistry,
-  private val resolvers: List<Resolver<*>>
+  private val resolvers: List<Resolver<*>>,
+  private val resourceDiffFactory: ResourceDiffFactory
 ) {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
+
+  @PostConstruct
+  fun addDifferCustomizations() {
+    val diffMixins = resourceHandlers.flatMap { it.getDiffMixins() }
+    resourceDiffFactory.addMixins(diffMixins)
+  }
 
   // TODO: not sure if we can do this more dynamically
   @PostConstruct

@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.api
 
+import com.netflix.spinnaker.keel.api.plugins.DiffMixin
+
 /**
  * The result of a comparison between two objects. Implementations may delegate to a lower-level diff mechanism.
  */
@@ -21,4 +23,5 @@ interface ResourceDiff<T : Any> {
  */
 interface ResourceDiffFactory {
   fun <T : Any> compare(desired: T, current: T?): ResourceDiff<T>
+  fun addMixins(mixins: Iterable<DiffMixin>)
 }

@@ -13,7 +13,7 @@ interface Locatable<LOCATIONS : Locations<*>> : ResourceSpec {
 
 /** A [Locations] type for resources where the regions alone are sufficient information */
 @Suppress("unused") // used by Treasure plugin
-data class SimpleRegions(override val regions: Set<SimpleRegionSpec>) : Locations<SimpleRegionSpec>
+open class SimpleRegions(override val regions: Set<SimpleRegionSpec>) : Locations<SimpleRegionSpec>
 
 interface AccountAwareLocations<T : RegionSpec> : Locations<T> {
   val account: String

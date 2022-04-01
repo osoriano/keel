@@ -114,8 +114,8 @@ class CheckScheduler(
             .onFailure {
               publisher.publishEvent(ResourceLoadFailed(it))
             }
-            .onSuccess { them ->
-              them.forEach {
+            .onSuccess { resources ->
+              resources.forEach {
                 try {
                   /**
                    * Allow individual resource checks to timeout but catch the `CancellationException`

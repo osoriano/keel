@@ -33,7 +33,6 @@ import com.netflix.spinnaker.keel.events.VerificationBlockedActuation
 import com.netflix.spinnaker.keel.exceptions.EnvironmentCurrentlyBeingActedOn
 import com.netflix.spinnaker.keel.logging.withTracingContext
 import com.netflix.spinnaker.keel.pause.ActuationPauser
-import com.netflix.spinnaker.keel.persistence.ArtifactRepository
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
 import com.netflix.spinnaker.keel.persistence.DiffFingerprintRepository
 import com.netflix.spinnaker.keel.persistence.EnvironmentDeletionRepository
@@ -168,7 +167,7 @@ class ResourceActuator(
         val decision = plugin.willTakeAction(resource, diff)
         if (decision.willAct) {
           when {
-            current == null -> {
+            current == null || current.isEmpty() -> {
               log.warn("Resource {} is missing", id)
               publisher.publishEvent(ResourceMissing(resource, clock))
 
@@ -227,6 +226,13 @@ class ResourceActuator(
       }
     }
   }
+
+  private fun Any?.isEmpty() =
+    when(this) {
+      is Map<*, *> -> this.isEmpty()
+      is Collection<*> -> this.isEmpty()
+      else -> false
+    }
 
   private fun Any?.findArtifact() : CompleteVersionedArtifact? =
     when (this) {

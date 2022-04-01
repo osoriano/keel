@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.diff
 
+import de.danielbechler.diff.category.CategoryConfigurer
 import de.danielbechler.diff.comparison.ComparisonConfigurer
 import de.danielbechler.diff.comparison.ComparisonConfigurer.Of
 import de.danielbechler.diff.identity.IdentityConfigurer.OfCollectionItems
@@ -8,6 +9,8 @@ import de.danielbechler.diff.node.DiffNode
 import kotlin.reflect.KProperty1
 
 inline fun <reified T : Any> ComparisonConfigurer.ofType(): Of = ofType(T::class.java)
+
+inline fun <reified T : Any> CategoryConfigurer.ofType(): CategoryConfigurer.Of = ofType(T::class.java)
 
 inline fun <reified T : Annotation> DiffNode.getPropertyAnnotation(): T? =
   getPropertyAnnotation(T::class.java)

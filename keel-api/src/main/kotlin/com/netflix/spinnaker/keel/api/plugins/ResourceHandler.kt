@@ -14,6 +14,7 @@ import com.netflix.spinnaker.kork.exceptions.SystemException
 import com.netflix.spinnaker.kork.plugins.api.internal.SpinnakerExtensionPoint
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executor
+import kotlin.reflect.KClass
 
 /**
  * A [ResourceHandler] is a keel plugin that provides resource state monitoring and actuation capabilities
@@ -184,6 +185,11 @@ interface ResourceHandler<S : ResourceSpec, R : Any> : SpinnakerExtensionPoint {
   suspend fun actuationInProgress(resource: Resource<S>): Boolean = false
 
   /**
+   * @return an optional set of [DiffMixin] to customize diffing for the resource state managed by this handler.
+   */
+  fun getDiffMixins(): Set<DiffMixin> = emptySet()
+
+  /**
    * Notifies core Keel that a new artifact version is being deployed to the specified resource.
    *
    * The default implementation achieves this by publishing an [ArtifactVersionDeploying] event via the
@@ -240,3 +246,8 @@ class UnsupportedKind(kind: String) :
   SystemException("No resource handler supporting \"$kind\" is available") {
   constructor(kind: ResourceKind) : this(kind.toString())
 }
+
+data class DiffMixin(
+  val targetType: KClass<*>,
+  val mixinSource: KClass<*>
+)

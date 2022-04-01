@@ -33,7 +33,7 @@ class NetworkEndpointProvider(
           locations.regions.flatMap { region ->
             listOf(
               // Example: lpollolocaltest-feature-preview.vip.us-east-1.test.acme.net
-              NetworkEndpoint(EUREKA_VIP_DNS, region.name, "${moniker.generateVipPrefix()}.vip.${region.name}.${locations.account.environment}.${dnsConfig.defaultDomain}"),
+              NetworkEndpoint(EUREKA_VIP_DNS, region.name, "${moniker.toVip()}.vip.${region.name}.${locations.account.environment}.${dnsConfig.defaultDomain}"),
               NetworkEndpoint(EUREKA_CLUSTER_DNS, region.name, "${moniker.toName()}.cluster.${region.name}.${locations.account.environment}.${dnsConfig.defaultDomain}"),
             )
           }.toSet()
@@ -67,5 +67,8 @@ class NetworkEndpointProvider(
  *
  * We might have to do something different in the future, but we will do that when asked for it.
  */
-internal fun Moniker.generateVipPrefix(): String =
+fun Moniker.toVip(): String =
   app + if (stack != null) stack else ""
+
+fun Moniker.toSecureVip(): String =
+  toVip() + "-secure"
