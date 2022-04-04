@@ -84,6 +84,7 @@ class SqlActionRepository(
         val unfilteredResults = txn.select(
           ENVIRONMENT_LAST_VERIFIED.ENVIRONMENT_UID,
           ENVIRONMENT_LAST_VERIFIED.ARTIFACT_UID,
+          ENVIRONMENT_LAST_VERIFIED.ARTIFACT_VERSION
         )
           .from(ENVIRONMENT_LAST_VERIFIED)
           // has not been checked recently (or has never been checked)
@@ -93,20 +94,21 @@ class SqlActionRepository(
           .limit(limit)
           .lockInShareMode(useLockingRead)
           .fetch()
-          .onEach { (envUid, artifactUid) ->
+          .onEach { (envUid, artifactUid, storedVersion) ->
             val currentVersion = getCurrentVersion(envUid, artifactUid, txn)
             currentVersion?.let { version ->
               currentVersionMap[currentVersionKey(envUid, artifactUid)] = version
             }
+            val versionToUse = currentVersion ?: storedVersion
 
             txn
               .insertInto(ENVIRONMENT_LAST_VERIFIED)
               .set(ENVIRONMENT_LAST_VERIFIED.ENVIRONMENT_UID, envUid)
               .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_UID, artifactUid)
-              .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_VERSION, currentVersion)
+              .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_VERSION, versionToUse)
               .set(ENVIRONMENT_LAST_VERIFIED.AT, now)
               .onDuplicateKeyUpdate()
-              .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_VERSION, currentVersion)
+              .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_VERSION, versionToUse)
               .set(ENVIRONMENT_LAST_VERIFIED.AT, now)
               .execute()
           }
@@ -555,6 +557,7 @@ class SqlActionRepository(
         txn.select(
           ENVIRONMENT_LAST_POST_DEPLOY.ENVIRONMENT_UID,
           ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_UID,
+          ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_VERSION
         )
           .from(ENVIRONMENT_LAST_POST_DEPLOY)
           // has not been checked recently (or has never been checked)
@@ -564,20 +567,21 @@ class SqlActionRepository(
           .limit(limit)
           .lockInShareMode(useLockingRead)
           .fetch()
-          .onEach { (envUid, artifactUid) ->
+          .onEach { (envUid, artifactUid, storedVersion) ->
             val currentVersion = getCurrentVersion(envUid, artifactUid, txn)
             currentVersion?.let { version ->
               currentVersionMap[currentVersionKey(envUid, artifactUid)] = version
             }
+            val versionToUse = currentVersion ?: storedVersion
 
             txn
               .insertInto(ENVIRONMENT_LAST_POST_DEPLOY)
               .set(ENVIRONMENT_LAST_POST_DEPLOY.ENVIRONMENT_UID, envUid)
               .set(ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_UID, artifactUid)
-              .set(ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_VERSION, currentVersion)
+              .set(ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_VERSION, versionToUse)
               .set(ENVIRONMENT_LAST_POST_DEPLOY.AT, now)
               .onDuplicateKeyUpdate()
-              .set(ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_VERSION, currentVersion)
+              .set(ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_VERSION, versionToUse)
               .set(ENVIRONMENT_LAST_POST_DEPLOY.AT, now)
               .execute()
           }
