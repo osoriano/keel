@@ -15,8 +15,6 @@ import com.netflix.spinnaker.keel.api.ResourceDiffFactory
 import com.netflix.spinnaker.keel.api.ResourceSpec
 import com.netflix.spinnaker.keel.api.StashBridge
 import com.netflix.spinnaker.keel.api.action.ActionType
-import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
-import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.constraints.ConstraintState
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
 import com.netflix.spinnaker.keel.api.constraints.UpdatedConstraintStatus
@@ -28,7 +26,6 @@ import com.netflix.spinnaker.keel.api.migration.MigrationCommitData
 import com.netflix.spinnaker.keel.api.plugins.ResourceHandler
 import com.netflix.spinnaker.keel.api.plugins.supporting
 import com.netflix.spinnaker.keel.core.api.ActuationPlan
-import com.netflix.spinnaker.keel.core.api.ArtifactSummaryInEnvironment
 import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactPin
 import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactVeto
 import com.netflix.spinnaker.keel.core.api.EnvironmentPlan
@@ -37,10 +34,8 @@ import com.netflix.spinnaker.keel.core.api.ResourceAction
 import com.netflix.spinnaker.keel.core.api.ResourceAction.CREATE
 import com.netflix.spinnaker.keel.core.api.ResourceAction.NONE
 import com.netflix.spinnaker.keel.core.api.ResourceAction.UPDATE
-import com.netflix.spinnaker.keel.core.api.ResourceArtifactSummary
 import com.netflix.spinnaker.keel.core.api.ResourcePlan
 import com.netflix.spinnaker.keel.core.api.ResourceSummary
-import com.netflix.spinnaker.keel.core.api.VerificationSummary
 import com.netflix.spinnaker.keel.events.MarkAsBadNotification
 import com.netflix.spinnaker.keel.events.MigrationReadyNotification
 import com.netflix.spinnaker.keel.events.PinnedNotification

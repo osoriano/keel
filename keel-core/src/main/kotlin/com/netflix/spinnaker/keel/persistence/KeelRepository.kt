@@ -722,9 +722,6 @@ class KeelRepository(
   ): Collection<ArtifactInEnvironmentContext> =
     actionRepository.nextEnvironmentsForPostDeployAction(minTimeSinceLastCheck, limit)
 
-  override fun getVerificationStatesBatch(contexts: List<ArtifactInEnvironmentContext>) : List<Map<String, ActionState>> =
-    actionRepository.getStatesBatch(contexts, VERIFICATION)
-
   override fun getActionState(context: ArtifactInEnvironmentContext, action: Action): ActionState? {
     return actionRepository.getState(context, action)
   }

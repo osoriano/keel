@@ -1,0 +1,25 @@
+databaseChangeLog:
+  - changeSet:
+      id: fix-verification-post-deploy-index-desc
+      author: emjburns
+      changes:
+        - dropIndex:
+            indexName: environment_last_verified_timestamp_idx
+            tableName: environment_last_verified
+        - dropIndex:
+            indexName: environment_last_post_deploy_timestamp_idx
+            tableName: environment_last_post_deploy
+        - createIndex:
+            indexName: environment_last_verified_timestamp_idx
+            tableName: environment_last_verified
+            columns:
+              - column:
+                  name: at
+                  descending: true
+        - createIndex:
+            indexName: environment_last_post_deploy_timestamp_idx
+            tableName: environment_last_post_deploy
+            columns:
+              - column:
+                  name: at
+                  descending: true
