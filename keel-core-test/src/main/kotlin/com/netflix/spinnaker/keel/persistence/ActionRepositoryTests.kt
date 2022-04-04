@@ -438,6 +438,119 @@ abstract class ActionRepositoryTests<IMPLEMENTATION : ActionRepository> {
     }
   }
 
+  //
+  // getStatesBatch tests
+  //
+  @Test
+  fun `no verification states`() {
+    context.setup()
+    val contexts = listOf(context)
+
+    expectThat(subject.getStatesBatch(contexts, VERIFICATION))
+      .hasSize(contexts.size)
+      .containsExactly(emptyMap())
+  }
+
+  @Test
+  fun `one verification state`() {
+    context.setup()
+    val contexts = listOf(context)
+
+    subject.updateState(context, verification, PENDING, link = "http://www.example.com")
+
+    val stateMaps = subject.getStatesBatch(contexts, VERIFICATION)
+
+    expectThat(stateMaps)
+      .hasSize(contexts.size)
+
+    val stateMap = stateMaps.first()
+    expectThat(stateMap)
+      .containsKey(verification.id)
+
+    expectThat(stateMap[verification.id])
+      .isNotNull()
+      .with(ActionState::status) { isEqualTo(PENDING) }
+      .with(ActionState::link) { isEqualTo("http://www.example.com") }
+  }
+
+  @Test
+  fun `multiple contexts, multiple verifications`() {
+    val c1 = context
+    val c2 = ArtifactInEnvironmentContext(
+      deliveryConfig = deliveryConfig,
+      environmentName = "test",
+      artifactReference = "fnord-docker-stable",
+      version = "fnord-0.191.0-h379.fbde246"
+    )
+
+    val v1 = verification
+    val v2 = DummyVerification("2")
+
+    val contexts = listOf(c1, c2)
+    contexts.forEach { it.setup() }
+
+    // First context: v1: PASS, v2: FAIL
+    subject.updateState(c1, v1, PASS, link = "http://www.example.com/pass")
+    subject.updateState(c1, v2, FAIL)
+
+    // Second context: v1: PENDING, v2: PENDING
+    subject.updateState(c2, v1, PENDING, link = "http://www.example.com/pending")
+    subject.updateState(c2, v2, PENDING)
+
+
+    val result = subject.getStatesBatch(contexts, VERIFICATION)
+
+    expect {
+      that(result)
+        .hasSize(contexts.size)
+
+      that(result[0])
+        .and {
+          get { get(v1.id) }
+            .isNotNull()
+            .with(ActionState::status) { isEqualTo(PASS) }
+            .with(ActionState::link) { isEqualTo("http://www.example.com/pass") }
+        }
+        .and {
+          get { get(v2.id) }
+            .isNotNull()
+            .with(ActionState::status) { isEqualTo(FAIL) }
+            .with(ActionState::link) { isNull() }
+        }
+
+      that(result[1])
+        .and {
+          get { get(v1.id) }
+            .isNotNull()
+            .with(ActionState::status) { isEqualTo(PENDING) }
+            .with(ActionState::link) { isEqualTo("http://www.example.com/pending") }
+        }
+        .and {
+          get { get(v2.id) }
+            .isNotNull()
+            .get(ActionState::status) isEqualTo PENDING
+        }
+    }
+  }
+
+  @Test
+  fun `environment name and artifact reference name are the same`() {
+    val contexts = listOf(context, context.copy(artifactReference = "test"))
+      .onEach { it.setup() }
+
+    // verify it doesn't explode with a SQLSyntaxErrorException
+    expectCatching { subject.getStatesBatch(contexts, VERIFICATION) }.isSuccess()
+  }
+
+  @Test
+  fun `zero states`() {
+    context.setup()
+
+    val stateMaps = subject.getStatesBatch(emptyList(), VERIFICATION)
+
+    expectThat(stateMaps).isEmpty()
+  }
+
   @Test
   fun `getContextsWithStatus with no pending verifications`() {
     context.setup()

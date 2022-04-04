@@ -73,13 +73,12 @@ internal fun SqlStorageContext.attachDependents(
           DELIVERY_ARTIFACT.DETAILS,
           DELIVERY_ARTIFACT.REFERENCE,
           DELIVERY_ARTIFACT.DELIVERY_CONFIG_NAME,
-          DELIVERY_ARTIFACT.IS_PREVIEW,
-          DELIVERY_ARTIFACT.UID
+          DELIVERY_ARTIFACT.IS_PREVIEW
         )
         .from(DELIVERY_ARTIFACT, DELIVERY_CONFIG_ARTIFACT)
         .where(DELIVERY_CONFIG_ARTIFACT.ARTIFACT_UID.eq(DELIVERY_ARTIFACT.UID))
         .and(DELIVERY_CONFIG_ARTIFACT.DELIVERY_CONFIG_UID.eq(deliveryConfig.uid))
-        .fetch { (name, type, details, reference, configName, isPreview, uid) ->
+        .fetch { (name, type, details, reference, configName, isPreview) ->
           mapToArtifact(
             artifactSuppliers.supporting(type),
             name,
@@ -87,8 +86,7 @@ internal fun SqlStorageContext.attachDependents(
             details,
             reference,
             configName,
-            isPreview,
-            uid
+            isPreview
           )
         }
     }
