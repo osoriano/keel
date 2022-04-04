@@ -102,7 +102,7 @@ class ConstraintsDataLoader(
               type = envConstraint.type,
               status = if (passes) ConstraintStatus.PASS else ConstraintStatus.PENDING,
               attributes = when (envConstraint) {
-                is DependsOnConstraint -> DependsOnConstraintAttributes(envConstraint.environment, passes, envConstraint.deployAfter)
+                is DependsOnConstraint -> DependsOnConstraintAttributes(envConstraint.environment, passes, envConstraint.deployAfter.toString())
                 else -> null
               }
             )
