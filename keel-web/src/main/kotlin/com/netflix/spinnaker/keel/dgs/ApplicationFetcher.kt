@@ -252,7 +252,7 @@ class ApplicationFetcher(
     val config = applicationFetcherSupport.getDeliveryConfigFromContext(dfe)
     val deliveryArtifact = config.matchingArtifactByReference(artifact.reference) ?: return null
     return dataLoader.load(PinnedArtifactAndEnvironment(
-      artifact = deliveryArtifact,
+      artifactUniqueId = deliveryArtifact.uniqueId(),
       environment = artifact.environment
     ))
   }

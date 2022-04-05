@@ -374,3 +374,6 @@ databaseChangeLog:
 - include:
     file: changelog/20230504-update-task-tracking-columns.yml
     relativeToChangelogFile: true
+- include:
+      file: changelog/20220404-verification-index-fix.yml
+      relativeToChangelogFile: true

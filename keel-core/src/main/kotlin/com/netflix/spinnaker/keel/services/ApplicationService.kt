@@ -12,8 +12,6 @@ import com.netflix.spinnaker.keel.api.StatefulConstraint
 import com.netflix.spinnaker.keel.api.Verification
 import com.netflix.spinnaker.keel.api.action.ActionState
 import com.netflix.spinnaker.keel.api.action.ActionType
-import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
-import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.constraints.ConstraintState
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.NOT_EVALUATED
@@ -43,7 +41,6 @@ import com.netflix.spinnaker.keel.core.api.PromotionStatus.PREVIOUS
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.SKIPPED
 import com.netflix.spinnaker.keel.core.api.ResourceArtifactSummary
 import com.netflix.spinnaker.keel.core.api.ResourceSummary
-import com.netflix.spinnaker.keel.core.api.VerificationSummary
 import com.netflix.spinnaker.keel.events.MarkAsBadNotification
 import com.netflix.spinnaker.keel.events.PinnedNotification
 import com.netflix.spinnaker.keel.events.UnpinnedNotification

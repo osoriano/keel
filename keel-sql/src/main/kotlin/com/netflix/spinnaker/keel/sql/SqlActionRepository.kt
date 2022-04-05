@@ -17,17 +17,23 @@ import com.netflix.spinnaker.keel.api.action.ActionType.VERIFICATION
 import com.netflix.spinnaker.keel.api.action.EnvironmentArtifactAndVersion
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
-import com.netflix.spinnaker.keel.persistence.metamodel.Tables
+import com.netflix.spinnaker.keel.core.api.PromotionStatus.CURRENT
+import com.netflix.spinnaker.keel.pause.PauseScope
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ACTION_STATE
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ACTIVE_ENVIRONMENT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.DELIVERY_ARTIFACT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.DELIVERY_CONFIG
+import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT
+import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_ARTIFACT_VERSIONS
+import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_LAST_POST_DEPLOY
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_LAST_VERIFIED
+import com.netflix.spinnaker.keel.persistence.metamodel.Tables.PAUSED
 import com.netflix.spinnaker.keel.resources.ResourceFactory
 import com.netflix.spinnaker.keel.sql.RetryCategory.READ
 import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
 import com.netflix.spinnaker.keel.sql.deliveryconfigs.deliveryConfigByName
 import org.jooq.*
+import org.jooq.impl.DSL
 import org.jooq.impl.DSL.field
 import org.jooq.impl.DSL.function
 import org.jooq.impl.DSL.inline
@@ -63,6 +69,9 @@ class SqlActionRepository(
   private val useLockingRead : Boolean
     get() = environment.getProperty("keel.verifications.db.lock.reads.enabled", Boolean::class.java, true)
 
+  fun currentVersionKey(envUid: String, artifactUid: String): String =
+    "$envUid:$artifactUid"
+
   override fun nextEnvironmentsForVerification(
     minTimeSinceLastCheck: Duration,
     limit: Int
@@ -70,25 +79,45 @@ class SqlActionRepository(
     val now = clock.instant()
     val cutoff = now.minus(minTimeSinceLastCheck)
     return sqlRetry.withRetry(WRITE) {
-      // TODO: only consider environments that have verifications
-      jooq.inTransaction {
-        nextEnvironmentQuery(cutoff, limit)
+      val currentVersionMap = mutableMapOf<String, String>()
+      jooq.transactionResult { config ->
+        val txn = DSL.using(config)
+        val unfilteredResults = txn.select(
+          ENVIRONMENT_LAST_VERIFIED.ENVIRONMENT_UID,
+          ENVIRONMENT_LAST_VERIFIED.ARTIFACT_UID,
+          ENVIRONMENT_LAST_VERIFIED.ARTIFACT_VERSION,
+          ENVIRONMENT_LAST_VERIFIED.AT,
+        )
+          .from(ENVIRONMENT_LAST_VERIFIED)
+          // has not been checked recently (or has never been checked)
+          .where(ENVIRONMENT_LAST_VERIFIED.AT.lessOrEqual(cutoff))
+          // order by last time checked with things never checked coming first
+          .orderBy(ENVIRONMENT_LAST_VERIFIED.AT)
+          .limit(limit)
           .lockInShareMode(useLockingRead)
           .fetch()
           .also {
             var maxLagTime = Duration.ZERO
             val now = clock.instant()
-            it.forEach { (_, deliveryConfigName, environmentUid, _, artifactUid, _, artifactVersion, lastCheckedAt) ->
+            it.forEach { (envUid, artifactUid, storedVersion, lastCheckedAt) ->
 
-              insertInto(ENVIRONMENT_LAST_VERIFIED)
-                .set(ENVIRONMENT_LAST_VERIFIED.ENVIRONMENT_UID, environmentUid)
+              val currentVersion = getCurrentVersion(envUid, artifactUid, txn)
+              currentVersion?.let { version ->
+                currentVersionMap[currentVersionKey(envUid, artifactUid)] = version
+              }
+              val versionToUse = currentVersion ?: storedVersion
+
+              txn
+                .insertInto(ENVIRONMENT_LAST_VERIFIED)
+                .set(ENVIRONMENT_LAST_VERIFIED.ENVIRONMENT_UID, envUid)
                 .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_UID, artifactUid)
-                .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_VERSION, artifactVersion)
+                .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_VERSION, versionToUse)
                 .set(ENVIRONMENT_LAST_VERIFIED.AT, now)
                 .onDuplicateKeyUpdate()
-                .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_VERSION, artifactVersion)
+                .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_VERSION, versionToUse)
                 .set(ENVIRONMENT_LAST_VERIFIED.AT, now)
                 .execute()
+
               // Find the max lag time. Ignore new resources or resources where a recheck was triggered
               if (lastCheckedAt != null && lastCheckedAt.isAfter(Instant.EPOCH.plusSeconds(1))) {
                 val lagTime = Duration.between(lastCheckedAt, now)
@@ -104,16 +133,76 @@ class SqlActionRepository(
               )
             ).record(maxLagTime.toSeconds(), TimeUnit.SECONDS)
           }
+          .map { (envUid, artifactUid) ->
+            Pair<String, String>(envUid, artifactUid)
+          }
+
+        filterOutPaused(unfilteredResults, txn)
+          .mapNotNull { (envUid, artifactUid) ->
+            mapToArtifactInEnvContext(envUid, artifactUid, currentVersionMap)
+          }
       }
     }
-      .map { (_, deliveryConfigName, _, environmentName, _, artifactReference, artifactVersion, _) ->
-        ArtifactInEnvironmentContext(
-          deliveryConfigByName(deliveryConfigName),
-          environmentName,
-          artifactReference,
-          artifactVersion
-        )
-      }
+  }
+
+  fun getCurrentVersion(envUid: String, artifactUid: String, txn: DSLContext): String? =
+    txn
+      .select(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION)
+      .from(ENVIRONMENT_ARTIFACT_VERSIONS)
+      .where(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.eq(CURRENT))
+      .and(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(envUid))
+      .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(artifactUid))
+      .fetch(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION)
+      .firstOrNull()
+
+  /**
+   * Given a list of environment artifact pairs, filters out all environments where the application is paused
+   */
+  fun filterOutPaused(envArt: List<Pair<String, String>>, txn: DSLContext): List<Pair<String,String>> {
+    val pausedEnvs: List<String> = txn
+      .select(ENVIRONMENT.UID)
+      .from(PAUSED)
+      .join(DELIVERY_CONFIG)
+      .on(PAUSED.NAME.eq(DELIVERY_CONFIG.APPLICATION))
+      .join(ENVIRONMENT)
+      .on(DELIVERY_CONFIG.UID.eq(ENVIRONMENT.DELIVERY_CONFIG_UID))
+      .where(ENVIRONMENT.UID.`in`(envArt.map { it.first }))
+      .and(PAUSED.SCOPE.eq(PauseScope.APPLICATION))
+      .fetch(ENVIRONMENT.UID)
+
+    return envArt.filterNot { pausedEnvs.contains(it.first) }
+  }
+
+  fun mapToArtifactInEnvContext(envUid: String, artifactUid: String, currentVersionMap: Map<String, String>, txn: DSLContext = jooq): ArtifactInEnvironmentContext? {
+    val currentVersion = currentVersionMap[currentVersionKey(envUid, artifactUid)] ?: return null
+
+    val deliveryConfigName = txn.select(DELIVERY_CONFIG.NAME)
+      .from(DELIVERY_CONFIG)
+      .join(ENVIRONMENT)
+      .on(DELIVERY_CONFIG.UID.eq(ENVIRONMENT.DELIVERY_CONFIG_UID))
+      .where(ENVIRONMENT.UID.eq(envUid))
+      .fetchOne(DELIVERY_CONFIG.NAME) ?: return null
+
+    val deliveryConfig = deliveryConfigByName(deliveryConfigName)
+
+    val artifact = deliveryConfig
+      .artifacts
+      .find { it.metadata["uid"] == artifactUid } ?: return null
+    val env = deliveryConfig
+      .environments
+      .find { it.metadata["uid"] == envUid } ?: return null
+
+    if (env.verifyWith.isEmpty()) {
+      // screen out environments without verifications
+      return null
+    }
+
+    return ArtifactInEnvironmentContext(
+      deliveryConfig,
+      env.name,
+      artifact.reference,
+      currentVersion
+    )
   }
 
   private fun getState(
@@ -243,83 +332,6 @@ class SqlActionRepository(
             version = version)
       }
       .toList()
-
-  /**
-   * Query the repository for the states of multiple contexts.
-   *
-   * This call is semantically equivalent to
-   *    contexts.map { context -> this.getStates(context) }
-   *
-   * However, it's implemented as a single query for efficiency.
-   *
-   * @param contexts a list of verification contexts to query for state
-   * @return a list of maps of verification ids to states, in the same order as the contexts. If there are no
-   *         verification states associated with a context, the resulting map will be empty.
-   */
-  //todo: remove once we switch to graphql api, because the new api loads verifications and actions in one call
-  override fun getStatesBatch(
-    contexts: List<ArtifactInEnvironmentContext>,
-    type: ActionType
-  ): List<Map<String, ActionState>> {
-    /**
-     * In-memory database table representation of the set of contexts we want to query for
-     *
-     * Columns:
-     *   ind - index that encodes the original list order, to ensure results are in same order
-     *   environment_name
-     *   artifact_reference
-     *   artifact_version
-     */
-    val contextTable = ContextTable(contexts, jooq)
-
-    /**
-     * This function guarantees that the number of output elements match the number of input elements.
-     * So we use left joins on the givenVersions table
-     */
-    return contextTable.table?.let { ctxTable ->
-      jooq.select(
-        contextTable.IND,
-        ACTION_STATE.ACTION_ID,
-        ACTION_STATE.STATUS,
-        ACTION_STATE.STARTED_AT,
-        ACTION_STATE.ENDED_AT,
-        ACTION_STATE.METADATA,
-        ACTION_STATE.LINK
-      )
-        .from(ctxTable)
-        .leftJoin(ACTIVE_ENVIRONMENT)
-        .on(ACTIVE_ENVIRONMENT.NAME.eq(contextTable.ENVIRONMENT_NAME))
-        .leftJoin(DELIVERY_CONFIG)
-        .on(DELIVERY_CONFIG.UID.eq(ACTIVE_ENVIRONMENT.DELIVERY_CONFIG_UID))
-        .leftJoin(DELIVERY_ARTIFACT)
-        .on(DELIVERY_ARTIFACT.REFERENCE.eq(contextTable.ARTIFACT_REFERENCE))
-        .leftJoin(ACTION_STATE)
-        .on(ACTION_STATE.ARTIFACT_UID.eq(DELIVERY_ARTIFACT.UID))
-        .and(ACTION_STATE.ARTIFACT_VERSION.eq(contextTable.ARTIFACT_VERSION))
-        .and(DELIVERY_ARTIFACT.DELIVERY_CONFIG_NAME.eq(DELIVERY_CONFIG.NAME))
-        .and(ACTION_STATE.ENVIRONMENT_UID.eq(ACTIVE_ENVIRONMENT.UID))
-        .and(ACTION_STATE.TYPE.eq(type))
-        // execute the query
-        .fetch()
-
-        // sort the results by the "ind" (index) column, so that outputs are same order as inputs
-        .groupBy { (index, _, _, _, _, _, _) -> index as Long }
-        .toSortedMap()
-        .values
-
-        // convert List<Record> to Map<String, ActionState>, where the string is the verification id
-        .map { records ->
-          records
-            // since we do a left join, there may be rows where there is no corresponding records in the
-            // ACTION_STATE database, so we filter them out, which will result in an empty map
-            .filter { (_, _, status, _, _, _) -> status != null }
-            .associate { (_, action_id, status, started_at, ended_at, metadata, link) ->
-              action_id to ActionState(status, started_at, ended_at, metadata, link)
-            }
-        }
-        .toList()
-    } ?: emptyList()
-  }
 
   override fun getStatesForVersions(
     deliveryConfig: DeliveryConfig,
@@ -554,23 +566,46 @@ class SqlActionRepository(
     val now = clock.instant()
     val cutoff = now.minus(minTimeSinceLastCheck)
     return sqlRetry.withRetry(WRITE) {
-      jooq.inTransaction {
-        nextEnvironmentQuery(cutoff, limit)
+      val currentVersionMap = mutableMapOf<String, String>()
+
+      jooq.transactionResult { config ->
+        val txn = DSL.using(config)
+        txn.select(
+          ENVIRONMENT_LAST_POST_DEPLOY.ENVIRONMENT_UID,
+          ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_UID,
+          ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_VERSION,
+          ENVIRONMENT_LAST_POST_DEPLOY.AT,
+        )
+          .from(ENVIRONMENT_LAST_POST_DEPLOY)
+          // has not been checked recently (or has never been checked)
+          .where(ENVIRONMENT_LAST_POST_DEPLOY.AT.lessOrEqual(cutoff))
+          // order by last time checked with things never checked coming first
+          .orderBy(ENVIRONMENT_LAST_POST_DEPLOY.AT)
+          .limit(limit)
           .lockInShareMode(useLockingRead)
           .fetch()
           .also {
             var maxLagTime = Duration.ZERO
             val now = clock.instant()
-            it.forEach { (_, deliveryConfigName, environmentUid, _, artifactUid, _, artifactVersion, lastCheckedAt) ->
-              insertInto(Tables.ENVIRONMENT_LAST_POST_DEPLOY)
-                .set(Tables.ENVIRONMENT_LAST_POST_DEPLOY.ENVIRONMENT_UID, environmentUid)
-                .set(Tables.ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_UID, artifactUid)
-                .set(Tables.ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_VERSION, artifactVersion)
-                .set(Tables.ENVIRONMENT_LAST_POST_DEPLOY.AT, now)
+            it.forEach { (envUid, artifactUid, storedVersion, lastCheckedAt) ->
+
+              val currentVersion = getCurrentVersion(envUid, artifactUid, txn)
+              currentVersion?.let { version ->
+                currentVersionMap[currentVersionKey(envUid, artifactUid)] = version
+              }
+              val versionToUse = currentVersion ?: storedVersion
+
+              txn
+                .insertInto(ENVIRONMENT_LAST_POST_DEPLOY)
+                .set(ENVIRONMENT_LAST_POST_DEPLOY.ENVIRONMENT_UID, envUid)
+                .set(ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_UID, artifactUid)
+                .set(ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_VERSION, versionToUse)
+                .set(ENVIRONMENT_LAST_POST_DEPLOY.AT, now)
                 .onDuplicateKeyUpdate()
-                .set(Tables.ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_VERSION, artifactVersion)
-                .set(Tables.ENVIRONMENT_LAST_POST_DEPLOY.AT, now)
+                .set(ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_VERSION, versionToUse)
+                .set(ENVIRONMENT_LAST_POST_DEPLOY.AT, now)
                 .execute()
+
               // Find the max lag time. Ignore new resources or resources where a recheck was triggered
               if (lastCheckedAt != null && lastCheckedAt.isAfter(Instant.EPOCH.plusSeconds(1))) {
                 val lagTime = Duration.between(lastCheckedAt, now)
@@ -586,15 +621,10 @@ class SqlActionRepository(
               )
             ).record(maxLagTime.toSeconds(), TimeUnit.SECONDS)
           }
+          .mapNotNull { (envUid, artifactUid) ->
+            mapToArtifactInEnvContext(envUid, artifactUid, currentVersionMap)
+          }
       }
-        .map { (_, deliveryConfigName, _, environmentName, _, artifactReference, artifactVersion, _) ->
-          ArtifactInEnvironmentContext(
-            deliveryConfigByName(deliveryConfigName),
-            environmentName,
-            artifactReference,
-            artifactVersion
-          )
-        }
     }
   }
 

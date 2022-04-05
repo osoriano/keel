@@ -51,6 +51,8 @@ import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_ARTIFACT_PIN
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_ARTIFACT_VERSIONS
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_ARTIFACT_VETO
+import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_LAST_POST_DEPLOY
+import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_LAST_VERIFIED
 import com.netflix.spinnaker.keel.services.StatusInfoForArtifactInEnvironment
 import com.netflix.spinnaker.keel.sql.RetryCategory.READ
 import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
@@ -843,10 +845,48 @@ class SqlArtifactRepository(
 
           log.debug("markAsSuccessfullyDeployedTo: # of pending versions marked SKIPPED: $skippedUpdates. name: ${artifact.name}. version: $version. env: $targetEnvironment")
         }
+        addEnvAndArtifactForPostDeployAndVerifications(environmentUidString, artifactUid, version, txn)
       }
     }
 
     log.debug("markAsSuccessfullyDeployedTo complete. name: ${artifact.name}. version: $version. env: $targetEnvironment")
+  }
+
+  /**
+   * We need the environment uid / artifact uid combo to be present in the ENVIRONMENT_LAST_VERIFIED
+   * and the ENVIRONMENT_LAST_POST_DEPLOY tables so that we check verifications and post deploy actions.
+   */
+  fun addEnvAndArtifactForPostDeployAndVerifications(
+    envUid: String,
+    artifactUid: String,
+    version: String,
+    txn: DSLContext
+  ) {
+      log.debug("markAsSuccessfullyDeployedTo: adding env + artifact uid to actions tables")
+      txn
+        .insertInto(ENVIRONMENT_LAST_VERIFIED)
+        .set(ENVIRONMENT_LAST_VERIFIED.ENVIRONMENT_UID, envUid)
+        .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_UID, artifactUid)
+        .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_VERSION, version)
+        .set(ENVIRONMENT_LAST_VERIFIED.AT, EPOCH.plusSeconds(1))
+        .onDuplicateKeyUpdate() // we want a new version to be rechecked immediately
+        .set(ENVIRONMENT_LAST_VERIFIED.ENVIRONMENT_UID, envUid)
+        .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_UID, artifactUid)
+        .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_VERSION, version)
+        .set(ENVIRONMENT_LAST_VERIFIED.AT, EPOCH.plusSeconds(1))
+        .execute()
+      txn
+        .insertInto(ENVIRONMENT_LAST_POST_DEPLOY)
+        .set(ENVIRONMENT_LAST_POST_DEPLOY.ENVIRONMENT_UID, envUid)
+        .set(ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_UID, artifactUid)
+        .set(ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_VERSION, version)
+        .set(ENVIRONMENT_LAST_POST_DEPLOY.AT, EPOCH.plusSeconds(1))
+        .onDuplicateKeyUpdate() // we want a new version to be rechecked immediately
+        .set(ENVIRONMENT_LAST_POST_DEPLOY.ENVIRONMENT_UID, envUid)
+        .set(ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_UID, artifactUid)
+        .set(ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_VERSION, version)
+        .set(ENVIRONMENT_LAST_POST_DEPLOY.AT, EPOCH.plusSeconds(1))
+        .execute()
   }
 
   override fun vetoedEnvironmentVersions(deliveryConfig: DeliveryConfig): List<EnvironmentArtifactVetoes> {
