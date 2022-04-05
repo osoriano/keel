@@ -482,13 +482,13 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
         test("artifacts are attached when retrieved by name") {
           getByName()
             .isSuccess()
-            .get { artifacts }.isEqualTo(deliveryConfig.artifacts)
+            .get { artifacts }.map { it.reference }.containsExactlyInAnyOrder(deliveryConfig.artifacts.map { it.reference })
         }
 
         test("artifacts are attached when retrieved by application") {
           getByApplication()
             .isSuccess()
-            .get { artifacts }.isEqualTo(deliveryConfig.artifacts)
+            .get { artifacts }.map { it.reference }.containsExactlyInAnyOrder(deliveryConfig.artifacts.map { it.reference })
         }
 
         test("environments are attached when retrieved by name") {

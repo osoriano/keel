@@ -455,3 +455,6 @@ databaseChangeLog:
 - include:
     file: changelog/20220401-drop-diff-fingerprint-index.yml
     relativeToChangelogFile: true
+- include:
+      file: changelog/20220404-verification-index-fix.yml
+      relativeToChangelogFile: true

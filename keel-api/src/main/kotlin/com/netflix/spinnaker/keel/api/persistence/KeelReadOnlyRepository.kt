@@ -85,8 +85,6 @@ interface KeelReadOnlyRepository {
 
   fun getVersionsWithoutMetadata(limit: Int, maxAge: Duration): List<PublishedArtifact>
 
-  fun getVerificationStatesBatch(contexts: List<ArtifactInEnvironmentContext>) : List<Map<String, ActionState>>
-
   fun getAllActionStatesBatch(contexts: List<ArtifactInEnvironmentContext>) : List<List<ActionStateFull>>
 
   fun getActionState(context: ArtifactInEnvironmentContext, action: Action): ActionState?

@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.dgs
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.graphql.dgs.DgsDataLoader
 import com.netflix.graphql.dgs.context.DgsContext
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
@@ -10,6 +11,8 @@ import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.springboot.scheduling.DefaultExecutor
 import org.dataloader.BatchLoaderEnvironment
 import org.dataloader.MappedBatchLoaderWithContext
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 import java.util.concurrent.CompletionStage
 import java.util.concurrent.Executor
 
@@ -20,8 +23,10 @@ import java.util.concurrent.Executor
 @DgsDataLoader(name = PinnedVersionInEnvironmentDataLoader.Descriptor.name)
 class PinnedVersionInEnvironmentDataLoader(
   private val keelRepository: KeelRepository,
-  @DefaultExecutor private val executor: Executor
+  @DefaultExecutor private val executor: Executor,
 ) : MappedBatchLoaderWithContext<PinnedArtifactAndEnvironment, MD_PinnedVersion> {
+
+  val log: Logger by lazy { LoggerFactory.getLogger(javaClass) }
 
   object Descriptor {
     const val name = "pinned-versions-in-environment"
@@ -31,7 +36,9 @@ class PinnedVersionInEnvironmentDataLoader(
     val context: ApplicationContext = DgsContext.getCustomContext(environment)
     return executor.supplyAsync {
       keelRepository.pinnedEnvironments(context.getConfig()).associateBy(
-        { PinnedArtifactAndEnvironment(artifact = it.artifact, environment = it.targetEnvironment) },
+        {
+          PinnedArtifactAndEnvironment(artifactUniqueId = it.artifact.uniqueId(), environment = it.targetEnvironment)
+        },
         {
           val versionData = keelRepository.getArtifactVersion(artifact = it.artifact, version = it.version, status = null)
           it.toDgs(versionData)
@@ -55,9 +62,17 @@ fun PinnedEnvironment.toDgs(versionData: PublishedArtifact?) =
     type = type?.toDgs()
   )
 
-
-
 data class PinnedArtifactAndEnvironment(
-  val artifact: DeliveryArtifact,
+  val artifactUniqueId: String,
   val environment: String
 )
+
+/**
+ * Generates a unique id for an artifact to be used as a key for the data loader.
+ * If we just use the whole DeliveryArtifact object then we run the risk of the key not working
+ * if we add more data to the artifact (like, if we add extra info to the metadata in some calls but not others).
+ *
+ * In practice, keys should not be full objects.
+ */
+fun DeliveryArtifact.uniqueId(): String =
+  "$deliveryConfigName:$type:$name:$reference"

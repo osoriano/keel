@@ -268,10 +268,6 @@ class ApplicationServiceTests : JUnit5Minutests {
         repository.getPinnedVersion(any(), any(), any())
       } returns null
 
-      every {
-        repository.getVerificationStatesBatch(any())
-      } returns emptyList()
-
       every { repository.getArtifactSummariesInEnvironment(any(), any(), any(), any()) } returns emptyList()
       every { actuationPauser.getResourcePauseInfo(any()) } returns null
     }

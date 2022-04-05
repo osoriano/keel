@@ -52,12 +52,8 @@ interface ActionRepository {
    *
    * @param contexts a list of artifact in environment contexts to query for state
    *
-   * @return a list of maps of action ids to states, in the same order as the contexts
-   */
-  fun getStatesBatch(contexts: List<ArtifactInEnvironmentContext>, type: ActionType) : List<Map<String, ActionState>>
-
-  /**
-   * same as getStatesBatch, but returns all actions.
+   * @return a list of maps of action ids to states, in the same order as the contexts.
+   * Returns results for all action types.
    */
   fun getAllStatesBatch(contexts: List<ArtifactInEnvironmentContext>): List<List<ActionStateFull>>
 
