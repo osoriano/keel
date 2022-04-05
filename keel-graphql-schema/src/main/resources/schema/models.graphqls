@@ -473,6 +473,7 @@ input MD_RestartConstraintEvaluationPayload {
 input MD_ToggleResourceManagementPayload {
   id: ID!
   isPaused: Boolean!
+  comment: String
 }
 
 input MD_UpdateGitIntegrationPayload {

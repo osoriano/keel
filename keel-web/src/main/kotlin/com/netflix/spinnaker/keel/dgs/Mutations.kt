@@ -275,7 +275,7 @@ class Mutations(
     @RequestHeader("X-SPINNAKER-USER") user: String
   ): Boolean {
     if (payload.isPaused) {
-      actuationPauser.pauseResource(payload.id, user)
+      actuationPauser.pauseResource(payload.id, user, payload.comment)
     } else {
       actuationPauser.resumeResource(payload.id, user)
     }
