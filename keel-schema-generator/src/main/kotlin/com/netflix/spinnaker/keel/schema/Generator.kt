@@ -189,11 +189,14 @@ class Generator(
   /**
    * Kotlin singleton objects are represented as a const.
    */
-  private fun buildSchemaForKotlinSingleton(type: KClass<*>) =
-    ConstSchema(
+  private fun buildSchemaForKotlinSingleton(type: KClass<*>): ConstSchema {
+    val const = type.findAnnotation<Literal>()?.value ?: checkNotNull(type.simpleName)
+    return ConstSchema(
       description = type.description,
-      const = type.findAnnotation<Literal>()?.value ?: checkNotNull(type.simpleName)
+      const = const,
+      default = const
     )
+  }
 
   /**
    * The root of a sealed class hierarchy is represented as [OneOf] the sub-type schemas.
@@ -211,7 +214,7 @@ class Generator(
    */
   private fun Pair<KProperty<String>, String>?.toDiscriminatorConst() =
     if (this != null) {
-      mapOf(first.name to ConstSchema(description = null, const = second))
+      mapOf(first.name to ConstSchema(description = null, const = second, default = second))
     } else {
       emptyMap()
     }

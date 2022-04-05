@@ -84,7 +84,8 @@ data class EnumSchema(
 
 data class ConstSchema(
   override val description: String?,
-  val const: String
+  val const: String,
+  val default: String
 ) : Schema
 
 data class Reference(
