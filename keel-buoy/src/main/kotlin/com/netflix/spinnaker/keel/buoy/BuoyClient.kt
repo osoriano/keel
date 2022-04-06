@@ -16,13 +16,24 @@ import org.springframework.stereotype.Component
 class BuoyClient(
   private val workflowClientProvider: WorkflowClientProvider
 ) {
-  suspend fun deployImmediately(workflowId: String, rolloutTarget: RolloutTarget) {
+  suspend fun deployRegionImmediately(workflowId: String, rolloutTarget: RolloutTarget) {
     coroutineScope {
       launch(IO) {
         workflowClientProvider
           .get("spinnaker-tools")
           .newWorkflowStub<RolloutWorkflow>(workflowId)
           .deployImmediately(rolloutTarget)
+      }
+    }
+  }
+
+  suspend fun deployRegionsImmediately(workflowId: String, rolloutTarget: List<RolloutTarget>) {
+    coroutineScope {
+      launch(IO) {
+        workflowClientProvider
+          .get("spinnaker-tools")
+          .newWorkflowStub<RolloutWorkflow>(workflowId)
+          .deployTargetsImmediately(rolloutTarget)
       }
     }
   }

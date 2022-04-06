@@ -10,7 +10,7 @@ import com.netflix.spinnaker.keel.actuation.RolloutTargetWithStatus
 import com.netflix.spinnaker.keel.api.TaskStatus.RUNNING
 import com.netflix.spinnaker.keel.buoy.BuoyClient
 import com.netflix.spinnaker.keel.core.api.randomUID
-import com.netflix.spinnaker.keel.graphql.types.MD_DeployImmediatelyPayload
+import com.netflix.spinnaker.keel.graphql.types.MD_DeployResourceImmediatelyPayload
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
@@ -49,10 +49,10 @@ class DeployImmediatelyMutationTests {
     ),
     rolloutWorkflowId = workflowId
   )
-  private val payload = MD_DeployImmediatelyPayload(
+  private val payload = MD_DeployResourceImmediatelyPayload(
     application = "fnord",
     taskId = execution.id,
-    region = target.location.region
+    regions = listOf(target.location.region)
   )
 
   private fun invoke() =
@@ -100,6 +100,6 @@ class DeployImmediatelyMutationTests {
       .isSuccess()
       .isTrue()
 
-    verify { buoyClient.deployImmediately(workflowId, target) }
+    verify { buoyClient.deployRegionsImmediately(workflowId, listOf(target)) }
   }
 }

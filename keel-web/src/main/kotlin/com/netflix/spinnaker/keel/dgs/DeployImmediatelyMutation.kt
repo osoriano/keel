@@ -6,8 +6,8 @@ import com.netflix.graphql.dgs.InputArgument
 import com.netflix.spinnaker.keel.actuation.ExecutionSummaryService
 import com.netflix.spinnaker.keel.actuation.RolloutTargetWithStatus
 import com.netflix.spinnaker.keel.buoy.BuoyClient
-import com.netflix.spinnaker.keel.graphql.DgsConstants.MUTATION.Md_deployImmediately
-import com.netflix.spinnaker.keel.graphql.types.MD_DeployImmediatelyPayload
+import com.netflix.spinnaker.keel.graphql.DgsConstants.MUTATION.Md_deployResourceImmediately
+import com.netflix.spinnaker.keel.graphql.types.MD_DeployResourceImmediatelyPayload
 import org.slf4j.LoggerFactory
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.RequestHeader
@@ -25,10 +25,10 @@ class DeployImmediatelyMutation(
    * - the task does not have a rollout workflow.
    * - the task doesn't have a target with a region that matches the one in [payload].
    */
-  @DgsMutation(field = Md_deployImmediately)
+  @DgsMutation(field = Md_deployResourceImmediately)
   @PreAuthorize("@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)")
   suspend fun deployImmediately(
-    @InputArgument payload: MD_DeployImmediatelyPayload,
+    @InputArgument payload: MD_DeployResourceImmediatelyPayload,
     @RequestHeader("X-SPINNAKER-USER") user: String
   ): Boolean =
     runCatching {
@@ -38,11 +38,9 @@ class DeployImmediatelyMutation(
       val workflowId = checkNotNull(task.rolloutWorkflowId) {
         "Execution ${payload.taskId} does not contain a workflow id for a rollout"
       }
-      val target = checkNotNull(task.deployTargets.forRegion(payload.region)) {
-        "Execution ${payload.taskId} does not contain a deploy target for ${payload.region}"
-      }
-
-      buoyClient.deployImmediately(workflowId, target)
+      val targets = payload.regions.map { checkNotNull(task.deployTargets.forRegion(it)) }
+      log.debug("Deploying the following regions of workflowId $workflowId for app ${payload.application} - ${payload.regions}")
+      buoyClient.deployRegionsImmediately(workflowId, targets)
       true
     }
       .getOrElse { err ->
