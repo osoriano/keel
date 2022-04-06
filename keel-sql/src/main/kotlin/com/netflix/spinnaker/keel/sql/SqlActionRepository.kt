@@ -184,10 +184,14 @@ class SqlActionRepository(
       .fetchOne(DELIVERY_CONFIG.NAME) ?: return null
 
     val deliveryConfig = deliveryConfigByName(deliveryConfigName)
+    val artifactRef = txn.select(DELIVERY_ARTIFACT.REFERENCE)
+      .from(DELIVERY_ARTIFACT)
+      .where(DELIVERY_ARTIFACT.UID.eq(artifactUid))
+      .fetchOne(DELIVERY_ARTIFACT.REFERENCE)
 
     val artifact = deliveryConfig
       .artifacts
-      .find { it.metadata["uid"] == artifactUid } ?: return null
+      .find { it.reference == artifactRef } ?: return null
     val env = deliveryConfig
       .environments
       .find { it.metadata["uid"] == envUid } ?: return null
