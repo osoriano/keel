@@ -299,6 +299,9 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
                   comment = null
                 )
               )
+              every {
+                environmentConstraintRunner.checkStatelessConstraints(dockerArtifact, deliveryConfig, "2.0", environment)
+              } returns false
             }
 
             context("the pinned version is not deployed yet") {
@@ -333,18 +336,6 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
               test("the pinned artifact is approved") {
                 verify(exactly = 1) {
                   repository.approveVersionFor(deliveryConfig, dockerArtifact, "1.0", environment.name)
-                }
-              }
-
-              test("queued constraints aren't looked at") {
-                verify(exactly = 0) {
-                  environmentConstraintRunner.checkStatelessConstraints(any(), any(), any(), any())
-                }
-              }
-
-              test("stateless constraints for queued versions aren't rechecked") {
-                verify(exactly = 0) {
-                  repository.getArtifactVersionsQueuedForApproval(any(), any(), any())
                 }
               }
             }
@@ -498,6 +489,10 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
         every {
           repository.getArtifactVersionsQueuedForApproval(any(), any(), any())
         } returns setOf("2.0").toArtifactVersions()
+
+        every {
+          repository.getArtifactPromotionStatus(multiEnvConfig, dockerArtifact, any(), env1.name)
+        } returns PromotionStatus.PREVIOUS
       }
 
       context("there are no pins") {
@@ -534,10 +529,6 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
             )
           )
 
-          every {
-            repository.getArtifactPromotionStatus(multiEnvConfig, dockerArtifact, any(), env1.name)
-          } returns PromotionStatus.PREVIOUS
-
           runBlocking {
             subject.checkEnvironments(multiEnvConfig)
           }
@@ -552,6 +543,54 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
         test("all environments have constraints checked") {
           verify(exactly = 2) {
             environmentConstraintRunner.checkEnvironment(any())
+          }
+        }
+      }
+
+      context("approving a newer version when a version is pinned") {
+        before {
+          every {
+            repository.pinnedEnvironments(any())
+          } returns listOf(
+            PinnedEnvironment(
+              deliveryConfigName = multiEnvConfig.name,
+              targetEnvironment = env1.name,
+              artifact = dockerArtifact,
+              version = "1.1",
+              pinnedBy = null,
+              pinnedAt = null,
+              comment = null
+            )
+          )
+
+          every {
+            repository.approveVersionFor(multiEnvConfig, dockerArtifact, "1.1", any())
+          } returns true
+
+          runBlocking {
+            subject.checkEnvironments(multiEnvConfig)
+          }
+        }
+
+        test("constraints both environment are checked") {
+          listOf(env1, env2).forEach {
+            verify(exactly = 1) {
+              environmentConstraintRunner.checkStatelessConstraints(any(), any(), "2.0", it)
+            }
+          }
+        }
+
+        test("all environments have the new version approved") {
+          listOf(env1, env2).forEach {
+            verify(exactly = 1) {
+              repository.approveVersionFor(multiEnvConfig, dockerArtifact, "2.0", it.name)
+            }
+          }
+        }
+
+        test("the pinned version is approved") {
+          verify(exactly = 1) {
+            repository.approveVersionFor(multiEnvConfig, dockerArtifact, "1.1", any())
           }
         }
       }

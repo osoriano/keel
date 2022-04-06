@@ -86,55 +86,64 @@ class EnvironmentPromotionChecker(
                     ?: emptySet()
                 )
 
-                if (pinnedEnvs.hasPinFor(environment.name, artifact)) {
-                  val pinnedVersion = checkNotNull(pinnedEnvs.versionFor(environment.name, artifact))
+                val pinnedVersion = pinnedEnvs.versionFor(environment.name, artifact)
+
+                if (pinnedVersion != null) {
                   withCoroutineTracingContext(artifact, pinnedVersion, tracer) {
                     // approve version first to fast track deployment
                     approveVersion(deliveryConfig, artifact, pinnedVersion, environment)
                     triggerResourceRecheckForPinnedVersion(deliveryConfig, artifact, pinnedVersion, environment)
                   }
-                  // then evaluate constraints
-                  constraintRunner.checkEnvironment(envContext)
-                } else {
-                  constraintRunner.checkEnvironment(envContext)
+                }
+                constraintRunner.checkEnvironment(envContext)
 
-                  // everything the constraint runner has already approved
-                  val queuedForApproval = repository
-                    .getArtifactVersionsQueuedForApproval(deliveryConfig.name, environment.name, artifact)
-                    .toMutableList()
+                // everything the constraint runner has already approved
+                val queuedForApproval = repository
+                  .getArtifactVersionsQueuedForApproval(deliveryConfig.name, environment.name, artifact)
+                  .run {
+                    if (pinnedVersion != null) {
+                      filter { artifactVersion ->
+                        artifactVersion.version != pinnedVersion // no need to approve the pinned version
+                      }
+                    } else {
+                      this
+                    }
+                  }
+                  .toMutableList()
 
-                  /**
-                   * Approve all constraints starting with oldest first so that the ordering is
-                   * maintained.
-                   */
-                  queuedForApproval
-                    .reversed()
-                    .forEach { artifactVersion ->
-                      withCoroutineTracingContext(artifactVersion, tracer) {
-                        /**
-                         * We don't need to re-invoke stateful constraint evaluators for these, but we still
-                         * check stateless constraints to avoid approval outside of allowed-times.
-                         */
-                        log.debug(
-                          "Version ${artifactVersion.version} of artifact ${artifact.name} is queued for approval, " +
-                            "and being evaluated for stateless constraints in environment ${environment.name}"
+                /**
+                 * Approve all constraints starting with oldest first so that the ordering is
+                 * maintained.
+                 */
+                queuedForApproval
+                  .reversed()
+                  .forEach { artifactVersion ->
+                    withCoroutineTracingContext(artifactVersion, tracer) {
+                      /**
+                       * We don't need to re-invoke stateful constraint evaluators for these, but we still
+                       * check stateless constraints to avoid approval outside of allowed-times.
+                       */
+                      log.debug(
+                        "Version ${artifactVersion.version} of artifact ${artifact.name} is queued for approval, " +
+                          "and being evaluated for stateless constraints in environment ${environment.name}"
+                      )
+
+                      val passesStatelessConstraints = constraintRunner.checkStatelessConstraints(
+                        artifact, deliveryConfig, artifactVersion.version, environment)
+
+                      if (passesStatelessConstraints) {
+                        approveVersion(deliveryConfig, artifact, artifactVersion.version, environment)
+                        repository.deleteArtifactVersionQueuedForApproval(
+                          deliveryConfig.name, environment.name, artifact, artifactVersion.version
                         )
-
-                        val passesStatelessConstraints = constraintRunner.checkStatelessConstraints(
-                          artifact, deliveryConfig, artifactVersion.version, environment)
-
-                        if (passesStatelessConstraints) {
-                          approveVersion(deliveryConfig, artifact, artifactVersion.version, environment)
-                          repository.deleteArtifactVersionQueuedForApproval(
-                            deliveryConfig.name, environment.name, artifact, artifactVersion.version
-                          )
-                        } else {
-                          log.debug("Version ${artifactVersion.version} of $artifact does not currently pass stateless constraints in environment ${environment.name}")
-                          queuedForApproval.remove(artifactVersion)
-                        }
+                      } else {
+                        log.debug("Version ${artifactVersion.version} of $artifact does not currently pass stateless constraints in environment ${environment.name}")
+                        queuedForApproval.remove(artifactVersion)
                       }
                     }
+                  }
 
+                if (pinnedVersion == null) {
                   val versionSelected = queuedForApproval.firstOrNull()
                   if (versionSelected == null) {
                     log.warn("No version of {} passes constraints for environment {}", artifact, environment.name)
