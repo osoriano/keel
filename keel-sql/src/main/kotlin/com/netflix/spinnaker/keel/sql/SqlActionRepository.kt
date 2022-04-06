@@ -174,14 +174,20 @@ class SqlActionRepository(
   }
 
   fun mapToArtifactInEnvContext(envUid: String, artifactUid: String, currentVersionMap: Map<String, String>, txn: DSLContext = jooq): ArtifactInEnvironmentContext? {
-    val currentVersion = currentVersionMap[currentVersionKey(envUid, artifactUid)] ?: return null
+    val currentVersion = currentVersionMap[currentVersionKey(envUid, artifactUid)] ?: kotlin.run {
+      log.debug("No current version found for env $envUid artifact $artifactUid")
+      return null
+    }
 
     val deliveryConfigName = txn.select(DELIVERY_CONFIG.NAME)
       .from(DELIVERY_CONFIG)
       .join(ENVIRONMENT)
       .on(DELIVERY_CONFIG.UID.eq(ENVIRONMENT.DELIVERY_CONFIG_UID))
       .where(ENVIRONMENT.UID.eq(envUid))
-      .fetchOne(DELIVERY_CONFIG.NAME) ?: return null
+      .fetchOne(DELIVERY_CONFIG.NAME) ?: kotlin.run {
+        log.debug("Cannot fetch delivery config name for env $envUid artifact $artifactUid")
+        return null
+    }
 
     val deliveryConfig = deliveryConfigByName(deliveryConfigName)
     val artifactRef = txn.select(DELIVERY_ARTIFACT.REFERENCE)
@@ -191,13 +197,14 @@ class SqlActionRepository(
 
     val artifact = deliveryConfig
       .artifacts
-      .find { it.reference == artifactRef } ?: return null
+      .find { it.reference == artifactRef } ?: kotlin.run {
+      log.debug("Cannot find artifact with reference $artifactRef in config ${deliveryConfig.application} for env $envUid artifact $artifactUid")
+      return null
+    }
     val env = deliveryConfig
       .environments
-      .find { it.metadata["uid"] == envUid } ?: return null
-
-    if (env.verifyWith.isEmpty()) {
-      // screen out environments without verifications
+      .find { it.metadata["uid"] == envUid } ?: kotlin.run {
+      log.debug("Cannot find environment in config ${deliveryConfig.application} for env $envUid artifact $artifactUid")
       return null
     }
 
