@@ -14,8 +14,6 @@ class FeatureToggles(private val springEnvironment: ConfigurableEnvironment) {
     const val GRAPHQL_SCHEMA_VALIDATION_CONSTRAINT: String = "keel.constraints.schema-validation.enabled"
     const val COROUTINE_MONITORING: String = "keel.metrics.coroutines.enabled"
     const val SKIP_PAUSED_APPS: String = "keel.environment-check.skip-paused-apps"
-    const val ON_OFF_CONSTRAINT: String = "on-off.enabled"
-    const val DEPLOYMENT_CONSTRAINTS: String = "deployment-constraints.enabled"
   }
 
   /**

@@ -1,7 +1,6 @@
 package com.netflix.spinnaker.keel.resolvers
 
 import com.netflix.spinnaker.config.FeatureToggles
-import com.netflix.spinnaker.config.FeatureToggles.Companion.DEPLOYMENT_CONSTRAINTS
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.constraints.DeploymentConstraintEvaluator
 import com.netflix.spinnaker.keel.persistence.KeelRepository
