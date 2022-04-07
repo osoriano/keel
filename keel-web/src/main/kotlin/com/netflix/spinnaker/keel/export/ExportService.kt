@@ -158,6 +158,7 @@ class ExportService(
   private fun typeToKind(cloudProvider: String, type: String): ResourceKind =
     when (type) {
       "classicloadbalancer" -> EC2_CLASSIC_LOAD_BALANCER_V1.kind
+      "classic-load-balancer" -> EC2_CLASSIC_LOAD_BALANCER_V1.kind
       "classicloadbalancers" -> EC2_CLASSIC_LOAD_BALANCER_V1.kind
       "applicationloadbalancer" -> EC2_APPLICATION_LOAD_BALANCER_V1_2.kind
       "applicationloadbalancers" -> EC2_APPLICATION_LOAD_BALANCER_V1_2.kind
