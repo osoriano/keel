@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.sql
 
 import com.fasterxml.jackson.databind.jsontype.NamedType
+import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.artifacts.DockerArtifactSupplier
@@ -12,6 +13,7 @@ import com.netflix.spinnaker.keel.test.resourceFactory
 import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil
+import io.mockk.every
 import io.mockk.mockk
 import org.junit.jupiter.api.AfterEach
 import java.time.Instant
@@ -21,7 +23,10 @@ internal class SqlActionRepositoryTests :
 
   private val jooq = testDatabase.context
   private val retryProperties = RetryProperties(1, 0)
-  private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties))
+  private val featureToggles: FeatureToggles = mockk(relaxed = true) {
+    every { isEnabled(FeatureToggles.USE_READ_REPLICA, any()) } returns true
+  }
+  private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties), featureToggles)
   private val artifactSuppliers = listOf(DockerArtifactSupplier(mockk(), mockk(), mockk()))
 
   private val mapper = configuredObjectMapper()

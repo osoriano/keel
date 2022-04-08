@@ -56,11 +56,13 @@ class EnvironmentVersioningTests {
   private val jooq = testDatabase.context
   private val objectMapper = configuredTestObjectMapper()
   private val retryProperties = RetryProperties(1, 0)
-  private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties))
   private val clock = MutableClock()
   private val resourceFactory = resourceFactory()
   val deliveryConfig = deliveryConfig()
-  private val featureToggles = mockk<FeatureToggles>()
+  private val featureToggles: FeatureToggles = mockk(relaxed = true) {
+    every { isEnabled(FeatureToggles.USE_READ_REPLICA, any()) } returns true
+  }
+  private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties), featureToggles)
 
   private val deliveryConfigRepository = SqlDeliveryConfigRepository(
       jooq,

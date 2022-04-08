@@ -39,7 +39,10 @@ class MigratorErrorTests {
   private val jooq = testDatabase.context
   private val retryProperties = RetryProperties(5, 0)
   private val objectMapper = configuredTestObjectMapper()
-  private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties))
+  private val featureToggles: FeatureToggles = mockk(relaxed = true) {
+    every { isEnabled(FeatureToggles.USE_READ_REPLICA, any()) } returns true
+  }
+  private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties), featureToggles)
 
   private val kindV1 = kind<DummyResourceSpec>(parseKind("test/whatever@v1"))
   private val kindV2 = kind<DummyResourceSpec>(parseKind("test/whatever@v2"))
@@ -61,8 +64,6 @@ class MigratorErrorTests {
     }
 
   private val resourceFactory = resourceFactory(multiVersionResourceSpecIdentifier, listOf(bedShittingSpecMigrator))
-
-  private val featureToggles: FeatureToggles = mockk()
 
   private val resourceRepository = SqlResourceRepository(
     jooq = jooq,

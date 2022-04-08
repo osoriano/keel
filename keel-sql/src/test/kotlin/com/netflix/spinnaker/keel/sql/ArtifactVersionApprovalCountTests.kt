@@ -24,15 +24,17 @@ import java.time.temporal.ChronoUnit.DAYS
 
 class ArtifactVersionApprovalCountTests {
   private val jooq = testDatabase.context
-  private val sqlRetry = RetryProperties(1, 0).let {
-    SqlRetry(SqlRetryProperties(it, it))
-  }
   private val objectMapper = configuredTestObjectMapper()
   private val clock = MutableClock()
   private val publisher = mockk<ApplicationEventPublisher>(relaxed = true)
   private val resourceFactory = resourceFactory()
   private val deliveryConfig = deliveryConfig()
-  private val featureToggles = mockk<FeatureToggles>()
+  private val featureToggles: FeatureToggles = mockk(relaxed = true) {
+    every { isEnabled(FeatureToggles.USE_READ_REPLICA, any()) } returns true
+  }
+  private val sqlRetry = RetryProperties(1, 0).let {
+    SqlRetry(SqlRetryProperties(it, it), featureToggles)
+  }
   private val deliveryConfigRepository = SqlDeliveryConfigRepository(
       jooq,
       clock,

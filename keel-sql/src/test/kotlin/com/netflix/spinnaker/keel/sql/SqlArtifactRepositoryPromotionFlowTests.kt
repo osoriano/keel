@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.sql
 
+import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.persistence.ArtifactRepositoryPromotionFlowTests
 import com.netflix.spinnaker.keel.test.configuredTestObjectMapper
@@ -8,6 +9,7 @@ import com.netflix.spinnaker.keel.test.resourceFactory
 import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil.cleanupDb
+import io.mockk.every
 import io.mockk.mockk
 import org.junit.jupiter.api.AfterEach
 import org.springframework.context.ApplicationEventPublisher
@@ -17,7 +19,10 @@ class SqlArtifactRepositoryPromotionFlowTests : ArtifactRepositoryPromotionFlowT
   private val jooq = testDatabase.context
   private val objectMapper = configuredTestObjectMapper()
   private val retryProperties = RetryProperties(1, 0)
-  private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties))
+  private val featureToggles: FeatureToggles = mockk(relaxed = true) {
+    every { isEnabled(FeatureToggles.USE_READ_REPLICA, any()) } returns true
+  }
+  private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties), featureToggles)
 
   private val deliveryConfigRepository = SqlDeliveryConfigRepository(
       jooq,

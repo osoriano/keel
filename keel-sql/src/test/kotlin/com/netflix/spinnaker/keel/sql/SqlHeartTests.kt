@@ -1,10 +1,12 @@
 package com.netflix.spinnaker.keel.sql
 
+import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil
 import com.netflix.spinnaker.time.MutableClock
 import io.mockk.every
+import io.mockk.mockk
 import io.mockk.spyk
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
@@ -17,7 +19,10 @@ import java.net.InetAddress
 class SqlHeartTests {
   private val jooq = testDatabase.context
   private val clock = MutableClock()
-  private val sqlRetry = RetryProperties(1, 0).let { SqlRetry(SqlRetryProperties(it, it)) }
+  private val featureToggles: FeatureToggles = mockk(relaxed = true) {
+    every { isEnabled(FeatureToggles.USE_READ_REPLICA, any()) } returns true
+  }
+  private val sqlRetry = RetryProperties(1, 0).let { SqlRetry(SqlRetryProperties(it, it), featureToggles) }
   private val heart = spyk(SqlHeart(jooq, sqlRetry, clock))
   
   @AfterEach

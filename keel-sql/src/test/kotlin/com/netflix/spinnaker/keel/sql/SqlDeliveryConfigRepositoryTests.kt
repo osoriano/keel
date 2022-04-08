@@ -16,6 +16,7 @@ import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil.cleanupDb
 import com.netflix.spinnaker.time.MutableClock
+import io.mockk.every
 import io.mockk.mockk
 import org.junit.jupiter.api.BeforeAll
 import org.springframework.context.ApplicationEventPublisher
@@ -25,7 +26,7 @@ internal object SqlDeliveryConfigRepositoryTests : DeliveryConfigRepositoryTests
   private val jooq = testDatabase.context
   private val objectMapper = configuredTestObjectMapper()
   private val retryProperties = RetryProperties(1, 0)
-  private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties))
+  private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties), featureToggles)
   private var heart: SqlHeart? = null
 
   override fun createDeliveryConfigRepository(resourceSpecIdentifier: ResourceSpecIdentifier, publisher: ApplicationEventPublisher, clock: MutableClock, featureToggles: FeatureToggles): SqlDeliveryConfigRepository {

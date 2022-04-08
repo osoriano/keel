@@ -1,11 +1,14 @@
 package com.netflix.spinnaker.keel.sql
 
+import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.keel.rollout.RolloutStatus
 import com.netflix.spinnaker.keel.rollout.RolloutStatus.IN_PROGRESS
 import com.netflix.spinnaker.keel.rollout.RolloutStatus.NOT_STARTED
 import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil.cleanupDb
+import io.mockk.every
+import io.mockk.mockk
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -16,7 +19,10 @@ import java.time.Clock
 
 internal class SqlFeatureRolloutRepositoryTests {
   private val jooq = testDatabase.context
-  private val sqlRetry = RetryProperties(1, 0).let { SqlRetry(SqlRetryProperties(it, it)) }
+  private val featureToggles: FeatureToggles = mockk(relaxed = true) {
+    every { isEnabled(FeatureToggles.USE_READ_REPLICA, any()) } returns true
+  }
+  private val sqlRetry = RetryProperties(1, 0).let { SqlRetry(SqlRetryProperties(it, it), featureToggles) }
   private val subject = SqlFeatureRolloutRepository(jooq, sqlRetry, Clock.systemDefaultZone())
 
   private val feature = "commencement-of-eschaton"

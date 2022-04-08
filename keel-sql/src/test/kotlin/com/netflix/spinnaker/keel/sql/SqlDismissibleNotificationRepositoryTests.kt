@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.sql
 
+import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.keel.events.EventLevel.ERROR
 import com.netflix.spinnaker.keel.events.EventLevel.INFO
 import com.netflix.spinnaker.keel.notifications.DeliveryConfigImportFailed
@@ -10,6 +11,7 @@ import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil.cleanupDb
 import com.netflix.spinnaker.time.MutableClock
+import io.mockk.every
 import io.mockk.mockk
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -31,7 +33,10 @@ import strikt.assertions.isTrue
 class SqlDismissibleNotificationRepositoryTests {
   private val jooq = testDatabase.context
   private val retryProperties = RetryProperties(1, 0)
-  private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties))
+  private val featureToggles: FeatureToggles = mockk(relaxed = true) {
+    every { isEnabled(FeatureToggles.USE_READ_REPLICA, any()) } returns true
+  }
+  private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties), featureToggles)
   private val clock = MutableClock()
   private val objectMapper = configuredTestObjectMapper()
   private val deliveryConfigRepository = SqlDeliveryConfigRepository(

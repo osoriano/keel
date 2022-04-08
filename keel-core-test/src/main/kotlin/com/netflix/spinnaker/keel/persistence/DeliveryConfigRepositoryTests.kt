@@ -77,7 +77,9 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
   JUnit5Minutests {
 
   val publisher: ApplicationEventPublisher = mockk(relaxed = true)
-  val featureToggles: FeatureToggles = mockk()
+  val featureToggles: FeatureToggles = mockk(relaxed = true) {
+    every { isEnabled(FeatureToggles.USE_READ_REPLICA, any()) } returns true
+  }
 
   abstract fun createDeliveryConfigRepository(
     resourceSpecIdentifier: ResourceSpecIdentifier,

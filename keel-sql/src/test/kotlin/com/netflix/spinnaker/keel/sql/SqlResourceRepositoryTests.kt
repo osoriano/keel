@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.sql
 
 import com.netflix.spectator.api.NoopRegistry
+import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.config.ResourceEventPruneConfig
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.persistence.ResourceRepositoryTests
@@ -11,6 +12,7 @@ import com.netflix.spinnaker.keel.test.resourceFactory
 import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil.cleanupDb
+import io.mockk.every
 import io.mockk.mockk
 import org.springframework.context.ApplicationEventPublisher
 import java.time.Clock
@@ -19,7 +21,10 @@ import java.time.Duration
 internal class SqlResourceRepositoryTests : ResourceRepositoryTests<SqlResourceRepository>() {
   private val jooq = testDatabase.context
   private val retryProperties = RetryProperties(5, 100)
-  private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties))
+  private val featureToggles: FeatureToggles = mockk(relaxed = true) {
+    every { isEnabled(FeatureToggles.USE_READ_REPLICA, any()) } returns true
+  }
+  private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties), featureToggles)
   private val resourceFactory = resourceFactory()
   private val resourceEventPruneConfig = ResourceEventPruneConfig().apply {
     minEventsKept = 10

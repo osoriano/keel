@@ -73,8 +73,9 @@ class SqlConfiguration
   fun applicationRepository(
     jooq: DSLContext,
     clock: Clock,
-    objectMapper: ObjectMapper
-  ) = SqlApplicationRepository(jooq,  clock, SqlRetry(sqlRetryProperties))
+    objectMapper: ObjectMapper,
+    featureToggles: FeatureToggles
+  ) = SqlApplicationRepository(jooq,  clock, SqlRetry(sqlRetryProperties, featureToggles))
 
   @Bean
   fun resourceRepository(
@@ -85,14 +86,15 @@ class SqlConfiguration
     publisher: ApplicationEventPublisher,
     registry: Registry,
     springEnv: Environment,
-    resourceEventPruneConfig: ResourceEventPruneConfig
+    resourceEventPruneConfig: ResourceEventPruneConfig,
+    featureToggles: FeatureToggles
   ) =
     SqlResourceRepository(
       jooq,
       clock,
       objectMapper,
       resourceFactory,
-      SqlRetry(sqlRetryProperties),
+      SqlRetry(sqlRetryProperties, featureToggles),
       publisher,
       registry,
       springEnv,
@@ -105,13 +107,14 @@ class SqlConfiguration
     clock: Clock,
     objectMapper: ObjectMapper,
     artifactSuppliers: List<ArtifactSupplier<*, *>>,
-    publisher: ApplicationEventPublisher
+    publisher: ApplicationEventPublisher,
+    featureToggles: FeatureToggles
   ) =
     SqlArtifactRepository(
       jooq,
       clock,
       objectMapper,
-      SqlRetry(sqlRetryProperties),
+      SqlRetry(sqlRetryProperties, featureToggles),
       artifactSuppliers,
       publisher
     )
@@ -131,7 +134,7 @@ class SqlConfiguration
         clock = clock,
         objectMapper = objectMapper,
         resourceFactory = resourceFactory,
-        sqlRetry = SqlRetry(sqlRetryProperties),
+        sqlRetry = SqlRetry(sqlRetryProperties, featureToggles),
         artifactSuppliers = artifactSuppliers,
         publisher = publisher,
         featureToggles = featureToggles
@@ -140,48 +143,55 @@ class SqlConfiguration
   @Bean
   fun diffFingerprintRepository(
     jooq: DSLContext,
-    clock: Clock
-  ) = SqlDiffFingerprintRepository(jooq, clock, SqlRetry(sqlRetryProperties))
+    clock: Clock,
+    featureToggles: FeatureToggles
+  ) = SqlDiffFingerprintRepository(jooq, clock, SqlRetry(sqlRetryProperties, featureToggles))
 
   @Bean
   fun unhappyVetoRepository(
-    jooq: DSLContext
+    jooq: DSLContext,
+    featureToggles: FeatureToggles
   ) =
-    SqlUnhappyVetoRepository(clock, jooq, SqlRetry(sqlRetryProperties))
+    SqlUnhappyVetoRepository(clock, jooq, SqlRetry(sqlRetryProperties, featureToggles))
 
   @Bean
   fun pausedRepository(
-    jooq: DSLContext
-  ) = SqlPausedRepository(jooq, SqlRetry(sqlRetryProperties), clock)
+    jooq: DSLContext,
+    featureToggles: FeatureToggles
+  ) = SqlPausedRepository(jooq, SqlRetry(sqlRetryProperties, featureToggles), clock)
 
   @Bean
   fun taskTrackingRepository(
     jooq: DSLContext,
     clock: Clock,
-    retentionProperties: RetentionProperties
-  ) = SqlTaskTrackingRepository(jooq, clock, SqlRetry(sqlRetryProperties), retentionProperties)
+    retentionProperties: RetentionProperties,
+    featureToggles: FeatureToggles
+  ) = SqlTaskTrackingRepository(jooq, clock, SqlRetry(sqlRetryProperties, featureToggles), retentionProperties)
 
   @Bean
   fun agentLockRepository(
     jooq: DSLContext,
     clock: Clock,
     properties: SqlProperties,
-    agents: List<ScheduledAgent>
-  ) = SqlAgentLockRepository(jooq, clock, agents, SqlRetry(sqlRetryProperties))
+    agents: List<ScheduledAgent>,
+    featureToggles: FeatureToggles
+  ) = SqlAgentLockRepository(jooq, clock, agents, SqlRetry(sqlRetryProperties, featureToggles))
 
   @Bean
   fun notificationRepository(
     jooq: DSLContext,
     clock: Clock,
-    properties: SqlProperties
-  ) = SqlNotificationRepository(jooq, clock, SqlRetry(sqlRetryProperties))
+    properties: SqlProperties,
+    featureToggles: FeatureToggles
+  ) = SqlNotificationRepository(jooq, clock, SqlRetry(sqlRetryProperties, featureToggles))
 
   @Bean
   fun unhealthyRepository(
     jooq: DSLContext,
     clock: Clock,
-    properties: SqlProperties
-  ) = SqlUnhealthyRepository(clock, jooq, SqlRetry(sqlRetryProperties))
+    properties: SqlProperties,
+    featureToggles: FeatureToggles
+  ) = SqlUnhealthyRepository(clock, jooq, SqlRetry(sqlRetryProperties, featureToggles))
 
   @Bean
   fun actionRepository(
@@ -190,13 +200,14 @@ class SqlConfiguration
     resourceFactory: ResourceFactory,
     objectMapper: ObjectMapper,
     artifactSuppliers: List<ArtifactSupplier<*, *>>,
-    environment: Environment
+    environment: Environment,
+    featureToggles: FeatureToggles
   ) = SqlActionRepository(
     jooq,
     clock,
     objectMapper,
     resourceFactory,
-    SqlRetry(sqlRetryProperties),
+    SqlRetry(sqlRetryProperties, featureToggles),
     artifactSuppliers,
     environment
   )
@@ -208,25 +219,28 @@ class SqlConfiguration
     properties: SqlProperties,
     objectMapper: ObjectMapper,
     spectator: Registry,
-    publisher: ApplicationEventPublisher
+    publisher: ApplicationEventPublisher,
+    featureToggles: FeatureToggles
   ) =
-    SqlLifecycleEventRepository(clock, jooq, SqlRetry(sqlRetryProperties), spectator, publisher)
+    SqlLifecycleEventRepository(clock, jooq, SqlRetry(sqlRetryProperties, featureToggles), spectator, publisher)
 
   @Bean
   fun lifecycleMonitorRepository(
     jooq: DSLContext,
     clock: Clock,
     properties: SqlProperties,
-    objectMapper: ObjectMapper
-  ) = SqlLifecycleMonitorRepository(jooq, clock, objectMapper, SqlRetry(sqlRetryProperties))
+    objectMapper: ObjectMapper,
+    featureToggles: FeatureToggles
+  ) = SqlLifecycleMonitorRepository(jooq, clock, objectMapper, SqlRetry(sqlRetryProperties, featureToggles))
 
   @Bean
   fun bakedImageRepository(
     jooq: DSLContext,
     clock: Clock,
     properties: SqlProperties,
-    objectMapper: ObjectMapper
-  ) = SqlBakedImageRepository(jooq, clock, objectMapper, SqlRetry(sqlRetryProperties))
+    objectMapper: ObjectMapper,
+    featureToggles: FeatureToggles
+  ) = SqlBakedImageRepository(jooq, clock, objectMapper, SqlRetry(sqlRetryProperties, featureToggles))
 
   @Bean
   fun environmentLeaseRepository(
@@ -239,8 +253,9 @@ class SqlConfiguration
   fun dismissibleNotificationRepository(
     jooq: DSLContext,
     clock: Clock,
-    objectMapper: ObjectMapper
-  ) = SqlDismissibleNotificationRepository(jooq, SqlRetry(sqlRetryProperties), objectMapper, clock)
+    objectMapper: ObjectMapper,
+    featureToggles: FeatureToggles
+  ) = SqlDismissibleNotificationRepository(jooq, SqlRetry(sqlRetryProperties, featureToggles), objectMapper, clock)
 
   @Bean
   fun environmentDeletionRepository(
@@ -248,12 +263,13 @@ class SqlConfiguration
     clock: Clock,
     resourceFactory: ResourceFactory,
     objectMapper: ObjectMapper,
-    artifactSuppliers: List<ArtifactSupplier<*, *>>
+    artifactSuppliers: List<ArtifactSupplier<*, *>>,
+    featureToggles: FeatureToggles
   ) = SqlEnvironmentDeletionRepository(
     jooq,
     clock,
     objectMapper,
-    SqlRetry(sqlRetryProperties),
+    SqlRetry(sqlRetryProperties, featureToggles),
     resourceFactory,
     artifactSuppliers
   )
@@ -262,18 +278,21 @@ class SqlConfiguration
   fun artifactProcessingRepository(
     jooq: DSLContext,
     clock: Clock,
-    objectMapper: ObjectMapper
-  ) = SqlWorkQueueRepository(jooq, clock, objectMapper, SqlRetry(sqlRetryProperties))
+    objectMapper: ObjectMapper,
+    featureToggles: FeatureToggles
+  ) = SqlWorkQueueRepository(jooq, clock, objectMapper, SqlRetry(sqlRetryProperties, featureToggles))
 
   @Bean
   fun featureRolloutRepository(
     jooq: DSLContext,
-    clock: Clock
-  ) = SqlFeatureRolloutRepository(jooq, SqlRetry(sqlRetryProperties), clock)
+    clock: Clock,
+    featureToggles: FeatureToggles
+  ) = SqlFeatureRolloutRepository(jooq, SqlRetry(sqlRetryProperties, featureToggles), clock)
 
   @Bean
   fun heart(
     jooq: DSLContext,
-    clock: Clock
-  ) = SqlHeart(jooq, SqlRetry(sqlRetryProperties), clock)
+    clock: Clock,
+    featureToggles: FeatureToggles
+  ) = SqlHeart(jooq, SqlRetry(sqlRetryProperties, featureToggles), clock)
 }

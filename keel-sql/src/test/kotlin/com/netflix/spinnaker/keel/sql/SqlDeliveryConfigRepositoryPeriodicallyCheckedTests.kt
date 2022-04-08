@@ -36,10 +36,11 @@ internal class SqlDeliveryConfigRepositoryPeriodicallyCheckedTests :
   private val jooq = testDatabase.context
   private val retryProperties = RetryProperties(1, 0)
   private val objectMapper = configuredTestObjectMapper()
-  private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties))
-
-  val featureToggles: FeatureToggles = mockk()
-
+  private val featureToggles: FeatureToggles = mockk(relaxed = true) {
+    every { isEnabled(FeatureToggles.USE_READ_REPLICA, any()) } returns true
+  }
+  private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties), featureToggles)
+  
   override val factory: (Clock) -> SqlDeliveryConfigRepository = { clock ->
     SqlDeliveryConfigRepository(
         jooq = jooq,

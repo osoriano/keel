@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.sql
 
 import com.netflix.spectator.api.NoopRegistry
+import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.config.ResourceEventPruneConfig
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Resource
@@ -19,6 +20,7 @@ import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil.cleanupDb
 import dev.minutest.rootContext
+import io.mockk.every
 import io.mockk.mockk
 import strikt.api.expectCatching
 import strikt.api.expectThat
@@ -39,7 +41,10 @@ internal object SqlResourceRepositoryPeriodicallyCheckedTests :
 
   private val jooq = testDatabase.context
   private val retryProperties = RetryProperties(1, 0)
-  private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties))
+  private val featureToggles: FeatureToggles = mockk(relaxed = true) {
+    every { isEnabled(FeatureToggles.USE_READ_REPLICA, any()) } returns true
+  }
+  private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties), featureToggles)
   private val resourceFactory = resourceFactory()
 
   override val factory: (clock: Clock) -> SqlResourceRepository = { clock ->
@@ -101,7 +106,7 @@ internal object SqlResourceRepositoryPeriodicallyCheckedTests :
       test("each thread gets a unique set of resources") {
         // We need to enable retries to handle occasional aborted transactions
         val customSqlRetry = RetryProperties(2, 1).let {
-          SqlRetry(SqlRetryProperties(it, it))
+          SqlRetry(SqlRetryProperties(it, it), featureToggles)
         }
         // create a new repository object that is configured with our custom retries
         val repo =
