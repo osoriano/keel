@@ -58,6 +58,7 @@ import com.netflix.spinnaker.keel.services.StatusInfoForArtifactInEnvironment
 import com.netflix.spinnaker.keel.sql.RetryCategory.READ
 import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
 import com.netflix.spinnaker.keel.telemetry.AboutToBeChecked
+import com.netflix.spinnaker.kork.sql.routing.withPool
 import de.huxhorn.sulky.ulid.ULID
 import io.github.resilience4j.retry.Retry
 import io.github.resilience4j.retry.RetryConfig
@@ -156,7 +157,15 @@ class SqlArtifactRepository(
         .and(DELIVERY_ARTIFACT.TYPE.eq(type))
         .and(DELIVERY_ARTIFACT.DELIVERY_CONFIG_NAME.eq(deliveryConfigName))
         .fetch { (details, reference, isPreview) ->
-          mapToArtifact(artifactSuppliers.supporting(type), name, type, details, reference, deliveryConfigName, isPreview)
+          mapToArtifact(
+            artifactSuppliers.supporting(type),
+            name,
+            type,
+            details,
+            reference,
+            deliveryConfigName,
+            isPreview
+          )
         }
     }
 
@@ -176,9 +185,15 @@ class SqlArtifactRepository(
       } ?: throw ArtifactNotFoundException(reference, deliveryConfigName)
 
   override fun get(deliveryConfigName: String, reference: String): DeliveryArtifact {
-    return sqlRetry.withRetry(READ) {
+  return sqlRetry.withRetry(READ) {
       jooq
-        .select(DELIVERY_ARTIFACT.NAME, DELIVERY_ARTIFACT.DETAILS, DELIVERY_ARTIFACT.REFERENCE, DELIVERY_ARTIFACT.TYPE, DELIVERY_ARTIFACT.IS_PREVIEW)
+        .select(
+          DELIVERY_ARTIFACT.NAME,
+          DELIVERY_ARTIFACT.DETAILS,
+          DELIVERY_ARTIFACT.REFERENCE,
+          DELIVERY_ARTIFACT.TYPE,
+          DELIVERY_ARTIFACT.IS_PREVIEW
+        )
         .from(DELIVERY_ARTIFACT)
         .where(
           DELIVERY_ARTIFACT.DELIVERY_CONFIG_NAME.eq(deliveryConfigName),
@@ -387,7 +402,13 @@ class SqlArtifactRepository(
         .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(artifactId))
         .and(ARTIFACT_VERSIONS.NAME.eq(artifact.name)) // match name also, so if the artifact has been updated we match only the correct versions
         .and(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT.isNotNull)
-        .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.`in`(DEPLOYING, CURRENT, PREVIOUS)) // these statuses indicate an artifact was already selected as a desired version
+        .and(
+          ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.`in`(
+            DEPLOYING,
+            CURRENT,
+            PREVIOUS
+          )
+        ) // these statuses indicate an artifact was already selected as a desired version
         .fetchSortedArtifactVersions(artifact, 20)
         .firstOrNull()
         ?.version
@@ -467,10 +488,10 @@ class SqlArtifactRepository(
           it.createdAt
         }
         .takeWhile {
-            // this key is added to the metadata in `getArtifactVersionsByStatus`
-            // all approved versions newer than the latest deploying version are candidates
-            it.metadata["statusInEnvironment"] == APPROVED.name
-          }
+          // this key is added to the metadata in `getArtifactVersionsByStatus`
+          // all approved versions newer than the latest deploying version are candidates
+          it.metadata["statusInEnvironment"] == APPROVED.name
+        }
         .map { it.version }
     }
   }
@@ -703,7 +724,6 @@ class SqlArtifactRepository(
       .where(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(deliveryConfig.getUidFor(targetEnvironment)))
       .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.eq(DEPLOYING))
       .fetchSingleInto<Int>() > 0
-
 
   /**
    * Mark current version as successfully deployed if the version is not already marked as [CURRENT]

@@ -2,6 +2,7 @@ package com.netflix.spinnaker.keel.sql.deliveryconfigs
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.netflix.spinnaker.config.ConnectionPools
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.PreviewEnvironmentSpec
@@ -23,6 +24,7 @@ import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ACTIVE_RESOURCE
 import com.netflix.spinnaker.keel.sql.RetryCategory.READ
 import com.netflix.spinnaker.keel.sql.SqlStorageContext
 import com.netflix.spinnaker.keel.sql.mapToArtifact
+import com.netflix.spinnaker.kork.sql.routing.withPool
 import de.huxhorn.sulky.ulid.ULID
 import org.jooq.DSLContext
 import org.jooq.Record1
@@ -35,29 +37,29 @@ internal fun SqlStorageContext.deliveryConfigByName(
   vararg dependentAttachFilter: DependentAttachFilter = arrayOf(ATTACH_ALL)
 ): DeliveryConfig =
   sqlRetry.withRetry(READ) {
-    jooq.select(
-      DELIVERY_CONFIG.UID,
-      DELIVERY_CONFIG.NAME,
-      DELIVERY_CONFIG.APPLICATION,
-      DELIVERY_CONFIG.SERVICE_ACCOUNT,
-      DELIVERY_CONFIG.METADATA,
-      DELIVERY_CONFIG.RAW_CONFIG
-    )
-      .from(DELIVERY_CONFIG)
-      .where(DELIVERY_CONFIG.NAME.eq(name))
-      .fetchOne { (uid, name, application, serviceAccount, metadata, rawConfig) ->
-        uid to DeliveryConfig(
-          name = name,
-          application = application,
-          serviceAccount = serviceAccount,
-          metadata = (metadata ?: emptyMap()) + mapOf("createdAt" to ULID.parseULID(uid).timestampAsInstant()),
-          rawConfig = rawConfig
-        )
-      }
-      ?.let { (_, deliveryConfig) ->
-        attachDependents(deliveryConfig, *dependentAttachFilter)
-      }
-      ?: throw NoSuchDeliveryConfigName(name)
+      jooq.select(
+        DELIVERY_CONFIG.UID,
+        DELIVERY_CONFIG.NAME,
+        DELIVERY_CONFIG.APPLICATION,
+        DELIVERY_CONFIG.SERVICE_ACCOUNT,
+        DELIVERY_CONFIG.METADATA,
+        DELIVERY_CONFIG.RAW_CONFIG
+      )
+        .from(DELIVERY_CONFIG)
+        .where(DELIVERY_CONFIG.NAME.eq(name))
+        .fetchOne { (uid, name, application, serviceAccount, metadata, rawConfig) ->
+          uid to DeliveryConfig(
+            name = name,
+            application = application,
+            serviceAccount = serviceAccount,
+            metadata = (metadata ?: emptyMap()) + mapOf("createdAt" to ULID.parseULID(uid).timestampAsInstant()),
+            rawConfig = rawConfig
+          )
+        }
+        ?.let { (_, deliveryConfig) ->
+          attachDependents(deliveryConfig, *dependentAttachFilter)
+        }
+        ?: throw NoSuchDeliveryConfigName(name)
   }
 
 internal fun SqlStorageContext.attachDependents(
@@ -65,82 +67,76 @@ internal fun SqlStorageContext.attachDependents(
   vararg dependentAttachFilter: DependentAttachFilter = arrayOf(ATTACH_ALL)
 ): DeliveryConfig {
   val artifacts = if (ATTACH_ALL in dependentAttachFilter || ATTACH_ARTIFACTS in dependentAttachFilter) {
-    sqlRetry.withRetry(READ) {
-      jooq
-        .select(
-          DELIVERY_ARTIFACT.NAME,
-          DELIVERY_ARTIFACT.TYPE,
-          DELIVERY_ARTIFACT.DETAILS,
-          DELIVERY_ARTIFACT.REFERENCE,
-          DELIVERY_ARTIFACT.DELIVERY_CONFIG_NAME,
-          DELIVERY_ARTIFACT.IS_PREVIEW,
+    jooq
+      .select(
+        DELIVERY_ARTIFACT.NAME,
+        DELIVERY_ARTIFACT.TYPE,
+        DELIVERY_ARTIFACT.DETAILS,
+        DELIVERY_ARTIFACT.REFERENCE,
+        DELIVERY_ARTIFACT.DELIVERY_CONFIG_NAME,
+        DELIVERY_ARTIFACT.IS_PREVIEW,
+      )
+      .from(DELIVERY_ARTIFACT, DELIVERY_CONFIG_ARTIFACT)
+      .where(DELIVERY_CONFIG_ARTIFACT.ARTIFACT_UID.eq(DELIVERY_ARTIFACT.UID))
+      .and(DELIVERY_CONFIG_ARTIFACT.DELIVERY_CONFIG_UID.eq(deliveryConfig.uid))
+      .fetch { (name, type, details, reference, configName, isPreview) ->
+        mapToArtifact(
+          artifactSuppliers.supporting(type),
+          name,
+          type.lowercase(),
+          details,
+          reference,
+          configName,
+          isPreview
         )
-        .from(DELIVERY_ARTIFACT, DELIVERY_CONFIG_ARTIFACT)
-        .where(DELIVERY_CONFIG_ARTIFACT.ARTIFACT_UID.eq(DELIVERY_ARTIFACT.UID))
-        .and(DELIVERY_CONFIG_ARTIFACT.DELIVERY_CONFIG_UID.eq(deliveryConfig.uid))
-        .fetch { (name, type, details, reference, configName, isPreview) ->
-          mapToArtifact(
-            artifactSuppliers.supporting(type),
-            name,
-            type.lowercase(),
-            details,
-            reference,
-            configName,
-            isPreview
-          )
-        }
-    }
+      }
   } else {
     null
   }
 
   val environments = if (ATTACH_ALL in dependentAttachFilter || ATTACH_ENVIRONMENTS in dependentAttachFilter) {
-    sqlRetry.withRetry(READ) {
-      jooq
-        .select(
-          ACTIVE_ENVIRONMENT.UID,
-          ACTIVE_ENVIRONMENT.NAME,
-          ACTIVE_ENVIRONMENT.VERSION,
-          ACTIVE_ENVIRONMENT.IS_PREVIEW,
-          ACTIVE_ENVIRONMENT.CONSTRAINTS,
-          ACTIVE_ENVIRONMENT.NOTIFICATIONS,
-          ACTIVE_ENVIRONMENT.VERIFICATIONS,
-          ACTIVE_ENVIRONMENT.POST_DEPLOY_ACTIONS,
-          ACTIVE_ENVIRONMENT.METADATA
-        )
-        .from(ACTIVE_ENVIRONMENT)
-        .where(ACTIVE_ENVIRONMENT.DELIVERY_CONFIG_UID.eq(deliveryConfig.uid))
-        .fetch { record ->
-          makeEnvironment(record, objectMapper)
-        }
-    }
+    jooq
+      .select(
+        ACTIVE_ENVIRONMENT.UID,
+        ACTIVE_ENVIRONMENT.NAME,
+        ACTIVE_ENVIRONMENT.VERSION,
+        ACTIVE_ENVIRONMENT.IS_PREVIEW,
+        ACTIVE_ENVIRONMENT.CONSTRAINTS,
+        ACTIVE_ENVIRONMENT.NOTIFICATIONS,
+        ACTIVE_ENVIRONMENT.VERIFICATIONS,
+        ACTIVE_ENVIRONMENT.POST_DEPLOY_ACTIONS,
+        ACTIVE_ENVIRONMENT.METADATA
+      )
+      .from(ACTIVE_ENVIRONMENT)
+      .where(ACTIVE_ENVIRONMENT.DELIVERY_CONFIG_UID.eq(deliveryConfig.uid))
+      .fetch { record ->
+        makeEnvironment(record, objectMapper)
+      }
   } else {
     null
   }
 
   val previewEnvironments = if (ATTACH_ALL in dependentAttachFilter || ATTACH_PREVIEW_ENVIRONMENTS in dependentAttachFilter) {
-    sqlRetry.withRetry(READ) {
-      jooq
-        .select(
-          ACTIVE_ENVIRONMENT.NAME,
-          PREVIEW_ENVIRONMENT.BRANCH_FILTER,
-          PREVIEW_ENVIRONMENT.NOTIFICATIONS,
-          PREVIEW_ENVIRONMENT.VERIFICATIONS
+    jooq
+      .select(
+        ACTIVE_ENVIRONMENT.NAME,
+        PREVIEW_ENVIRONMENT.BRANCH_FILTER,
+        PREVIEW_ENVIRONMENT.NOTIFICATIONS,
+        PREVIEW_ENVIRONMENT.VERIFICATIONS
+      )
+      .from(PREVIEW_ENVIRONMENT)
+      .innerJoin(ACTIVE_ENVIRONMENT)
+      .on(ACTIVE_ENVIRONMENT.DELIVERY_CONFIG_UID.eq(PREVIEW_ENVIRONMENT.DELIVERY_CONFIG_UID))
+      .and(ACTIVE_ENVIRONMENT.UID.eq(PREVIEW_ENVIRONMENT.BASE_ENVIRONMENT_UID))
+      .where(PREVIEW_ENVIRONMENT.DELIVERY_CONFIG_UID.eq(deliveryConfig.uid))
+      .fetch { (baseEnvName, branchFilterJson, notificationsJson, verifyWithJson) ->
+        PreviewEnvironmentSpec(
+          baseEnvironment = baseEnvName,
+          branch = objectMapper.readValue(branchFilterJson),
+          notifications = notificationsJson?.let { objectMapper.readValue(it) } ?: emptySet(),
+          verifyWith = verifyWithJson?.let { objectMapper.readValue(it) } ?: emptyList()
         )
-        .from(PREVIEW_ENVIRONMENT)
-        .innerJoin(ACTIVE_ENVIRONMENT)
-        .on(ACTIVE_ENVIRONMENT.DELIVERY_CONFIG_UID.eq(PREVIEW_ENVIRONMENT.DELIVERY_CONFIG_UID))
-        .and(ACTIVE_ENVIRONMENT.UID.eq(PREVIEW_ENVIRONMENT.BASE_ENVIRONMENT_UID))
-        .where(PREVIEW_ENVIRONMENT.DELIVERY_CONFIG_UID.eq(deliveryConfig.uid))
-        .fetch { (baseEnvName, branchFilterJson, notificationsJson, verifyWithJson) ->
-          PreviewEnvironmentSpec(
-            baseEnvironment = baseEnvName,
-            branch = objectMapper.readValue(branchFilterJson),
-            notifications = notificationsJson?.let { objectMapper.readValue(it) } ?: emptySet(),
-            verifyWith = verifyWithJson?.let { objectMapper.readValue(it) } ?: emptyList()
-          )
-        }
-    }
+      }
   } else {
     null
   }

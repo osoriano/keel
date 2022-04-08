@@ -1,6 +1,8 @@
 package com.netflix.spinnaker.keel.sql
 
+import com.netflix.spinnaker.config.ConnectionPools
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
+import com.netflix.spinnaker.kork.sql.routing.withPool
 import io.github.resilience4j.retry.Retry
 import io.github.resilience4j.retry.RetryConfig
 import io.vavr.control.Try
@@ -20,8 +22,9 @@ class SqlRetry(
           .ignoreExceptions(SQLDialectNotSupportedException::class.java)
           .build()
       )
-
-      Try.ofSupplier(Retry.decorateSupplier(retry, action)).get()
+      withPool(ConnectionPools.DEFAULT.value) {
+        Try.ofSupplier(Retry.decorateSupplier(retry, action)).get()
+      }
     } else {
       val retry = Retry.of(
         "sqlRead",
@@ -32,7 +35,9 @@ class SqlRetry(
           .build()
       )
 
-      Try.ofSupplier(Retry.decorateSupplier(retry, action)).get()
+      withPool(ConnectionPools.READ_ONLY.value) {
+        Try.ofSupplier(Retry.decorateSupplier(retry, action)).get()
+      }
     }
   }
 }
