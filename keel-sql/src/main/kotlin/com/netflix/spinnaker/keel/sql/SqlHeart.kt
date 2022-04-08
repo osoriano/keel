@@ -22,7 +22,7 @@ class SqlHeart(
 
   @Scheduled(fixedDelayString = "\${keel.heartbeat.frequency.ms:5000}") // heartbeat every 5 seconds
   override fun beat() {
-    sqlRetry.withRetry(READ) {
+    sqlRetry.withRetry(WRITE) {
       jooq.insertInto(HEARTBEAT)
         .set(HEARTBEAT.IDENTITY, InetAddress.getLocalHost().hostName)
         .set(HEARTBEAT.LAST_HEARTBEAT, clock.instant())
@@ -49,7 +49,7 @@ class SqlHeart(
   }
 
   fun getLastBeat(identity: String): Instant? =
-    sqlRetry.withRetry(WRITE) {
+    sqlRetry.withRetry(READ) {
       jooq.select(HEARTBEAT.LAST_HEARTBEAT)
         .from(HEARTBEAT)
         .where(HEARTBEAT.IDENTITY.eq(identity))

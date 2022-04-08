@@ -1644,7 +1644,7 @@ class SqlDeliveryConfigRepository(
   override fun getAppsToExport(minTimeSinceLastCheck: Duration, batchSize: Int): List<String> {
     val now = clock.instant()
     val cutoff = now.minus(minTimeSinceLastCheck)
-    return sqlRetry.withRetry(READ) {
+    return sqlRetry.withRetry(WRITE) {
       jooq.inTransaction {
         select(MIGRATION_STATUS.APPLICATION)
         .from(MIGRATION_STATUS)
