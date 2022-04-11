@@ -135,7 +135,11 @@ class Mutations(
   ): Boolean {
     log.info("Rolling back artifact ${payload.reference} in environment ${payload.environment} of application ${payload.application} from ${payload.fromVersion} to ${payload.toVersion}")
     applicationService.pin(user, payload.application, payload.toEnvironmentArtifactPin())
-    applicationService.markAsVetoedIn(user, payload.application, payload.toEnvironmentArtifactVeto(), true)
+    if (payload.fromVersion != payload.toVersion) {
+      applicationService.markAsVetoedIn(user, payload.application, payload.toEnvironmentArtifactVeto(), true)
+    } else {
+      log.info("Rolling back but skipping rejection of ${payload.fromVersion} as versions are the same")
+    }
     return true
   }
 
