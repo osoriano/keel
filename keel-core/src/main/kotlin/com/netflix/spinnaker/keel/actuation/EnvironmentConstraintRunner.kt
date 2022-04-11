@@ -15,6 +15,7 @@ import com.netflix.spinnaker.keel.api.plugins.ConstraintEvaluator
 import com.netflix.spinnaker.keel.api.plugins.ConstraintType.APPROVAL
 import com.netflix.spinnaker.keel.logging.withCoroutineTracingContext
 import com.netflix.spinnaker.keel.persistence.KeelRepository
+import com.newrelic.api.agent.Trace
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -52,6 +53,7 @@ class EnvironmentConstraintRunner(
    * or null if there is no version that passes the constraints for an env + artifact combo.
    * Queues that version for approval if it exists.
    */
+  @Trace(async=true)
   suspend fun checkEnvironment(
     envContext: EnvironmentContext
   ) {
