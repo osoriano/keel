@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.api
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.netflix.spinnaker.keel.api.DependencyType.GENERIC_RESOURCE
 
 /**
@@ -9,6 +10,7 @@ interface Dependent: ResourceSpec {
   /**
    * This resource's dependencies represented as a set of [Dependency].
    */
+  @get:JsonIgnore
   val dependsOn: Set<Dependency>
 }
 

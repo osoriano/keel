@@ -17,6 +17,9 @@
  */
 package com.netflix.spinnaker.keel.api.ec2
 
+import com.fasterxml.jackson.annotation.JsonIgnore
+import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY
 import com.netflix.spinnaker.keel.api.ExcludedFromDiff
 import com.netflix.spinnaker.keel.api.schema.Description
 import org.apache.commons.lang3.builder.EqualsBuilder
@@ -26,6 +29,7 @@ val DEFAULT_AUTOSCALE_INSTANCE_WARMUP: Duration = Duration.ofMinutes(5)
 val DEFAULT_AUTOSCALE_SCALE_IN_COOLDOWN: Duration = Duration.ofMinutes(5)
 val DEFAULT_AUTOSCALE_SCALE_OUT_COOLDOWN: Duration = Duration.ofMinutes(5)
 
+@JsonInclude(NON_EMPTY)
 data class Scaling(
   val suspendedProcesses: Set<ScalingProcess> = emptySet(),
   val targetTrackingPolicies: Set<TargetTrackingPolicy> = emptySet(),
@@ -48,6 +52,7 @@ sealed class ScalingPolicy<T : ScalingPolicy<T>> {
 
 data class TargetTrackingPolicy(
   @get:ExcludedFromDiff
+  @get:JsonIgnore
   val name: String? = null,
   @Description("Applies only to EC2 clusters")
   val warmup: Duration? = DEFAULT_AUTOSCALE_INSTANCE_WARMUP,
@@ -75,8 +80,10 @@ data class TargetTrackingPolicy(
     EqualsBuilder.reflectionEquals(this, other, TargetTrackingPolicy::name.name)
 }
 
+@JsonInclude(NON_EMPTY)
 data class StepScalingPolicy(
   @get:ExcludedFromDiff
+  @get:JsonIgnore
   val name: String? = null,
   val adjustmentType: String,
   val actionsEnabled: Boolean,
@@ -141,6 +148,7 @@ data class MetricDimension(
 )
 
 // https://docs.aws.amazon.com/autoscaling/ec2/APIReference/API_CustomizedMetricSpecification.html
+@JsonInclude(NON_EMPTY)
 data class CustomizedMetricSpecification(
   val name: String,
   val namespace: String,
@@ -156,6 +164,7 @@ data class PredefinedMetricSpecification(
 )
 
 // https://docs.aws.amazon.com/autoscaling/ec2/APIReference/API_StepAdjustment.html
+@JsonInclude(NON_EMPTY)
 data class StepAdjustment(
   val lowerBound: Double? = null,
   val upperBound: Double? = null,

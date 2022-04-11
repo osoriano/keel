@@ -42,6 +42,7 @@ import com.netflix.spinnaker.keel.persistence.NoSuchArtifactVersionException
 import com.netflix.spinnaker.keel.persistence.NoSuchDeploymentException
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ACTIVE_ENVIRONMENT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ARTIFACT_LAST_CHECKED
+import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ARTIFACT_PROMOTION_EVENT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ARTIFACT_VERSIONS
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.CURRENT_ENVIRONMENT_ARTIFACT_VERSIONS
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.DELIVERY_ARTIFACT
@@ -50,10 +51,9 @@ import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_ARTIFACT_PIN
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_ARTIFACT_VERSIONS
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_ARTIFACT_VETO
-import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_VERSION_ARTIFACT_VERSION
-import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ARTIFACT_PROMOTION_EVENT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_LAST_POST_DEPLOY
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_LAST_VERIFIED
+import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_VERSION_ARTIFACT_VERSION
 import com.netflix.spinnaker.keel.services.StatusInfoForArtifactInEnvironment
 import com.netflix.spinnaker.keel.sql.RetryCategory.READ
 import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
@@ -157,7 +157,7 @@ class SqlArtifactRepository(
         .and(DELIVERY_ARTIFACT.TYPE.eq(type))
         .and(DELIVERY_ARTIFACT.DELIVERY_CONFIG_NAME.eq(deliveryConfigName))
         .fetch { (details, reference, isPreview) ->
-          mapToArtifact(
+          objectMapper.mapToArtifact(
             artifactSuppliers.supporting(type),
             name,
             type,
@@ -181,7 +181,7 @@ class SqlArtifactRepository(
         .fetchOne()
     }
       ?.let { (details, reference, isPreview) ->
-        mapToArtifact(artifactSuppliers.supporting(type), name, type, details, reference, deliveryConfigName, isPreview)
+        objectMapper.mapToArtifact(artifactSuppliers.supporting(type), name, type, details, reference, deliveryConfigName, isPreview)
       } ?: throw ArtifactNotFoundException(reference, deliveryConfigName)
 
   override fun get(deliveryConfigName: String, reference: String): DeliveryArtifact {
@@ -202,7 +202,7 @@ class SqlArtifactRepository(
         .fetchOne()
     }
       ?.let { (name, details, reference, type, isPreview) ->
-        mapToArtifact(artifactSuppliers.supporting(type), name, type, details, reference, deliveryConfigName, isPreview)
+        objectMapper.mapToArtifact(artifactSuppliers.supporting(type), name, type, details, reference, deliveryConfigName, isPreview)
       } ?: throw ArtifactNotFoundException(reference, deliveryConfigName)
   }
 
@@ -242,7 +242,7 @@ class SqlArtifactRepository(
         .apply { if (type != null) where(DELIVERY_ARTIFACT.TYPE.eq(type.toString())) }
         .apply { if (name != null) where(DELIVERY_ARTIFACT.NAME.eq(name)) }
         .fetch { (name, storedType, details, reference, configName, isPreview) ->
-          mapToArtifact(
+          objectMapper.mapToArtifact(
             artifactSuppliers.supporting(storedType),
             name,
             storedType.lowercase(),
@@ -1770,7 +1770,7 @@ class SqlArtifactRepository(
           PinnedEnvironment(
             deliveryConfigName = deliveryConfig.name,
             targetEnvironment = environmentName,
-            artifact = mapToArtifact(
+            artifact = objectMapper.mapToArtifact(
               artifactSuppliers.supporting(type),
               artifactName,
               type.lowercase(),
@@ -2055,7 +2055,7 @@ class SqlArtifactRepository(
             )
           }
           .map { (_, name, type, details, reference, deliveryConfigName, isPreview) ->
-            mapToArtifact(artifactSuppliers.supporting(type), name, type, details, reference, deliveryConfigName, isPreview)
+            objectMapper.mapToArtifact(artifactSuppliers.supporting(type), name, type, details, reference, deliveryConfigName, isPreview)
           }
       }
     }

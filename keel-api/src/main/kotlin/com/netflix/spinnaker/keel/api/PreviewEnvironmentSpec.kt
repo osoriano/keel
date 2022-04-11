@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.api
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.netflix.spinnaker.keel.api.artifacts.BranchFilter
 
 /**
@@ -63,7 +64,7 @@ data class PreviewEnvironmentSpec(
    * Synthetic name used to allow more than one [PreviewEnvironmentSpec] for the same base environment
    * in the [DeliveryConfig].
    */
+  @get:JsonIgnore
   val name: String
     get() = "preview/$baseEnvironment/branch=${branch.name ?: branch.startsWith ?: branch.regex}"
 }
-

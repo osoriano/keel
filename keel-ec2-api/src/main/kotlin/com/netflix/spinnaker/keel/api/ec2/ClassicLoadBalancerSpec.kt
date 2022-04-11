@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.api.ec2
 
+import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY
 import com.netflix.spinnaker.keel.api.Dependency
 import com.netflix.spinnaker.keel.api.DependencyType.SECURITY_GROUP
 import com.netflix.spinnaker.keel.api.Dependent
@@ -17,6 +19,7 @@ data class ClassicLoadBalancerSpec(
   override val idleTimeout: Duration = Duration.ofSeconds(60),
   val listeners: Set<ClassicLoadBalancerListener> = emptySet(),
   val healthCheck: ClassicLoadBalancerHealthCheck,
+  @get:JsonInclude(NON_EMPTY)
   val overrides: Map<String, ClassicLoadBalancerOverride> = emptyMap()
 ) : LoadBalancerSpec, Dependent {
 

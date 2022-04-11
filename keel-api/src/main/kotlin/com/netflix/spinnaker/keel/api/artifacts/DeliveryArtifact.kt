@@ -1,5 +1,13 @@
 package com.netflix.spinnaker.keel.api.artifacts
 
+import com.fasterxml.jackson.annotation.JsonIgnore
+import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY
+import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY
+import com.fasterxml.jackson.annotation.JsonTypeInfo
+import com.fasterxml.jackson.annotation.JsonTypeInfo.As
+import com.fasterxml.jackson.annotation.JsonTypeInfo.Id
 import com.netflix.spinnaker.keel.api.ArtifactReferenceProvider
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.ExcludedFromDiff
@@ -85,45 +93,59 @@ data class ArtifactOriginFilter(
  * artifacts.
  */
 // TODO: rename to `ArtifactSpec` or `ArtifactConfig`
+@JsonTypeInfo(
+  use = Id.NAME,
+  include = As.EXISTING_PROPERTY,
+  property = "type"
+)
 abstract class DeliveryArtifact {
   abstract val name: String
   @Discriminator
   abstract val type: ArtifactType
+  @get:JsonIgnore
   abstract val sortingStrategy: SortingStrategy
 
   /** A friendly reference to use within a delivery config. */
   abstract val reference: String
 
   /** The delivery config this artifact is a part of. */
+  @get:JsonProperty(access = WRITE_ONLY)
   @get:ExcludedFromDiff
   abstract val deliveryConfigName: String?
 
   abstract fun withDeliveryConfigName(deliveryConfigName: String): DeliveryArtifact
 
   /** A set of release statuses to filter by. Mutually exclusive with [from] filters. */
+  @get:JsonInclude(NON_EMPTY)
   open val statuses: Set<ArtifactStatus> = emptySet()
 
   /** Filters for the artifact origin in source control. */
   open val from: ArtifactOriginFilter? = null
 
   /** Whether this artifact was created for a preview environment. */
+  @get:JsonProperty(access = WRITE_ONLY)
   open val isPreview: Boolean = false
 
   /** Arbitrary metadata that can be used to augment the generic configuration of the artifact */
+  @get:JsonInclude(NON_EMPTY)
   open val metadata: Map<String, Any?> = emptyMap()
 
+  @get:JsonIgnore
   @get:ExcludedFromDiff
   val filteredByBranch: Boolean
     get() = from?.branch != null
 
+  @get:JsonIgnore
   @get:ExcludedFromDiff
   val filteredByPullRequest: Boolean
     get() = from?.pullRequestOnly == true
 
+  @get:JsonIgnore
   @get:ExcludedFromDiff
   val filteredBySource: Boolean
     get() = filteredByBranch || filteredByPullRequest
 
+  @get:JsonIgnore
   @get:ExcludedFromDiff
   val filteredByReleaseStatus: Boolean
     get() = statuses.isNotEmpty()

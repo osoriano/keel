@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.api
 
+import com.fasterxml.jackson.annotation.JsonIgnore
+
 /**
  * Implemented by all resource specs.
  */
@@ -15,6 +17,7 @@ interface ResourceSpec {
   /**
    * Indicates whether this resource should be added to a preview environment
    **/
+  @JsonIgnore
   fun isPreviewable(): Boolean = true
 
   /**

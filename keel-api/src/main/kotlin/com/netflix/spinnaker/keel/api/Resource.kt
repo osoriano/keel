@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.api
 
+import com.fasterxml.jackson.annotation.JsonIgnore
+
 /**
  * Internal representation of a resource.
  */
@@ -18,6 +20,7 @@ data class Resource<out T : ResourceSpec>(
    * The formal resource id. This formed of the resource's API version prefix and kind and the result of
    * [ResourceSpec.generateId].
    */
+  @get:JsonIgnore
   val id: String
     get() = metadata.getValue("id").toString()
 
@@ -28,14 +31,17 @@ data class Resource<out T : ResourceSpec>(
   val displayName: String
     get() = (spec as? Monikered)?.moniker?.toString() ?: id
 
+  @get:JsonIgnore
   @get:ExcludedFromDiff
   val version: Int
     // version is not a mandatory metadata field, so we default to 0 when missing
     get() = metadata["version"] as? Int ?: 0
 
+  @get:JsonIgnore
   val serviceAccount: String
     get() = metadata.getValue("serviceAccount").toString()
 
+  @get:JsonIgnore
   val application: String
     get() = metadata.getValue("application").toString()
 

@@ -15,6 +15,8 @@
  */
 package com.netflix.spinnaker.keel.api.ec2
 
+import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.SimpleLocations
 import com.netflix.spinnaker.keel.api.SpinnakerResourceSpec
@@ -25,6 +27,7 @@ data class SecurityGroupSpec(
   @Optional override val locations: SimpleLocations,
   val description: String?,
   val inboundRules: Set<SecurityGroupRule> = emptySet(),
+  @get:JsonInclude(NON_EMPTY)
   val overrides: Map<String, SecurityGroupOverride> = emptyMap()
 ) : SpinnakerResourceSpec<SimpleLocations> {
   companion object {

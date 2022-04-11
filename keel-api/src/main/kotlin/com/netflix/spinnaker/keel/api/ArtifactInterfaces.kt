@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.api
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 
 /**
@@ -10,7 +11,9 @@ import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
  * before the corresponding `ResourceHandler` has resolved the resource.
  */
 interface ArtifactProvider {
+  @get:JsonIgnore
   val artifactName: String?
+  @get:JsonIgnore
   val artifactType: ArtifactType?
 
   fun completeArtifactOrNull() =
@@ -26,6 +29,7 @@ interface ArtifactProvider {
  * resources.
  */
 interface VersionedArtifactProvider : ArtifactProvider {
+  @get:JsonIgnore
   val artifactVersion: String?
 
   fun completeVersionedArtifactOrNull() =

@@ -1,5 +1,12 @@
 package com.netflix.spinnaker.keel.api.ec2
 
+import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY
+import com.fasterxml.jackson.annotation.JsonSubTypes
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type
+import com.fasterxml.jackson.annotation.JsonTypeInfo
+import com.fasterxml.jackson.annotation.JsonTypeInfo.As
+import com.fasterxml.jackson.annotation.JsonTypeInfo.Id
 import com.netflix.spinnaker.keel.api.Dependency
 import com.netflix.spinnaker.keel.api.DependencyType.SECURITY_GROUP
 import com.netflix.spinnaker.keel.api.Dependent
@@ -23,6 +30,7 @@ data class ApplicationLoadBalancerSpec(
   override val idleTimeout: Duration = Duration.ofSeconds(60),
   val listeners: Set<Listener>,
   val targetGroups: Set<TargetGroup>,
+  @get:JsonInclude(NON_EMPTY)
   val overrides: Map<String, ApplicationLoadBalancerOverride> = emptyMap()
 ) : LoadBalancerSpec, Dependent {
 
@@ -113,6 +121,16 @@ data class ApplicationLoadBalancerSpec(
     val targetGroups: Set<TargetGroup>? = null
   )
 
+  @JsonTypeInfo(
+    use = Id.NAME,
+    include = As.EXISTING_PROPERTY,
+    property = "type"
+  )
+  @JsonSubTypes(
+    Type(value = ForwardAction::class, name = "forward"),
+    Type(value = RedirectAction::class, name = "redirect"),
+    Type(value = AuthenticateOidcAction::class, name = "authenticate-oidc")
+  )
   abstract class Action : Comparable<Action> {
     @Discriminator
     abstract val type: String

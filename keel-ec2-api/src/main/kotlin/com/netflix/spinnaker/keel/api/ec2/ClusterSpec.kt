@@ -1,7 +1,10 @@
 package com.netflix.spinnaker.keel.api.ec2
 
+import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.annotation.JsonTypeInfo.Id.DEDUCTION
+import com.fasterxml.jackson.annotation.JsonUnwrapped
 import com.netflix.spinnaker.keel.api.ClusterDeployStrategy
 import com.netflix.spinnaker.keel.api.ComputeResourceSpec
 import com.netflix.spinnaker.keel.api.Dependency
@@ -162,6 +165,7 @@ data class ClusterSpec(
   val rolloutWith: RolloutConfig? = null,
   override val locations: SubnetAwareLocations,
   private val _defaults: ServerGroupSpec,
+  @get:JsonInclude(NON_EMPTY)
   override val overrides: Map<String, ServerGroupSpec> = emptyMap(),
   override val artifactName: String? = null,
   override val artifactVersion: String? = null
@@ -210,6 +214,7 @@ data class ClusterSpec(
    * seems to overwrite it. This is a bit nasty but I think having the cluster-wide defaults at the
    * top level in the cluster spec YAML / JSON is nicer for the user.
    */
+  @get:JsonUnwrapped
   override val defaults: ServerGroupSpec
     get() = _defaults
 
@@ -253,6 +258,7 @@ data class ClusterSpec(
     val health: HealthSpec? = null,
     @JsonTypeInfo(use = DEDUCTION, defaultImpl = EC2ScalingSpec::class)
     val scaling: ScalingSpec? = null,
+    @get:JsonInclude(NON_EMPTY)
     val tags: Map<String, String>? = null
   ) : ClusterDependencyContainer {
     init {
@@ -272,6 +278,7 @@ data class ClusterSpec(
     val desired: Int? = null
   )
 
+  @JsonInclude(NON_EMPTY)
   data class HealthSpec(
     val cooldown: Duration? = null,
     val warmup: Duration? = null,

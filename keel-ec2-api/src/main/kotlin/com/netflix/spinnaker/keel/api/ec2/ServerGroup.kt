@@ -17,6 +17,9 @@
  */
 package com.netflix.spinnaker.keel.api.ec2
 
+import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY
 import com.netflix.spinnaker.keel.api.DeployHealth
 import com.netflix.spinnaker.keel.api.DeployHealth.AUTO
 import com.netflix.spinnaker.keel.api.DeployHealth.NONE
@@ -72,9 +75,11 @@ data class ServerGroup(
   )
 
   data class BuildInfo(
+    @get:JsonAlias("package_name")
     val packageName: String?
   )
 
+  @JsonInclude(NON_EMPTY)
   data class Health(
     val cooldown: Duration = Duration.ofSeconds(10),
     val warmup: Duration = Duration.ofSeconds(600),

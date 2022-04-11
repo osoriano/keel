@@ -1,8 +1,24 @@
 package com.netflix.spinnaker.keel.api
 
+import com.fasterxml.jackson.annotation.JsonSubTypes
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type
+import com.fasterxml.jackson.annotation.JsonTypeInfo
+import com.fasterxml.jackson.annotation.JsonTypeInfo.As
+import com.fasterxml.jackson.annotation.JsonTypeInfo.Id
+
 /**
  * Indicates the reason for the creation of a new environment version.
  */
+@JsonTypeInfo(
+  use = Id.NAME,
+  include = As.EXISTING_PROPERTY,
+  property = "reason"
+)
+@JsonSubTypes(
+  Type(value = ArtifactChange::class, name = "artifact"),
+  Type(value = ResourceChange::class, name = "resource"),
+  Type(value = UnknownChange::class, name = "unknown")
+)
 sealed class EnvironmentChangeReason(
   val reason: String
 )

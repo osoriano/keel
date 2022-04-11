@@ -2,6 +2,8 @@ package com.netflix.spinnaker.keel.jackson
 
 import com.fasterxml.jackson.module.kotlin.convertValue
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.netflix.spinnaker.keel.api.artifacts.DEBIAN
+import com.netflix.spinnaker.keel.api.artifacts.DOCKER
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
@@ -107,5 +109,8 @@ internal class DeliveryArtifactTests : JUnit5Minutests {
 private data class Fixture(
   val json: String
 ) {
-  val mapper = configuredTestObjectMapper()
+  val mapper = configuredTestObjectMapper().apply {
+    registerSubtypes(NamedType<DockerArtifact>(DOCKER))
+    registerSubtypes(NamedType<DebianArtifact>(DEBIAN))
+  }
 }

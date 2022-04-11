@@ -3,6 +3,8 @@ package com.netflix.spinnaker.keel.test
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.jsontype.NamedType
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
+import com.netflix.spinnaker.keel.api.artifacts.DEBIAN
+import com.netflix.spinnaker.keel.api.artifacts.DOCKER
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
@@ -15,9 +17,9 @@ fun configuredTestYamlMapper(): YAMLMapper = configuredYamlMapper()
   .registerArtifactSubtypes() as YAMLMapper
 
 private fun ObjectMapper.registerArtifactSubtypes() =
-  this.apply {
+  apply {
     registerSubtypes(
-      NamedType(DebianArtifact::class.java, "deb"),
-      NamedType(DockerArtifact::class.java, "docker")
+      NamedType(DebianArtifact::class.java, DEBIAN),
+      NamedType(DockerArtifact::class.java, DOCKER),
     )
   }

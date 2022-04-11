@@ -59,7 +59,7 @@ internal const val EMPTY_PR_NUMBER = "\"\""
 /**
  * A helper function to construct the proper artifact type from the serialized JSON.
  */
-fun mapToArtifact(
+fun ObjectMapper.mapToArtifact(
   artifactSupplier: ArtifactSupplier<*, *>,
   name: String,
   type: ArtifactType,
@@ -69,7 +69,7 @@ fun mapToArtifact(
   isPreview: Boolean,
 ): DeliveryArtifact {
   try {
-    val artifactAsMap = objectMapper.readValue<Map<String, Any>>(json)
+    val artifactAsMap = readValue<Map<String, Any>>(json)
       .toMutableMap()
       .also {
         it["name"] = name
@@ -78,7 +78,7 @@ fun mapToArtifact(
         it["deliveryConfigName"] = deliveryConfigName
         it["isPreview"] = isPreview
       }
-    return objectMapper.convertValue(artifactAsMap, artifactSupplier.supportedArtifact.artifactClass)
+    return convertValue(artifactAsMap, artifactSupplier.supportedArtifact.artifactClass)
   } catch (e: JsonMappingException) {
     throw ArtifactParsingException(name, type, json, e)
   }

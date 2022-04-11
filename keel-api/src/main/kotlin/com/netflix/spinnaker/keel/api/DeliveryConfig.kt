@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.api
 
+import com.fasterxml.jackson.annotation.JsonIgnore
+import com.fasterxml.jackson.annotation.JsonPropertyOrder
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import java.time.Instant
@@ -8,6 +10,18 @@ import java.time.Instant
  * The declarative delivery configuration for an application, which is the top-level object holding
  * information about application environments (with their resources, constraints, verifications, etc.).
  */
+@JsonPropertyOrder(
+  "apiVersion",
+  "name",
+  "application",
+  "metadata",
+  "serviceAccount",
+  "updatedAt",
+  "artifacts",
+  "environments",
+  "previewEnvironments",
+  "rawConfig"
+)
 data class DeliveryConfig(
   val application: String,
   val name: String,
@@ -27,6 +41,7 @@ data class DeliveryConfig(
     const val MIGRATING_KEY = "migrating"
   }
 
+  @get:JsonIgnore
   @get:ExcludedFromDiff
   val resources: Set<Resource<*>>
     get() = environments.flatMapTo(mutableSetOf()) { it.resources }

@@ -1,7 +1,11 @@
 package com.netflix.spinnaker.keel.api.ec2.old
 
+import com.fasterxml.jackson.annotation.JsonIgnore
+import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.annotation.JsonTypeInfo.Id.DEDUCTION
+import com.fasterxml.jackson.annotation.JsonUnwrapped
 import com.netflix.spinnaker.keel.api.ArtifactReferenceProvider
 import com.netflix.spinnaker.keel.api.ClusterDeployStrategy
 import com.netflix.spinnaker.keel.api.Moniker
@@ -25,6 +29,7 @@ data class ClusterV1Spec (
   val deployWith: ClusterDeployStrategy = RedBlack(),
   override val locations: SubnetAwareLocations,
   private val _defaults: ServerGroupSpec,
+  @get:JsonInclude(NON_EMPTY)
   override val overrides: Map<String, ServerGroupSpec> = emptyMap()
 ) : SpinnakerResourceSpec<SubnetAwareLocations>, OverrideableClusterDependencyContainer<ServerGroupSpec>, ArtifactReferenceProvider {
   @Factory
@@ -61,9 +66,11 @@ data class ClusterV1Spec (
     const val MAX_NAME_LENGTH = 255
   }
 
+  @get:JsonUnwrapped
   override val defaults: ServerGroupSpec
     get() = _defaults
 
+  @get:JsonIgnore
   override val artifactReference: String?
     get() = imageProvider?.reference
 

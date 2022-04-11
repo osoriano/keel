@@ -1,8 +1,12 @@
 package com.netflix.spinnaker.keel.api
 
+import com.fasterxml.jackson.annotation.JsonSubTypes
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type
+import com.fasterxml.jackson.annotation.JsonTypeInfo
+import com.fasterxml.jackson.annotation.JsonTypeInfo.As
+import com.fasterxml.jackson.annotation.JsonTypeInfo.Id
 import com.netflix.spinnaker.keel.api.schema.Discriminator
 import java.time.Duration
-
 
 /**
  * When managed rollout is enabled, we will deploy with a ManagedRollout stage instead of
@@ -36,16 +40,26 @@ enum class SelectionStrategy(val enumStyleName: String) {
   staggered("STAGGERED")
 }
 
+@JsonTypeInfo(
+  use = Id.NAME,
+  include = As.PROPERTY,
+  property = "type"
+)
+@JsonSubTypes(
+  Type(value = Alphabetical::class),
+  Type(value = OffStreamingPeak::class),
+  Type(value = Staggered::class)
+)
 abstract class RolloutStrategy {
   @Discriminator
   abstract val type: SelectionStrategy
 }
 
-class Alphabetical: RolloutStrategy() {
+class Alphabetical : RolloutStrategy() {
   override val type = SelectionStrategy.alphabetical
 }
 
-class OffStreamingPeak: RolloutStrategy(){
+class OffStreamingPeak : RolloutStrategy() {
   override val type = SelectionStrategy.`off-streaming-peak`
 }
 
@@ -53,6 +67,6 @@ data class Staggered(
   val order: List<String>, //required for now
   val postDeployWait: Duration? = Duration.ofMinutes(30),
   val overrides: Map<String, Map<String, Any>> = emptyMap() // can override postDeployWait
-): RolloutStrategy() {
+) : RolloutStrategy() {
   override val type: SelectionStrategy = SelectionStrategy.staggered
 }

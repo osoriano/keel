@@ -15,6 +15,8 @@
  */
 package com.netflix.spinnaker.keel.api.constraints
 
+import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY
 import com.netflix.spinnaker.keel.api.UID
 import java.time.Duration
 import java.time.Instant
@@ -34,6 +36,7 @@ data class ConstraintState(
   val judgedAt: Instant? = null,
   val comment: String? = null,
   val attributes: ConstraintStateAttributes? = null,
+  @get:JsonProperty(access = WRITE_ONLY)
   var uid: UID? = null
 ) {
   fun passed() = status.passes()
@@ -51,4 +54,3 @@ data class ConstraintState(
       createdAt.plus(timeout).isBefore(now)
     }
 }
-

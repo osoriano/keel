@@ -3,11 +3,13 @@ package com.netflix.spinnaker.keel.sql
 import com.fasterxml.jackson.databind.jsontype.NamedType
 import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
+import com.netflix.spinnaker.keel.api.artifacts.DOCKER
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
+import com.netflix.spinnaker.keel.artifacts.DockerArtifact
 import com.netflix.spinnaker.keel.artifacts.DockerArtifactSupplier
 import com.netflix.spinnaker.keel.jackson.registerKeelApiModule
 import com.netflix.spinnaker.keel.persistence.ActionRepositoryTests
-import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
+import com.netflix.spinnaker.keel.test.configuredTestObjectMapper
 import com.netflix.spinnaker.keel.test.mockEnvironment
 import com.netflix.spinnaker.keel.test.resourceFactory
 import com.netflix.spinnaker.kork.sql.config.RetryProperties
@@ -29,7 +31,10 @@ internal class SqlActionRepositoryTests :
   private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties), featureToggles)
   private val artifactSuppliers = listOf(DockerArtifactSupplier(mockk(), mockk(), mockk()))
 
-  private val mapper = configuredObjectMapper()
+  private val mapper = configuredTestObjectMapper()
+    .apply {
+      registerSubtypes(NamedType(DockerArtifact::class.java, DOCKER))
+    }
     .registerKeelApiModule()
     .apply {
       registerSubtypes(NamedType(DummyVerification::class.java, "dummyVerification"))

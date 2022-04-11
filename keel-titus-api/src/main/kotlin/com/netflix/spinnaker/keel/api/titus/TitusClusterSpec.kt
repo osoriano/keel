@@ -17,8 +17,11 @@
  */
 package com.netflix.spinnaker.keel.api.titus
 
+import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.annotation.JsonTypeInfo.Id.DEDUCTION
+import com.fasterxml.jackson.annotation.JsonUnwrapped
 import com.netflix.spinnaker.keel.api.ClusterDeployStrategy
 import com.netflix.spinnaker.keel.api.ComputeResourceSpec
 import com.netflix.spinnaker.keel.api.Dependency
@@ -54,6 +57,7 @@ data class TitusClusterSpec(
   val rolloutWith: RolloutConfig? = null,
   @param:Optional override val locations: SimpleLocations,
   private val _defaults: TitusServerGroupSpec,
+  @get:JsonInclude(NON_EMPTY)
   val overrides: Map<String, TitusServerGroupSpec> = emptyMap(),
   override val artifactType: ArtifactType? = DOCKER,
   private val _artifactName: String? = null, // Custom backing field for artifactName, used by resolvers
@@ -113,6 +117,7 @@ data class TitusClusterSpec(
     const val MAX_NAME_LENGTH = 255
   }
 
+  @get:JsonUnwrapped
   val defaults: TitusServerGroupSpec
     get() = _defaults
 

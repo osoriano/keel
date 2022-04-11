@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.api.ec2.old
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.SubnetAwareLocations
 import com.netflix.spinnaker.keel.api.ec2.LoadBalancerDependencies
@@ -20,6 +21,7 @@ data class ApplicationLoadBalancerV1Spec(
   override val idleTimeout: Duration = Duration.ofSeconds(60),
   val listeners: Set<ListenerV1_1>,
   val targetGroups: Set<TargetGroupV1>,
+  @get:JsonIgnore
   val overrides: Map<String, ApplicationLoadBalancerOverrideV1_1> = emptyMap()
 ) : LoadBalancerSpec {
 

@@ -15,6 +15,7 @@
  */
 package com.netflix.spinnaker.keel.api.ec2
 
+import com.fasterxml.jackson.annotation.JacksonInject
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonSubTypes.Type
 import com.fasterxml.jackson.annotation.JsonTypeInfo
@@ -40,6 +41,7 @@ abstract class SecurityGroupRule {
 data class ReferenceRule(
   override val protocol: Protocol,
   @Optional("defaults to the name of the security group the rule belongs to")
+  @get:JacksonInject("name")
   val name: String,
   override val portRange: IngressPorts
 ) : SecurityGroupRule()

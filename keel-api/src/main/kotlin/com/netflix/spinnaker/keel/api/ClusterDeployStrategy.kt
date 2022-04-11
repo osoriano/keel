@@ -1,10 +1,26 @@
 package com.netflix.spinnaker.keel.api
 
+import com.fasterxml.jackson.annotation.JsonSubTypes
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type
+import com.fasterxml.jackson.annotation.JsonTypeInfo
+import com.fasterxml.jackson.annotation.JsonTypeInfo.As
+import com.fasterxml.jackson.annotation.JsonTypeInfo.Id
 import com.netflix.spinnaker.keel.api.DeployHealth.AUTO
 import com.netflix.spinnaker.keel.api.schema.Discriminator
 import java.time.Duration
 import java.time.Duration.ZERO
 
+@JsonTypeInfo(
+  use = Id.NAME,
+  include = As.EXISTING_PROPERTY,
+  property = "strategy"
+)
+@JsonSubTypes(
+  Type(value = RedBlack::class, name = "red-black"),
+  Type(value = Highlander::class, name = "highlander"),
+  Type(value = RollingPush::class, name = "rolling-push"),
+  Type(value = NoStrategy::class, name = "none")
+)
 abstract class ClusterDeployStrategy {
   @Discriminator abstract val strategy: String
   abstract val health: DeployHealth

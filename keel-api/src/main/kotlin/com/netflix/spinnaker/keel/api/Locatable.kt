@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.api
 
+import com.fasterxml.jackson.annotation.JacksonInject
 import com.netflix.spinnaker.keel.api.LocationConstants.DEFAULT_SUBNET_PURPOSE
 import com.netflix.spinnaker.keel.api.LocationConstants.DEFAULT_VPC_NAME
 import com.netflix.spinnaker.keel.api.LocationConstants.defaultVPC
@@ -8,6 +9,7 @@ import com.netflix.spinnaker.keel.api.LocationConstants.defaultVPC
  * A resource spec which is located in an account and one or more regions.
  */
 interface Locatable<LOCATIONS : Locations<*>> : ResourceSpec {
+  @get:JacksonInject("locations")
   val locations: LOCATIONS
 }
 
