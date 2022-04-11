@@ -7,9 +7,11 @@ plugins {
 }
 
 ext {
+  def osArch = System.getProperty("os.arch")
   buildingInDocker = Boolean.parseBoolean(project.properties["buildingInDocker"]?.toString() ?: "false")
-  mysqlImage = System.getProperty("os.arch") == "aarch64" ? "jamielsharief/mysql:arm64" : "mysql:8.0.27"
+  mysqlImage = osArch == "aarch64" ? "jamielsharief/mysql:arm64" : "mysql:8.0.27"
   maxParallelTests = Integer.parseInt(project.properties["maxParallelTests"] ?: "1")
+  logger.lifecycle("System architecture is $osArch. Using MySQL image $mysqlImage")
 }
 
 sourceSets {
