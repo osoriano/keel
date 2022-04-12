@@ -65,10 +65,10 @@ class NetworkEndpointProvider(
 fun Moniker.toVip(forPreviewEnvironment: Boolean = false): String =
   when(forPreviewEnvironment) {
     // for preview environments, we must include the detail since the point is to isolate traffic
-    true -> app + (if (stack != null) "-$stack" else "") + (if (detail != null) "-$detail" else "")
+    true -> toName()
     // otherwise, the default is to use the app and stack with no dashes
     false -> app + if (stack != null) stack else ""
   }
 
-fun Moniker.toSecureVip(): String =
-  toVip() + "-secure"
+fun Moniker.toSecureVip(forPreviewEnvironment: Boolean = false): String =
+  toVip(forPreviewEnvironment) + "-secure"

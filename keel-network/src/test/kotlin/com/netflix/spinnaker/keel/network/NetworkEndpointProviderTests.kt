@@ -68,7 +68,7 @@ class NetworkEndpointProviderTests : JUnit5Minutests {
           Moniker("app") to "app",
           Moniker("app", "stack") to "app-stack",
           Moniker("app", "stack", "detail") to "app-stack-detail",
-          Moniker("app", detail = "detail") to "app-detail"
+          Moniker("app", detail = "detail") to "app--detail"
         ).forEach { (moniker, vip) ->
           expectThat(moniker.toVip(forPreviewEnvironment = true)).isEqualTo(vip)
         }
