@@ -680,7 +680,7 @@ class NotificationEventListener(
         .joinToString("\n\n") { resource ->
           if (status == SUCCEEDED) {
             val endpoints = runBlocking {
-              networkEndpointProvider.getNetworkEndpoints(resource)
+              networkEndpointProvider.getNetworkEndpoints(resource, forPreviewEnvironment = environment.isPreview)
             }.groupBy { it.region }
 
             "✅ &nbsp; Deployed `$version` to [${resource.name}]($environmentsLink)\n" +

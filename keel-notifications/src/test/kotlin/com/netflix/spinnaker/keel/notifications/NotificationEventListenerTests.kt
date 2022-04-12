@@ -432,7 +432,7 @@ class NotificationEventListenerTests : JUnit5Minutests {
           } returns singleArtifactDeliveryConfig.withPreviewEnvironment()
 
           every {
-            networkEndpointProvider.getNetworkEndpoints(any())
+            networkEndpointProvider.getNetworkEndpoints(any(), forPreviewEnvironment = true)
           } returns setOf(NetworkEndpoint(DNS, "us-east-1", "fake.acme.net"))
         }
 

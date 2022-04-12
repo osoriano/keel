@@ -26,14 +26,15 @@ class NetworkEndpointProvider(
   private val cloudDriverService: CloudDriverService,
   private val dnsConfig: DnsConfig
 ) {
-  suspend fun getNetworkEndpoints(resource: Resource<*>): Set<NetworkEndpoint> {
+  suspend fun getNetworkEndpoints(resource: Resource<*>, forPreviewEnvironment: Boolean = false): Set<NetworkEndpoint> {
     with(resource.spec) {
       return when (this) {
         is ComputeResourceSpec<*> -> {
           locations.regions.flatMap { region ->
             listOf(
-              // Example: lpollolocaltest-feature-preview.vip.us-east-1.test.acme.net
-              NetworkEndpoint(EUREKA_VIP_DNS, region.name, "${moniker.toVip()}.vip.${region.name}.${locations.account.environment}.${dnsConfig.defaultDomain}"),
+              // Example: lpollolocaltest-preview-5bd0005.vip.us-east-1.test.acme.net
+              NetworkEndpoint(EUREKA_VIP_DNS, region.name, "${moniker.toVip(forPreviewEnvironment)}.vip.${region.name}.${locations.account.environment}.${dnsConfig.defaultDomain}"),
+              // Example: lpollolocaltest-preview-5bd0005.cluster.us-east-1.test.acme.net
               NetworkEndpoint(EUREKA_CLUSTER_DNS, region.name, "${moniker.toName()}.cluster.${region.name}.${locations.account.environment}.${dnsConfig.defaultDomain}"),
             )
           }.toSet()
@@ -61,14 +62,13 @@ class NetworkEndpointProvider(
     }
 }
 
-/**
- * todo: this is the default for SBN apps, as documented here, but won't be the case for every app:
- * https://manuals.netflix.net/view/runtime-java/mkdocs/master/spring-reference/ipc/service_discovery/#advertising-myself-server-vips
- *
- * We might have to do something different in the future, but we will do that when asked for it.
- */
-fun Moniker.toVip(): String =
-  app + if (stack != null) stack else ""
+fun Moniker.toVip(forPreviewEnvironment: Boolean = false): String =
+  when(forPreviewEnvironment) {
+    // for preview environments, we must include the detail since the point is to isolate traffic
+    true -> app + (if (stack != null) "-$stack" else "") + (if (detail != null) "-$detail" else "")
+    // otherwise, the default is to use the app and stack with no dashes
+    false -> app + if (stack != null) stack else ""
+  }
 
 fun Moniker.toSecureVip(): String =
   toVip() + "-secure"

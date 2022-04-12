@@ -25,6 +25,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
 import strikt.api.expectThat
 import strikt.assertions.contains
+import strikt.assertions.isEqualTo
 import java.time.Duration
 import io.mockk.coEvery as every
 
@@ -62,13 +63,35 @@ class NetworkEndpointProviderTests : JUnit5Minutests {
         } returns listOf(loadBalancerResource.spec.toAmazonLoadBalancer())
       }
 
+      test("generates VIPs correctly for preview environments") {
+        mapOf(
+          Moniker("app") to "app",
+          Moniker("app", "stack") to "app-stack",
+          Moniker("app", "stack", "detail") to "app-stack-detail",
+          Moniker("app", detail = "detail") to "app-detail"
+        ).forEach { (moniker, vip) ->
+          expectThat(moniker.toVip(forPreviewEnvironment = true)).isEqualTo(vip)
+        }
+      }
+
+      test("generates VIPs correctly for default case") {
+        mapOf(
+          Moniker("app") to "app",
+          Moniker("app", "stack") to "appstack",
+          Moniker("app", "stack", "detail") to "appstack",
+          Moniker("app", detail = "detail") to "app"
+        ).forEach { (moniker, vip) ->
+          expectThat(moniker.toVip()).isEqualTo(vip)
+        }
+      }
+
       test("returns endpoints for compute resource") {
         val endpoints = runBlocking {
           subject.getNetworkEndpoints(computeResource)
         }
         with(computeResource) {
           expectThat(endpoints).contains(
-            NetworkEndpoint(EUREKA_VIP_DNS, "us-east-1", "${spec.moniker.toVip()}.vip.us-east-1.test.acme.net"), // different format for vip prefex
+            NetworkEndpoint(EUREKA_VIP_DNS, "us-east-1", "${spec.moniker.toVip()}.vip.us-east-1.test.acme.net"),
             NetworkEndpoint(EUREKA_CLUSTER_DNS, "us-east-1", "${spec.moniker.toName()}.cluster.us-east-1.test.acme.net")
           )
         }
