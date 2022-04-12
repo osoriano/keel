@@ -41,12 +41,51 @@ type MD_Error {
 }
 
 type MD_Migration {
-  id: String!
+  id: ID!
   status: MD_MigrationStatus
   deliveryConfig: JSON
   prLink: String
   actuationPlan: MD_ActuationPlan
   warnings: [MD_Warning!]
+  pipelines: [MD_Pipeline!]
+}
+
+type MD_Pipeline {
+  id: ID!
+  name: String
+  shape: String
+  status: MD_PipelineStatus
+  deployablePipeline: Boolean # contains a deploy stage?
+  reason: String # reason for non-supported pipeline
+  orphanResources: [MD_ResourceSpec!] # will hold resources from non-supported pipeline
+  orphanConstraints: [MD_ConstraintSpec!]# will hold constraints from non-supported pipeline
+}
+
+enum MD_PipelineStatus{
+  PROCESSED
+  EXPORTED
+  NOT_SUPPORTED
+}
+
+
+type MD_ConstraintSpec {
+  type: MD_ConstraintType!
+  name: String
+  constraintSpec: JSON
+  # add more info here...
+}
+
+type MD_ResourceSpec{
+  id: ID! #is it important?
+  name: String
+  resourceSpec: JSON
+}
+
+enum MD_ConstraintType {
+  VERIFICATIONS
+  DEPENDS_ON
+  MANUAL_JUDGMENT
+  JENKINS
 }
 
 enum MD_Warning_type{
@@ -93,7 +132,7 @@ enum MD_MigrationStatus {
   NOT_READY, # Can't start the migration
   READY_TO_START, # Ready to start, await user actions
   PR_CREATED, # User created the PR
-  BLOCKED, # User requested assitance
+  BLOCKED, # User requested assistance
   COMPLETED # Migration completed
 }
 
