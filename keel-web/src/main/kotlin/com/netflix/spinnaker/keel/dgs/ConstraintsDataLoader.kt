@@ -3,6 +3,7 @@ package com.netflix.spinnaker.keel.dgs
 import com.netflix.graphql.dgs.DgsDataLoader
 import com.netflix.graphql.dgs.context.DgsContext
 import com.netflix.spinnaker.keel.api.DeliveryConfig
+import com.netflix.spinnaker.keel.api.DeploymentConstraint
 import com.netflix.spinnaker.keel.api.StatefulConstraint
 import com.netflix.spinnaker.keel.api.action.EnvironmentArtifactAndVersion
 import com.netflix.spinnaker.keel.api.constraints.ConstraintState
@@ -65,7 +66,7 @@ class ConstraintsDataLoader(
         }
         .forEach { envConstraint ->
           // no summary for this constraint
-          val newConstraint = if (envConstraint is StatefulConstraint) {
+          val newConstraint = if (envConstraint is StatefulConstraint || envConstraint is DeploymentConstraint) {
             var state = ConstraintState(
               deliveryConfigName = config.name,
               environmentName = key.environmentName,

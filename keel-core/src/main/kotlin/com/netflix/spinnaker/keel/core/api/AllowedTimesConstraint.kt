@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.core.api
 
+import com.netflix.spinnaker.keel.api.Constraint
+import com.netflix.spinnaker.keel.api.DeploymentConstraint
 import com.netflix.spinnaker.keel.api.StatefulConstraint
 import com.netflix.spinnaker.keel.constraints.AllowedTimesDeploymentConstraintEvaluator
 import com.netflix.spinnaker.keel.exceptions.InvalidConstraintException
@@ -23,7 +25,7 @@ data class AllowedTimesConstraint(
   val windows: List<TimeWindow>,
   val tz: String? = null,
   val maxDeploysPerWindow: Int? = null
-) : StatefulConstraint(ALLOWED_TIMES_CONSTRAINT_TYPE) {
+) : DeploymentConstraint(ALLOWED_TIMES_CONSTRAINT_TYPE) {
   init {
     if (tz != null) {
       val zoneId: ZoneId? = try {
