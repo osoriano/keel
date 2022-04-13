@@ -66,11 +66,13 @@ class NetworkEndpointProviderTests : JUnit5Minutests {
       test("generates VIPs correctly for preview environments") {
         mapOf(
           Moniker("app") to "app",
-          Moniker("app", "stack") to "app-stack",
-          Moniker("app", "stack", "detail") to "app-stack-detail",
-          Moniker("app", detail = "detail") to "app--detail"
+          Moniker("app", "stack") to "appstack",
+          Moniker("app", "stack", "detail") to "appstack-detail",
+          Moniker("app", detail = "detail") to "app-detail"
         ).forEach { (moniker, vip) ->
           expectThat(moniker.toVip(forPreviewEnvironment = true)).isEqualTo(vip)
+          expectThat(moniker.toSecureVip(forPreviewEnvironment = true)).isEqualTo("$vip-secure")
+          expectThat(moniker.toGrpcVip(forPreviewEnvironment = true)).isEqualTo(vip.replaceFirst(moniker.app, "${moniker.app}grpc"))
         }
       }
 
@@ -82,6 +84,8 @@ class NetworkEndpointProviderTests : JUnit5Minutests {
           Moniker("app", detail = "detail") to "app"
         ).forEach { (moniker, vip) ->
           expectThat(moniker.toVip()).isEqualTo(vip)
+          expectThat(moniker.toSecureVip()).isEqualTo("$vip-secure")
+          expectThat(moniker.toGrpcVip()).isEqualTo(vip.replaceFirst(moniker.app, "${moniker.app}grpc"))
         }
       }
 

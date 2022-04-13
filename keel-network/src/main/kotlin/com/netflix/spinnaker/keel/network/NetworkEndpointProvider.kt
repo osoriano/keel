@@ -10,6 +10,7 @@ import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.network.NetworkEndpointType.DNS
 import com.netflix.spinnaker.keel.network.NetworkEndpointType.EUREKA_CLUSTER_DNS
+import com.netflix.spinnaker.keel.network.NetworkEndpointType.EUREKA_GRPC_VIP_DNS
 import com.netflix.spinnaker.keel.network.NetworkEndpointType.EUREKA_VIP_DNS
 import kotlinx.coroutines.runBlocking
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -31,11 +32,16 @@ class NetworkEndpointProvider(
       return when (this) {
         is ComputeResourceSpec<*> -> {
           locations.regions.flatMap { region ->
+            val env = locations.account.environment
+            val domain = dnsConfig.defaultDomain
             listOf(
               // Example: lpollolocaltest-preview-5bd0005.vip.us-east-1.test.acme.net
-              NetworkEndpoint(EUREKA_VIP_DNS, region.name, "${moniker.toVip(forPreviewEnvironment)}.vip.${region.name}.${locations.account.environment}.${dnsConfig.defaultDomain}"),
+              NetworkEndpoint(EUREKA_VIP_DNS, region.name, "${moniker.toVip(forPreviewEnvironment)}.vip.${region.name}.$env.$domain"),
+              // Example: lpollolocaltestgrpc-preview-5bd0005.vip.us-east-1.test.acme.net
+              NetworkEndpoint(EUREKA_GRPC_VIP_DNS, region.name, "${moniker.toGrpcVip(forPreviewEnvironment)}.vip.${region.name}.$env.$domain"),
               // Example: lpollolocaltest-preview-5bd0005.cluster.us-east-1.test.acme.net
-              NetworkEndpoint(EUREKA_CLUSTER_DNS, region.name, "${moniker.toName()}.cluster.${region.name}.${locations.account.environment}.${dnsConfig.defaultDomain}"),
+              NetworkEndpoint(EUREKA_CLUSTER_DNS, region.name, "${moniker.toName()}.cluster.${region.name}.$env.$domain"),
+
             )
           }.toSet()
         }
@@ -63,12 +69,16 @@ class NetworkEndpointProvider(
 }
 
 fun Moniker.toVip(forPreviewEnvironment: Boolean = false): String =
-  when(forPreviewEnvironment) {
+  (app + if (stack != null) stack else "").let {
     // for preview environments, we must include the detail since the point is to isolate traffic
-    true -> toName()
-    // otherwise, the default is to use the app and stack with no dashes
-    false -> app + if (stack != null) stack else ""
+    if (forPreviewEnvironment && detail != null) "$it-$detail" else it
   }
 
 fun Moniker.toSecureVip(forPreviewEnvironment: Boolean = false): String =
   toVip(forPreviewEnvironment) + "-secure"
+
+fun Moniker.toGrpcVip(forPreviewEnvironment: Boolean = false): String =
+  (app + "grpc" + if (stack != null) stack else "").let {
+    // for preview environments, we must include the detail since the point is to isolate traffic
+    if (forPreviewEnvironment && detail != null) "$it-$detail" else it
+  }
