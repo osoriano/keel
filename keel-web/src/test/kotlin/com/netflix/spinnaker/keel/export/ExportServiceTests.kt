@@ -5,18 +5,28 @@ import com.fasterxml.jackson.databind.jsontype.NamedType
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import com.fasterxml.jackson.module.kotlin.convertValue
 import com.netflix.spinnaker.config.BaseUrlConfig
+import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.TaskStatus.SUCCEEDED
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
+import com.netflix.spinnaker.keel.api.ec2.ApplicationLoadBalancerSpec
+import com.netflix.spinnaker.keel.api.ec2.ClusterDependencies
+import com.netflix.spinnaker.keel.api.ec2.ClusterSpec
+import com.netflix.spinnaker.keel.api.ec2.EC2_APPLICATION_LOAD_BALANCER_V1_2
 import com.netflix.spinnaker.keel.api.ec2.EC2_CLASSIC_LOAD_BALANCER_V1
 import com.netflix.spinnaker.keel.api.ec2.EC2_CLUSTER_V1_1
 import com.netflix.spinnaker.keel.api.ec2.EC2_SECURITY_GROUP_V1
+import com.netflix.spinnaker.keel.api.ec2.LaunchConfigurationSpec
 import com.netflix.spinnaker.keel.api.migration.SkipReason
 import com.netflix.spinnaker.keel.api.titus.TITUS_CLUSTER_V1
 import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
+import com.netflix.spinnaker.keel.api.titus.TitusServerGroupSpec
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
+import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
+import com.netflix.spinnaker.keel.clouddriver.model.ApplicationLoadBalancerModel
 import com.netflix.spinnaker.keel.clouddriver.model.Credential
 import com.netflix.spinnaker.keel.core.api.SubmittedResource
+import com.netflix.spinnaker.keel.ec2.resource.ApplicationLoadBalancerHandler
 import com.netflix.spinnaker.keel.ec2.resource.ClassicLoadBalancerHandler
 import com.netflix.spinnaker.keel.ec2.resource.ClusterHandler
 import com.netflix.spinnaker.keel.ec2.resource.SecurityGroupHandler
@@ -43,6 +53,7 @@ import com.netflix.spinnaker.keel.orca.ExecutionDetailResponse
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
 import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
+import com.netflix.spinnaker.keel.test.applicationLoadBalancer
 import com.netflix.spinnaker.keel.test.classicLoadBalancer
 import com.netflix.spinnaker.keel.test.configuredTestObjectMapper
 import com.netflix.spinnaker.keel.test.ec2Cluster
@@ -53,6 +64,7 @@ import com.netflix.spinnaker.keel.test.titusCluster
 import com.netflix.spinnaker.keel.titus.TitusClusterHandler
 import com.netflix.spinnaker.keel.validators.DeliveryConfigValidator
 import com.netflix.spinnaker.keel.verification.jenkins.JenkinsJobVerification
+import com.netflix.spinnaker.keel.veto.unhealthy.UnsupportedResourceTypeException
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
@@ -60,6 +72,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import strikt.api.expectThat
+import strikt.api.expectThrows
 import strikt.assertions.first
 import strikt.assertions.hasSize
 import strikt.assertions.isA
@@ -81,13 +94,16 @@ internal class ExportServiceTests {
   private val ec2ClusterHandler: ClusterHandler = mockk()
   private val securityGroupHandler: SecurityGroupHandler = mockk()
   private val classicLbHandler: ClassicLoadBalancerHandler = mockk()
+  private val applicationLbHandler: ApplicationLoadBalancerHandler = mockk()
   private val objectMapper = configuredTestObjectMapper()
   private val jenkinsService: JenkinsService = mockk()
   private val slackService: SlackService = mockk()
   private val prettyPrinter: ObjectWriter = mockk()
+  private val clouddriverService: CloudDriverService = mockk()
+
 
   private val subject = ExportService(
-    handlers = listOf(titusClusterHandler, ec2ClusterHandler, securityGroupHandler, classicLbHandler),
+    handlers = listOf(titusClusterHandler, ec2ClusterHandler, securityGroupHandler, classicLbHandler, applicationLbHandler),
     front50Cache = front50Cache,
     orcaService = orcaService,
     baseUrlConfig = BaseUrlConfig(),
@@ -98,7 +114,8 @@ internal class ExportServiceTests {
     cloudDriverCache = cloudDriverCache,
     jenkinsService = jenkinsService,
     slackService = slackService,
-    slackNotificationChannel = "team-channel"
+    slackNotificationChannel = "team-channel",
+    cloudDriverService = clouddriverService
   )
 
   private val submittedDeliveryCofig = submittedDeliveryConfig()
@@ -106,6 +123,72 @@ internal class ExportServiceTests {
   private val pipelineSlackChannel = "great-pipeline-channel"
   private val secondPipelineSlackChannel = "second-great-pipeline-channel"
   private val appSlackChannel = "great-app-channel"
+
+//  private val titusCluster = titusCluster()
+
+  private val ec2Cluster = ec2Cluster().copy(
+    spec = ec2Cluster().spec.copy(
+       _defaults = ClusterSpec.ServerGroupSpec(
+         launchConfiguration = LaunchConfigurationSpec(
+           instanceType = "m5.large",
+           ebsOptimized = true,
+           iamRole = "fnordInstanceProfile",
+           instanceMonitoring = false
+         ),
+         dependencies = ClusterDependencies(
+           loadBalancerNames = setOf("fnord-internal"),
+           securityGroupNames = setOf("fnord", "fnord-elb"),
+           targetGroups = setOf("fnord-awesome")
+         ),
+       )
+    )
+  )
+
+  private val titusCluster = titusCluster().copy(
+    spec = titusCluster().spec.copy(
+      _defaults = TitusServerGroupSpec(
+        dependencies = ClusterDependencies(
+          loadBalancerNames = setOf("fnord-internal"),
+          securityGroupNames = setOf("fnord", "fnord-elb"),
+          targetGroups = setOf("fnord-awesome")
+        )
+      )
+    )
+  )
+
+  private val loadBalancer =  ApplicationLoadBalancerModel(
+    moniker = Moniker(ec2Cluster.application, "stub", "alb"),
+    loadBalancerName = "fnord-test",
+    dnsName = "stub-alb-1234567890.elb.amazonaws.com",
+    targetGroups = listOf(
+      ApplicationLoadBalancerModel.TargetGroup(
+        targetGroupName = "fnord-awesome",
+        loadBalancerNames = emptyList(),
+        targetType = "whatever-this-is",
+        matcher = ApplicationLoadBalancerModel.TargetGroupMatcher("200"),
+        protocol = "https",
+        port = 8080,
+        healthCheckEnabled = true,
+        healthCheckTimeoutSeconds = 30,
+        healthCheckPort = "8080",
+        healthCheckProtocol = "https",
+        healthCheckPath = "/healthcheck",
+        healthCheckIntervalSeconds = 60,
+        healthyThresholdCount = 10,
+        unhealthyThresholdCount = 5,
+        vpcId = "vpc",
+        attributes = ApplicationLoadBalancerModel.TargetGroupAttributes()
+      )
+    ),
+    availabilityZones = setOf("a", "b", "c"),
+    vpcId = "vpc",
+    subnets = emptySet(),
+    scheme = "https",
+    idleTimeout = 60,
+    securityGroups = emptySet(),
+    listeners = emptyList(),
+    ipAddressType = "v4"
+  )
 
   private val pipeline = Pipeline(
     name = "pipeline",
@@ -123,6 +206,22 @@ internal class ExportServiceTests {
         application = appName,
         provider = "aws",
         strategy = "highlander",
+        availabilityZones = mapOf("us-east-1" to listOf("us-east-1c", "us-east-1d", "us-east-1e")),
+        _region = null
+      )
+    )
+  )
+
+  private val deployStageForTitus = DeployStage(
+    name = "Deploy",
+    refId = "2",
+    requisiteStageRefIds = listOf("1"),
+    clusters = setOf(
+      Cluster(
+        account = "titusprodvpc",
+        application = appName,
+        provider = "titus",
+        strategy = "redblack",
         availabilityZones = mapOf("us-east-1" to listOf("us-east-1c", "us-east-1d", "us-east-1e")),
         _region = null
       )
@@ -192,6 +291,17 @@ internal class ExportServiceTests {
     lastModifiedBy = "md@netflix.com"
   )
 
+  private val pipelineWithTitus = Pipeline(
+    name = "pipeline-with-titus",
+    id = "1",
+    application = appName,
+    _stages = listOf(
+      deployStageForTitus,
+    ),
+    _updateTs = 1645036222851,
+    lastModifiedBy = "md@netflix.com"
+  )
+
   private val jenkinsJobWithTests = JobConfig(
     JenkinsProject(
       publishers = listOf(
@@ -229,9 +339,6 @@ internal class ExportServiceTests {
     skipped = emptyMap()
   )
 
-  private val titusCluster = titusCluster()
-  private val ec2Cluster = ec2Cluster()
-
   private val testAccount =
     Credential("test", "titus", "test",
       mutableMapOf("regions" to titusCluster.spec.locations.regions.map {
@@ -255,6 +362,10 @@ internal class ExportServiceTests {
     every {
       deliveryConfigRepository.updateMigratingAppScmStatus(appName, any())
     } just runs
+
+    every {
+      applicationLbHandler.supportedKind
+    } returns EC2_APPLICATION_LOAD_BALANCER_V1_2
 
     every {
       titusClusterHandler.supportedKind
@@ -283,6 +394,10 @@ internal class ExportServiceTests {
     every {
       classicLbHandler.export(any())
     } returns classicLoadBalancer().spec
+
+    every {
+      applicationLbHandler.export(any())
+    } returns applicationLoadBalancer().spec
 
     every {
       cloudDriverCache.credentialBy(any())
@@ -317,6 +432,10 @@ internal class ExportServiceTests {
     every {
       slackService.postChatMessage(any(), any(), any())
     } returns mockk()
+
+    every {
+      clouddriverService.loadBalancersForApplication(any(), any())
+    } returns listOf(loadBalancer)
 
     objectMapper.registerSubtypes(NamedType(TitusClusterSpec::class.java, TITUS_CLUSTER_V1.kind.toString()))
   }
@@ -599,6 +718,53 @@ internal class ExportServiceTests {
 
     verify {
       slackService.postChatMessage("team-channel", any(), any())
+    }
+  }
+
+  @Test
+  fun `throw an exception if a target group not found in the load balancers list`(){
+    every {
+      clouddriverService.loadBalancersForApplication(any(), any())
+    } returns emptyList()
+    expectThrows<UnsupportedResourceTypeException> {
+      subject.exportFromPipelines(appName)
+    }
+  }
+
+  @Test
+  fun `get the right load balancer name`() {
+    val result = runBlocking {
+      subject.exportFromPipelines(appName)
+    }
+    expectThat(result) {
+      isA<PipelineExportResult>().and {
+        get { deliveryConfig.environments.first().resources.filterIsInstance<ApplicationLoadBalancerSpec>().all {
+          it.moniker.toName() == loadBalancer.loadBalancerName
+        }
+        }.isTrue()
+      }
+    }
+  }
+
+  @Test
+  fun `load balancer with titus`() {
+    every {
+      front50Cache.pipelinesByApplication(appName)
+    } returns listOf(pipelineWithTitus)
+
+    every { titusClusterHandler.exportArtifact(any()) } returns artifact
+
+
+    val result = runBlocking {
+      subject.exportFromPipelines(appName)
+    }
+    expectThat(result) {
+      isA<PipelineExportResult>().and {
+        get { deliveryConfig.environments.first().resources.filterIsInstance<ApplicationLoadBalancerSpec>().all {
+          it.moniker.toName() == loadBalancer.loadBalancerName
+        }
+        }.isTrue()
+      }
     }
   }
 }

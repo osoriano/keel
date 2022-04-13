@@ -34,6 +34,8 @@ import com.netflix.spinnaker.keel.api.plugins.supporting
 import com.netflix.spinnaker.keel.api.titus.TITUS_CLUSTER_V1
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
+import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
+import com.netflix.spinnaker.keel.clouddriver.model.ApplicationLoadBalancerModel
 import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.core.api.DependsOnConstraint
 import com.netflix.spinnaker.keel.core.api.ManualJudgementConstraint
@@ -91,6 +93,7 @@ class ExportService(
   private val deliveryConfigRepository: DeliveryConfigRepository,
   private val springEnv: Environment,
   private val cloudDriverCache: CloudDriverCache,
+  private val cloudDriverService: CloudDriverService,
   private val jenkinsService: JenkinsService,
   private val slackService: SlackService,
   @Value("\${keel.export.slack-notification-channel}")
@@ -583,6 +586,10 @@ class ExportService(
       throw e
     }
 
+    val loadBalancers =  runBlocking {
+      cloudDriverService.loadBalancersForApplication(DEFAULT_SERVICE_ACCOUNT, applicationName)
+    } as List<ApplicationLoadBalancerModel>
+
     deliveryConfigRepository.updateMigratingAppScmStatus(applicationName, true)
     log.debug("Exported artifact $artifact from cluster ${cluster.moniker}")
     // get the cluster dependencies
@@ -592,7 +599,7 @@ class ExportService(
     // Get all the cluster dependencies security groups and alb
     val securityGroupResources = dependentResources(dependencies, environments, cluster, EC2_SECURITY_GROUP_V1.kind, applicationName)
     val loadBalancersResources = dependentResources(dependencies, environments, cluster, EC2_CLASSIC_LOAD_BALANCER_V1.kind, applicationName)
-    val targetGroupResources = dependentResources(dependencies, environments, cluster, EC2_APPLICATION_LOAD_BALANCER_V1_2.kind, applicationName)
+    val targetGroupResources = dependentResources(dependencies, environments, cluster, EC2_APPLICATION_LOAD_BALANCER_V1_2.kind, applicationName, loadBalancers)
 
     return Pair(
       // combine dependent resources and cluster resource
@@ -615,7 +622,8 @@ class ExportService(
     environments: Set<SubmittedEnvironment>,
     cluster: Exportable,
     kind: ResourceKind,
-    applicationName: String
+    applicationName: String,
+    loadBalancers: List<ApplicationLoadBalancerModel> = emptyList()
   ): Set<SubmittedResource<ResourceSpec>> {
 
     val dependencyType = when (kind) {
@@ -637,16 +645,22 @@ class ExportService(
 
     // Get the exportable for all security groups
     clusterDependencies.forEach {
-      val resourceName = it.name
+      val resourceName = when (kind) {
+        EC2_APPLICATION_LOAD_BALANCER_V1_2.kind -> loadBalancers.findLoadBalancerForTargetGroup(it.name)
+        else -> it.name
+      }
       if (!resourceName.startsWith(applicationName)) {
         log.debug("resource ${it.name} doesn't start with the application name. will not create it.")
       }
+
       // Check if we already exported any security group or load balancers when creating previous environments
-      else if ((kind == EC2_SECURITY_GROUP_V1.kind && checkIfSecurityGroupExists(account, resourceName, environments)) ||
-        (kind == EC2_APPLICATION_LOAD_BALANCER_V1_2.kind && checkIfApplicationLBExists(account, resourceName, environments)) ||
-        (kind == EC2_CLASSIC_LOAD_BALANCER_V1.kind && checkIfClassicLBExists(account, resourceName, environments))) {
-        log.debug("found an existing resource with name $resourceName, will not recreate it.")
-      } else {
+      val exists = when (kind) {
+        EC2_SECURITY_GROUP_V1.kind -> checkIfSecurityGroupExists(account, resourceName, environments)
+        EC2_APPLICATION_LOAD_BALANCER_V1_2.kind -> checkIfApplicationLBExists(account, resourceName, environments)
+        EC2_CLASSIC_LOAD_BALANCER_V1.kind -> checkIfClassicLBExists(account, resourceName, environments)
+        else -> throw UnsupportedResourceTypeException("Kind $kind is not supported")
+      }
+      if (!exists) {
         try {
           val resourceSpec = handlers.supporting(kind).export(
             //copy everything from the cluster and just change the type
@@ -660,6 +674,8 @@ class ExportService(
         } catch (ex: Exception) {
           log.debug("could not export $resourceName", ex)
         }
+      } else {
+        log.debug("Resource $resourceName already exists, skipping export step.")
       }
     }
 
@@ -670,6 +686,15 @@ class ExportService(
         spec = it
       )
     }.toSet()
+  }
+
+  private fun List<ApplicationLoadBalancerModel>.findLoadBalancerForTargetGroup(targetGroupName: String): String {
+    val lb = this.find {
+      it.targetGroups.any { tg ->
+        tg.targetGroupName == targetGroupName
+      }
+    } ?: throw UnsupportedResourceTypeException("Unable to fetch load balancer name from target group named $targetGroupName")
+    return lb.loadBalancerName
   }
 
   private fun checkIfSecurityGroupExists(account: String, name: String, environments: Set<SubmittedEnvironment>): Boolean {
