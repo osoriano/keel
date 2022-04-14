@@ -651,42 +651,42 @@ class ExportService(
       }
       if (!resourceName.startsWith(applicationName)) {
         log.debug("resource ${it.name} doesn't start with the application name. will not create it.")
-      }
-
-      // Check if we already exported any security group or load balancers when creating previous environments
-      val exists = when (kind) {
-        EC2_SECURITY_GROUP_V1.kind -> checkIfSecurityGroupExists(account, resourceName, environments)
-        EC2_APPLICATION_LOAD_BALANCER_V1_2.kind -> checkIfApplicationLBExists(account, resourceName, environments)
-        EC2_CLASSIC_LOAD_BALANCER_V1.kind -> checkIfClassicLBExists(account, resourceName, environments)
-        else -> throw UnsupportedResourceTypeException("Kind $kind is not supported")
-      }
-      if (!exists) {
-        try {
-          val resourceSpec = handlers.supporting(kind).export(
-            //copy everything from the cluster and just change the type
-            cluster.copy(
-              kind = kind,
-              moniker = parseMoniker(resourceName),
-              account = account
-            )
-          )
-          resourcesSpec.add(resourceSpec)
-        } catch (ex: Exception) {
-          log.debug("could not export $resourceName", ex)
-        }
       } else {
-        log.debug("Resource $resourceName already exists, skipping export step.")
+        // Check if we already exported any security group or load balancers when creating previous environments
+        val exists = when (kind) {
+          EC2_SECURITY_GROUP_V1.kind -> checkIfSecurityGroupExists(account, resourceName, environments)
+          EC2_APPLICATION_LOAD_BALANCER_V1_2.kind -> checkIfApplicationLBExists(account, resourceName, environments)
+          EC2_CLASSIC_LOAD_BALANCER_V1.kind -> checkIfClassicLBExists(account, resourceName, environments)
+          else -> throw UnsupportedResourceTypeException("Kind $kind is not supported")
+        }
+        if (!exists) {
+          try {
+            val resourceSpec = handlers.supporting(kind).export(
+              //copy everything from the cluster and just change the type
+              cluster.copy(
+                kind = kind,
+                moniker = parseMoniker(resourceName),
+                account = account
+              )
+            )
+            resourcesSpec.add(resourceSpec)
+          } catch (ex: Exception) {
+            log.debug("could not export $resourceName", ex)
+          }
+        } else {
+          log.debug("Resource $resourceName already exists, skipping export step.")
+        }
       }
-    }
+      }
 
-    // create the actual resources from the exportable
-    return resourcesSpec.map {
-      SubmittedResource(
-        kind = kind,
-        spec = it
-      )
-    }.toSet()
-  }
+      // create the actual resources from the exportable
+      return resourcesSpec.map {
+        SubmittedResource(
+          kind = kind,
+          spec = it
+        )
+      }.toSet()
+    }
 
   private fun List<ApplicationLoadBalancerModel>.findLoadBalancerForTargetGroup(targetGroupName: String): String {
     val lb = this.find {

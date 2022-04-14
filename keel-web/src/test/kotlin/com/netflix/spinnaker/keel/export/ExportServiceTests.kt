@@ -16,6 +16,7 @@ import com.netflix.spinnaker.keel.api.ec2.EC2_CLASSIC_LOAD_BALANCER_V1
 import com.netflix.spinnaker.keel.api.ec2.EC2_CLUSTER_V1_1
 import com.netflix.spinnaker.keel.api.ec2.EC2_SECURITY_GROUP_V1
 import com.netflix.spinnaker.keel.api.ec2.LaunchConfigurationSpec
+import com.netflix.spinnaker.keel.api.ec2.SecurityGroupSpec
 import com.netflix.spinnaker.keel.api.migration.SkipReason
 import com.netflix.spinnaker.keel.api.titus.TITUS_CLUSTER_V1
 import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
@@ -124,8 +125,6 @@ internal class ExportServiceTests {
   private val secondPipelineSlackChannel = "second-great-pipeline-channel"
   private val appSlackChannel = "great-app-channel"
 
-//  private val titusCluster = titusCluster()
-
   private val ec2Cluster = ec2Cluster().copy(
     spec = ec2Cluster().spec.copy(
        _defaults = ClusterSpec.ServerGroupSpec(
@@ -137,7 +136,7 @@ internal class ExportServiceTests {
          ),
          dependencies = ClusterDependencies(
            loadBalancerNames = setOf("fnord-internal"),
-           securityGroupNames = setOf("fnord", "fnord-elb"),
+           securityGroupNames = setOf("fnord", "fnord-elb", "nf-somthing"),
            targetGroups = setOf("fnord-awesome")
          ),
        )
@@ -754,7 +753,6 @@ internal class ExportServiceTests {
 
     every { titusClusterHandler.exportArtifact(any()) } returns artifact
 
-
     val result = runBlocking {
       subject.exportFromPipelines(appName)
     }
@@ -764,6 +762,21 @@ internal class ExportServiceTests {
           it.moniker.toName() == loadBalancer.loadBalancerName
         }
         }.isTrue()
+      }
+    }
+  }
+
+  @Test
+  fun `do not export shared security group`() {
+    val result = runBlocking {
+      subject.exportFromPipelines(appName)
+    }
+    expectThat(result) {
+      isA<PipelineExportResult>().and {
+        get { deliveryConfig.environments.first().resources.filterIsInstance<SecurityGroupSpec>().any {
+          it.moniker.toName() == "nf-something"
+        }
+        }.isFalse()
       }
     }
   }
