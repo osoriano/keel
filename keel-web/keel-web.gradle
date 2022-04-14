@@ -8,6 +8,7 @@ apply plugin: "com.github.hauner.jarTest"
 
 dependencies {
   api(project(":keel-core"))
+  api(project(":keel-engine"))
   api(project(":keel-clouddriver"))
   api(project(":keel-artifact"))
   api(project(":keel-sql"))

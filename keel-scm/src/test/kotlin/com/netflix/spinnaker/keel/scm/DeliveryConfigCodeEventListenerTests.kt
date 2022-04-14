@@ -11,8 +11,8 @@ import com.netflix.spinnaker.keel.auth.AuthorizationSupport
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.core.api.SubmittedEnvironment
 import com.netflix.spinnaker.keel.front50.Front50Cache
-import com.netflix.spinnaker.keel.front50.model.Application
-import com.netflix.spinnaker.keel.front50.model.DataSources
+import com.netflix.spinnaker.keel.api.Application
+import com.netflix.spinnaker.keel.api.DataSources
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 import com.netflix.spinnaker.keel.notifications.DeliveryConfigImportFailed
 import com.netflix.spinnaker.keel.persistence.ApplicationRepository

@@ -2,8 +2,7 @@ package com.netflix.spinnaker.keel.scm
 
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.caffeine.CacheFactory
-import com.netflix.spinnaker.keel.core.ResourceCurrentlyUnresolvable
-import com.netflix.spinnaker.keel.front50.model.Application
+import com.netflix.spinnaker.keel.api.Application
 import com.netflix.spinnaker.keel.igor.ScmService
 import com.netflix.spinnaker.keel.igor.getDefaultBranch
 import com.netflix.spinnaker.keel.retrofit.isNotFound

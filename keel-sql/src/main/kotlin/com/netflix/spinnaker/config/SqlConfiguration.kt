@@ -231,7 +231,7 @@ class SqlConfiguration
     properties: SqlProperties,
     objectMapper: ObjectMapper,
     featureToggles: FeatureToggles
-  ) = SqlLifecycleMonitorRepository(jooq, clock, objectMapper, SqlRetry(sqlRetryProperties, featureToggles))
+  ) = SqlLifecycleMonitorRepository(jooq, clock, SqlRetry(sqlRetryProperties, featureToggles))
 
   @Bean
   fun bakedImageRepository(

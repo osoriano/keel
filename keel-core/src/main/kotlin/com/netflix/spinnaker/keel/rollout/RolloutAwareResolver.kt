@@ -15,14 +15,11 @@ import com.netflix.spinnaker.keel.rollout.RolloutStatus.IN_PROGRESS
 import com.netflix.spinnaker.keel.rollout.RolloutStatus.NOT_STARTED
 import com.netflix.spinnaker.keel.rollout.RolloutStatus.SKIPPED
 import com.netflix.spinnaker.keel.rollout.RolloutStatus.SUCCESSFUL
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
-import kotlin.coroutines.CoroutineContext
 
 /**
  * Base class for [Resolver] implementations that are used to safely roll out features to each environment in an

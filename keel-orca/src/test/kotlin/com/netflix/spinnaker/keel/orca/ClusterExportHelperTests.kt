@@ -2,7 +2,6 @@ package com.netflix.spinnaker.keel.orca
 
 import com.netflix.spinnaker.keel.actuation.Stage
 import com.netflix.spinnaker.keel.api.RedBlack
-import com.netflix.spinnaker.keel.api.TaskStatus.RUNNING
 import com.netflix.spinnaker.keel.api.TaskStatus.SUCCEEDED
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.clouddriver.model.ActiveServerGroup

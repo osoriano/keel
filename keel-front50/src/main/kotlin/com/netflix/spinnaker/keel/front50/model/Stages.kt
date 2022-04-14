@@ -101,7 +101,7 @@ data class DeployStage(
 data class RestrictedExecutionWindow (
   val whitelist : List<TimeWindowConfig>? = null,
   val days: List<Int>? = null
-  )
+)
 
 data class TimeWindowConfig (
   val startHour: Int,

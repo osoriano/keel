@@ -114,6 +114,6 @@ class SqlArtifactRepositoryTests : ArtifactRepositoryTests<SqlArtifactRepository
         gitMetadata = null,
         buildMetadata = null,
         createdAt = mutableClock.tickMinutes(1)
-      ) }
-
+      )
+    }
 }

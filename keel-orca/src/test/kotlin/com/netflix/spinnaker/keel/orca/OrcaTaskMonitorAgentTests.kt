@@ -1,10 +1,8 @@
 package com.netflix.spinnaker.keel.orca
 
 import com.fasterxml.jackson.module.kotlin.convertValue
-import com.netflix.spinnaker.keel.actuation.Stage
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.TaskStatus
-import com.netflix.spinnaker.keel.api.TaskStatus.RUNNING
 import com.netflix.spinnaker.keel.api.TaskStatus.SUCCEEDED
 import com.netflix.spinnaker.keel.api.TaskStatus.TERMINAL
 import com.netflix.spinnaker.keel.api.actuation.SubjectType.CONSTRAINT

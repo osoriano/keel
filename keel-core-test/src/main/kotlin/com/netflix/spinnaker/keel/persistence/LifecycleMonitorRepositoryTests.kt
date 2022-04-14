@@ -2,11 +2,9 @@ package com.netflix.spinnaker.keel.persistence
 
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEvent
-import com.netflix.spinnaker.keel.lifecycle.LifecycleEventRepository
-import com.netflix.spinnaker.keel.lifecycle.LifecycleEventScope
-import com.netflix.spinnaker.keel.lifecycle.LifecycleEventStatus
+import com.netflix.spinnaker.keel.lifecycle.LifecycleEventScope.PRE_DEPLOYMENT
+import com.netflix.spinnaker.keel.lifecycle.LifecycleEventStatus.NOT_STARTED
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventType.BAKE
-import com.netflix.spinnaker.keel.lifecycle.LifecycleMonitorRepository
 import com.netflix.spinnaker.keel.lifecycle.MonitoredTask
 import com.netflix.spinnaker.keel.lifecycle.StartMonitoringEvent
 import com.netflix.spinnaker.time.MutableClock
@@ -37,12 +35,12 @@ abstract class LifecycleMonitorRepositoryTests<T : LifecycleMonitorRepository, E
   val artifact = DockerArtifact(name = "my-artifact", deliveryConfigName = "my-config", branch = "main")
   val version = "123.4"
   val event = LifecycleEvent(
-    scope = LifecycleEventScope.PRE_DEPLOYMENT,
+    scope = PRE_DEPLOYMENT,
     artifactReference = artifact.reference,
     deliveryConfigName = artifact.deliveryConfigName!!,
     artifactVersion = version,
     type = BAKE,
-    status = LifecycleEventStatus.NOT_STARTED,
+    status = NOT_STARTED,
     id = "bake-$version",
     text = "Submitting bake for version $version",
     link = "www.bake.com/$version"

@@ -17,7 +17,7 @@
  */
 package com.netflix.spinnaker.keel.titus.exceptions
 
-import com.netflix.spinnaker.keel.core.ResourceCurrentlyUnresolvable
+import com.netflix.spinnaker.keel.exceptions.ResourceCurrentlyUnresolvable
 import com.netflix.spinnaker.kork.exceptions.IntegrationException
 import java.time.Instant
 

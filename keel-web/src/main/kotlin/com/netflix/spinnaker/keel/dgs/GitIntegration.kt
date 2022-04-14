@@ -11,7 +11,7 @@ import com.netflix.spinnaker.keel.application.ApplicationConfig
 import com.netflix.spinnaker.keel.application.ApplicationConfig.Companion.DEFAULT_MANIFEST_PATH
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.Front50Service
-import com.netflix.spinnaker.keel.front50.model.Application
+import com.netflix.spinnaker.keel.api.Application
 import com.netflix.spinnaker.keel.graphql.DgsConstants
 import com.netflix.spinnaker.keel.graphql.types.MD_Application
 import com.netflix.spinnaker.keel.graphql.types.MD_GitIntegration

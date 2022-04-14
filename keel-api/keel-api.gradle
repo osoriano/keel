@@ -9,7 +9,7 @@ dependencies {
   api("com.netflix.spinnaker.kork.internal:kork-plugins-api")
   api("com.netflix.spinnaker.kork.internal:kork-exceptions")
   api("de.huxhorn.sulky:de.huxhorn.sulky.ulid")
-  api("com.fasterxml.jackson.core:jackson-databind")
+  api("com.fasterxml.jackson.core:jackson-annotations")
   testImplementation("io.strikt:strikt-core")
   testImplementation("dev.minutest:minutest")
 }

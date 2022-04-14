@@ -8,13 +8,11 @@ import com.netflix.spinnaker.keel.api.RedBlack
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.retrofit.isNotFound
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import retrofit2.HttpException
 import java.time.Duration
-import kotlin.coroutines.CoroutineContext
 
 /**
  * Provides common logic for multiple cloud plugins to export aspects of compute clusters.

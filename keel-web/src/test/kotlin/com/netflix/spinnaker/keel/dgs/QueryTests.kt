@@ -37,7 +37,7 @@ import com.netflix.spinnaker.keel.graphql.types.MD_Migration
 import com.netflix.spinnaker.keel.graphql.types.MD_MigrationStatus
 import com.netflix.spinnaker.keel.graphql.types.MD_UserPermissions
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
-import com.netflix.spinnaker.keel.lifecycle.LifecycleEventRepository
+import com.netflix.spinnaker.keel.persistence.LifecycleEventRepository
 import com.netflix.spinnaker.keel.migrations.ApplicationPrData
 import com.netflix.spinnaker.keel.pause.ActuationPauser
 import com.netflix.spinnaker.keel.persistence.ApplicationRepository

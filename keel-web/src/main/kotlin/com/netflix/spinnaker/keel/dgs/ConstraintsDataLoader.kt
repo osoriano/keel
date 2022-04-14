@@ -20,7 +20,7 @@ import com.netflix.spinnaker.keel.core.api.windowsNumeric
 import com.netflix.spinnaker.keel.graphql.types.MD_Constraint
 import com.netflix.spinnaker.keel.graphql.types.MD_ConstraintStatus
 import com.netflix.spinnaker.keel.persistence.KeelRepository
-import com.netflix.spinnaker.keel.services.removePrivateConstraintAttrs
+import com.netflix.spinnaker.keel.services.ApplicationService
 import com.netflix.springboot.scheduling.DefaultExecutor
 import kotlinx.coroutines.runBlocking
 import org.dataloader.BatchLoaderEnvironment
@@ -167,3 +167,13 @@ fun ConstraintState.toDgs() =
     attributes = attributes,
     comment = comment
   )
+
+fun List<ConstraintState>.removePrivateConstraintAttrs() =
+  map { state ->
+    if (state.attributes?.type in ApplicationService.privateConstraintAttrs) {
+      state.copy(attributes = null)
+    } else {
+      state
+    }
+  }
+

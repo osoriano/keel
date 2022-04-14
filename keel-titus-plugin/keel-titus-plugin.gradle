@@ -2,7 +2,7 @@ dependencies {
   api(project(":keel-api"))
   api(project(":keel-titus-api"))
   api(project(":keel-optics"))
-  implementation(project(":keel-core")) // TODO: ideally not
+  implementation(project(":keel-core"))
   implementation(project(":keel-clouddriver"))
   implementation(project(":keel-orca"))
   implementation(project(":keel-retrofit"))

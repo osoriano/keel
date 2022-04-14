@@ -1,7 +1,7 @@
 package com.netflix.spinnaker.keel.scm
 
 import com.netflix.spectator.api.BasicTag
-import com.netflix.spinnaker.keel.front50.model.Application
+import com.netflix.spinnaker.keel.api.Application
 import com.netflix.spinnaker.keel.notifications.DeliveryConfigImportFailed
 import org.springframework.context.ApplicationEventPublisher
 import java.time.Instant

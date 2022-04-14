@@ -34,8 +34,8 @@ import com.netflix.spinnaker.keel.core.api.SubmittedEnvironment
 import com.netflix.spinnaker.keel.core.api.TagAmiPostDeployAction
 import com.netflix.spinnaker.keel.core.name
 import com.netflix.spinnaker.keel.front50.Front50Cache
-import com.netflix.spinnaker.keel.front50.model.Application
-import com.netflix.spinnaker.keel.front50.model.DataSources
+import com.netflix.spinnaker.keel.api.Application
+import com.netflix.spinnaker.keel.api.DataSources
 import com.netflix.spinnaker.keel.graphql.resources.GraphqlSchemaHandler.Companion.GRAPHQL_SCHEMA_V1
 import com.netflix.spinnaker.keel.graphql.resources.GraphqlSchemaSpec
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter

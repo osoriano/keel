@@ -1,0 +1,18 @@
+dependencies {
+  implementation(project(":keel-api"))
+  implementation(project(":keel-core"))
+  implementation(project(":keel-front50"))
+  implementation(project(":keel-igor"))
+  implementation(project(":keel-orca"))
+  implementation(project(":keel-clouddriver"))
+  implementation(project(":keel-ec2-api"))
+  implementation(project(":keel-bakery-plugin"))
+  implementation("com.netflix.spinnaker.kork.internal:kork-core")
+  implementation("com.netflix.spinnaker.kork.internal:kork-security")
+  implementation("com.netflix.spinnaker.kork.internal:kork-plugins")
+  implementation("org.springframework:spring-tx")
+  implementation("org.jgrapht:jgrapht-core:1.5.1")
+  implementation("com.newrelic.agent.java:newrelic-api:6.1.0")
+
+  testImplementation(project(":keel-test"))
+}

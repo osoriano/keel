@@ -4,13 +4,12 @@ import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.keel.api.artifacts.Commit
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.Repo
-import com.netflix.spinnaker.keel.application.ApplicationConfig
 import com.netflix.spinnaker.keel.auth.AuthorizationResourceType.SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.front50.Front50Cache
-import com.netflix.spinnaker.keel.front50.model.Application
-import com.netflix.spinnaker.keel.front50.model.GitRepository
+import com.netflix.spinnaker.keel.api.Application
+import com.netflix.spinnaker.keel.api.GitRepository
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 import com.netflix.spinnaker.keel.notifications.DeliveryConfigImportFailed
 import com.netflix.spinnaker.keel.persistence.ApplicationRepository
@@ -73,7 +72,9 @@ class DeliveryConfigCodeEventListener(
 
     val apps = runBlocking {
       try {
-        front50Cache.searchApplicationsByRepo(GitRepository(event.repoType, event.targetProjectKey, event.targetRepoSlug))
+        front50Cache.searchApplicationsByRepo(
+          GitRepository(event.repoType, event.targetProjectKey, event.targetRepoSlug)
+        )
           .also {
             log.debug("Retrieved ${it.size} applications from Front50")
           }

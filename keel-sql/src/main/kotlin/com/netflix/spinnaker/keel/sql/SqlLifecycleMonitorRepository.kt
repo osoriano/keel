@@ -1,11 +1,10 @@
 package com.netflix.spinnaker.keel.sql
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.kotlin.OpenClass
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEvent
-import com.netflix.spinnaker.keel.lifecycle.LifecycleMonitorRepository
 import com.netflix.spinnaker.keel.lifecycle.MonitoredTask
 import com.netflix.spinnaker.keel.lifecycle.StartMonitoringEvent
+import com.netflix.spinnaker.keel.persistence.LifecycleMonitorRepository
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.LIFECYCLE_EVENT
 import com.netflix.spinnaker.keel.persistence.metamodel.tables.LifecycleMonitor.LIFECYCLE_MONITOR
 import com.netflix.spinnaker.keel.sql.RetryCategory.READ
@@ -21,7 +20,6 @@ import java.time.Instant
 class SqlLifecycleMonitorRepository(
   private val jooq: DSLContext,
   private val clock: Clock,
-  private val objectMapper: ObjectMapper,
   private val sqlRetry: SqlRetry
 ) : LifecycleMonitorRepository {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }

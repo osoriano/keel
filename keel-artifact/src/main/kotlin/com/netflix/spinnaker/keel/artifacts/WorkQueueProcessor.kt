@@ -19,9 +19,9 @@ import com.netflix.spinnaker.keel.exceptions.InvalidSystemStateException
 import com.netflix.spinnaker.keel.igor.BuildService
 import com.netflix.spinnaker.keel.igor.model.BuildDetail
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEvent
-import com.netflix.spinnaker.keel.lifecycle.LifecycleEventScope
-import com.netflix.spinnaker.keel.lifecycle.LifecycleEventStatus
-import com.netflix.spinnaker.keel.lifecycle.LifecycleEventType
+import com.netflix.spinnaker.keel.lifecycle.LifecycleEventScope.PRE_DEPLOYMENT
+import com.netflix.spinnaker.keel.lifecycle.LifecycleEventStatus.RUNNING
+import com.netflix.spinnaker.keel.lifecycle.LifecycleEventType.BUILD
 import com.netflix.spinnaker.keel.logging.blankMDC
 import com.netflix.spinnaker.keel.logging.withThreadTracingContext
 import com.netflix.spinnaker.keel.persistence.KeelRepository
@@ -30,7 +30,6 @@ import com.netflix.spinnaker.keel.scm.CodeEvent
 import com.netflix.spinnaker.keel.telemetry.recordDuration
 import com.netflix.spinnaker.keel.telemetry.safeIncrement
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -47,7 +46,6 @@ import java.time.Duration
 import java.time.Instant
 import java.util.*
 import java.util.concurrent.atomic.AtomicReference
-import kotlin.coroutines.CoroutineContext
 
 /**
  * A worker that processes queued artifacts while an instance is in service.
@@ -292,16 +290,16 @@ class WorkQueueProcessor(
 
             publisher.publishEvent(
               LifecycleEvent(
-                scope = LifecycleEventScope.PRE_DEPLOYMENT,
+                scope = PRE_DEPLOYMENT,
                 deliveryConfigName = configName,
                 artifactReference = deliveryArtifact.reference,
                 artifactVersion = artifact.version,
-                type = LifecycleEventType.BUILD,
+                type = BUILD,
                 id = "build-${artifact.version}",
                 // the build has already started, and is maybe complete.
                 // We use running to convey that to users, and allow the [BuildLifecycleMonitor] to immediately
                 // update the status
-                status = LifecycleEventStatus.RUNNING,
+                status = RUNNING,
                 text = "Monitoring build for ${artifact.version}",
                 link = artifact.buildMetadata?.uid,
                 data = data,

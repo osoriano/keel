@@ -8,10 +8,10 @@ import com.netflix.spinnaker.keel.caffeine.CacheFactory
 import com.netflix.spinnaker.keel.caffeine.CacheLoadingException
 import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.exceptions.ApplicationNotFound
-import com.netflix.spinnaker.keel.front50.model.Application
+import com.netflix.spinnaker.keel.api.Application
 import com.netflix.spinnaker.keel.front50.model.DisablePipeline
-import com.netflix.spinnaker.keel.front50.model.GitRepository
-import com.netflix.spinnaker.keel.front50.model.ManagedDeliveryConfig
+import com.netflix.spinnaker.keel.api.GitRepository
+import com.netflix.spinnaker.keel.api.ManagedDeliveryConfig
 import com.netflix.spinnaker.keel.front50.model.Pipeline
 import com.netflix.spinnaker.keel.retrofit.isNotFound
 import kotlinx.coroutines.CoroutineScope
@@ -142,7 +142,7 @@ class Front50Cache(
       // We invalidate the cache, as it's easier than updating it
       if (repoType != null && repoProjectKey != null && repoSlug != null) {
         applicationsBySearchParamsCache.synchronous()
-          .invalidate(GitRepository(repoType, repoProjectKey, repoSlug).toSearchParams())
+          .invalidate(GitRepository(repoType!!, repoProjectKey!!, repoSlug!!).toSearchParams())
       }
     }
   }

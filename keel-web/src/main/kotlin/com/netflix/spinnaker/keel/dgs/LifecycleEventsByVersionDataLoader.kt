@@ -6,7 +6,7 @@ import com.netflix.spinnaker.keel.graphql.types.MD_LifecycleEventScope
 import com.netflix.spinnaker.keel.graphql.types.MD_LifecycleEventStatus
 import com.netflix.spinnaker.keel.graphql.types.MD_LifecycleEventType
 import com.netflix.spinnaker.keel.graphql.types.MD_LifecycleStep
-import com.netflix.spinnaker.keel.lifecycle.LifecycleEventRepository
+import com.netflix.spinnaker.keel.persistence.LifecycleEventRepository
 import com.netflix.spinnaker.keel.lifecycle.LifecycleStep
 import com.netflix.springboot.scheduling.DefaultExecutor
 import org.dataloader.MappedBatchLoader

@@ -1,0 +1,8 @@
+dependencies {
+  api("com.github.ben-manes.caffeine:caffeine")
+
+  implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:$kotlinCoroutinesVersion")
+  implementation("com.netflix.spinnaker.kork.internal:kork-exceptions")
+
+  testImplementation(project(":keel-test"))
+}

@@ -1,6 +1,7 @@
 dependencies {
   implementation(project(":keel-retrofit"))
   implementation(project(":keel-core"))
+  implementation(project(":keel-cache"))
   implementation(project(":keel-ec2-api"))
   implementation("org.springframework.boot:spring-boot-autoconfigure")
 

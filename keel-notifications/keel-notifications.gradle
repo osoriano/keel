@@ -5,7 +5,7 @@ dependencies {
   implementation(project(":keel-front50"))
   implementation(project(":keel-network"))
   implementation(project(":keel-stash"))
-  implementation("org.springframework.boot:spring-boot-autoconfigure")
+  implementation(project(":keel-echo"))
 
   implementation("com.slack.api:slack-api-model-kotlin-extension:${slackSdkVersion}")
   implementation("com.slack.api:slack-api-client-kotlin-extension:${slackSdkVersion}")

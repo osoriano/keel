@@ -1,7 +1,7 @@
 package com.netflix.spinnaker.keel.igor
 
 import com.netflix.spinnaker.keel.api.ScmBridge
-import com.netflix.spinnaker.keel.front50.model.Application
+import com.netflix.spinnaker.keel.api.Application
 import com.netflix.spinnaker.keel.api.stash.Branch
 import com.netflix.spinnaker.keel.api.stash.BuildResult
 import com.netflix.spinnaker.keel.igor.model.Comment

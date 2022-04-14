@@ -3,7 +3,6 @@ package com.netflix.spinnaker.keel.core.api
 import com.netflix.spinnaker.keel.api.Constraint
 import com.netflix.spinnaker.keel.api.DeploymentConstraint
 import com.netflix.spinnaker.keel.api.StatefulConstraint
-import com.netflix.spinnaker.keel.constraints.AllowedTimesDeploymentConstraintEvaluator
 import com.netflix.spinnaker.keel.exceptions.InvalidConstraintException
 import java.text.ParsePosition
 import java.time.DateTimeException

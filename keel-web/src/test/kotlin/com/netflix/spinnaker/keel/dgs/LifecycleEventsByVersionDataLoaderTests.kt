@@ -1,9 +1,9 @@
 package com.netflix.spinnaker.keel.dgs
 
-import com.netflix.spinnaker.keel.lifecycle.LifecycleEventRepository
-import com.netflix.spinnaker.keel.lifecycle.LifecycleEventScope
-import com.netflix.spinnaker.keel.lifecycle.LifecycleEventStatus
-import com.netflix.spinnaker.keel.lifecycle.LifecycleEventType
+import com.netflix.spinnaker.keel.persistence.LifecycleEventRepository
+import com.netflix.spinnaker.keel.lifecycle.LifecycleEventScope.PRE_DEPLOYMENT
+import com.netflix.spinnaker.keel.lifecycle.LifecycleEventStatus.SUCCEEDED
+import com.netflix.spinnaker.keel.lifecycle.LifecycleEventType.BUILD
 import com.netflix.spinnaker.keel.lifecycle.LifecycleStep
 import com.netflix.spinnaker.keel.test.debianArtifact
 import io.mockk.every
@@ -21,10 +21,10 @@ class LifecycleEventsByVersionDataLoaderTests {
   private val artifactAndVersions = versions.map { ArtifactAndVersion(artifact, it) }.toMutableSet()
   private val lifecycleSteps = versions.map {
     LifecycleStep(
-      scope = LifecycleEventScope.PRE_DEPLOYMENT,
-      type = LifecycleEventType.BUILD,
+      scope = PRE_DEPLOYMENT,
+      type = BUILD,
       id = it,
-      status = LifecycleEventStatus.SUCCEEDED,
+      status = SUCCEEDED,
       artifactVersion = it,
       link = null,
       text = ""

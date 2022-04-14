@@ -3,6 +3,7 @@ dependencies {
   implementation(project(":keel-igor"))
   implementation(project(":keel-clouddriver"))
   implementation(project(":keel-titus-registry"))
+  implementation(project(":keel-front50"))
   implementation("org.springframework:spring-context")
   implementation("com.netflix.spinnaker.kork.internal:kork-artifacts")
   testImplementation("dev.minutest:minutest")

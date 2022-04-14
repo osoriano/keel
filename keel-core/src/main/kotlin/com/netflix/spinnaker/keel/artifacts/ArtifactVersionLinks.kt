@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.springframework.stereotype.Component
+<<<<<<< e7716db49d60e1639d34b7e82d88196339b48c63
 <<<<<<< 18a357a0e27d1429b78551a3d4cd161d807ec9ef
 <<<<<<< 81a02f79ab6c85a4b20ffb80739fa11f668718b1
 <<<<<<< 167ad3338605133bfc668b54b812132b3cb61e6e
@@ -23,6 +24,8 @@ import org.springframework.beans.factory.annotation.Qualifier
 =======
 import org.springframework.beans.factory.annotation.Qualifier
 >>>>>>> 0f5f989b898518e29173fc2f182e8ff33b632943
+=======
+>>>>>>> 66c49185b1c72d867c02a5bcf5de11177f8c4f32
 
 @Component
 class ArtifactVersionLinks(
@@ -115,4 +118,3 @@ class ArtifactVersionLinks(
     } else null
   }
 }
-

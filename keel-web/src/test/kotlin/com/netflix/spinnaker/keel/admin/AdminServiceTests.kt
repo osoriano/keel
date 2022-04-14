@@ -6,17 +6,15 @@ import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
-import com.netflix.spinnaker.keel.application.ApplicationConfig
 import com.netflix.spinnaker.keel.core.api.ManualJudgementConstraint
 import com.netflix.spinnaker.keel.core.api.PipelineConstraint
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.CURRENT
 import com.netflix.spinnaker.keel.core.api.TimeWindow
 import com.netflix.spinnaker.keel.core.api.AllowedTimesConstraint
 import com.netflix.spinnaker.keel.front50.Front50Cache
-import com.netflix.spinnaker.keel.front50.Front50Service
-import com.netflix.spinnaker.keel.front50.model.Application
+import com.netflix.spinnaker.keel.api.Application
 import com.netflix.spinnaker.keel.front50.model.GenericStage
-import com.netflix.spinnaker.keel.front50.model.ManagedDeliveryConfig
+import com.netflix.spinnaker.keel.api.ManagedDeliveryConfig
 import com.netflix.spinnaker.keel.front50.model.Pipeline
 import com.netflix.spinnaker.keel.front50.model.Trigger
 import com.netflix.spinnaker.keel.pause.ActuationPauser
@@ -31,13 +29,6 @@ import dev.minutest.rootContext
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
-import io.mockk.slot
-import kotlinx.coroutines.runBlocking
-import org.springframework.context.ApplicationEventPublisher
-import strikt.api.expectThat
-import strikt.assertions.contains
-import strikt.assertions.containsExactlyInAnyOrder
-import strikt.assertions.isTrue
 import io.mockk.coEvery as every
 import io.mockk.coVerify as verify
 

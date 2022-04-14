@@ -21,7 +21,6 @@ import com.netflix.spinnaker.keel.graphql.types.MD_RedeployResourcePayload
 import com.netflix.spinnaker.keel.graphql.types.MD_Resource
 import com.netflix.spinnaker.keel.graphql.types.MD_ResourceActuationState
 import com.netflix.spinnaker.keel.graphql.types.MD_ResourceTask
-import com.netflix.spinnaker.keel.pause.ActuationPauser
 import com.netflix.spinnaker.keel.pause.PauseScope
 import com.netflix.spinnaker.keel.persistence.DiffFingerprintRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository

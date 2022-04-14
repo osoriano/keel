@@ -1,11 +1,14 @@
 package com.netflix.spinnaker.keel.notifications.slack.handlers
 
 import com.netflix.spinnaker.config.BaseUrlConfig
+<<<<<<< e7716db49d60e1639d34b7e82d88196339b48c63
 <<<<<<< d07558a084dad969ed6803cea66edf71fb70d9de
 import com.netflix.spinnaker.keel.api.ScmInfo
 import com.netflix.spinnaker.keel.api.artifacts.*
 =======
 import com.netflix.spinnaker.keel.api.ScmBridge
+=======
+>>>>>>> 66c49185b1c72d867c02a5bcf5de11177f8c4f32
 import com.netflix.spinnaker.keel.api.artifacts.Commit
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact

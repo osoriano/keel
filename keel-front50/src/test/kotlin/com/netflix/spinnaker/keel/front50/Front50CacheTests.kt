@@ -3,9 +3,9 @@ package com.netflix.spinnaker.keel.front50
 import com.netflix.spinnaker.keel.caffeine.CacheFactory
 import com.netflix.spinnaker.keel.caffeine.CacheProperties
 import com.netflix.spinnaker.keel.exceptions.ApplicationNotFound
-import com.netflix.spinnaker.keel.front50.model.Application
-import com.netflix.spinnaker.keel.front50.model.GitRepository
-import com.netflix.spinnaker.keel.front50.model.ManagedDeliveryConfig
+import com.netflix.spinnaker.keel.api.Application
+import com.netflix.spinnaker.keel.api.GitRepository
+import com.netflix.spinnaker.keel.api.ManagedDeliveryConfig
 import com.netflix.spinnaker.keel.retrofit.RETROFIT_NOT_FOUND
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import io.mockk.mockk

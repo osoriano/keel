@@ -6,7 +6,7 @@ import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.stash.BuildResult
 import com.netflix.spinnaker.keel.api.stash.BuildState.SUCCESSFUL
 import com.netflix.spinnaker.keel.front50.Front50Cache
-import com.netflix.spinnaker.keel.front50.model.Application
+import com.netflix.spinnaker.keel.api.Application
 import com.netflix.spinnaker.keel.igor.ScmService
 import com.netflix.spinnaker.keel.igor.model.Comment
 import com.netflix.spinnaker.keel.notifications.slack.DeploymentStatus.SUCCEEDED

@@ -34,7 +34,6 @@ import com.netflix.spinnaker.keel.jenkins.JenkinsService
 import com.netflix.spinnaker.keel.orca.ClusterExportHelper
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.persistence.FeatureRolloutRepository
-import kotlinx.coroutines.CoroutineDispatcher
 import org.springframework.beans.factory.getBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -42,7 +41,6 @@ import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import java.time.Clock
-import kotlin.coroutines.CoroutineContext
 
 @Configuration
 @ConditionalOnProperty("keel.plugins.ec2.enabled")

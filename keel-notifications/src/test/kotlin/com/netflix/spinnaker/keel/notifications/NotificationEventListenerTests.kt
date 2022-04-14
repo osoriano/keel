@@ -19,9 +19,9 @@ import com.netflix.spinnaker.keel.events.ArtifactDeployedNotification
 import com.netflix.spinnaker.keel.events.PinnedNotification
 import com.netflix.spinnaker.keel.events.ResourceTaskFailed
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEvent
-import com.netflix.spinnaker.keel.lifecycle.LifecycleEventScope
+import com.netflix.spinnaker.keel.lifecycle.LifecycleEventScope.PRE_DEPLOYMENT
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventStatus
-import com.netflix.spinnaker.keel.lifecycle.LifecycleEventType
+import com.netflix.spinnaker.keel.lifecycle.LifecycleEventType.BAKE
 import com.netflix.spinnaker.keel.network.NetworkEndpoint
 import com.netflix.spinnaker.keel.network.NetworkEndpointProvider
 import com.netflix.spinnaker.keel.network.NetworkEndpointType.DNS
@@ -182,8 +182,8 @@ class NotificationEventListenerTests : JUnit5Minutests {
     }
 
     val lifecycleEvent = LifecycleEvent(
-      type = LifecycleEventType.BAKE,
-      scope = LifecycleEventScope.PRE_DEPLOYMENT,
+      type = BAKE,
+      scope = PRE_DEPLOYMENT,
       status = LifecycleEventStatus.FAILED,
       deliveryConfigName = releaseArtifact.deliveryConfigName!!,
       artifactReference = releaseArtifact.reference,

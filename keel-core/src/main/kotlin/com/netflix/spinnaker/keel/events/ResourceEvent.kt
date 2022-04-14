@@ -26,8 +26,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo.Id
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceKind
 import com.netflix.spinnaker.keel.api.actuation.Task
-import com.netflix.spinnaker.keel.core.ResourceCurrentlyUnresolvable
-import com.netflix.spinnaker.keel.enforcers.ActiveVerifications
+import com.netflix.spinnaker.keel.exceptions.ResourceCurrentlyUnresolvable
 import com.netflix.spinnaker.keel.events.ResourceState.Diff
 import com.netflix.spinnaker.keel.events.ResourceState.Error
 import com.netflix.spinnaker.keel.events.ResourceState.Missing
@@ -38,6 +37,7 @@ import com.netflix.spinnaker.keel.events.EventLevel.ERROR
 import com.netflix.spinnaker.keel.events.EventLevel.SUCCESS
 import com.netflix.spinnaker.keel.exceptions.DetailedUserException
 import com.netflix.spinnaker.keel.api.ResourceStatus
+import com.netflix.spinnaker.keel.exceptions.ActiveVerifications
 import com.netflix.spinnaker.kork.exceptions.SpinnakerException
 import com.netflix.spinnaker.kork.exceptions.SystemException
 import com.netflix.spinnaker.kork.exceptions.UserException

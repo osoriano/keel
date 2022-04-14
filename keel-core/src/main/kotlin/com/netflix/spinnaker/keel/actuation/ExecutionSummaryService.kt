@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonAlias
 import com.netflix.buoy.sdk.model.RolloutTarget
 import com.netflix.spinnaker.keel.api.TaskStatus
 import java.time.Instant
-import java.time.temporal.ChronoUnit
 
 /**
  * Provides the data needed by the UI to visualize a task
