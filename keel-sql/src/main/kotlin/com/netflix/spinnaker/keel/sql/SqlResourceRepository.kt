@@ -115,7 +115,13 @@ class SqlResourceRepository(
         .select(ACTIVE_RESOURCE.KIND, ACTIVE_RESOURCE.METADATA, ACTIVE_RESOURCE.SPEC)
         .from(ACTIVE_RESOURCE)
         .where(ACTIVE_RESOURCE.ID.eq(id))
-        .fetchOne()
+        .fetch()
+        .also {
+          if (it.size > 1) {
+            log.error("Duplicate active resource record for $id. This is bug! Please fix the cause.")
+          }
+        }
+        .firstOrNull()
         ?.let { (kind, metadata, spec) ->
           callback(kind, metadata, spec)
         } ?: throw NoSuchResourceId(id)
