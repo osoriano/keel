@@ -670,8 +670,7 @@ internal class ResourceActuatorTests : JUnit5Minutests {
           }
         }
 
-        test("resource checking is skipped and resource is vetoed") {
-          verify { publisher.publishEvent(ResourceCheckSkipped(resource.kind, resource.id, "aVeto")) }
+        test("resource actuation is vetoed") {
           verify { publisher.publishEvent(ofType<ResourceActuationVetoed>()) }
         }
       }

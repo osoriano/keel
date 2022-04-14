@@ -34,7 +34,7 @@ class VetoEnforcerTests : JUnit5Minutests {
 
     val r = resource()
 
-    fun canCheck() = runBlocking { subject.canCheck(r) }
+    fun canActuate() = runBlocking { subject.canActuate(r) }
   }
 
   fun allowTests() = rootContext<Fixture> {
@@ -46,7 +46,7 @@ class VetoEnforcerTests : JUnit5Minutests {
 
     context("always allow veto") {
       test("resource gets checked") {
-        val response = canCheck()
+        val response = canActuate()
         expectThat(response.allowed).isTrue()
       }
     }
@@ -60,7 +60,7 @@ class VetoEnforcerTests : JUnit5Minutests {
 
       context("always deny veto") {
         test("when we have one deny we deny overall") {
-          val response = canCheck()
+          val response = canActuate()
           expectThat(response.allowed).isFalse()
         }
       }

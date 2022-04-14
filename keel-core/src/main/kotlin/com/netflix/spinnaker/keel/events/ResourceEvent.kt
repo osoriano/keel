@@ -94,7 +94,7 @@ data class ResourceCreated(
   override val version: Int,
   override val application: String,
   override val timestamp: Instant,
-  override val displayName: String = "Resource definition created",
+  override val displayText: String = "Resource definition created",
 ) : ResourceEvent() {
 
   constructor(resource: Resource<*>, clock: Clock = Companion.clock) : this(
@@ -119,7 +119,7 @@ data class ResourceUpdated(
   override val application: String,
   val delta: Map<String, Any?>,
   override val timestamp: Instant,
-  override val displayName: String = "Resource definition updated",
+  override val displayText: String = "Resource definition updated",
 ) : ResourceEvent() {
   constructor(resource: Resource<*>, delta: Map<String, Any?>, clock: Clock = Companion.clock) : this(
     resource.kind,
@@ -137,7 +137,7 @@ data class ResourceDeleted(
   override val version: Int,
   override val application: String,
   override val timestamp: Instant,
-  override val displayName: String = "Resource definition deleted",
+  override val displayText: String = "Resource definition deleted",
 ) : ResourceEvent() {
   constructor(resource: Resource<*>, clock: Clock = Companion.clock) : this(
     resource.kind,
@@ -164,7 +164,7 @@ data class ResourceMissing(
   override val version: Int,
   override val application: String,
   override val timestamp: Instant,
-  override val displayName: String = "Resource not found",
+  override val displayText: String = "Resource not found",
   override val firstTriggeredAt: Instant = timestamp,
 ) : ResourceCheckResult() {
   @JsonIgnore
@@ -191,7 +191,7 @@ data class ResourceDeltaDetected(
   override val application: String,
   val delta: Map<String, Any?>,
   override val timestamp: Instant,
-  override val displayName: String = "Resource does not match current definition",
+  override val displayText: String = "Resource does not match current definition",
   override val firstTriggeredAt: Instant = timestamp,
 ) : ResourceCheckResult() {
   @JsonIgnore
@@ -220,7 +220,7 @@ data class ResourceActuationLaunched(
   val tasks: List<Task>,
   override val timestamp: Instant,
 
-  override val displayName: String = "Updating resource to match current definition",
+  override val displayText: String = "Updating resource to match current definition",
 ) : ResourceEvent() {
   constructor(resource: Resource<*>, plugin: String, tasks: List<Task>, clock: Clock = Companion.clock) :
     this(
@@ -244,7 +244,7 @@ data class ResourceActuationPaused(
   override val application: String,
   override val timestamp: Instant,
   override val triggeredBy: String?,
-  override val displayName: String = "Resource management paused",
+  override val displayText: String = "Resource management paused",
   override val firstTriggeredAt: Instant = timestamp,
   override val count: Int = 1,
 ) : ResourceEvent(), NonRepeatableEvent {
@@ -279,14 +279,15 @@ data class ResourceActuationVetoed(
   val reason: String?,
   val veto: String? = null,
   val suggestedStatus: ResourceStatus? = null,
+  val delta: Map<String, Any?> = emptyMap(),
   override val timestamp: Instant,
   override val level: EventLevel = WARNING,
-  override val displayName: String = "Unable to update resource to match current definition${if (reason != null) " - $reason" else ""}",
+  override val displayText: String = "Unable to update resource to match current definition${if (reason != null) " - $reason" else ""}",
   override val firstTriggeredAt: Instant = timestamp,
   override val count: Int = 1,
 ) : ResourceEvent(message = reason), NonRepeatableEvent {
 
-  constructor(resource: Resource<*>, reason: String?, veto: String? = null, suggestedStatus: ResourceStatus? = null, clock: Clock = Companion.clock) : this(
+  constructor(resource: Resource<*>, reason: String?, veto: String? = null, suggestedStatus: ResourceStatus? = null, delta: Map<String, Any?> = emptyMap(), clock: Clock = Companion.clock) : this(
     resource.kind,
     resource.id,
     resource.version,
@@ -294,6 +295,7 @@ data class ResourceActuationVetoed(
     reason,
     veto,
     suggestedStatus,
+    delta,
     clock.instant()
   )
 }
@@ -308,7 +310,7 @@ data class ResourceActuationResumed(
   override val application: String,
   override val triggeredBy: String?,
   override val timestamp: Instant,
-  override val displayName: String = "Resource management resumed",
+  override val displayText: String = "Resource management resumed",
   override val firstTriggeredAt: Instant = timestamp,
   override val count: Int = 1,
 ) : ResourceEvent(), NonRepeatableEvent {
@@ -337,7 +339,7 @@ data class ResourceTaskFailed(
   val tasks: List<Task> = emptyList(),
   override val timestamp: Instant,
   override val level: EventLevel = ERROR,
-  override val displayName: String = "Failed to update resource to match definition${if (reason != null) " - $reason" else ""}",
+  override val displayText: String = "Failed to update resource to match definition${if (reason != null) " - $reason" else ""}",
 ) : ResourceEvent(message = reason) {
 
   constructor(resource: Resource<*>, reason: String?, tasks: List<Task>, clock: Clock = Companion.clock) : this(
@@ -362,7 +364,7 @@ data class ResourceTaskSucceeded(
   val tasks: List<Task> = emptyList(),
   override val timestamp: Instant,
   override val level: EventLevel = SUCCESS,
-  override val displayName: String = "Resource update task succeeded",
+  override val displayText: String = "Resource update task succeeded",
 ) : ResourceEvent() {
 
   constructor(resource: Resource<*>, tasks: List<Task>, clock: Clock = Companion.clock) : this(
@@ -386,7 +388,7 @@ data class ResourceDeltaResolved(
   override val application: String,
   override val timestamp: Instant,
   override val level: EventLevel = SUCCESS,
-  override val displayName: String = "Resource was matched to its definition successfully",
+  override val displayText: String = "Resource was matched to its definition successfully",
   override val firstTriggeredAt: Instant = timestamp,
 ) : ResourceCheckResult() {
   @JsonIgnore
@@ -409,7 +411,7 @@ data class ResourceValid(
   override val timestamp: Instant,
   override val firstTriggeredAt: Instant = timestamp,
   override val level: EventLevel = SUCCESS,
-  override val displayName: String = "Resource matches its definition",
+  override val displayText: String = "Resource matches its definition",
 ) : ResourceCheckResult() {
   @JsonIgnore
   override val state = Ok
@@ -433,7 +435,7 @@ data class ResourceCheckUnresolvable(
   override val message: String?,
   override val level: EventLevel = WARNING,
   override val firstTriggeredAt: Instant = timestamp,
-  override val displayName: String = "Unable to compare resource to its definition${if (message != null) " - $message" else ""}",
+  override val displayText: String = "Unable to compare resource to its definition${if (message != null) " - $message" else ""}",
 ) : ResourceCheckResult(message = message) {
   @JsonIgnore
   override val state = Unresolvable
@@ -483,7 +485,7 @@ data class ResourceCheckError(
   override val timestamp: Instant,
   val exceptionType: Class<out SpinnakerException>,
   val exceptionMessage: String?,
-  override val displayName: String = "Failed to check resource status",
+  override val displayText: String = "Failed to check resource status",
   override val level: EventLevel = ERROR,
   override val firstTriggeredAt: Instant = timestamp,
   val errors: List<String> = emptyList()
@@ -514,7 +516,7 @@ data class ResourceDiffNotActionable(
   override val timestamp: Instant,
   override val message: String?,
   override val level: EventLevel = WARNING,
-  override val displayName: String = "Unable to update resource to match current definition${if (message != null) " - $message" else ""}",
+  override val displayText: String = "Unable to update resource to match current definition${if (message != null) " - $message" else ""}",
   override val firstTriggeredAt: Instant = timestamp,
   override val count: Int = 1,
 ) : ResourceEvent(), NonRepeatableEvent {
@@ -536,7 +538,7 @@ data class VerificationBlockedActuation(
   override val application: String,
   override val timestamp: Instant,
   override val message: String?,
-  override val displayName: String = "Waiting for verification to complete before updating can start",
+  override val displayText: String = "Waiting for verification to complete before updating can start",
   override val firstTriggeredAt: Instant = timestamp,
   override val count: Int = 1,
 ) : ResourceEvent(), NonRepeatableEvent {
@@ -563,7 +565,7 @@ data class VerificationBlockedActuation(
 class MaxResourceDeletionAttemptsReached(
   override val application: String,
   override val timestamp: Instant,
-  override val displayName: String,
+  override val displayText: String,
   override val kind: ResourceKind,
   override val id: String,
   override val version: Int,
@@ -593,7 +595,7 @@ data class ResourceDeletionLaunched(
   val plugin: String,
   val tasks: List<Task>,
   override val timestamp: Instant,
-  override val displayName: String = "Deleting resource",
+  override val displayText: String = "Deleting resource",
 ) : ResourceEvent() {
   constructor(resource: Resource<*>, plugin: String, tasks: List<Task>, clock: Clock = Companion.clock) :
     this(

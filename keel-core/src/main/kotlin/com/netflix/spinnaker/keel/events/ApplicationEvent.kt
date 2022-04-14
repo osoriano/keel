@@ -33,7 +33,7 @@ data class ApplicationActuationPaused(
   override val triggeredBy: String?,
   val comment: String? = null,
   override val level: EventLevel = WARNING,
-  override val displayName: String = "Application management paused",
+  override val displayText: String = "Application management paused",
   override val firstTriggeredAt: Instant = timestamp,
   override val count: Int = 1,
 ) : ApplicationEvent(), ResourceHistoryEvent, NonRepeatableEvent {
@@ -53,7 +53,7 @@ data class ApplicationActuationResumed(
   override val application: String,
   override val triggeredBy: String?,
   override val timestamp: Instant,
-  override val displayName: String = "Application management resumed",
+  override val displayText: String = "Application management resumed",
   override val firstTriggeredAt: Instant = timestamp,
   override val count: Int = 1,
 ) : ApplicationEvent(), ResourceHistoryEvent, NonRepeatableEvent {

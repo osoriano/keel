@@ -25,7 +25,7 @@ abstract class PersistentEvent {
   abstract val ref: String // The unique ID of the thing associated with the scope. Defined in sub-classes.
   abstract val timestamp: Instant
   abstract val triggeredBy: String?
-  abstract val displayName: String
+  abstract val displayText: String
   open val level: EventLevel = EventLevel.INFO
 
   companion object {

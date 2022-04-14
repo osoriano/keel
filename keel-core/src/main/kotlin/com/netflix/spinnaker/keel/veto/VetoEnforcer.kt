@@ -23,7 +23,7 @@ import org.springframework.stereotype.Component
 
 /**
  * The veto enforcer picks up all vetos, and given a resource name
- * it looks at each veto to decide if we can check that resource.
+ * it looks at each veto to decide if we can actuate on that resource.
  *
  * One "false" overrides all "true"s
  */
@@ -32,7 +32,7 @@ class VetoEnforcer(
   val vetos: List<Veto>
 ) {
 
-  suspend fun canCheck(resource: Resource<*>): VetoResponse {
+  suspend fun canActuate(resource: Resource<*>): VetoResponse {
     vetos.forEach { veto ->
       val response = veto.check(resource)
       if (!response.allowed) {

@@ -3,14 +3,12 @@ package com.netflix.spinnaker.keel.actuation
 import brave.Tracer
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.patterns.ThreadPoolMonitor
-import com.netflix.spinnaker.keel.api.CompleteVersionedArtifact
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceDiff
 import com.netflix.spinnaker.keel.api.ResourceDiffFactory
 import com.netflix.spinnaker.keel.api.ResourceSpec
-import com.netflix.spinnaker.keel.api.VersionedArtifactProvider
 import com.netflix.spinnaker.keel.api.actuation.Task
 import com.netflix.spinnaker.keel.api.plugins.ActionDecision
 import com.netflix.spinnaker.keel.api.plugins.ResourceHandler
@@ -136,29 +134,42 @@ class ResourceActuator(
 
         val (desired, current) = plugin.resolve(resource)
         val diff = diffFactory.compare(desired, current)
+
         if (diff.hasChanges()) {
           log.debug("Storing diff fingerprint for resource {} delta: {}", id, diff.toDebug())
           diffFingerprintRepository.store(id, diff)
         } else {
           val numActionsTaken = diffFingerprintRepository.actionTakenCount(id)
-          log.debug("Clearing diff fingerprint for resource {} (current == desired) - we took $numActionsTaken to try and resolve the diff", id)
+          log.debug("Clearing diff fingerprint for resource $id (current == desired) - we took $numActionsTaken action(s) to resolve the diff")
           diffFingerprintRepository.clear(id)
+
+          log.info("Resource {} is valid", id)
+          when (resourceRepository.lastEvent(id)) {
+            is ResourceActuationLaunched -> log.debug("waiting for actuating task to be completed") // do nothing and wait
+            is ResourceDeltaDetected, is ResourceTaskSucceeded, is ResourceTaskFailed -> {
+              // if a delta was detected and a task wasn't launched, the delta is resolved
+              // if a task was launched and it completed, either successfully or not, the delta is resolved
+              publisher.publishEvent(ResourceDeltaResolved(resource, clock))
+            }
+            else -> publisher.publishEvent(ResourceValid(resource, clock))
+          }
+          return@withTracingContext
         }
 
-        val response = vetoEnforcer.canCheck(resource)
-        if (!response.allowed) {
-          log.debug("Skipping actuation for resource {} because it was vetoed: {}", resource.id, response.message)
-          publisher.publishEvent(ResourceCheckSkipped(resource.kind, resource.id, response.vetoName))
+        val vetoResponse = vetoEnforcer.canActuate(resource)
+        if (!vetoResponse.allowed) {
+          log.debug("Skipping actuation for resource {} because it was vetoed: {}", resource.id, vetoResponse.message)
           publisher.publishEvent(
             ResourceActuationVetoed(
-              resource.kind,
-              resource.id,
-              resource.version,
-              resource.application,
-              response.message,
-              response.vetoName,
-              response.suggestedStatus,
-              clock.instant()
+              kind = resource.kind,
+              id = resource.id,
+              version = resource.version,
+              application = resource.application,
+              reason = vetoResponse.message,
+              veto = vetoResponse.vetoName,
+              suggestedStatus = vetoResponse.suggestedStatus,
+              delta = diff.toConciseDeltaJson(),
+              timestamp = clock.instant()
             )
           )
           return@withTracingContext
@@ -177,7 +188,7 @@ class ResourceActuator(
                   diffFingerprintRepository.markActionTaken(id)
                 }
             }
-            diff.hasChanges() -> {
+            else -> {
               log.warn("Resource {} is invalid", id)
               log.info("Resource {} delta: {}", id, diff.toDebug())
               publisher.publishEvent(ResourceDeltaDetected(resource, diff.toDeltaJson(), clock))
@@ -190,18 +201,6 @@ class ResourceActuator(
                       diffFingerprintRepository.markActionTaken(id)
                     }
                   }
-              }
-            }
-            else -> {
-              log.info("Resource {} is valid", id)
-              when (resourceRepository.lastEvent(id)) {
-                is ResourceActuationLaunched -> log.debug("waiting for actuating task to be completed") // do nothing and wait
-                is ResourceDeltaDetected, is ResourceTaskSucceeded, is ResourceTaskFailed -> {
-                  // if a delta was detected and a task wasn't launched, the delta is resolved
-                  // if a task was launched and it completed, either successfully or not, the delta is resolved
-                  publisher.publishEvent(ResourceDeltaResolved(resource, clock))
-                }
-                else -> publisher.publishEvent(ResourceValid(resource, clock))
               }
             }
           }
@@ -227,27 +226,12 @@ class ResourceActuator(
     }
   }
 
-  private fun Any?.isEmpty() =
+  private fun Any.isEmpty() =
     when(this) {
       is Map<*, *> -> this.isEmpty()
       is Collection<*> -> this.isEmpty()
       else -> false
     }
-
-  private fun Any?.findArtifact() : CompleteVersionedArtifact? =
-    when (this) {
-      is Map<*, *> -> {
-        if (this.size > 0) {
-          @Suppress("UNCHECKED_CAST")
-          (this as Map<String, VersionedArtifactProvider>).values.first()
-        } else {
-          null
-        }
-      }
-      is VersionedArtifactProvider -> this
-      else -> null
-    }?.completeVersionedArtifactOrNull()
-
 
   private fun DeliveryConfig.isPromotionCheckStale(): Boolean {
     val age = Duration.between(
