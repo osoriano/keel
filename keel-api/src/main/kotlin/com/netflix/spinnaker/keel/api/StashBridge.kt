@@ -10,4 +10,6 @@ interface StashBridge {
   suspend fun createCommitAndPrFromConfig(
     migrationCommitData: MigrationCommitData
   ): String?
+
+  suspend fun deleteFork(repoSlug: String)
 }

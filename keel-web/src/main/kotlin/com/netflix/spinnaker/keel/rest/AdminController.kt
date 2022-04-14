@@ -321,6 +321,16 @@ class AdminController(
     )
   }
 
+  @DeleteMapping(
+    path = ["/migration/{application}"]
+  )
+  @ResponseStatus(NO_CONTENT)
+  fun deleteMigrationApplicationData(
+    @PathVariable("application") application: String
+  ) {
+    applicationService.deleteMigrationApplication(application)
+  }
+
 }
 
 data class CheckPermissionBody(

@@ -293,17 +293,23 @@ interface DeliveryConfigRepository : PeriodicallyCheckedRepository<DeliveryConfi
    * Return the information needed in order to open a PR for an application.
    * During a successful export process, the generated delivery config, repoSlug and projectKey and store them by app.
    */
-  fun getMigratableApplicationData(app: String): ApplicationPrData
+  fun getMigratableApplicationData(application: String): ApplicationPrData
 
   /**
    * Storing the created pr link for an application
    */
-  fun storePrLinkForMigratedApplication(app: String, prLink: String)
+
+  fun storePrLinkForMigratedApplication(application: String, prLink: String)
+
+  /**
+   * Clean the created pr link for an application in case of an error
+   */
+  fun cleanPrLink(application: String)
 
   /**
    * Storing the created jira link for an application
    */
-  fun storeJiraLinkForMigratedApplication(app: String, jiraLink: String)
+  fun storeJiraLinkForMigratedApplication(application: String, jiraLink: String)
 
   /**
    * Check if a PR id is for migrating an app

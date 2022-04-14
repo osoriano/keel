@@ -7,6 +7,7 @@ import com.netflix.spinnaker.keel.api.stash.PullRequest
 import com.netflix.spinnaker.keel.api.stash.Repo
 import retrofit2.Response
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Multipart
 import retrofit2.http.POST
@@ -67,6 +68,15 @@ interface StashService {
     @Path("projectKey") projectKey: String,
     @Path("repositorySlug") repositorySlug: String,
     @Body forkRequest: Repo
+  )
+
+  /**
+   * Delete a fork of the source repository in  repository
+   */
+  @DELETE("/rest/api/1.0/projects/{projectKey}/repos/{repositorySlug}")
+  suspend fun deleteFork(
+    @Path("projectKey") projectKey: String,
+    @Path("repositorySlug") repositorySlug: String
   )
 
   /**

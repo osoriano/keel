@@ -439,6 +439,23 @@ class ApplicationService(
     }
   }
 
+  // delete a migration application in case of an error in the migration process
+  fun deleteMigrationApplication(application: String) {
+    val applicationPrData = repository.getMigratableApplicationData(application)
+    runBlocking {
+      try {
+        //clean up the forked repository
+        stashBridge.deleteFork(applicationPrData.repoSlug)
+      } catch (ex: Exception) {
+        log.error("caught an exception while deleting application $application fork named ${applicationPrData.repoSlug}. Will proceed with cleaning up.", ex)
+      }
+    }
+    // delete the application from MD
+    repository.deleteDeliveryConfigByApplication(application)
+    repository.cleanPrLink(application)
+    log.debug("application $application migration data was deleted successfully")
+  }
+
   @ResponseStatus(HttpStatus.CONFLICT)
   private class ActionIncomplete :
     IllegalStateException("Verifications may only be retried once complete.")

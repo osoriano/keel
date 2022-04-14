@@ -781,6 +781,12 @@ class KeelRepository(
     deliveryConfigRepository.storePrLinkForMigratedApplication(application, prLink)
 
   /**
+   * Clean the created pr link for an application in case of an error
+   */
+  fun cleanPrLink(application: String) =
+    deliveryConfigRepository.cleanPrLink(application)
+
+  /**
    * Storing the jira issue link for an application
    */
   fun storeJiraLinkForMigratedApplication(application: String, jiraLink: String) =

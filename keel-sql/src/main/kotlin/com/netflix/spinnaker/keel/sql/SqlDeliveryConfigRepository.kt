@@ -1578,6 +1578,15 @@ class SqlDeliveryConfigRepository(
     }
   }
 
+  override fun cleanPrLink(application: String) {
+    sqlRetry.withRetry(WRITE) {
+      jooq.update(MIGRATION_STATUS)
+        .setNull(MIGRATION_STATUS.PR_LINK)
+        .where(MIGRATION_STATUS.APPLICATION.eq(application))
+        .execute()
+    }
+  }
+
   override fun storeJiraLinkForMigratedApplication(application: String, jiraLink: String) {
     sqlRetry.withRetry(WRITE) {
       jooq.update(MIGRATION_STATUS)

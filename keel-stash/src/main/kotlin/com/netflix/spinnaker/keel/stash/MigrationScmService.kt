@@ -67,6 +67,12 @@ class MigrationScmService(
     }
   }
 
+  override suspend fun deleteFork(repoSlug: String) {
+    log.debug("starting to delete repo $repoSlug fork from $MD_PROJECT_KEY project")
+    stashService.deleteFork(MD_PROJECT_KEY, repoSlug)
+    log.debug("repo $repoSlug fork was deleted successfully from $MD_PROJECT_KEY project")
+  }
+
   private fun MigrationCommitData.storeSuccessfulBuildStatus(commitId: String) {
     runBlocking {
       stashService.storeBuildStatus(projectKey, repoSlug, commitId, BuildResult(
