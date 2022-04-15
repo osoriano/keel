@@ -86,6 +86,7 @@ data class Resource<out T : ResourceSpec>(
 
     other as Resource<*>
 
+    if (id != other.id) return false
     if (kind != other.kind) return false
     if (spec != other.spec) return false
 
@@ -93,7 +94,8 @@ data class Resource<out T : ResourceSpec>(
   }
 
   override fun hashCode(): Int {
-    var result = kind.hashCode()
+    var result = id.hashCode()
+    result = 31 * result + kind.hashCode()
     result = 31 * result + spec.hashCode()
     return result
   }
