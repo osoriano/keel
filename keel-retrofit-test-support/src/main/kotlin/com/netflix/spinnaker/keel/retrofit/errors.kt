@@ -9,6 +9,10 @@ val RETROFIT_NOT_FOUND = HttpException(
   error<Any>(404, "".toResponseBody("application/json".toMediaTypeOrNull()))
 )
 
+val RETROFIT_UNAUTHORIZED = HttpException(
+  error<Any>(401, "".toResponseBody("application/json".toMediaTypeOrNull()))
+)
+
 val RETROFIT_SERVICE_UNAVAILABLE = HttpException(
   error<Any>(503, "".toResponseBody("application/json".toMediaTypeOrNull()))
 )

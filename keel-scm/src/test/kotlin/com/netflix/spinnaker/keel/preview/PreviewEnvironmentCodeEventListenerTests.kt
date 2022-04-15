@@ -53,6 +53,7 @@ import com.netflix.spinnaker.keel.preview.PreviewEnvironmentCodeEventListener.Co
 import com.netflix.spinnaker.keel.preview.PreviewEnvironmentCodeEventListener.Companion.PREVIEW_ENVIRONMENT_UPSERT_ERROR
 import com.netflix.spinnaker.keel.preview.PreviewEnvironmentCodeEventListener.Companion.PREVIEW_ENVIRONMENT_UPSERT_SUCCESS
 import com.netflix.spinnaker.keel.retrofit.RETROFIT_NOT_FOUND
+import com.netflix.spinnaker.keel.retrofit.RETROFIT_UNAUTHORIZED
 import com.netflix.spinnaker.keel.scm.DELIVERY_CONFIG_RETRIEVAL_ERROR
 import com.netflix.spinnaker.keel.scm.DELIVERY_CONFIG_RETRIEVAL_SUCCESS
 import com.netflix.spinnaker.keel.scm.PrDeclinedEvent
@@ -754,6 +755,32 @@ internal class PreviewEnvironmentCodeEventListenerTests : JUnit5Minutests {
             }
             expectThat(previewEnv.isPreview).isTrue()
           }
+        }
+
+        context("when keel doesn't have permission to access the repo") {
+          modifyFixture {
+            every {
+              importer.import(any(), manifestPath = any())
+            } throws RETROFIT_UNAUTHORIZED
+          }
+
+          before {
+            subject.handlePrEvent(prOpenedEvent)
+          }
+
+          test("we fall back to the delivery config in the database") {
+            verify {
+              repository.getDeliveryConfig(deliveryConfig.name)
+            }
+          }
+
+          test("the preview environment is stored in the database") {
+            verify {
+              repository.upsertPreviewEnvironment(any(), any(), any())
+            }
+            expectThat(previewEnv.isPreview).isTrue()
+          }
+
         }
 
         context("with other exceptions") {

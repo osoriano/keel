@@ -19,6 +19,7 @@ import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
 import com.netflix.spinnaker.keel.persistence.EnvironmentDeletionRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.retrofit.isNotFound
+import com.netflix.spinnaker.keel.retrofit.isUnauthorized
 import com.netflix.spinnaker.keel.scm.CodeEvent
 import com.netflix.spinnaker.keel.scm.CommitCreatedEvent
 import com.netflix.spinnaker.keel.scm.DELIVERY_CONFIG_RETRIEVAL_ERROR
@@ -184,21 +185,31 @@ class PreviewEnvironmentCodeEventListener(
     return try {
       getPreviewDeliveryConfigFromBranch(event, deliveryConfig)
     } catch (e: Exception) {
-      if (e.isNotFound) {
-        log.debug("Falling back to main delivery config for preview environment of ${deliveryConfig.application}, branch ${event.pullRequestBranch}")
-        // We get a fully-hydrated delivery config here because the one we receive above doesn't include environments
-        // for the sake of performance.
-        repository.getDeliveryConfig(deliveryConfig.name)
-      } else {
-        eventPublisher.publishDeliveryConfigImportFailed(
-          deliveryConfig.application,
-          event,
-          event.pullRequestBranch,
-          clock.instant(),
-          e.message ?: "Unknown",
-          scmUtils.getPullRequestLink(event)
-        )
-        null
+      return when {
+        e.isNotFound -> {
+          log.debug("No delivery config in branch. Falling back to main delivery config for preview environment of ${deliveryConfig.application}, branch ${event.pullRequestBranch}")
+          // We get a fully-hydrated delivery config here because the one we receive above doesn't include environments
+          // for the sake of performance.
+          repository.getDeliveryConfig(deliveryConfig.name)
+        }
+        e.isUnauthorized -> {
+          log.debug("Permission denied fetching delivery config from branch. Falling back to main delivery config for preview environment of ${deliveryConfig.application}, branch ${event.pullRequestBranch}")
+          // We get a fully-hydrated delivery config here because the one we receive above doesn't include environments
+          // for the sake of performance.
+          repository.getDeliveryConfig(deliveryConfig.name)
+        }
+        else -> {
+          log.warn("Unknown error getting delivery from preview environment", e)
+          eventPublisher.publishDeliveryConfigImportFailed(
+            deliveryConfig.application,
+            event,
+            event.pullRequestBranch,
+            clock.instant(),
+            e.message ?: "Unknown",
+            scmUtils.getPullRequestLink(event)
+          )
+          null
+        }
       }
     }
   }
