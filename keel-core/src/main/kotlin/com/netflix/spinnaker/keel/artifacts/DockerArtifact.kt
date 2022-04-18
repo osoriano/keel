@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.artifacts
 
 import com.fasterxml.jackson.annotation.JsonIgnore
+import com.netflix.spinnaker.keel.api.schema.SchemaIgnore
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactOriginFilter
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus
 import com.netflix.spinnaker.keel.api.artifacts.BranchFilter
@@ -22,6 +23,7 @@ data class DockerArtifact(
   val captureGroupRegex: String? = null,
   @JsonIgnore val branch: String? = null,
   override val from: ArtifactOriginFilter? = branch?.let { ArtifactOriginFilter(BranchFilter(name = branch)) },
+  @SchemaIgnore
   override val metadata: Map<String, Any?> = emptyMap()
 ) : DeliveryArtifact() {
   init {

@@ -8,15 +8,18 @@ import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.NotificationConfig
 import com.netflix.spinnaker.keel.api.PreviewEnvironmentSpec
+import com.netflix.spinnaker.keel.api.schema.SchemaIgnore
 import com.netflix.spinnaker.keel.api.SubnetAwareLocations
 import com.netflix.spinnaker.keel.api.Verification
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.postdeploy.PostDeployAction
 import com.netflix.spinnaker.keel.api.schema.Description
+import com.netflix.spinnaker.keel.api.schema.Title
 import com.netflix.spinnaker.keel.serialization.SubmittedEnvironmentDeserializer
 
 const val DEFAULT_SERVICE_ACCOUNT = "keel@spinnaker.io"
 
+@Title("Delivery Config")
 @Description("A manifest specifying the environments and resources that comprise an application.")
 data class SubmittedDeliveryConfig(
   val application: String,
@@ -29,6 +32,7 @@ data class SubmittedDeliveryConfig(
   val previewEnvironments: Set<PreviewEnvironmentSpec> = emptySet(),
   @get:JsonInclude(JsonInclude.Include.NON_EMPTY)
   val metadata: Map<String, Any?>? = emptyMap(),
+  @SchemaIgnore
   val rawConfig: String? = null
 ) {
 
@@ -60,8 +64,10 @@ data class SubmittedDeliveryConfig(
 }
 
 @JsonDeserialize(using = SubmittedEnvironmentDeserializer::class)
+@Title("Environment")
 data class SubmittedEnvironment(
   val name: String,
+  @Description("The environment's cloud infrastructure - clusters, security groups, graphql schemas, etc")
   val resources: Set<SubmittedResource<*>>,
   @get:JsonInclude(JsonInclude.Include.NON_EMPTY)
   val constraints: Set<Constraint> = emptySet(),

@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.api
 
 import com.fasterxml.jackson.annotation.JsonIgnore
+import com.netflix.spinnaker.keel.api.schema.SchemaIgnore
 
 /**
  * Internal representation of a resource.

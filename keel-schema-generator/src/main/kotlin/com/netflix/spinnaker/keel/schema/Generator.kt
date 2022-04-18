@@ -1,11 +1,13 @@
 package com.netflix.spinnaker.keel.schema
 
 import com.fasterxml.jackson.annotation.JsonCreator
+import com.netflix.spinnaker.keel.api.schema.SchemaIgnore
 import com.netflix.spinnaker.keel.api.schema.Description
 import com.netflix.spinnaker.keel.api.schema.Discriminator
 import com.netflix.spinnaker.keel.api.schema.Factory
 import com.netflix.spinnaker.keel.api.schema.Literal
 import com.netflix.spinnaker.keel.api.schema.Optional
+import com.netflix.spinnaker.keel.api.schema.Title
 import com.netflix.spinnaker.keel.api.support.ExtensionRegistry
 import java.time.Duration
 import java.time.Instant
@@ -71,7 +73,7 @@ class Generator(
 
     return RootSchema(
       `$id` = "http://keel.spinnaker.io/${type.simpleName}",
-      title = checkNotNull(type.simpleName),
+      title = type.title,
       description = type.description,
       properties = schema.properties,
       required = schema.required,
@@ -107,7 +109,7 @@ class Generator(
     discriminator: Pair<KProperty<String>, String>?
   ) =
     ObjectSchema(
-      title = checkNotNull(type.simpleName),
+      title = type.title,
       description = type.description,
       properties = type.candidateProperties.associate {
         checkNotNull(it.name) to buildProperty(owner = type.starProjectedType, parameter = it)
@@ -150,7 +152,7 @@ class Generator(
     val discriminatorName = type.discriminatorProperty?.name
     val commonProperties = type.candidateProperties - genericProperties
     return ObjectSchema(
-      title = checkNotNull(type.simpleName),
+      title = type.title,
       description = type.description,
       properties = commonProperties
         .associate {
@@ -227,8 +229,11 @@ class Generator(
     get() = when {
       isAbstract -> emptyList()
       isSingleton -> emptyList()
-      else -> preferredConstructor.parameters
+      else -> preferredConstructor.parameters.filterNot { it.hasAnnotation<SchemaIgnore>() }
     }
+
+  private val KClass<*>.title: String
+    get() = checkNotNull(this.findAnnotation<Title>()?.value ?: this.simpleName)
 
   /**
    * Heuristic to find the best constructor to use to find properties required in order to
@@ -264,17 +269,12 @@ class Generator(
    *   [Context] if not already defined.
    */
   private fun Context.buildProperty(
-    owner: KType,
-    parameter: KParameter,
-    type: KType = parameter.type
-  ): Schema =
-    buildProperty(
-      type,
-      owner
-        .jvmErasure
-        .backingPropertyFor(parameter)
-        ?.description
-    )
+    owner: KType, parameter: KParameter, type: KType = parameter.type
+  ): Schema = buildProperty(
+    type,
+    owner.jvmErasure.backingPropertyFor(parameter)?.description
+      ?: parameter.findAnnotation<Description>()?.value
+  )
 
   private fun Context.buildProperty(type: KType, description: String? = null): Schema {
     return when {

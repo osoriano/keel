@@ -26,23 +26,24 @@ import com.netflix.spinnaker.keel.api.ResourceSpec
 import com.netflix.spinnaker.keel.api.generateId
 import com.netflix.spinnaker.keel.api.schema.Description
 import com.netflix.spinnaker.keel.api.schema.Discriminator
+import com.netflix.spinnaker.keel.api.schema.Title
 
 /**
  * External representation of a resource that would be submitted to the API
  */
-@Description("A resource as submitted to the Managed Delivery API.")
+@Title("Resource")
 data class SubmittedResource<T : ResourceSpec>(
-  @get:JsonInclude(NON_EMPTY)
-  @Description("Optional metadata about the resource.")
-  val metadata: Map<String, Any?> = emptyMap(),
-
   @Discriminator
   @Description("The kind of resource `spec` represents.")
   val kind: ResourceKind,
 
   @Description("The specification of the resource")
   @JsonTypeInfo(use = Id.NAME, include = As.EXTERNAL_PROPERTY, property = "kind")
-  val spec: T
+  val spec: T,
+
+  @get:JsonInclude(NON_EMPTY)
+  @Description("Optional metadata about the resource.")
+  val metadata: Map<String, Any?> = emptyMap()
 )
 
 val <T : ResourceSpec> SubmittedResource<T>.id: String

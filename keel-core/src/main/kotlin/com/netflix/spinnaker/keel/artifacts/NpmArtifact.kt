@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.artifacts
 
+import com.netflix.spinnaker.keel.api.schema.SchemaIgnore
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactOriginFilter
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
@@ -15,6 +16,7 @@ data class NpmArtifact(
   override val reference: String = name,
   override val statuses: Set<ArtifactStatus> = emptySet(),
   override val from: ArtifactOriginFilter? = null,
+  @SchemaIgnore
   override val metadata: Map<String, Any?> = emptyMap()
 ) : DeliveryArtifact() {
   override val type = NPM

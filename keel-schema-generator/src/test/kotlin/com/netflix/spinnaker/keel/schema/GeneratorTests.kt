@@ -11,6 +11,8 @@ import com.netflix.spinnaker.keel.api.schema.Discriminator
 import com.netflix.spinnaker.keel.api.schema.Factory
 import com.netflix.spinnaker.keel.api.schema.Literal
 import com.netflix.spinnaker.keel.api.schema.Optional
+import com.netflix.spinnaker.keel.api.schema.SchemaIgnore
+import com.netflix.spinnaker.keel.api.schema.Title
 import com.netflix.spinnaker.keel.extensions.DefaultExtensionRegistry
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -28,6 +30,7 @@ import strikt.assertions.containsKey
 import strikt.assertions.containsKeys
 import strikt.assertions.doesNotContain
 import strikt.assertions.get
+import strikt.assertions.hasEntry
 import strikt.assertions.hasSize
 import strikt.assertions.isA
 import strikt.assertions.isEqualTo
@@ -828,6 +831,61 @@ internal class GeneratorTests {
         .containsKey(Bar::string.name)
         .not()
         .containsKey(Foo::bar.name)
+    }
+  }
+
+  @Nested
+  @DisplayName("@SchemaIgnore annotated elements")
+  class IgnoreAnnotations : GeneratorTestBase() {
+    data class Foo(
+      val string: String,
+      @SchemaIgnore
+      val nullableString: String?,
+      @SchemaIgnore
+      val bar: Bar,
+    ) {
+      @SchemaIgnore
+      val metadata: MutableMap<String, Any?> = mutableMapOf()
+    }
+
+    data class Bar(
+      val string: String
+    )
+
+    val schema by lazy { generateSchema<Foo>() }
+
+    @Test
+    fun `Ignored fields are removed from the schema`() {
+      expectThat(schema.properties).hasSize(1).not().containsKeys(Foo::nullableString.name, Foo::bar.name)
+    }
+  }
+
+  @Nested
+  @DisplayName("@Title annotated elements")
+  class TitleAnnotation : GeneratorTestBase() {
+    @Title("Root Object")
+    data class Foo(
+      val string: String,
+      val bar: Bar,
+    )
+
+    @Title("Some object")
+    data class Bar(
+      val string: String
+    )
+
+
+    val schema by lazy { generateSchema<Foo>() }
+
+    @Test
+    fun `Set title based on the annotation value`() {
+      expectThat(schema.title).isEqualTo("Root Object")
+      expectThat(schema.`$defs`)
+        .hasSize(1)
+        .get(Bar::class.java.simpleName)
+        .isA<ObjectSchema>()
+        .get { title }
+        .isEqualTo("Some object")
     }
   }
 
