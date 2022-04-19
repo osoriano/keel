@@ -4,7 +4,10 @@ import arrow.optics.Lens
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.SimpleLocations
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec.CapacitySpec
+import com.netflix.spinnaker.keel.api.ec2.ScalingSpec
+import com.netflix.spinnaker.keel.api.ec2.TargetTrackingPolicy
 import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
+import com.netflix.spinnaker.keel.api.titus.TitusScalingSpec
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroupSpec
 import com.netflix.spinnaker.keel.optics.monikerStackLens
 import com.netflix.spinnaker.keel.optics.simpleLocationsAccountLens
@@ -74,6 +77,25 @@ val titusServerGroupSpecCapacityLensNullable: Lens<TitusServerGroupSpec?, Capaci
     titusServerGroupSpec?.copy(capacity = capacity) ?: TitusServerGroupSpec(capacity = capacity)
   }
 )
+
+val titusServerGroupSpecScalingLens: Lens<TitusServerGroupSpec, ScalingSpec?> = Lens(
+  get = { it.scaling },
+  set = { titusServerGroupSpec, scaling ->
+    titusServerGroupSpec.copy(scaling = scaling) ?: TitusServerGroupSpec(scaling = scaling)
+  }
+)
+
+val titusScalingTargetTrackingPoliciesLensNullable: Lens<ScalingSpec?, Set<TargetTrackingPolicy>?> = Lens(
+  get = { (it as? TitusScalingSpec)?.targetTrackingPolicies },
+  set = { scaling, targetTrackingPolicies ->
+    if (targetTrackingPolicies == null) {
+      (scaling as? TitusScalingSpec)?.copy(targetTrackingPolicies = emptySet())
+    } else {
+      (scaling as? TitusScalingSpec)?.copy(targetTrackingPolicies = targetTrackingPolicies) ?: TitusScalingSpec(targetTrackingPolicies = targetTrackingPolicies)
+    }
+  }
+)
+
 
 /**
  * Lens for getting/setting [TitusServerGroupSpec.containerAttributes].

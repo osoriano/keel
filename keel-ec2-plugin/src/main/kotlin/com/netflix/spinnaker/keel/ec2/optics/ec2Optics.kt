@@ -11,6 +11,7 @@ import com.netflix.spinnaker.keel.api.ec2.InstanceMetadataServiceVersion
 import com.netflix.spinnaker.keel.api.ec2.LaunchConfigurationSpec
 import com.netflix.spinnaker.keel.api.ec2.ScalingProcess
 import com.netflix.spinnaker.keel.api.ec2.ScalingSpec
+import com.netflix.spinnaker.keel.api.ec2.TargetTrackingPolicy
 import com.netflix.spinnaker.keel.optics.monikerStackLens
 import com.netflix.spinnaker.keel.optics.subnetAwareLocationsAccountLens
 
@@ -91,6 +92,17 @@ val scalingSuspendedProcessesLensNullable: Lens<ScalingSpec?, Set<ScalingProcess
       (scaling as? EC2ScalingSpec)?.copy(suspendedProcesses = emptySet())
     } else {
       (scaling as? EC2ScalingSpec)?.copy(suspendedProcesses = suspendedProcesses) ?: EC2ScalingSpec(suspendedProcesses = suspendedProcesses)
+    }
+  }
+)
+
+val scalingTargetTrackingPoliciesLensNullable: Lens<ScalingSpec?, Set<TargetTrackingPolicy>?> = Lens(
+  get = { (it as? EC2ScalingSpec)?.targetTrackingPolicies },
+  set = { scaling, targetTrackingPolicies ->
+    if (targetTrackingPolicies == null) {
+      (scaling as? EC2ScalingSpec)?.copy(targetTrackingPolicies = emptySet())
+    } else {
+      (scaling as? EC2ScalingSpec)?.copy(targetTrackingPolicies = targetTrackingPolicies) ?: EC2ScalingSpec(targetTrackingPolicies = targetTrackingPolicies)
     }
   }
 )
