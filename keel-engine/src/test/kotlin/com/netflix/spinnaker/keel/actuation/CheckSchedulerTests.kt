@@ -81,6 +81,12 @@ internal class CheckSchedulerTests : JUnit5Minutests {
     every { getProperty("keel.resource-check.batch-size", Int::class.java, any()) } returns resourceCheckConfig.batchSize
     every { getProperty("keel.environment-check.batch-size", Int::class.java, any()) } returns environmentCheckConfig.batchSize
     every { getProperty("keel.artifact-check.batch-size", Int::class.java, any()) } returns artifactCheckConfig.batchSize
+    every { getProperty("keel.resource.wait-for-batch.enabled", Boolean::class.java, any()) } returns false
+    every { getProperty("keel.environment.wait-for-batch.enabled", Boolean::class.java, any()) } returns false
+    every { getProperty("keel.environment-deletion.wait-for-batch.enabled", Boolean::class.java, any()) } returns false
+    every { getProperty("keel.artifact.wait-for-batch.enabled", Boolean::class.java, any()) } returns false
+    every { getProperty("keel.verification.wait-for-batch.enabled", Boolean::class.java, any()) } returns false
+    every { getProperty("keel.post-deploy.wait-for-batch.enabled", Boolean::class.java, any()) } returns false
   }
 
 

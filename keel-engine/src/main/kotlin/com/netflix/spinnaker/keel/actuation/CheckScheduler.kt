@@ -99,6 +99,26 @@ class CheckScheduler(
   private val postDeployBatchSize: Int
     get() = springEnv.getProperty("keel.post-deploy.batch-size", Int::class.java, postDeployConfig.batchSize)
 
+  private val resourceWaitForBatchToComplete: Boolean
+    get() = springEnv.getProperty("keel.resource.wait-for-batch.enabled", Boolean::class.java, true)
+
+  private val environmentWaitForBatchToComplete: Boolean
+    get() = springEnv.getProperty("keel.environment.wait-for-batch.enabled", Boolean::class.java, true)
+
+  private val environmentDeletionWaitForBatchToComplete: Boolean
+    get() = springEnv.getProperty("keel.environment-deletion.wait-for-batch.enabled", Boolean::class.java, true)
+
+  private val artifactWaitForBatchToComplete: Boolean
+    get() = springEnv.getProperty("keel.artifact.wait-for-batch.enabled", Boolean::class.java, true)
+
+  private val verificationWaitForBatchToComplete: Boolean
+    get() = springEnv.getProperty("keel.verification.wait-for-batch.enabled", Boolean::class.java, true)
+
+  private val postDeployWaitForBatchToComplete: Boolean
+    get() = springEnv.getProperty("keel.post-deploy.wait-for-batch.enabled", Boolean::class.java, true)
+
+
+
   @Scheduled(fixedDelayString = "\${keel.resource-check.frequency:PT1S}")
   @NewSpan
   fun checkResources() {
@@ -137,7 +157,10 @@ class CheckScheduler(
             }
         }
       }
-      runBlocking { job.join() }
+
+      if(resourceWaitForBatchToComplete) {
+        runBlocking { job.join() }
+      }
       recordDuration(startTime, "resource")
     }
   }
@@ -178,7 +201,9 @@ class CheckScheduler(
         }
       }
 
-      runBlocking { job.join() }
+      if(environmentWaitForBatchToComplete) {
+        runBlocking { job.join() }
+      }
       recordDuration(startTime, "environment")
     }
   }
@@ -207,7 +232,9 @@ class CheckScheduler(
         }
       }
 
-      runBlocking { job.join() }
+      if(environmentDeletionWaitForBatchToComplete) {
+        runBlocking { job.join() }
+      }
       recordDuration(startTime, "environmentDeletion")
     }
   }
@@ -237,7 +264,10 @@ class CheckScheduler(
             }
         }
       }
-      runBlocking { job.join() }
+
+      if(artifactWaitForBatchToComplete) {
+        runBlocking { job.join() }
+      }
       publisher.publishEvent(ArtifactCheckComplete(Duration.between(startTime, clock.instant())))
       recordDuration(startTime, "artifact")
     }
@@ -273,7 +303,9 @@ class CheckScheduler(
         }
       }
 
-      runBlocking { job.join() }
+      if(verificationWaitForBatchToComplete) {
+        runBlocking { job.join() }
+      }
       publisher.publishEvent(VerificationCheckComplete(Duration.between(startTime, clock.instant())))
       recordDuration(startTime, "verification")
     }
@@ -305,7 +337,9 @@ class CheckScheduler(
         }
       }
 
-      runBlocking { job.join() }
+      if(postDeployWaitForBatchToComplete) {
+        runBlocking { job.join() }
+      }
       publisher.publishEvent(PostDeployActionCheckComplete(Duration.between(startTime, clock.instant())))
       recordDuration(startTime, "postdeploy")
     }
