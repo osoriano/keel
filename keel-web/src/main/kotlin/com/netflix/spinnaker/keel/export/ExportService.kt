@@ -277,7 +277,7 @@ class ExportService(
               is ExportSkippedResult -> log.info("Skipping export of $app - it is already on MD")
               is PipelineExportResult -> deliveryConfigRepository.storePipelinesExportResult(
                 deliveryConfig = result.deliveryConfig,
-                skippedPipelines = result.toSkippedPipelines(),
+                allPipelines = result.toMigratblePipelines(),
                 exportSucceeded = result.exportSucceeded,
                 repoSlug = result.repoSlug,
                 projectKey = result.projectKey,
@@ -335,7 +335,7 @@ class ExportService(
     // 3. iterate over the deploy pipelines, and map resources to the environments they represent
     val deployPipelinesToEnvironments = pipelinesToDeploysAndClusters.mapValues { (pipeline, deploysAndClusters) ->
       // 4. iterate over the clusters, export their resources, create constraints and environment
-      deploysAndClusters.mapNotNull { (deploy, cluster) ->
+      deploysAndClusters.map { (deploy, cluster) ->
         log.debug("Attempting to build environment for cluster ${cluster.moniker}")
         val environmentName = inferEnvironmentName(cluster)
         val manualJudgement = if (pipeline.hasManualJudgment(deploy)) {

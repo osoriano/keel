@@ -458,3 +458,6 @@ databaseChangeLog:
 - include:
       file: changelog/20220404-verification-index-fix.yml
       relativeToChangelogFile: true
+- include:
+    file: changelog/20220420-rename-migration-pipelines.yml
+    relativeToChangelogFile: true

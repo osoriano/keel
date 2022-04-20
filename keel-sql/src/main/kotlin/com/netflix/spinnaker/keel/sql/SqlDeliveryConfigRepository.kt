@@ -18,7 +18,7 @@ import com.netflix.spinnaker.keel.api.constraints.ConstraintState
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
 import com.netflix.spinnaker.keel.api.constraints.allPass
 import com.netflix.spinnaker.keel.api.migration.ApplicationMigrationStatus
-import com.netflix.spinnaker.keel.api.migration.SkippedPipeline
+import com.netflix.spinnaker.keel.api.migration.MigrationPipeline
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.api.statefulCount
 import com.netflix.spinnaker.keel.core.api.ApplicationSummary
@@ -1628,12 +1628,12 @@ class SqlDeliveryConfigRepository(
               MIGRATION_STATUS.ASSISTANCE_NEEDED,
               MIGRATION_STATUS.DELIVERY_CONFIG,
               MIGRATION_STATUS.PR_LINK,
-              MIGRATION_STATUS.JIRA_LINK
+              MIGRATION_STATUS.JIRA_LINK,
+              MIGRATION_STATUS.ALL_PIPELINES
             )
             .from(MIGRATION_STATUS)
             .where(MIGRATION_STATUS.APPLICATION.eq(application))
-            .fetchOne { (exportSucceeded, scmEnabled, inAllowList, assistanceNeeded, deliveryConfig, prLink, jiraLink) ->
-              // TODO: add scmEnabled to the condition below once we support it
+            .fetchOne { (exportSucceeded, scmEnabled, inAllowList, assistanceNeeded, deliveryConfig, prLink, jiraLink, pipelines) ->
               ApplicationMigrationStatus(
                 exportSucceeded = exportSucceeded ?: false,
                 inAllowList = inAllowList ?: false,
@@ -1641,7 +1641,8 @@ class SqlDeliveryConfigRepository(
                 isScmPowered = scmEnabled ?: false,
                 deliveryConfig = deliveryConfig?.let { objectMapper.readValue(deliveryConfig) },
                 prLink = prLink,
-                jiraLink = jiraLink
+                jiraLink = jiraLink,
+                pipelines = pipelines?.let { objectMapper.readValue(pipelines) }
               )
             }
             ?: ApplicationMigrationStatus()
@@ -1684,7 +1685,7 @@ class SqlDeliveryConfigRepository(
 
   override fun storePipelinesExportResult(
     deliveryConfig: SubmittedDeliveryConfig,
-    skippedPipelines: List<SkippedPipeline>,
+    allPipelines: List<MigrationPipeline>,
     exportSucceeded: Boolean,
     repoSlug: String?,
     projectKey: String?,
@@ -1695,7 +1696,7 @@ class SqlDeliveryConfigRepository(
         .set(MIGRATION_STATUS.APPLICATION, deliveryConfig.application)
         .set(MIGRATION_STATUS.DELIVERY_CONFIG, deliveryConfig.toJson())
         .set(MIGRATION_STATUS.UPDATED_AT, clock.instant())
-        .set(MIGRATION_STATUS.SKIPPED_PIPELINES, skippedPipelines.toJson())
+        .set(MIGRATION_STATUS.ALL_PIPELINES, allPipelines.toJson())
         .set(MIGRATION_STATUS.EXPORT_SUCCEEDED, exportSucceeded)
         .set(MIGRATION_STATUS.REPO_SLUG, repoSlug)
         .set(MIGRATION_STATUS.PROJECT_KEY, projectKey)

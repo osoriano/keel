@@ -1,0 +1,16 @@
+databaseChangeLog:
+  - changeSet:
+      id: rename-migration-pipelines
+      author: gyardeni
+      changes:
+        - renameColumn:
+            tableName: migration_status
+            oldColumnName: skipped_pipelines
+            newColumnName: all_pipelines
+            columnDataType: json
+      rollback:
+        - renameColumn:
+            tableName: migration_status
+            oldColumnName: all_pipelines
+            newColumnName: skipped_pipelines
+            columnDataType: json

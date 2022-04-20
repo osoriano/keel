@@ -14,6 +14,8 @@ import com.netflix.spinnaker.keel.api.TaskStatus
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.migration.ApplicationMigrationStatus
+import com.netflix.spinnaker.keel.api.migration.MigrationPipeline
+import com.netflix.spinnaker.keel.api.migration.PipelineStatus
 import com.netflix.spinnaker.keel.bakery.diff.PackageDiff
 import com.netflix.spinnaker.keel.core.api.ActuationPlan
 import com.netflix.spinnaker.keel.core.api.PinType
@@ -45,6 +47,9 @@ import com.netflix.spinnaker.keel.graphql.types.MD_PackageAndVersionChange
 import com.netflix.spinnaker.keel.graphql.types.MD_PackageDiff
 import com.netflix.spinnaker.keel.graphql.types.MD_PausedInfo
 import com.netflix.spinnaker.keel.graphql.types.MD_PinType
+import com.netflix.spinnaker.keel.graphql.types.MD_Pipeline
+import com.netflix.spinnaker.keel.graphql.types.MD_PipelineStatus.EXPORTED
+import com.netflix.spinnaker.keel.graphql.types.MD_PipelineStatus.PROCESSED
 import com.netflix.spinnaker.keel.graphql.types.MD_PullRequest
 import com.netflix.spinnaker.keel.graphql.types.MD_Resource
 import com.netflix.spinnaker.keel.graphql.types.MD_ResourceAction
@@ -250,6 +255,20 @@ fun ResourceActuationState.toDgs(): MD_ResourceActuationState =
     errors = errors
   )
 
+fun List<MigrationPipeline>?.toDgs(): List<MD_Pipeline>? =
+  this?.map { pipeline->
+    MD_Pipeline(
+      id = pipeline.id,
+      name = pipeline.name,
+      status = when (pipeline.status) {
+        PipelineStatus.EXPORTED -> EXPORTED
+        else ->  PROCESSED
+      },
+      reason = pipeline.reason?.name,
+      shape = pipeline.shape
+      )
+  }?.toList()
+
 fun ApplicationMigrationStatus.toDgs(appName: String) = MD_Migration(
   id = "migration-$appName",
   status = when {
@@ -261,7 +280,8 @@ fun ApplicationMigrationStatus.toDgs(appName: String) = MD_Migration(
     else -> NOT_READY
   },
   deliveryConfig = deliveryConfig,
-  prLink = prLink
+  prLink = prLink,
+  pipelines = pipelines.toDgs()
 )
 
 fun ActuationPlan.toDgs(completed: Boolean) =
