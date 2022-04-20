@@ -70,22 +70,24 @@ class ResourceSchedulerImpl : ResourceScheduler {
 
   override fun schedule(request: ResourceScheduler.ScheduleResourceRequest) {
     while (true) {
-      val interval = configActivites.getResourceKindCheckInterval(CheckResourceKindRequest(request.resourceKind))
-      Workflow.await(interval) { checkNow }
+      actuatorActivities.checkResource(CheckResourceRequest(request.resourceId))
 
       val now = Instant.ofEpochMilli(Workflow.currentTimeMillis())
       if (lastCheckedTime != null) {
         Workflow
           .getMetricsScope()
-          .tagged(mutableMapOf(
-            "type" to "resource",
-           ))
+          .tagged(
+            mutableMapOf(
+              "type" to "resource",
+            )
+          )
           .timer("keel.periodically.checked.age.temporal")
           .record(com.uber.m3.util.Duration.ofMillis(Duration.between(lastCheckedTime, now).toMillis().toDouble()))
       }
       lastCheckedTime = now
 
-      actuatorActivities.checkResource(CheckResourceRequest(request.resourceId))
+      val interval = configActivites.getResourceKindCheckInterval(CheckResourceKindRequest(request.resourceKind))
+      Workflow.await(interval) { checkNow }
       checkNow = false
 
       if (shouldContinueAsNew(request.resourceKind)) {
