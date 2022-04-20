@@ -45,6 +45,7 @@ import com.netflix.spinnaker.keel.events.ResourceUpdated
 import com.netflix.spinnaker.keel.exceptions.DuplicateManagedResourceException
 import com.netflix.spinnaker.keel.notifications.NotificationScope
 import com.netflix.spinnaker.keel.notifications.NotificationType
+import com.netflix.spinnaker.keel.scheduling.ResourceSchedulerService
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
@@ -75,7 +76,8 @@ class KeelRepository(
   private val publisher: ApplicationEventPublisher,
   private val diffFactory: ResourceDiffFactory,
   private val persistenceRetry: PersistenceRetry,
-  private val notificationRepository: NotificationRepository
+  private val notificationRepository: NotificationRepository,
+  private val resourceSchedulerService: ResourceSchedulerService
 ) : KeelReadOnlyRepository {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
@@ -185,11 +187,12 @@ class KeelRepository(
       .forEach { environment ->
         if (!environment.isPreview && environment.name !in new.environments.map { it.name }) {
           log.debug("Updating config ${new.name}: removing environment ${environment.name}")
-          environment.resources.map(Resource<*>::id).forEach {
-            // only delete the resource if it's not somewhere else in the delivery config -- e.g.
-            // it's been moved from one environment to another or the environment has been renamed
-            if (it !in newResources) {
-              resourceRepository.delete(it)
+          environment.resources.forEach {
+            if (it.id !in newResources) {
+              // only delete the resource if it's not somewhere else in the delivery config -- e.g.
+              // it's been moved from one environment to another or the environment has been renamed
+              resourceRepository.delete(it.id)
+              resourceSchedulerService.stopScheduling(it)
             }
           }
           deliveryConfigRepository.deleteEnvironment(new.name, environment.name)

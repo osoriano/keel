@@ -13,6 +13,9 @@ dependencies {
   implementation("org.springframework:spring-tx")
   implementation("org.jgrapht:jgrapht-core:1.5.1")
   implementation("com.newrelic.agent.java:newrelic-api:6.1.0")
+  implementation("netflix:temporal-java-core")
+  implementation("netflix:temporal-java-spring")
+  implementation("netflix.io.temporal:temporal-sdk")
 
   testImplementation(project(":keel-test"))
 }

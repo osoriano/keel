@@ -26,6 +26,9 @@ dependencies {
   implementation("com.netflix.spinnaker.fiat.internal:fiat-core")
   implementation(project(":keel-ec2-api"))  // needed for resource dependency logic
   implementation(project(":keel-retrofit"))
+  implementation("netflix:temporal-java-core")
+  implementation("netflix:temporal-java-spring")
+  implementation("netflix.io.temporal:temporal-sdk")
 
   testImplementation(project(":keel-test"))
   testImplementation(project(":keel-core-test"))
@@ -33,6 +36,8 @@ dependencies {
   testImplementation("io.strikt:strikt-jackson")
   testImplementation("io.strikt:strikt-mockk")
   testImplementation("dev.minutest:minutest")
+  testImplementation("netflix.io.temporal:temporal-testing")
+  testImplementation("netflix:temporal-java-testing")
 
   testImplementation("org.assertj:assertj-core")
   testImplementation("org.springframework.boot:spring-boot-test-autoconfigure")

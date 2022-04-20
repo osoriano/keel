@@ -25,6 +25,7 @@ import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.persistence.NoSuchDeliveryConfigName
 import com.netflix.spinnaker.keel.persistence.OverwritingExistingResourcesDisallowed
+import com.netflix.spinnaker.keel.services.ApplicationService
 import com.netflix.spinnaker.keel.spring.test.MockEurekaConfiguration
 import com.netflix.spinnaker.keel.test.DummyResourceSpec
 import com.netflix.spinnaker.keel.test.TEST_API_V1
@@ -87,6 +88,9 @@ internal class DeliveryConfigControllerTests
 
   @MockkBean
   lateinit var deliveryConfigUpserter: DeliveryConfigUpserter
+
+  @MockkBean
+  lateinit var applicationService: ApplicationService
 
   private val deliveryConfig = SubmittedDeliveryConfig(
     name = "keel-manifest",
@@ -506,7 +510,7 @@ internal class DeliveryConfigControllerTests
       context("that exists") {
         before {
           every {
-            repository.deleteDeliveryConfigByName(any())
+            applicationService.deleteDeliveryConfig(any())
           } just Runs
         }
 
@@ -516,7 +520,7 @@ internal class DeliveryConfigControllerTests
           response.andExpect(status().isOk)
 
           verify(exactly = 1) {
-            repository.deleteDeliveryConfigByName("myconfig")
+            applicationService.deleteDeliveryConfig("myconfig")
           }
         }
       }
@@ -524,7 +528,7 @@ internal class DeliveryConfigControllerTests
       context("that does not exist") {
         before {
           every {
-            repository.deleteDeliveryConfigByName("myconfig")
+            applicationService.deleteDeliveryConfig("myconfig")
           } throws NoSuchDeliveryConfigName("myconfig")
         }
 

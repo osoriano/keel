@@ -17,6 +17,7 @@ import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.persistence.OverwritingExistingResourcesDisallowed
 import com.netflix.spinnaker.keel.persistence.PersistenceRetry
 import com.netflix.spinnaker.keel.persistence.RetryCategory
+import com.netflix.spinnaker.keel.scheduling.ResourceSchedulerService
 import com.netflix.spinnaker.keel.validators.DeliveryConfigValidator
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
@@ -41,6 +42,7 @@ class DeliveryConfigUpserter(
   private val diffFactory: ResourceDiffFactory,
   private val resourceHandlers: List<ResourceHandler<*, *>>,
   private val applicationRepository: ApplicationRepository,
+  private val resourceSchedulerService: ResourceSchedulerService
 ) {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
@@ -73,6 +75,8 @@ class DeliveryConfigUpserter(
     val config = persistenceRetry.withRetry(RetryCategory.WRITE) {
         upsertDeliveryAndAppConfig(deliveryConfig, isNew, user)
       }.withoutPreview()
+
+    scheduleResources(config)
 
     if (shouldNotifyOfConfigChange(existing, config)) {
       log.debug("Publish deliveryConfigChange event for app ${deliveryConfig.application}")
@@ -118,6 +122,14 @@ class DeliveryConfigUpserter(
           throw OverwritingExistingResourcesDisallowed(deliveryConfig.application, resource.id)
         }
       }
+    }
+  }
+
+  private fun scheduleResources(deliveryConfig: DeliveryConfig) {
+    if (resourceSchedulerService.isScheduling(deliveryConfig.application)) {
+      deliveryConfig.environments.flatMap { it.resources }
+        .filterNot { resourceSchedulerService.isScheduling(it) }
+        .forEach { resourceSchedulerService.startScheduling(it) }
     }
   }
 

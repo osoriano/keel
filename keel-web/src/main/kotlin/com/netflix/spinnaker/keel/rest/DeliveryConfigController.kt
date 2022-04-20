@@ -16,6 +16,7 @@ import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.schema.Generator
 import com.netflix.spinnaker.keel.schema.RootSchema
 import com.netflix.spinnaker.keel.schema.generateSchema
+import com.netflix.spinnaker.keel.services.ApplicationService
 import com.netflix.spinnaker.keel.upsert.DeliveryConfigUpserter
 import com.netflix.spinnaker.keel.validators.DeliveryConfigProcessor
 import com.netflix.spinnaker.keel.validators.DeliveryConfigValidator
@@ -52,6 +53,7 @@ class DeliveryConfigController(
   private val deliveryConfigUpserter: DeliveryConfigUpserter,
   private val yamlMapper: YAMLMapper,
   private val diffFactory: ResourceDiffFactory,
+  private val applicationService: ApplicationService
 ) {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
@@ -120,7 +122,7 @@ class DeliveryConfigController(
   )
   fun delete(@PathVariable("name") name: String) {
     log.debug("Deleting delivery config $name")
-    repository.deleteDeliveryConfigByName(name)
+    applicationService.deleteDeliveryConfig(name)
   }
 
   // todo eb: make this work with artifact references

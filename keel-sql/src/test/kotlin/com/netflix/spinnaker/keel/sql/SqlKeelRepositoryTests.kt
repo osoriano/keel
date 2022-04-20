@@ -214,7 +214,8 @@ class SqlKeelRepositoryTests : JUnit5Minutests {
       publisher,
       DefaultResourceDiffFactory(),
       PersistenceRetry(PersistenceRetryConfig()),
-      notificationRepository
+      notificationRepository,
+      mockk(relaxed = true)
     )
 
     fun resourcesDueForCheck() =

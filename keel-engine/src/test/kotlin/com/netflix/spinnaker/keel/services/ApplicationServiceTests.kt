@@ -36,6 +36,7 @@ import com.netflix.spinnaker.keel.pause.PauseScope.RESOURCE
 import com.netflix.spinnaker.keel.persistence.ApplicationPullRequestDataIsMissing
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.PausedRepository
+import com.netflix.spinnaker.keel.scheduling.ResourceSchedulerService
 import com.netflix.spinnaker.keel.serialization.configuredYamlMapper
 import com.netflix.spinnaker.keel.test.DummyArtifact
 import com.netflix.spinnaker.keel.test.DummyResourceHandlerV1
@@ -191,6 +192,7 @@ class ApplicationServiceTests : JUnit5Minutests {
     val resourceHandler = spyk(DummyResourceHandlerV1)
     val diffFactory = DefaultResourceDiffFactory()
     val actuationPauser: ActuationPauser = mockk()
+    val resourceSchedulerService: ResourceSchedulerService = mockk()
 
     // subject
     val applicationService = ApplicationService(
@@ -208,7 +210,8 @@ class ApplicationServiceTests : JUnit5Minutests {
       listOf(resourceHandler),
       diffFactory,
       deliveryConfigUpserter,
-      actuationPauser
+      actuationPauser,
+      resourceSchedulerService
     )
 
     val buildMetadata = BuildMetadata(
@@ -547,6 +550,27 @@ class ApplicationServiceTests : JUnit5Minutests {
               get { action }.isEqualTo(UPDATE)
             }
         }
+      }
+    }
+
+    context("deleting the config") {
+      before {
+        every { repository.getDeliveryConfigForApplication(application1) } returns singleArtifactDeliveryConfig
+        every { repository.getDeliveryConfig(singleArtifactDeliveryConfig.name) } returns singleArtifactDeliveryConfig
+        every { repository.deleteDeliveryConfigByName(singleArtifactDeliveryConfig.name) } just Runs
+        every { repository.deleteDeliveryConfigByApplication(application1) } just Runs
+        every { resourceSchedulerService.stopScheduling(any()) } just Runs
+      }
+
+      test("deleting the config by app also calls stop scheduling of all resources") {
+        applicationService.deleteConfigByApp(application1)
+        Thread.sleep(100)
+        verify(exactly = 6) { resourceSchedulerService.stopScheduling(any()) }
+      }
+
+      test("deleting the config by name also calls stop scheduling of all resources") {
+        applicationService.deleteDeliveryConfig(singleArtifactDeliveryConfig.name)
+        verify(exactly = 6) { resourceSchedulerService.stopScheduling(any()) }
       }
     }
   }

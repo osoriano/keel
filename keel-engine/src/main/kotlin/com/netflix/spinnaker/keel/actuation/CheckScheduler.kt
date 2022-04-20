@@ -15,6 +15,7 @@ import com.netflix.spinnaker.keel.persistence.AgentLockRepository
 import com.netflix.spinnaker.keel.persistence.EnvironmentDeletionRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.postdeploy.PostDeployActionRunner
+import com.netflix.spinnaker.keel.scheduling.ResourceSchedulerService
 import com.netflix.spinnaker.keel.telemetry.AgentInvocationComplete
 import com.netflix.spinnaker.keel.telemetry.ArtifactCheckComplete
 import com.netflix.spinnaker.keel.telemetry.ArtifactCheckTimedOut
@@ -77,8 +78,9 @@ class CheckScheduler(
   private val clock: Clock,
   private val springEnv: Environment,
   private val spectator: Registry,
+  private val resourceSchedulerService: ResourceSchedulerService,
   override val coroutineContext: CoroutineContext
-  ) : DiscoveryActivated(), CoroutineScope {
+) : DiscoveryActivated(), CoroutineScope {
 
   // Used for resources, environments, and artifacts.
   private val checkMinAge: Duration
@@ -134,7 +136,9 @@ class CheckScheduler(
               publisher.publishEvent(ResourceLoadFailed(it))
             }
             .onSuccess { resources ->
-              resources.forEach {
+              resources
+                .filterNot { resourceSchedulerService.isScheduling(it.application) }
+                .forEach {
                 try {
                   /**
                    * Allow individual resource checks to timeout but catch the `CancellationException`

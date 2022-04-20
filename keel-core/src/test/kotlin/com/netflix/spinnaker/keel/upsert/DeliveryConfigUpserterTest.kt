@@ -20,6 +20,7 @@ import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.persistence.OverwritingExistingResourcesDisallowed
 import com.netflix.spinnaker.keel.persistence.PersistenceRetry
+import com.netflix.spinnaker.keel.scheduling.ResourceSchedulerService
 import com.netflix.spinnaker.keel.test.DummyResourceHandlerV1
 import com.netflix.spinnaker.keel.test.DummyResourceSpec
 import com.netflix.spinnaker.keel.test.TEST_API_V2
@@ -70,6 +71,7 @@ internal class DeliveryConfigUpserterTest {
   private val dummyResourceHandlerV2 = spyk(DummyResourceHandlerV2NoCurrent)
   private val resourceHandlers = listOf(dummyResourceHandler, dummyResourceHandlerV2)
   private val applicationRepository: ApplicationRepository = mockk()
+  private val resourceSchedulerService: ResourceSchedulerService = mockk()
 
   private val subject = DeliveryConfigUpserter(
     repository = repository,
@@ -81,6 +83,7 @@ internal class DeliveryConfigUpserterTest {
     diffFactory = DefaultResourceDiffFactory(),
     resourceHandlers = resourceHandlers,
     applicationRepository = applicationRepository,
+    resourceSchedulerService = resourceSchedulerService,
   )
 
   private val submittedDeliveryConfig = submittedDeliveryConfig()
@@ -111,6 +114,10 @@ internal class DeliveryConfigUpserterTest {
     every {
       applicationRepository.store(any())
     } just Runs
+
+    every {
+      resourceSchedulerService.isScheduling(any<String>())
+    } returns false
   }
 
   @Test
@@ -232,5 +239,17 @@ internal class DeliveryConfigUpserterTest {
 
     expectThat(subject.upsertConfig(submittedDeliveryConfig, allowResourceOverwriting = true)).second.isTrue()
     verify(exactly = 1) { applicationRepository.store(any()) }
+  }
+
+  @Test
+  fun `schedule resources with Temporal when enabled`() {
+    every { resourceSchedulerService.isScheduling(any<String>()) } returns true
+    every { resourceSchedulerService.isScheduling(any<Resource<*>>()) } returns false
+    every { resourceSchedulerService.startScheduling(any()) } just Runs
+    every { repository.getDeliveryConfigForApplication(any()) } returns deliveryConfig
+
+    subject.upsertConfig(submittedDeliveryConfig, allowResourceOverwriting = true)
+
+    verify { resourceSchedulerService.startScheduling(any()) }
   }
 }

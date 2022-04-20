@@ -53,7 +53,8 @@ class SqlApproveOldVersionTests : ApproveOldVersionTests<KeelRepository>() {
       mockk(relaxed = true),
       DefaultResourceDiffFactory(),
       PersistenceRetry(PersistenceRetryConfig()),
-      notificationRepository
+      notificationRepository,
+      mockk(relaxed = true)
     )
   }
 

@@ -20,6 +20,7 @@ import com.netflix.spinnaker.keel.persistence.EnvironmentDeletionRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.postdeploy.PostDeployActionRunner
 import com.netflix.spinnaker.keel.scheduled.ScheduledAgent
+import com.netflix.spinnaker.keel.scheduling.ResourceSchedulerService
 import com.netflix.spinnaker.keel.telemetry.EnvironmentCheckStarted
 import com.netflix.spinnaker.keel.telemetry.ResourceCheckStarted
 import com.netflix.spinnaker.keel.telemetry.ResourceLoadFailed
@@ -111,6 +112,8 @@ internal class CheckSchedulerTests : JUnit5Minutests {
 
   private val environmentCleaner: EnvironmentCleaner = mockk()
 
+  private val resourceSchedulerService: ResourceSchedulerService = mockk(relaxed = true)
+
   private val resources = listOf(
     resource(
       kind = parseKind("ec2/security-group@v1"),
@@ -170,6 +173,7 @@ internal class CheckSchedulerTests : JUnit5Minutests {
         clock = MutableClock(),
         springEnv = springEnv,
         spectator = registry,
+        resourceSchedulerService = resourceSchedulerService,
         coroutineContext = DefaultWorkhorseCoroutineContext
       )
     }

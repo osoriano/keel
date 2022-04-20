@@ -119,7 +119,8 @@ class EnvironmentVersioningTests {
     { },
     DefaultResourceDiffFactory(),
     PersistenceRetry(PersistenceRetryConfig()),
-    notificationRepository
+    notificationRepository,
+    mockk(relaxed = true)
   )
 
   private val heart = SqlHeart(jooq, sqlRetry, clock)

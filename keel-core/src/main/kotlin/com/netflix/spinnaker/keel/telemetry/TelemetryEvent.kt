@@ -32,12 +32,14 @@ data class ResourceLoadFailed(
 ) : TelemetryEvent()
 
 data class ResourceCheckStarted(
-  val resource: Resource<*>
+  val resource: Resource<*>,
+  val checker: String = "on-instance"
 )
 
 data class ResourceCheckCompleted(
   val duration: Duration,
-  val resourceID: String
+  val resourceID: String,
+  val checker: String = "on-instance"
 ) : TelemetryEvent()
 
 data class AboutToBeChecked(

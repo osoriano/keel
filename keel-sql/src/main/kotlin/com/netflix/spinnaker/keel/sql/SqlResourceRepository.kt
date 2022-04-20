@@ -34,6 +34,7 @@ import com.netflix.spinnaker.keel.persistence.metamodel.Tables.RESOURCE
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.RESOURCE_LAST_CHECKED
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.RESOURCE_VERSION
 import com.netflix.spinnaker.keel.resources.ResourceFactory
+import com.netflix.spinnaker.keel.scheduling.ResourceSchedulerService
 import com.netflix.spinnaker.keel.sql.RetryCategory.READ
 import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
 import com.netflix.spinnaker.keel.telemetry.AboutToBeChecked
@@ -66,7 +67,7 @@ class SqlResourceRepository(
   private val publisher: ApplicationEventPublisher,
   private val spectator: Registry,
   private val springEnv: Environment,
-  private val resourceEventPruneConfig: ResourceEventPruneConfig
+  private val resourceEventPruneConfig: ResourceEventPruneConfig,
 ) : ResourceRepository {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }

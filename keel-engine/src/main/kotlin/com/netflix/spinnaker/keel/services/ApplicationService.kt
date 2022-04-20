@@ -51,6 +51,7 @@ import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.persistence.NoSuchDeliveryConfigException
 import com.netflix.spinnaker.keel.persistence.PausedRepository
+import com.netflix.spinnaker.keel.scheduling.ResourceSchedulerService
 import com.netflix.spinnaker.keel.upsert.DeliveryConfigUpserter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -93,7 +94,8 @@ class ApplicationService(
   private val handlers: List<ResourceHandler<*, *>>,
   private val diffFactory: ResourceDiffFactory,
   private val deliveryConfigUpserter: DeliveryConfigUpserter,
-  private val actuationPauser: ActuationPauser
+  private val actuationPauser: ActuationPauser,
+  private val resourceSchedulerService: ResourceSchedulerService
 ) : CoroutineScope {
   override val coroutineContext: CoroutineContext = Dispatchers.Default
 
@@ -114,14 +116,32 @@ class ApplicationService(
 
   fun getDeliveryConfig(application: String) = repository.getDeliveryConfigForApplication(application)
 
+  fun deleteDeliveryConfig(name: String) {
+    val config = repository.getDeliveryConfig(name)
+    repository.deleteDeliveryConfigByName(name)
+    stopSchedulingAllResources(config)
+  }
+
   fun deleteConfigByApp(application: String) {
     launch(blankMDC) {
       try {
         log.debug("Deleting delivery config for application $application")
+        val config = getDeliveryConfig(application)
         repository.deleteDeliveryConfigByApplication(application)
+        stopSchedulingAllResources(config)
       } catch (ex: NoDeliveryConfigForApplication) {
         log.info("attempted to delete delivery config for app that doesn't have a config: $application")
       }
+    }
+  }
+
+  /**
+   * Makes sure that temporal is no longer scheduling checks on the deleted resources
+   */
+  private fun stopSchedulingAllResources(config: DeliveryConfig) {
+    log.debug("Stopping scheduling of resources ${config.resources.map { it.id }} due to config deletion for application ${config.application}")
+    config.resources.forEach { resource ->
+      resourceSchedulerService.stopScheduling(resource)
     }
   }
 
