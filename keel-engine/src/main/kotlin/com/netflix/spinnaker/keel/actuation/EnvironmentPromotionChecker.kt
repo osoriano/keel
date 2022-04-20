@@ -198,7 +198,7 @@ class EnvironmentPromotionChecker(
     if (vetoedArtifacts.versions.map { it.version }.contains(currentVersion)) {
       log.info("Triggering recheck for environment ${targetEnvironment.name} of application ${deliveryConfig.application} that is currently on a vetoed version of ${artifact.reference}")
       // trigger a recheck of the resources if the current version is vetoed
-      repository.triggerResourceRecheck(targetEnvironment.name, deliveryConfig.application)
+      repository.triggerResourceRecheck(targetEnvironment.name, deliveryConfig)
     }
   }
 
@@ -212,7 +212,7 @@ class EnvironmentPromotionChecker(
     if (status !in listOf(CURRENT, DEPLOYING)) {
       log.info("Triggering recheck for pinned environment ${targetEnvironment.name} of application ${deliveryConfig.application} that are on the wrong version. Pinned version $version of ${artifact.reference}")
       // trigger a recheck of the resources if the version isn't already on its way to the environment
-      repository.triggerResourceRecheck(targetEnvironment.name, deliveryConfig.application)
+      repository.triggerResourceRecheck(targetEnvironment.name, deliveryConfig)
     }
   }
 
@@ -251,7 +251,7 @@ class EnvironmentPromotionChecker(
       snapshotStatelessConstraintStatus(deliveryConfig, artifact, version, targetEnvironment)
 
       // recheck all resources in an environment, so action can be taken right away
-      repository.triggerResourceRecheck(targetEnvironment.name, deliveryConfig.application)
+      repository.triggerResourceRecheck(targetEnvironment.name, deliveryConfig)
     }
   }
 

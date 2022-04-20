@@ -414,8 +414,11 @@ class KeelRepository(
   fun getApplicationSummaries(): Collection<ApplicationSummary> =
     deliveryConfigRepository.getApplicationSummaries()
 
-  fun triggerDeliveryConfigRecheck(application: String) =
-    deliveryConfigRepository.triggerRecheck(application)
+  fun triggerDeliveryConfigRecheck(config: DeliveryConfig) {
+    deliveryConfigRepository.triggerRecheck(config.application)
+    resourceSchedulerService.checkNow(config)
+  }
+
   // END DeliveryConfigRepository methods
 
   // START ResourceRepository methods
@@ -470,8 +473,11 @@ class KeelRepository(
   fun resourcesDueForCheck(minTimeSinceLastCheck: Duration, limit: Int): Collection<Resource<ResourceSpec>> =
     resourceRepository.itemsDueForCheck(minTimeSinceLastCheck, limit)
 
-  fun triggerResourceRecheck(environmentName: String, application: String) =
-    resourceRepository.triggerResourceRecheck(environmentName, application)
+  fun triggerResourceRecheck(environmentName: String, deliveryConfig: DeliveryConfig) {
+    resourceRepository.triggerResourceRecheck(environmentName, deliveryConfig.application)
+    resourceSchedulerService.checkNow(deliveryConfig, environmentName)
+  }
+
   // END ResourceRepository methods
 
   // START ArtifactRepository methods

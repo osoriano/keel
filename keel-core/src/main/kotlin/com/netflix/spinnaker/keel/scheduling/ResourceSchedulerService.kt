@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.scheduling
 
+import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.scheduling.ResourceScheduler.* // ktlint-disable no-wildcard-imports
 import com.netflix.spinnaker.keel.telemetry.ResourceCheckStarted
@@ -13,6 +14,7 @@ import io.temporal.api.common.v1.WorkflowExecution
 import io.temporal.api.enums.v1.WorkflowExecutionStatus
 import io.temporal.api.enums.v1.WorkflowIdReusePolicy
 import io.temporal.api.workflowservice.v1.DescribeWorkflowExecutionRequest
+import io.temporal.api.workflowservice.v1.SignalWorkflowExecutionRequest
 import io.temporal.api.workflowservice.v1.TerminateWorkflowExecutionRequest
 import io.temporal.client.WorkflowClient
 import io.temporal.client.WorkflowOptions
@@ -124,6 +126,41 @@ class ResourceSchedulerService(
     } else {
       if (event.checker == TEMPORAL_CHECKER) {
         stopScheduling(event.resource)
+      }
+    }
+  }
+
+  fun checkNow(deliveryConfig: DeliveryConfig, environmentName: String? = null) {
+    log.debug("Rechecking resources in application ${deliveryConfig.application} and environment ${environmentName ?: "all"}")
+    deliveryConfig
+      .environments.filter { environmentName == null || it.name == environmentName }
+      .forEach { environment ->
+        environment.resources.forEach { resource ->
+          checkNow(resource)
+        }
+      }
+  }
+
+  fun checkNow(resource: Resource<*>) {
+    if (!environment.isTemporalSchedulingEnabled(resource)) {
+      return
+    }
+
+    val stub = workflowServiceStubsProvider.forNamespace(TEMPORAL_NAMESPACE)
+    log.debug("Rechecking resource ${resource.id} with workflow id ${resource.workflowId} in application ${resource.application}")
+    try {
+      stub.blockingStub()
+        .signalWorkflowExecution(
+          SignalWorkflowExecutionRequest.newBuilder()
+            .setNamespace(TEMPORAL_NAMESPACE)
+            .setWorkflowExecution(resource.workflowExecution)
+            .setSignalName("checkNow")
+            .build()
+        )
+    } catch (e: StatusRuntimeException) {
+      if (e.status.code != Status.Code.NOT_FOUND) {
+        log.error("Failed to describe workflow execution, starting scheduling", e)
+        startScheduling(resource)
       }
     }
   }

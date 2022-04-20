@@ -217,7 +217,7 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
 
             test("a recheck is triggered for the environment") {
               verify {
-                repository.triggerResourceRecheck(environment.name, deliveryConfig.application)
+                repository.triggerResourceRecheck(environment.name, deliveryConfig)
               }
             }
 
@@ -260,7 +260,7 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
 
             test("a recheck is not triggered for the environment") {
               verify(exactly = 0) {
-                repository.triggerResourceRecheck(environment.name, deliveryConfig.application)
+                repository.triggerResourceRecheck(environment.name, deliveryConfig)
               }
             }
           }
@@ -329,7 +329,7 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
                 verify(exactly = 2) {
                   // Once in the approve function and once in the check trigger.
                   // In practice, it's unlikely that users will pin a version that hasn't been approved already
-                  repository.triggerResourceRecheck(environment.name, deliveryConfig.application)
+                  repository.triggerResourceRecheck(environment.name, deliveryConfig)
                 }
               }
 
@@ -357,7 +357,7 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
 
               test("resource recheck should not happen") {
                 verify(exactly = 0) {
-                  repository.triggerResourceRecheck(environment.name, deliveryConfig.application)
+                  repository.triggerResourceRecheck(environment.name, deliveryConfig)
                 }
               }
             }
@@ -427,7 +427,7 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
 
         test("trigger recheck if the vetoed version is the CURRENT version") {
           verify(exactly = 1) {
-            repository.triggerResourceRecheck(environment.name, deliveryConfig.application)
+            repository.triggerResourceRecheck(environment.name, deliveryConfig)
           }
         }
       }

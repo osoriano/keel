@@ -165,7 +165,7 @@ class ApplicationService(
       )
 
       repository.storeConstraintState(newState)
-      repository.triggerDeliveryConfigRecheck(application) // recheck environments to fast track a deployment
+      repository.triggerDeliveryConfigRecheck(config) // recheck environments to fast track a deployment
 
       currentState.status != newState.status
     }
@@ -176,7 +176,7 @@ class ApplicationService(
     val config = repository.getDeliveryConfigForApplication(application)
     repository.pinEnvironment(config, pin.copy(pinnedBy = user))
     environmentTaskCanceler.cancelTasksForPin(application, pin, user)
-    repository.triggerDeliveryConfigRecheck(application) // recheck environments to reflect pin immediately
+    repository.triggerDeliveryConfigRecheck(config) // recheck environments to reflect pin immediately
     publisher.publishEvent(PinnedNotification(config, pin.copy(pinnedBy = user)))
   }
 
@@ -185,7 +185,7 @@ class ApplicationService(
     val config = repository.getDeliveryConfigForApplication(application)
     val pinnedEnvironment = repository.pinnedEnvironments(config).find { it.targetEnvironment == targetEnvironment }
     repository.deletePin(config, targetEnvironment, reference)
-    repository.triggerDeliveryConfigRecheck(application) // recheck environments to reflect pin removal immediately
+    repository.triggerDeliveryConfigRecheck(config) // recheck environments to reflect pin removal immediately
 
     publisher.publishEvent(UnpinnedNotification(config,
       pinnedEnvironment,
@@ -206,7 +206,7 @@ class ApplicationService(
     }
     log.info("Successfully marked artifact version ${veto.reference}: ${veto.version} of application $application as bad")
     environmentTaskCanceler.cancelTasksForVeto(application, veto, user)
-    repository.triggerDeliveryConfigRecheck(application) // recheck environments to reflect veto immediately
+    repository.triggerDeliveryConfigRecheck(config) // recheck environments to reflect veto immediately
     publisher.publishEvent(MarkAsBadNotification(
       config = config,
       user = user,
@@ -225,7 +225,7 @@ class ApplicationService(
       version = version,
       targetEnvironment = targetEnvironment
     )
-    repository.triggerDeliveryConfigRecheck(application) // recheck environments to reflect removed veto immediately
+    repository.triggerDeliveryConfigRecheck(config) // recheck environments to reflect removed veto immediately
   }
 
   /**
