@@ -2,6 +2,7 @@ package com.netflix.spinnaker.keel.scheduling
 
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.scheduling.ResourceScheduler.* // ktlint-disable no-wildcard-imports
+import com.netflix.spinnaker.keel.telemetry.ResourceCheckStarted
 import com.netflix.temporal.core.convention.TaskQueueNamer
 import com.netflix.temporal.spring.WorkflowClientProvider
 import com.netflix.temporal.spring.WorkflowServiceStubsProvider
@@ -16,6 +17,7 @@ import io.temporal.api.workflowservice.v1.TerminateWorkflowExecutionRequest
 import io.temporal.client.WorkflowClient
 import io.temporal.client.WorkflowOptions
 import org.slf4j.LoggerFactory
+import org.springframework.context.event.EventListener
 import org.springframework.core.env.Environment
 import org.springframework.stereotype.Service
 
@@ -91,13 +93,39 @@ class ResourceSchedulerService(
 
     val stub = workflowServiceStubsProvider.forNamespace(TEMPORAL_NAMESPACE)
 
-    stub.blockingStub()
-      .terminateWorkflowExecution(
-        TerminateWorkflowExecutionRequest.newBuilder()
-          .setNamespace(TEMPORAL_NAMESPACE)
-          .setWorkflowExecution(resource.workflowExecution)
-          .build()
-      )
+    try {
+      stub.blockingStub()
+        .terminateWorkflowExecution(
+          TerminateWorkflowExecutionRequest.newBuilder()
+            .setNamespace(TEMPORAL_NAMESPACE)
+            .setWorkflowExecution(resource.workflowExecution)
+            .build()
+        )
+    } catch (e: StatusRuntimeException) {
+      if (e.status.code != Status.Code.NOT_FOUND) {
+        throw e
+      }
+    }
+  }
+
+  /**
+   * Supports dual-scheduling modes in Keel while transitioning away from the old checker scheduling strategy to
+   * Temporal. This allows us to JIT schedule or unschedule resources on the Temporal path in response to FP toggles.
+   *
+   * Once Temporal is used for all scheduling, this event listener can disappear entirely. At this point, we can maybe
+   * create a supervisor workflow that scans the database verifying all workflows that need to exist actually do.
+   */
+  @EventListener(ResourceCheckStarted::class)
+  fun onResourceCheckStarted(event: ResourceCheckStarted) {
+    if (environment.isTemporalSchedulingEnabled(event.resource)) {
+      if (event.checker != TEMPORAL_CHECKER) {
+        startScheduling(event.resource)
+      }
+    } else {
+      if (event.checker == TEMPORAL_CHECKER) {
+        stopScheduling(event.resource)
+      }
+    }
   }
 
   private fun getWorkflowExecution(resourceId: String): WorkflowExecution =
