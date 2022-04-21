@@ -541,7 +541,9 @@ class SqlResourceRepository(
               )
             )
 
-            resourceFactory.create(kind, metadata, spec)
+            val resource = resourceFactory.create(kind, metadata, spec)
+            publisher.publishEvent(ResourceAboutToBeChecked(resource))
+            resource
 
           } catch (e: Exception) {
             jooq.insertInto(RESOURCE_LAST_CHECKED)
