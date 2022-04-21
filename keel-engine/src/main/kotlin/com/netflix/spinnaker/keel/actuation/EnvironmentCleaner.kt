@@ -130,12 +130,17 @@ class EnvironmentCleaner(
     try {
       val tasks = plugin.delete(resource)
       eventPublisher.publishEvent(ResourceDeletionLaunched(resource, plugin.name, tasks, clock))
-    } catch (e: Exception) {
-      log.debug("Error deleting resource ${resource.id}: $e", e)
-      try {
-        resourceRepository.incrementDeletionAttempts(resource)
-      } catch (e: Exception) {
-        log.warn("Error incrementing resource deletion attempts for ${resource.id}: $e")
+    } catch (t: Throwable) {
+      when(t) {
+        is Exception, is NotImplementedError -> {
+          log.info("Error deleting resource ${resource.id}: $t", t)
+          try {
+            resourceRepository.incrementDeletionAttempts(resource)
+          } catch (e: Exception) {
+            log.warn("Error incrementing resource deletion attempts for ${resource.id}: $e")
+          }
+        }
+        else -> throw t
       }
     }
   }
