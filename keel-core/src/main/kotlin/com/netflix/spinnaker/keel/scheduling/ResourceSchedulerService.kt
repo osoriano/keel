@@ -38,6 +38,9 @@ class ResourceSchedulerService(
     return environment.isTemporalSchedulingEnabled(application)
   }
 
+  /**
+   * Checks for a running workflow for the resource
+   */
   fun isScheduling(resource: Resource<*>): Boolean {
     val client = workflowServiceStubsProvider.forNamespace(TEMPORAL_NAMESPACE)
 
@@ -64,6 +67,12 @@ class ResourceSchedulerService(
       log.debug("Unable to temporal schedule resource ${resource.id} in application ${resource.application} because it's not in the allow list")
       return
     }
+
+    if (isScheduling(resource)) {
+      // resource is already scheduled
+      return
+    }
+
     log.debug("Temporal scheduling resource ${resource.id} in application ${resource.application}")
     val client = workflowClientProvider.get(TEMPORAL_NAMESPACE)
 
