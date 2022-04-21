@@ -24,7 +24,6 @@ import org.springframework.core.env.Environment
 import org.springframework.stereotype.Service
 
 @Service
-@Retry(name = "resource-scheduler")
 class ResourceSchedulerService(
   private val workflowClientProvider: WorkflowClientProvider,
   private val workflowServiceStubsProvider: WorkflowServiceStubsProvider,
