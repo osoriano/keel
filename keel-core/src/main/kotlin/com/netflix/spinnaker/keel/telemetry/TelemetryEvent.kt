@@ -48,6 +48,10 @@ data class AboutToBeChecked(
   val identifier: String? = null
 )
 
+data class ResourceAboutToBeChecked(
+  val resource: Resource<*>
+)
+
 data class LifecycleMonitorLoadFailed(
   val ex: Throwable
 ) : TelemetryEvent()

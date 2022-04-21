@@ -38,6 +38,7 @@ import com.netflix.spinnaker.keel.scheduling.ResourceSchedulerService
 import com.netflix.spinnaker.keel.sql.RetryCategory.READ
 import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
 import com.netflix.spinnaker.keel.telemetry.AboutToBeChecked
+import com.netflix.spinnaker.keel.telemetry.ResourceAboutToBeChecked
 import com.netflix.spinnaker.keel.telemetry.ResourceCheckCompleted
 import de.huxhorn.sulky.ulid.ULID
 import org.jooq.DSLContext
@@ -463,7 +464,9 @@ class SqlResourceRepository(
       }
         .map { (uid, kind, metadata, spec) ->
           try {
-            resourceFactory.create(kind, metadata, spec)
+            val resource = resourceFactory.create(kind, metadata, spec)
+            publisher.publishEvent(ResourceAboutToBeChecked(resource))
+            resource
           } catch (e: Exception) {
             jooq.insertInto(RESOURCE_LAST_CHECKED)
               .set(RESOURCE_LAST_CHECKED.RESOURCE_UID, uid)

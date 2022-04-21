@@ -3,6 +3,7 @@ package com.netflix.spinnaker.keel.scheduling
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.scheduling.ResourceScheduler.* // ktlint-disable no-wildcard-imports
+import com.netflix.spinnaker.keel.telemetry.ResourceAboutToBeChecked
 import com.netflix.spinnaker.keel.telemetry.ResourceCheckStarted
 import com.netflix.temporal.core.convention.TaskQueueNamer
 import com.netflix.temporal.spring.WorkflowClientProvider
@@ -116,8 +117,8 @@ class ResourceSchedulerService(
    * Once Temporal is used for all scheduling, this event listener can disappear entirely. At this point, we can maybe
    * create a supervisor workflow that scans the database verifying all workflows that need to exist actually do.
    */
-  @EventListener(ResourceCheckStarted::class)
-  fun onResourceCheckStarted(event: ResourceCheckStarted) {
+  @EventListener(ResourceAboutToBeChecked::class)
+  fun onResourceCheckStarted(event: ResourceAboutToBeChecked) {
     if (environment.isTemporalSchedulingEnabled(event.resource)) {
       startScheduling(event.resource)
     } else {
