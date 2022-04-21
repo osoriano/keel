@@ -120,13 +120,9 @@ class ResourceSchedulerService(
   @EventListener(ResourceCheckStarted::class)
   fun onResourceCheckStarted(event: ResourceCheckStarted) {
     if (environment.isTemporalSchedulingEnabled(event.resource)) {
-      if (event.checker != TEMPORAL_CHECKER) {
-        startScheduling(event.resource)
-      }
+      startScheduling(event.resource)
     } else {
-      if (event.checker == TEMPORAL_CHECKER) {
-        stopScheduling(event.resource)
-      }
+      stopScheduling(event.resource)
     }
   }
 
