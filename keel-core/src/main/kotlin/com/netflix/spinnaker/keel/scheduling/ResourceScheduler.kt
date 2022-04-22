@@ -79,9 +79,10 @@ class ResourceSchedulerImpl : ResourceScheduler {
           .tagged(
             mutableMapOf(
               "type" to "resource",
+              "scheduler" to "temporal"
             )
           )
-          .timer("keel.periodically.checked.age.temporal")
+          .timer("keel.periodically.checked.age")
           .record(com.uber.m3.util.Duration.ofMillis(Duration.between(lastCheckedTime, now).toMillis().toDouble()))
       }
       lastCheckedTime = now
