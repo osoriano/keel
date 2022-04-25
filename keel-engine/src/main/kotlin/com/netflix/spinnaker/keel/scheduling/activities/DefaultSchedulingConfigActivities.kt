@@ -12,10 +12,19 @@ class DefaultSchedulingConfigActivities(
 ) : SchedulingConfigActivities {
 
   override fun getResourceKindCheckInterval(request: CheckResourceKindRequest): Duration =
-    configOrDefault("check-interval", request.resourceKind, Duration.ofSeconds(30))
+    configOrDefault("check-interval", sanitizeKindForFP(request.resourceKind), Duration.ofSeconds(30))
 
   override fun getContinueAsNewInterval(request: CheckResourceKindRequest): Duration =
-    configOrDefault("continue-as-new-interval", request.resourceKind, Duration.ofHours(24))
+    configOrDefault("continue-as-new-interval", sanitizeKindForFP(request.resourceKind), Duration.ofHours(24))
+
+  /**
+   * Fast properties can't have any of the symbols.
+   * A property to change the check-interval for graphql resources, for example, should have a key of
+   *
+   * keel.resource-scheduler.graphql-schema-v1.check-interval
+   */
+  fun sanitizeKindForFP(kind: String): String =
+    kind.replace("/", "-").replace("@", "-")
 
   @VisibleForTesting
   internal fun configOrDefault(configKey: String, resourceKind: String, fallback: Duration): Duration {
