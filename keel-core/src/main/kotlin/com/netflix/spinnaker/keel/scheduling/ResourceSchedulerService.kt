@@ -96,10 +96,6 @@ class ResourceSchedulerService(
   }
 
   fun stopScheduling(resource: Resource<*>) {
-    if (!environment.isTemporalSchedulingEnabled(resource)) {
-      log.debug("Unable to stop temporal scheduling resource ${resource.id} in application ${resource.application} because it's not in the allow list")
-      return
-    }
     log.debug("Removing Temporal scheduling of resource ${resource.id} in application ${resource.application}")
 
     val stub = workflowServiceStubsProvider.forNamespace(TEMPORAL_NAMESPACE)

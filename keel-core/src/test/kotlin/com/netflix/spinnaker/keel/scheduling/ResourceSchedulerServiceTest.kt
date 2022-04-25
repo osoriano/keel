@@ -59,7 +59,7 @@ class ResourceSchedulerServiceTest {
   }
 
   @Test
-  fun `isScheduling should return whther or not an application is currently scheduled by temporal`() {
+  fun `isScheduling should return whether or not an application is currently scheduled by temporal`() {
     var subject = getSubject(isEnabled = false)
     expectThat(subject.isScheduling("keel")).isFalse()
 
@@ -124,11 +124,11 @@ class ResourceSchedulerServiceTest {
   }
 
   @Test
-  fun `stopScheduling should no-op when disabled`() {
+  fun `stopScheduling should run when disabled`() {
+    // because we need this to flip back and forth between temporal and normal scheduling
     val subject = getSubject(isEnabled = false)
     subject.stopScheduling(res)
-    verify(exactly = 0) {
-      blockingWorkflowServiceStubs.requestCancelWorkflowExecution(any())
+    verify(exactly = 1) {
       blockingWorkflowServiceStubs.terminateWorkflowExecution(any())
     }
   }
