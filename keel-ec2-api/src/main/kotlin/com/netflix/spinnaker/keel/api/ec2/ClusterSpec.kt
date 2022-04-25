@@ -101,16 +101,19 @@ private fun ClusterSpec.resolveLaunchConfiguration(region: SubnetAwareRegionSpec
   )
 }
 
-fun ClusterSpec.resolveCapacity(region: String? = null): Capacity =
-  when (region) {
-    null -> defaults.resolveCapacity() ?: Capacity.DefaultCapacity(1, 1, 1)
-    else -> overrides[region]?.resolveCapacity() ?: defaults.resolveCapacity() ?: Capacity.DefaultCapacity(1, 1, 1)
+fun ClusterSpec.resolveCapacity(region: String? = null): Capacity {
+  val regionOverrides = overrides[region]
+  val hasScalingPolicies = (regionOverrides?.scaling ?: defaults.scaling).hasScalingPolicies()
+  return when (region) {
+    null -> defaults.resolveCapacity(hasScalingPolicies) ?: Capacity.DefaultCapacity(1, 1, 1)
+    else -> regionOverrides?.resolveCapacity(hasScalingPolicies) ?: defaults.resolveCapacity(hasScalingPolicies) ?: Capacity.DefaultCapacity(1, 1, 1)
   }
+}
 
-fun ServerGroupSpec.resolveCapacity(): Capacity? =
+fun ServerGroupSpec.resolveCapacity(hasScalingPolicies: Boolean): Capacity? =
   when {
     capacity == null -> null
-    scaling.hasScalingPolicies() -> Capacity.AutoScalingCapacity(capacity)
+    hasScalingPolicies -> Capacity.AutoScalingCapacity(capacity)
     else -> Capacity.DefaultCapacity(capacity)
   }
 
