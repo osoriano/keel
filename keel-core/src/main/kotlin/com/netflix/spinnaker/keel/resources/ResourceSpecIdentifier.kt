@@ -5,6 +5,7 @@ import com.netflix.spinnaker.keel.api.ResourceSpec
 import com.netflix.spinnaker.keel.api.plugins.SupportedKind
 import com.netflix.spinnaker.keel.api.plugins.UnsupportedKind
 import com.netflix.spinnaker.keel.api.support.ExtensionRegistry
+import com.netflix.spinnaker.keel.api.support.JvmExtensionType
 import com.netflix.spinnaker.keel.api.support.extensionsOf
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
@@ -24,7 +25,8 @@ class ResourceSpecIdentifier(
   private val ExtensionRegistry.supportedKinds: List<SupportedKind<*>>
     get() = extensionsOf<ResourceSpec>()
       .entries
-      .map { SupportedKind(ResourceKind.parseKind(it.key), it.value) }
+      .filter { it.value is JvmExtensionType }
+      .map { SupportedKind(ResourceKind.parseKind(it.key), (it.value as JvmExtensionType).type as Class<out ResourceSpec>) }
 
   fun identify(kind: ResourceKind): Class<out ResourceSpec> =
     // This gives priority to the extension registry which is auto-wired by default, and falls back on the list of

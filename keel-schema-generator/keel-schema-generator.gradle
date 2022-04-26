@@ -3,6 +3,8 @@ dependencies {
 
   implementation("org.jetbrains.kotlin:kotlin-reflect")
   implementation("com.fasterxml.jackson.core:jackson-annotations")
+  implementation("io.fabric8:kubernetes-client:+")
+  implementation(project(":keel-k8s"))
 
   testImplementation(project(":keel-core"))
   testImplementation("com.fasterxml.jackson.core:jackson-databind")

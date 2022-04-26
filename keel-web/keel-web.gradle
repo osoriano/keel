@@ -21,6 +21,7 @@ dependencies {
   api(project(":keel-orca"))
   api(project(":keel-jira"))
   api(project(":keel-stash"))
+  api(project(":keel-k8s"))
 
   implementation(project(":keel-bakery-plugin"))
   implementation(project(":keel-ec2-plugin"))
@@ -75,6 +76,7 @@ dependencies {
   testImplementation("com.networknt:json-schema-validator:1.0.43")
   testImplementation("com.netflix.spinnaker.kork.internal:kork-plugins")
   testImplementation("com.graphql-java:graphql-java-extended-scalars:16.0.0")
+  testImplementation("io.fabric8:kubernetes-client:+")
 
   testRuntimeOnly(project(":keel-ec2-plugin"))
 }
