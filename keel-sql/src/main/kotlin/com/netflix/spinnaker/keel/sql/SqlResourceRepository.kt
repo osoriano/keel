@@ -41,8 +41,10 @@ import com.netflix.spinnaker.keel.telemetry.AboutToBeChecked
 import com.netflix.spinnaker.keel.telemetry.ResourceAboutToBeChecked
 import com.netflix.spinnaker.keel.telemetry.ResourceCheckCompleted
 import de.huxhorn.sulky.ulid.ULID
+import org.jooq.Cursor
 import org.jooq.DSLContext
 import org.jooq.Record1
+import org.jooq.Record4
 import org.jooq.Select
 import org.jooq.impl.DSL
 import org.jooq.impl.DSL.coalesce
@@ -82,16 +84,40 @@ class SqlResourceRepository(
   private val itemsDueForCheckCheckSingleSelectQuery : Boolean
     get() = springEnv.getProperty("keel.items.due.for.check.single.select.query", Boolean::class.java, false)
 
+  private val resourceFetchSize: Int
+    get() = springEnv.getProperty("keel.resource-repository.batch-fetch-size", Int::class.java, 100)
+
   override fun allResources(callback: (ResourceHeader) -> Unit) {
     sqlRetry.withRetry(READ) {
-      jooq
-        .select(RESOURCE.KIND, RESOURCE.ID)
+      val cursor = jooq
+        .select(RESOURCE.KIND, RESOURCE.ID, RESOURCE.UID, RESOURCE.APPLICATION)
         .from(RESOURCE)
-        .fetch()
-        .map { (kind, id) ->
-          ResourceHeader(id, parseKind(kind))
-        }
-        .forEach(callback)
+        .fetchSize(resourceFetchSize)
+        .fetchLazy()
+
+      while (cursor.hasNext()) {
+        cursor.fetchNext(resourceFetchSize)
+          .map { (kind, id, uid, application) ->
+            ResourceHeader(id, parseKind(kind), uid, application)
+          }
+          .forEach(callback)
+      }
+    }
+  }
+
+  override fun allResources(): Iterator<ResourceHeader> {
+    return PagedIterator(
+      sqlRetry,
+      sqlRetry.withRetry(READ) {
+        jooq
+          .select(RESOURCE.KIND, RESOURCE.ID, RESOURCE.UID, RESOURCE.APPLICATION)
+          .from(RESOURCE)
+          .fetchSize(resourceFetchSize)
+          .fetchLazy()
+      },
+      resourceFetchSize
+    ) { (kind, id, uid, application) ->
+      ResourceHeader(id, parseKind(kind), uid, application)
     }
   }
 

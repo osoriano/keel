@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.scheduling.activities
 
 import com.google.common.annotations.VisibleForTesting
+import com.netflix.spinnaker.keel.api.ResourceKind
 import com.netflix.spinnaker.keel.scheduling.activities.SchedulingConfigActivities.CheckResourceKindRequest
 import org.springframework.core.env.Environment
 import org.springframework.stereotype.Component

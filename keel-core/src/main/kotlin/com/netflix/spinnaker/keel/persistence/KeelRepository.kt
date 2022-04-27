@@ -425,6 +425,9 @@ class KeelRepository(
   fun allResources(callback: (ResourceHeader) -> Unit) =
     resourceRepository.allResources(callback)
 
+  fun allResources(): Iterator<ResourceHeader> =
+    resourceRepository.allResources()
+
   fun getResourceCount() =
     resourceRepository.count()
 

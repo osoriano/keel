@@ -27,6 +27,7 @@ import com.netflix.spinnaker.keel.events.ResourceDeltaResolved
 import com.netflix.spinnaker.keel.events.ResourceEvent
 import com.netflix.spinnaker.keel.events.ResourceUpdated
 import com.netflix.spinnaker.keel.events.ResourceValid
+import com.netflix.spinnaker.keel.scheduling.header
 import com.netflix.spinnaker.keel.test.DummyResourceSpec
 import com.netflix.spinnaker.keel.test.TEST_API_V2
 import com.netflix.spinnaker.keel.test.deliveryConfig
@@ -56,10 +57,12 @@ import strikt.assertions.isA
 import strikt.assertions.isEmpty
 import strikt.assertions.isEqualTo
 import strikt.assertions.isFailure
+import strikt.assertions.isFalse
 import strikt.assertions.isGreaterThan
 import strikt.assertions.isGreaterThanOrEqualTo
 import strikt.assertions.isNotEmpty
 import strikt.assertions.isSuccess
+import strikt.assertions.isTrue
 import strikt.assertions.map
 import java.time.Clock
 import java.time.Duration
@@ -108,6 +111,8 @@ abstract class ResourceRepositoryTests<T : ResourceRepository> : JUnit5Minutests
         subject.allResources(callback)
 
         verify { callback wasNot Called }
+
+        expectThat(subject.allResources()).get { hasNext() }.isFalse()
       }
 
       test("getting state history returns an empty list") {
@@ -143,10 +148,17 @@ abstract class ResourceRepositoryTests<T : ResourceRepository> : JUnit5Minutests
       }
 
       test("it is returned by allResources") {
+        // need to load the resource so we know what uid it actually has
+        val loadedResource = subject.get(resource.id)
         subject.allResources(callback)
 
         verify {
-          callback.invoke(ResourceHeader(resource))
+          callback.invoke(loadedResource.header)
+        }
+
+        expectThat(subject.allResources()).and {
+          get { hasNext() }.isTrue()
+          get { next() }.isEqualTo(loadedResource.header)
         }
       }
 

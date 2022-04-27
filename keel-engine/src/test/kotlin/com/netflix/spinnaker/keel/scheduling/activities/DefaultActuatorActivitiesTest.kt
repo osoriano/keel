@@ -5,7 +5,7 @@ import com.netflix.spinnaker.keel.actuation.ResourceActuator
 import com.netflix.spinnaker.keel.api.ResourceKind
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.NoSuchResourceId
-import com.netflix.spinnaker.keel.scheduling.TEMPORAL_CHECKER
+import com.netflix.spinnaker.keel.scheduling.SchedulingConsts.TEMPORAL_CHECKER
 import com.netflix.spinnaker.keel.telemetry.ResourceCheckStarted
 import com.netflix.spinnaker.keel.telemetry.ResourceLoadFailed
 import com.netflix.spinnaker.keel.test.resource

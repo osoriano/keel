@@ -1,14 +1,18 @@
 package com.netflix.spinnaker.keel.scheduling
 
+import com.netflix.spinnaker.config.FeatureToggles
+import com.netflix.spinnaker.config.FeatureToggles.Companion.SUPERVISOR_SCHEDULING_CONFIG
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Resource
+import com.netflix.spinnaker.keel.persistence.ResourceHeader
 import com.netflix.spinnaker.keel.scheduling.ResourceScheduler.* // ktlint-disable no-wildcard-imports
+import com.netflix.spinnaker.keel.scheduling.SchedulingConsts.RESOURCE_SCHEDULER_TASK_QUEUE
+import com.netflix.spinnaker.keel.scheduling.SchedulingConsts.TEMPORAL_NAMESPACE
+import com.netflix.spinnaker.keel.scheduling.SchedulingConsts.WORKER_ENV_SEARCH_ATTRIBUTE
 import com.netflix.spinnaker.keel.telemetry.ResourceAboutToBeChecked
-import com.netflix.spinnaker.keel.telemetry.ResourceCheckStarted
 import com.netflix.temporal.core.convention.TaskQueueNamer
 import com.netflix.temporal.spring.WorkflowClientProvider
 import com.netflix.temporal.spring.WorkflowServiceStubsProvider
-import io.github.resilience4j.retry.annotation.Retry
 import io.grpc.Status
 import io.grpc.StatusRuntimeException
 import io.temporal.api.common.v1.WorkflowExecution
@@ -29,7 +33,9 @@ class ResourceSchedulerService(
   private val workflowClientProvider: WorkflowClientProvider,
   private val workflowServiceStubsProvider: WorkflowServiceStubsProvider,
   private val taskQueueNamer: TaskQueueNamer,
-  private val environment: Environment
+  private val environment: Environment,
+  private val workerEnvironment: WorkerEnvironment,
+  private val featureToggles: FeatureToggles
 ) {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
@@ -42,6 +48,13 @@ class ResourceSchedulerService(
    * Checks for a running workflow for the resource
    */
   fun isScheduling(resource: Resource<*>): Boolean {
+    return isScheduling(ResourceHeader(resource.id, resource.kind, resource.header.uid, resource.application))
+  }
+
+  /**
+   * Checks for a running workflow for the resource
+   */
+  fun isScheduling(resource: ResourceHeader): Boolean {
     val client = workflowServiceStubsProvider.forNamespace(TEMPORAL_NAMESPACE)
 
     val wf = try {
@@ -62,7 +75,7 @@ class ResourceSchedulerService(
     return EXECUTION_RUNNING_STATUSES.contains(wf.workflowExecutionInfo.status)
   }
 
-  fun startScheduling(resource: Resource<*>) {
+  fun startScheduling(resource: ResourceHeader) {
     if (!environment.isTemporalSchedulingEnabled(resource)) {
       log.debug("Unable to temporal schedule resource ${resource.id} in application ${resource.application} because it's not in the allow list")
       return
@@ -80,8 +93,13 @@ class ResourceSchedulerService(
       ResourceScheduler::class.java,
       WorkflowOptions.newBuilder()
         .setTaskQueue(taskQueueNamer.name(RESOURCE_SCHEDULER_TASK_QUEUE))
-        .setWorkflowId(resource.workflowId)
+        .setWorkflowId(workflowId(resource.uid))
         .setWorkflowIdReusePolicy(WorkflowIdReusePolicy.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY)
+        .setSearchAttributes(
+          mapOf(
+            WORKER_ENV_SEARCH_ATTRIBUTE to workerEnvironment.get().name
+          )
+        )
         .build()
     )
 
@@ -93,6 +111,10 @@ class ResourceSchedulerService(
         )
       )
     }
+  }
+
+  fun startScheduling(resource: Resource<*>) {
+    startScheduling(ResourceHeader(resource.id, resource.kind, resource.header.uid, resource.application))
   }
 
   fun stopScheduling(resource: Resource<*>) {
@@ -124,6 +146,12 @@ class ResourceSchedulerService(
    */
   @EventListener(ResourceAboutToBeChecked::class)
   fun onResourceCheckStarted(event: ResourceAboutToBeChecked) {
+    if (featureToggles.isEnabled(SUPERVISOR_SCHEDULING_CONFIG, false)) {
+      // new scheduling stuff will kick in, we don't need to start and stop scheduling this way.
+      // todo eb: remove once confident in the new scheduling.
+      return
+    }
+
     if (environment.isTemporalSchedulingEnabled(event.resource)) {
       startScheduling(event.resource)
     } else {
@@ -176,8 +204,15 @@ class ResourceSchedulerService(
       .setWorkflowId(workflowId)
       .build()
 
+  private val ResourceHeader.workflowExecution
+    get() = WorkflowExecution.newBuilder()
+      .setWorkflowId(workflowId(uid))
+      .build()
+
+  private fun workflowId(uid: String): String = "resource:$uid"
+
   private val Resource<*>.workflowId
-    get() = "resource:${metadata["uid"]}"
+    get() = workflowId(header.uid)
 
   private fun Environment.isTemporalSchedulingEnabled(application: String): Boolean {
     if (environment.getProperty(ENABLED_GLOBALLY_CONFIG, Boolean::class.java, false)) {
@@ -187,6 +222,9 @@ class ResourceSchedulerService(
     val allowedApplications = environment.getProperty(ALLOWED_APPS_CONFIG, String::class.java, "").split(',')
     return allowedApplications.contains(application)
   }
+
+  private fun Environment.isTemporalSchedulingEnabled(resource: ResourceHeader): Boolean =
+    isTemporalSchedulingEnabled(resource.application)
 
   private fun Environment.isTemporalSchedulingEnabled(resource: Resource<*>): Boolean =
     isTemporalSchedulingEnabled(resource.application)

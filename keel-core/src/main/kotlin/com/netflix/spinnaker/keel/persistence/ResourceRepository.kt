@@ -29,11 +29,15 @@ import java.time.Instant
 
 data class ResourceHeader(
   val id: String,
-  val kind: ResourceKind
+  val kind: ResourceKind,
+  val uid: String,
+  val application: String
 ) {
   constructor(resource: Resource<*>) : this(
     resource.id,
-    resource.kind
+    resource.kind,
+    resource.metadata["uid"]?.toString() ?: throw IllegalStateException("resource missing uid"),
+    resource.application
   )
 }
 
@@ -45,6 +49,11 @@ interface ResourceRepository : PeriodicallyCheckedRepository<Resource<ResourceSp
    * Invokes [callback] once with each registered resource.
    */
   fun allResources(callback: (ResourceHeader) -> Unit)
+
+  /**
+   * Iterates all registered resources.
+   */
+  fun allResources(): Iterator<ResourceHeader>
 
   /**
    * @return the current count of unique resources in the database.

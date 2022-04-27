@@ -20,6 +20,7 @@ import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.persistence.OverwritingExistingResourcesDisallowed
 import com.netflix.spinnaker.keel.persistence.PersistenceRetry
+import com.netflix.spinnaker.keel.persistence.ResourceHeader
 import com.netflix.spinnaker.keel.scheduling.ResourceSchedulerService
 import com.netflix.spinnaker.keel.test.DummyResourceHandlerV1
 import com.netflix.spinnaker.keel.test.DummyResourceSpec
@@ -245,11 +246,12 @@ internal class DeliveryConfigUpserterTest {
   fun `schedule resources with Temporal when enabled`() {
     every { resourceSchedulerService.isScheduling(any<String>()) } returns true
     every { resourceSchedulerService.isScheduling(any<Resource<*>>()) } returns false
-    every { resourceSchedulerService.startScheduling(any()) } just Runs
+    every { resourceSchedulerService.startScheduling(any<Resource<*>>()) } just Runs
+    every { resourceSchedulerService.startScheduling(any<ResourceHeader>()) } just Runs
     every { repository.getDeliveryConfigForApplication(any()) } returns deliveryConfig
 
     subject.upsertConfig(submittedDeliveryConfig, allowResourceOverwriting = true)
 
-    verify { resourceSchedulerService.startScheduling(any()) }
+    verify { resourceSchedulerService.startScheduling(any<Resource<*>>()) }
   }
 }

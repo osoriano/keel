@@ -18,4 +18,5 @@ dependencies {
   implementation("netflix.io.temporal:temporal-sdk")
 
   testImplementation(project(":keel-test"))
+  testImplementation("netflix.io.temporal:temporal-testing-junit5")
 }

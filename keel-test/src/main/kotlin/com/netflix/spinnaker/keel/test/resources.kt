@@ -134,7 +134,8 @@ fun <T : ResourceSpec> resource(
       "id" to generateId(kind, spec, metadata),
       "version" to 1,
       "application" to application,
-      "serviceAccount" to "keel@spinnaker"
+      "serviceAccount" to "keel@spinnaker",
+      "uid" to UUID.randomUUID().toString()
     )
   )
 

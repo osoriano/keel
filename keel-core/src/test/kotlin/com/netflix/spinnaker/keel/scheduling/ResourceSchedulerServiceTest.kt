@@ -1,6 +1,9 @@
 package com.netflix.spinnaker.keel.scheduling
 
+import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.keel.api.ResourceKind
+import com.netflix.spinnaker.keel.scheduling.SchedulingConsts.TEMPORAL_NAMESPACE
+import com.netflix.spinnaker.keel.telemetry.ResourceAboutToBeChecked
 import com.netflix.spinnaker.keel.test.resource
 import com.netflix.temporal.core.convention.TaskQueueNamer
 import com.netflix.temporal.spring.WorkflowClientProvider
@@ -34,6 +37,10 @@ class ResourceSchedulerServiceTest {
   private lateinit var workflowServiceStubs: WorkflowServiceStubs
   private lateinit var blockingWorkflowServiceStubs: WorkflowServiceGrpc.WorkflowServiceBlockingStub
   private lateinit var workflowClient: WorkflowClient
+
+  private val featureToggles: FeatureToggles = mockk(relaxed = true) {
+    every { isEnabled(FeatureToggles.SUPERVISOR_SCHEDULING_CONFIG, any()) } returns true
+  }
 
   private val res = resource(
     kind = ResourceKind.parseKind("ec2/security-group@v1"),
@@ -144,6 +151,21 @@ class ResourceSchedulerServiceTest {
     }
   }
 
+  @Test
+  fun `on resource check started should do nothing if temporal supervising enabled`() {
+    val event = ResourceAboutToBeChecked(res)
+    every { featureToggles.isEnabled(FeatureToggles.SUPERVISOR_SCHEDULING_CONFIG, any()) } returns true
+    val stub = mockk<ResourceScheduler>(relaxUnitFun = true)
+    every { workflowClient.newWorkflowStub(ResourceScheduler::class.java, any<WorkflowOptions>()) } returns stub
+
+    getSubject().onResourceCheckStarted(event)
+
+    verify (exactly = 0) {
+      stub.schedule(any())
+      blockingWorkflowServiceStubs.terminateWorkflowExecution(any())
+    }
+  }
+
   private fun getSubject(isEnabled: Boolean = true): ResourceSchedulerService {
     val env = StandardEnvironment()
     if (isEnabled) {
@@ -156,6 +178,6 @@ class ResourceSchedulerServiceTest {
         )
       )
     }
-    return ResourceSchedulerService(workflowClientProvider, workflowServiceStubsProvider, taskQueueNamer, env)
+    return ResourceSchedulerService(workflowClientProvider, workflowServiceStubsProvider, taskQueueNamer, env, WorkerEnvironment(env), featureToggles)
   }
 }
