@@ -15,7 +15,7 @@ class WorkflowExecutionInfoIterator(
 ) : Iterator<WorkflowExecutionInfo> {
 
   private lateinit var iterator: Iterator<WorkflowExecutionInfo>
-  private var nextPageToken: ByteString? = null
+  private var nextPageToken: ByteString = ByteString.EMPTY
 
   init {
     doRequest()
@@ -25,7 +25,7 @@ class WorkflowExecutionInfoIterator(
     if (iterator.hasNext()) {
       return true
     }
-    if (nextPageToken != null) {
+    if (!nextPageToken.isEmpty) {
       doRequest()
       return iterator.hasNext()
     }
@@ -39,7 +39,7 @@ class WorkflowExecutionInfoIterator(
   private fun doRequest() {
     val request = ListWorkflowExecutionsRequest.newBuilder(requestPrototype)
     request.pageSize = pageSize
-    if (nextPageToken != null) {
+    if (!nextPageToken.isEmpty) {
       request.nextPageToken = nextPageToken
     }
     val response = workflowServiceStubs.blockingStub().listWorkflowExecutions(request.build())

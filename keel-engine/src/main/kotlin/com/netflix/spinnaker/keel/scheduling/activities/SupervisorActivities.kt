@@ -44,7 +44,6 @@ interface SupervisorActivities {
         SupervisorActivities::class.java,
         ActivityOptions.newBuilder()
           .setTaskQueue(Workflow.getInfo().taskQueue)
-          .setScheduleToStartTimeout(Duration.ofMinutes(1))
           .setStartToCloseTimeout(Duration.ofHours(1))
           .setHeartbeatTimeout(Duration.ofMinutes(3))
           .setRetryOptions(
