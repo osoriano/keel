@@ -5,10 +5,17 @@ import com.netflix.spinnaker.keel.scheduling.activities.ActuatorActivities
 import com.netflix.spinnaker.keel.scheduling.activities.ActuatorActivities.CheckResourceRequest
 import com.netflix.spinnaker.keel.scheduling.activities.SchedulingConfigActivities
 import com.netflix.spinnaker.keel.scheduling.activities.SchedulingConfigActivities.CheckResourceKindRequest
+import io.temporal.activity.ActivityOptions
+import io.temporal.common.RetryOptions
+import io.temporal.failure.ActivityFailure
+import io.temporal.failure.CanceledFailure
+import io.temporal.workflow.Async
+import io.temporal.workflow.Promise
 import io.temporal.workflow.SignalMethod
 import io.temporal.workflow.Workflow
 import io.temporal.workflow.WorkflowInterface
 import io.temporal.workflow.WorkflowMethod
+import org.slf4j.LoggerFactory
 import java.time.Duration
 import java.time.Instant
 
@@ -20,9 +27,13 @@ interface ResourceScheduler {
   @SignalMethod
   fun checkNow()
 
+  /**
+   * @param lastChecked is for internal-use only: Do not set it when initiating a new scheduler.
+   */
   data class ScheduleResourceRequest(
     val resourceId: String,
-    val resourceKind: String
+    val resourceKind: String,
+    val lastChecked: Instant = Instant.now()
   )
 }
 
@@ -69,6 +80,15 @@ class ResourceSchedulerImpl : ResourceScheduler {
   private var lastCheckedTime: Instant? = null
 
   override fun schedule(request: ResourceScheduler.ScheduleResourceRequest) {
+    // Just splitting v1 code out into a different method so it's a little easier to code review.
+    if (Workflow.getVersion("retrying-activity", Workflow.DEFAULT_VERSION, 1) == Workflow.DEFAULT_VERSION) {
+      v1(request)
+    } else {
+      v2(request)
+    }
+  }
+
+  private fun v1(request: ResourceScheduler.ScheduleResourceRequest) {
     while (true) {
       actuatorActivities.checkResource(CheckResourceRequest(request.resourceId))
 
@@ -94,6 +114,72 @@ class ResourceSchedulerImpl : ResourceScheduler {
       if (shouldContinueAsNew(request.resourceKind)) {
         Workflow.continueAsNew(request)
         return
+      }
+    }
+  }
+
+  private fun v2(request: ResourceScheduler.ScheduleResourceRequest) {
+    val interval = configActivites.getResourceKindCheckInterval(CheckResourceKindRequest(request.resourceKind))
+
+    val heartbeatTimeout = Duration.ofSeconds(30).plus(interval)
+
+    // startToClose must always be greater than the heartbeat timeout (interval). This logic is pretty arbitrary,
+    // so we may want to change the config activity to return more duration configuration options so we leave these
+    // settings as tunable by operators.
+    // startToClose is a large number by default because we want the poller to be running for awhile. If the worker
+    // dies or anything uncool like that, the heartbeat timeout will cause the activity to be retried elsewhere.
+    var startToCloseTimeout = Duration.ofMinutes(30)
+    if (heartbeatTimeout > startToCloseTimeout) {
+      startToCloseTimeout = heartbeatTimeout.plus(Duration.ofMinutes(1))
+    }
+
+    val pollerActivity = Workflow.newActivityStub(
+      ActuatorActivities::class.java,
+      ActivityOptions.newBuilder()
+        .setTaskQueue(Workflow.getInfo().taskQueue)
+        .setScheduleToStartTimeout(Duration.ofMinutes(1))
+        .setStartToCloseTimeout(startToCloseTimeout)
+        .setHeartbeatTimeout(heartbeatTimeout)
+        .setRetryOptions(
+          RetryOptions.newBuilder()
+            .setBackoffCoefficient(1.0)
+            .setInitialInterval(interval)
+            .setMaximumInterval(interval)
+            .build()
+        )
+        .build()
+    )
+
+    // Start the resource monitor in a cancellation scope. This will allow us to efficiently poll for reconciliation
+    // checks on a normal schedule while also supporting checkNow. When checkNow is signaled, the workflow will stop
+    // waiting, cancel the montiorResource activity, and immediately trigger a short-lived checkResource call. Once
+    // the checkResource is done, we'll CAN to reset state and start all over again.
+    lateinit var promise: Promise<Void>
+    val scope = Workflow.newCancellationScope(
+      Runnable {
+        promise = Async.procedure {
+          pollerActivity.monitorResource(
+            ActuatorActivities.MonitorResourceRequest(
+              request.resourceId,
+              request.resourceKind,
+              request.lastChecked
+            )
+          )
+        }
+      }
+    )
+    scope.run()
+
+    Workflow.await { checkNow }
+    scope.cancel()
+
+    try {
+      promise.get()
+    } catch (e: ActivityFailure) {
+      if (e.cause is CanceledFailure && checkNow) {
+        Workflow.getLogger(javaClass.simpleName).info("Received checkNow signal: Aborted poller and will continueAsNew after immediate check")
+        actuatorActivities.checkResource(CheckResourceRequest(request.resourceId))
+        Workflow.continueAsNew(request.copy(lastChecked = Instant.ofEpochMilli(Workflow.currentTimeMillis())))
       }
     }
   }

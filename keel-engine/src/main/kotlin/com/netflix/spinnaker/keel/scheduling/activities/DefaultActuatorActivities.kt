@@ -9,13 +9,18 @@ import com.netflix.spinnaker.keel.telemetry.ResourceCheckCompleted
 import com.netflix.spinnaker.keel.telemetry.ResourceCheckStarted
 import com.netflix.spinnaker.keel.telemetry.ResourceLoadFailed
 import com.netflix.spinnaker.keel.telemetry.recordDurationPercentile
+import io.temporal.activity.Activity
+import io.temporal.client.ActivityCompletionException
+import io.temporal.failure.ApplicationFailure
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 @Component
 class DefaultActuatorActivities(
@@ -23,8 +28,11 @@ class DefaultActuatorActivities(
   private val resourceActuator: ResourceActuator,
   private val publisher: ApplicationEventPublisher,
   private val clock: Clock,
-  private val spectator: Registry
+  private val spectator: Registry,
+  private val configActivities: SchedulingConfigActivities
 ) : ActuatorActivities {
+
+  private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
   override fun checkResource(request: ActuatorActivities.CheckResourceRequest) {
     val startTime = clock.instant()
@@ -40,8 +48,49 @@ class DefaultActuatorActivities(
         }
     }
     recordDuration(startTime, "resource")
+    request.lastChecked?.also {
+      recordCheckAge(it)
+    }
   }
 
-  private fun recordDuration(startTime : Instant, type: String) =
+  override fun monitorResource(request: ActuatorActivities.MonitorResourceRequest) {
+    var lastChecked = request.lastChecked
+    while (true) {
+      // heartbeat first: this allows any cancellation to abort the check process ASAP without potentially causing
+      // a delayed check conflicting with some manual action.
+      try {
+        Activity.getExecutionContext().heartbeat("polling")
+      } catch (e: ActivityCompletionException) {
+        throw e
+      }
+
+      log.info("Checking resource ${request.resourceKind}/${request.resourceId}")
+      val startTime = System.currentTimeMillis()
+
+      checkResource(request.toCheckResourceRequest(lastChecked))
+
+      val resourceKindInterval = configActivities.getResourceKindCheckInterval(SchedulingConfigActivities.CheckResourceKindRequest(request.resourceKind))
+      val sleepTime = resourceKindInterval.minus(System.currentTimeMillis() - startTime, ChronoUnit.MILLIS)
+      sleep(sleepTime)
+
+      lastChecked = request.lastChecked
+    }
+  }
+
+  private fun sleep(duration: Duration) {
+    if (duration.isNegative || duration.isZero) {
+      return
+    }
+    try {
+      Thread.sleep(duration.toMillis())
+    } catch (e: InterruptedException) {
+      // do nothing
+    }
+  }
+
+  private fun recordDuration(startTime: Instant, type: String) =
     spectator.recordDurationPercentile("keel.scheduled.method.duration", startTime, clock.instant(), setOf(BasicTag("type", type), BasicTag("checker", TEMPORAL_CHECKER)))
+
+  private fun recordCheckAge(lastCheck: Instant) =
+    spectator.recordDurationPercentile("keel.periodically.checked.age", lastCheck, clock.instant(), setOf(BasicTag("type", "resource"), BasicTag("scheduler", "temporal")))
 }

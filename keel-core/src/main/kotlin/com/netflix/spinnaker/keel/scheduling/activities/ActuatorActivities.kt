@@ -5,15 +5,28 @@ import io.temporal.activity.ActivityOptions
 import io.temporal.common.RetryOptions
 import io.temporal.workflow.Workflow
 import java.time.Duration
+import java.time.Instant
 
 @ActivityInterface(namePrefix = "ActuatorActivities-")
 interface ActuatorActivities {
 
   fun checkResource(request: CheckResourceRequest)
 
+  fun monitorResource(request: MonitorResourceRequest)
+
   data class CheckResourceRequest(
-    val resourceId: String
+    val resourceId: String,
+    val lastChecked: Instant? = null
   )
+
+  data class MonitorResourceRequest(
+    val resourceId: String,
+    val resourceKind: String,
+    val lastChecked: Instant = Instant.now()
+  ) {
+    fun toCheckResourceRequest(lastChecked: Instant): CheckResourceRequest =
+      CheckResourceRequest(resourceId, lastChecked)
+  }
 
   companion object {
     fun get(): ActuatorActivities =

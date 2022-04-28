@@ -16,6 +16,7 @@ import io.mockk.verify
 import org.junit.jupiter.api.Test
 import org.springframework.context.ApplicationEventPublisher
 import java.time.Clock
+import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 
@@ -26,8 +27,11 @@ class DefaultActuatorActivitiesTest {
   private val publisher: ApplicationEventPublisher = mockk(relaxed = true)
   private val clock = Clock.fixed(Instant.EPOCH, ZoneId.systemDefault())
   private val spectator = NoopRegistry()
+  private val configActivities: SchedulingConfigActivities = mockk() {
+    every { getResourceKindCheckInterval(any()) } returns Duration.ofSeconds(30)
+  }
 
-  private val subject = DefaultActuatorActivities(keelRepository, resourceActuator, publisher, clock, spectator)
+  private val subject = DefaultActuatorActivities(keelRepository, resourceActuator, publisher, clock, spectator, configActivities)
 
   @Test
   fun `should check known resource`() {
