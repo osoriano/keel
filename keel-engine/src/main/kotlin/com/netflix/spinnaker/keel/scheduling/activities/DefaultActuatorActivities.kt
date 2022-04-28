@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.scheduling.activities
 
+import com.google.common.base.Ticker
 import com.netflix.spectator.api.BasicTag
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.keel.actuation.ResourceActuator
@@ -56,6 +57,8 @@ class DefaultActuatorActivities(
   override fun monitorResource(request: ActuatorActivities.MonitorResourceRequest) {
     var lastChecked = request.lastChecked
     while (true) {
+      val startTime = System.currentTimeMillis()
+
       // heartbeat first: this allows any cancellation to abort the check process ASAP without potentially causing
       // a delayed check conflicting with some manual action.
       try {
@@ -65,7 +68,6 @@ class DefaultActuatorActivities(
       }
 
       log.info("Checking resource ${request.resourceKind}/${request.resourceId}")
-      val startTime = System.currentTimeMillis()
 
       checkResource(request.toCheckResourceRequest(lastChecked))
 
@@ -73,7 +75,7 @@ class DefaultActuatorActivities(
       val sleepTime = resourceKindInterval.minus(System.currentTimeMillis() - startTime, ChronoUnit.MILLIS)
       sleep(sleepTime)
 
-      lastChecked = request.lastChecked
+      lastChecked = Instant.now()
     }
   }
 

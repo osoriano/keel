@@ -177,7 +177,10 @@ class ResourceSchedulerImpl : ResourceScheduler {
       promise.get()
     } catch (e: ActivityFailure) {
       if (e.cause is CanceledFailure && checkNow) {
-        Workflow.getLogger(javaClass.simpleName).info("Received checkNow signal: Aborted poller and will continueAsNew after immediate check")
+        Workflow.getLogger(javaClass.simpleName).info(
+          "Received checkNow signal for ${request.resourceKind}/${request.resourceId}: " +
+            "Aborted poller and will continueAsNew after immediate check"
+        )
         actuatorActivities.checkResource(CheckResourceRequest(request.resourceId))
         Workflow.continueAsNew(request.copy(lastChecked = Instant.ofEpochMilli(Workflow.currentTimeMillis())))
       }
