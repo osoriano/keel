@@ -331,6 +331,15 @@ class AdminController(
     applicationService.deleteMigrationApplication(application)
   }
 
+  @DeleteMapping(
+    path = ["/application/{application}/preview-environment/{environment}"]
+  )
+  fun deletePreviewEnvironment(
+    @PathVariable("application") application: String,
+    @PathVariable("environment") environment: String
+  ) {
+    adminService.deletePreviewEnvironment(application, environment)
+  }
 }
 
 data class CheckPermissionBody(

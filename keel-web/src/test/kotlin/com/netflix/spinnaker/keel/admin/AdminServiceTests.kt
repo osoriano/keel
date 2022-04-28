@@ -1,25 +1,25 @@
 package com.netflix.spinnaker.keel.admin
 
 import com.netflix.spinnaker.keel.actuation.ExecutionSummaryService
+import com.netflix.spinnaker.keel.api.Application
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
+import com.netflix.spinnaker.keel.api.ManagedDeliveryConfig
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
+import com.netflix.spinnaker.keel.core.api.AllowedTimesConstraint
 import com.netflix.spinnaker.keel.core.api.ManualJudgementConstraint
 import com.netflix.spinnaker.keel.core.api.PipelineConstraint
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.CURRENT
 import com.netflix.spinnaker.keel.core.api.TimeWindow
-import com.netflix.spinnaker.keel.core.api.AllowedTimesConstraint
 import com.netflix.spinnaker.keel.front50.Front50Cache
-import com.netflix.spinnaker.keel.api.Application
 import com.netflix.spinnaker.keel.front50.model.GenericStage
-import com.netflix.spinnaker.keel.api.ManagedDeliveryConfig
 import com.netflix.spinnaker.keel.front50.model.Pipeline
 import com.netflix.spinnaker.keel.front50.model.Trigger
 import com.netflix.spinnaker.keel.pause.ActuationPauser
-import com.netflix.spinnaker.keel.persistence.ApplicationRepository
 import com.netflix.spinnaker.keel.persistence.DiffFingerprintRepository
+import com.netflix.spinnaker.keel.persistence.EnvironmentDeletionRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.test.DummyArtifact
 import com.netflix.spinnaker.keel.test.DummySortingStrategy
@@ -40,7 +40,7 @@ class AdminServiceTests : JUnit5Minutests {
     private val artifactSupplier = mockk<ArtifactSupplier<DummyArtifact, DummySortingStrategy>>(relaxUnitFun = true)
     val front50Cache: Front50Cache = mockk()
     val clock = MutableClock()
-    val applicationRepository: ApplicationRepository = mockk()
+    val environmentDeletionRepository: EnvironmentDeletionRepository = mockk()
 
     val application = "fnord"
 
@@ -95,7 +95,7 @@ class AdminServiceTests : JUnit5Minutests {
       front50Cache,
       executionSummaryService,
       clock,
-      applicationRepository
+      environmentDeletionRepository
     )
   }
 

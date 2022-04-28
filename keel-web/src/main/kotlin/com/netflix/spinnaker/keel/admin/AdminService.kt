@@ -16,8 +16,8 @@ import com.netflix.spinnaker.keel.exceptions.NoSuchEnvironmentException
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.logging.blankMDC
 import com.netflix.spinnaker.keel.pause.ActuationPauser
-import com.netflix.spinnaker.keel.persistence.ApplicationRepository
 import com.netflix.spinnaker.keel.persistence.DiffFingerprintRepository
+import com.netflix.spinnaker.keel.persistence.EnvironmentDeletionRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.kork.exceptions.UserException
 import kotlinx.coroutines.CoroutineScope
@@ -39,7 +39,7 @@ class AdminService(
   private val front50Cache: Front50Cache,
   private val executionSummaryService: ExecutionSummaryService,
   private val clock: Clock,
-  private val applicationRepository: ApplicationRepository,
+  private val environmentDeletionRepository: EnvironmentDeletionRepository,
   override val coroutineContext: WorkhorseCoroutineContext = DefaultWorkhorseCoroutineContext
 ) : CoroutineScope, DiscoveryActivated() {
   fun deleteApplicationData(application: String) {
@@ -56,6 +56,20 @@ class AdminService(
   fun triggerRecheck(resourceId: String) {
     log.info("Triggering a recheck for $resourceId by clearing our record of the diff")
     diffFingerprintRepository.clear(resourceId)
+  }
+
+  /**
+   * Marks the specified preview [environment] for deletion.
+   *
+   * @throws IllegalArgumentException if [environment] is not a preview environment.
+   */
+  fun deletePreviewEnvironment(application: String, environment: String) {
+    val environment = repository.getDeliveryConfigForApplication(application).environmentNamed(environment)
+
+    if (!environment.isPreview)
+      error("Cannot use this API to delete regular environments, only preview environments.")
+
+    environmentDeletionRepository.markForDeletion(environment)
   }
 
   /**
