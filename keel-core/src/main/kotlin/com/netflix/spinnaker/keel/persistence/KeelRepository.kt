@@ -152,6 +152,7 @@ class KeelRepository(
 
     previewEnvironment.resources.forEach { resource ->
       upsertResource(resource, deliveryConfig.name)
+      resourceSchedulerService.startScheduling(resource)
     }
 
     previewArtifacts.forEach { artifact ->
