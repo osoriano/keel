@@ -9,11 +9,17 @@ data class TargetGroupAttributes(
   @get:JsonAlias("deregistration_delay.timeout_seconds")
   val deregistrationDelay: Int = 300,
   @get:JsonAlias("stickiness.type")
-  val stickinessType: String = "lb_cookie",
+  val stickinessType: String? = if (stickinessEnabled) "lb_cookie" else null,
   @get:JsonAlias("stickiness.lb_cookie.duration_seconds")
-  val stickinessDuration: Int = 86400,
+  val stickinessDuration: Int? = if (stickinessEnabled) 86400 else null,
   @get:JsonAlias("slow_start.duration_seconds")
   val slowStartDurationSeconds: Int = 0,
   @get:JsonAnyGetter
   val properties: Map<String, Any?> = emptyMap()
-)
+) {
+  init {
+    require(stickinessEnabled || (stickinessType == null && stickinessDuration == null)) {
+      "Cannot set stickinessType or stickinessDuration if stickinessEnabled is false"
+    }
+  }
+}
