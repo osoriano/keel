@@ -130,7 +130,7 @@ internal fun Build.toArtifactMetadata() =
           }
         },
         commitInfo = Commit(
-          sha = scm.first().sha1,
+          sha = scm.first().sha1!!,
           link = scm.first().compareUrl,
           message = scm.first().message,
         ),

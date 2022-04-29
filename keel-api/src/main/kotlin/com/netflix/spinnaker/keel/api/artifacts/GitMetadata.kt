@@ -11,7 +11,10 @@ data class GitMetadata(
   val repo: Repo? = null,
   val pullRequest: PullRequest? = null,
   val commitInfo: Commit? = null
-)
+) {
+  fun incompleteMetadata(): Boolean =
+    repo == null || project == null || branch == null
+}
 
 data class Repo(
   val name: String? = null,
@@ -24,7 +27,15 @@ data class PullRequest(
 )
 
 data class Commit(
-  val sha: String? = null,
+  val sha: String,
   val link: String? = null,
   val message: String? = null
 )
+
+/**
+ *  @return A copy of this [GitMetadata] object if not null, with the specified [commit] and [branch], or a new object with those values.
+ */
+fun GitMetadata?.copyOrCreate(commit: String, branch: String): GitMetadata {
+  return this?.copy(commit = commit, branch = branch, commitInfo = Commit(sha = commit)) ?:
+  GitMetadata(commit, branch = branch, commitInfo = Commit(sha = commit))
+}

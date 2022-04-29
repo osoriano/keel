@@ -6,11 +6,14 @@ import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus
 import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
+import com.netflix.spinnaker.keel.api.artifacts.Commit
 import com.netflix.spinnaker.keel.api.artifacts.DEBIAN
 import com.netflix.spinnaker.keel.api.artifacts.DOCKER
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
+import com.netflix.spinnaker.keel.api.artifacts.Job
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
+import com.netflix.spinnaker.keel.api.artifacts.Repo
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
 import com.netflix.spinnaker.keel.api.events.ArtifactVersionDetected
@@ -20,18 +23,16 @@ import com.netflix.spinnaker.keel.config.WorkProcessingConfig
 import com.netflix.spinnaker.keel.igor.BuildService
 import com.netflix.spinnaker.keel.igor.model.ArtifactContents
 import com.netflix.spinnaker.keel.igor.model.BuildDetail
+import com.netflix.spinnaker.keel.igor.model.TriggerEvent
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEvent
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventStatus
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.WorkQueueRepository
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
-import com.netflix.spinnaker.keel.telemetry.ArtifactVersionUpdated
 import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import io.mockk.Called
-import io.mockk.coEvery as every
-import io.mockk.coVerify as verify
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.spyk
@@ -41,19 +42,24 @@ import strikt.api.expectThat
 import strikt.assertions.isA
 import strikt.assertions.isEqualTo
 import strikt.assertions.isNotNull
+import strikt.assertions.isNull
 import strikt.assertions.isTrue
 import strikt.assertions.one
 import java.time.Clock
+import io.mockk.coEvery as every
+import io.mockk.coVerify as verify
 
 internal class WorkQueueProcessorTests : JUnit5Minutests {
 
+  val branchName = "super-branch"
+  val branchNameFromRocket = "super-branch-from-rocket"
   val publishedDeb = PublishedArtifact(
     type = "DEB",
     customKind = false,
     name = "fnord",
     version = "0.156.0-h58.f67fe09",
     reference = "debian-local:pool/f/fnord/fnord_0.156.0-h58.f67fe09_all.deb",
-    metadata = mapOf("releaseStatus" to ArtifactStatus.FINAL, "buildNumber" to "58", "commitId" to "f67fe09"),
+    metadata = mapOf("releaseStatus" to ArtifactStatus.FINAL, "buildNumber" to "58", "commitId" to "f67fe09", "branch" to branchName),
     provenance = "https://my.jenkins.master/jobs/fnord-release/58",
     buildMetadata = BuildMetadata(
       id = 58,
@@ -69,7 +75,7 @@ internal class WorkQueueProcessorTests : JUnit5Minutests {
     name = "fnord",
     version = "0.161.0-h61.116f116",
     reference = "debian-local:pool/f/fnord/fnord_0.161.0-h61.116f116_all.deb",
-    metadata = mapOf("releaseStatus" to ArtifactStatus.FINAL, "buildNumber" to "61", "commitId" to "116f116"),
+    metadata = mapOf("releaseStatus" to ArtifactStatus.FINAL, "buildNumber" to "61", "commitId" to "116f116", "branch" to branchName),
     provenance = "https://my.jenkins.master/jobs/fnord-release/60",
     buildMetadata = BuildMetadata(
       id = 58,
@@ -79,57 +85,9 @@ internal class WorkQueueProcessorTests : JUnit5Minutests {
     )
   ).normalized()
 
-  private val buildUrl = "https://krypton.builds.test.netflix.net/job/USERS-lpollo-lpollo-local-test-build/230/"
-  val disguisedPublishedDocker = PublishedArtifact(
-    name = "See image.properties",
-    type = "docker",
-    reference = "image.properties",
-    version = "See image.properties",
-    metadata = mapOf(
-      "rocketEventType" to "BUILD",
-      "controllerName" to "krypton",
-      "jobName" to "users-lpollo-lpollo-local-test-build",
-      "buildDetail" to  mapOf(
-        "buildEngine" to "jenkins-krypton",
-        "buildId" to "230",
-        "buildDisplayName" to "USERS-lpollo-lpollo-local-test-build #230 - Branch: master",
-        "buildDescription" to "msrc@netflix.com merged <a href=\"https://stash.corp.netflix.com/projects/~LPOLLO/repos/lpollo-local…",
-        "result" to "SUCCESSFUL",
-        "buildUrl" to buildUrl,
-        "artifacts" to listOf(
-          "$buildUrl/artifact/lpollo-local-test-client/build/reports/project/dependencies.txt",
-          "$buildUrl/artifact/lpollo-local-test-client/build/reports/project/properties.txt",
-          "$buildUrl/artifact/lpollo-local-test-proto-definition/build/reports/project/dependencies.txt",
-          "$buildUrl/artifact/lpollo-local-test-proto-definition/build/reports/project/properties.txt",
-          "$buildUrl/artifact/lpollo-local-test-server/build/distributions/lpollo-local-test-server_0.0.1%7Esnapshot-h230.88b3f71_all.deb",
-          "$buildUrl/artifact/lpollo-local-test-server/build/image-server.properties",
-          "$buildUrl/artifact/lpollo-local-test-server/build/reports/project/dependencies.txt",
-          "$buildUrl/artifact/lpollo-local-test-server/build/reports/project/properties.txt",
-          "$buildUrl/artifact/lpollo-local-test-server/build/reports/properties/properties-report-lpollolocaltest.txt",
-          "$buildUrl/artifact/lpollo-local-test-server/build/reports/smokeTest/classes/com.netflix.lpollolocaltest.SmokeTest.html",
-          "$buildUrl/artifact/lpollo-local-test-server/build/reports/smokeTest/css/base-style.css",
-          "$buildUrl/artifact/lpollo-local-test-server/build/reports/smokeTest/css/style.css",
-          "$buildUrl/artifact/lpollo-local-test-server/build/reports/smokeTest/index.html",
-          "$buildUrl/artifact/lpollo-local-test-server/build/reports/smokeTest/js/report.js",
-          "$buildUrl/artifact/lpollo-local-test-server/build/reports/smokeTest/packages/com.netflix.lpollolocaltest.html",
-          "$buildUrl/artifact/lpollo-local-test-server/build/reports/startup/startup-report-lpollolocaltest-1.html"
-        ),
-        "logs" to listOf(
-          "$buildUrl/consoleText"
-        ),
-        "reports" to emptyList<String>(),
-        "buildNumber" to 230,
-        "startedAt" to 1642470544511,
-        "queuedAt" to 1642470544507,
-        "completedAt" to 1642470752660,
-        "commitId" to "88b3f7131aaea370b5649da695387e5e23c4053f",
-        "agentId" to "nflx-agent-krypton-i-0ba8112ce613b7dff"
-      )
-    )
-  )
   val imageProperties = """
     imageID=sha256:409a2ea5e8120891ff1ce32b3fb9684237a7b292a7b01871512713f4f836f14a
-    imageName=lpollo/lpollo-local-test:master-h232.ff1f4d4    
+    imageName=lpollo/lpollo-local-test:master-h232.ff1f4d4
   """.trimIndent()
 
   val debianArtifact = DebianArtifact(name = "fnord", deliveryConfigName = "fnord-config", vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2")))
@@ -137,11 +95,10 @@ internal class WorkQueueProcessorTests : JUnit5Minutests {
   val deliveryConfig = DeliveryConfig(name = "fnord-config", application = "fnord", serviceAccount = "keel", artifacts = setOf(debianArtifact, dockerArtifact))
 
   val artifactMetadata = ArtifactMetadata(
-    gitMetadata = GitMetadata(commit = "f00baah", author = "joesmith", branch = "master"),
+    gitMetadata = GitMetadata(commit = "f00baah", author = "joesmith", branch = branchNameFromRocket, repo = Repo(name = "awesome-name")),
     buildMetadata = BuildMetadata(id = 1, status = "SUCCEEDED")
   )
 
-  val artifactVersion = slot<PublishedArtifact>()
 
   abstract class EventQueueProcessorFixture {
     val repository: KeelRepository = mockk(relaxUnitFun = true)
@@ -178,7 +135,10 @@ internal class WorkQueueProcessorTests : JUnit5Minutests {
     )
 
     val PublishedArtifact.buildDetail: BuildDetail?
-      get() = metadata["buildDetail"] ?.let { objectMapper.convertValue<BuildDetail>(it) }
+      get() = metadata["buildDetail"]?.let { objectMapper.convertValue<BuildDetail>(it) }
+
+    private val PublishedArtifact.buildTriggerEvent: TriggerEvent?
+      get() = metadata["triggerEvent"]?.let { objectMapper.convertValue<TriggerEvent>(it) }
   }
 
   data class ArtifactPublishedFixture(
@@ -239,42 +199,43 @@ internal class WorkQueueProcessorTests : JUnit5Minutests {
 
         test("only lifecycle event recorded") {
           verify(exactly = 1) { publisher.publishEvent(ofType<LifecycleEvent>()) }
-          verify(exactly = 0) { publisher.publishEvent(ofType<ArtifactVersionUpdated>())  }
+          verify(exactly = 0) { publisher.publishEvent(ofType<ArtifactVersionStored>()) }
         }
       }
 
       context("the version is new") {
         before {
           every {
-            debianArtifactSupplier.getArtifactMetadata(newerPublishedDeb)
+            debianArtifactSupplier.getArtifactMetadata(any())
           } returns artifactMetadata
 
           every { repository.storeArtifactVersion(any()) } returns true
           every { repository.getAllArtifacts(DEBIAN, any()) } returns listOf(debianArtifact)
-
           subject.handlePublishedArtifact(newerPublishedDeb)
         }
 
-        test("a new artifact version is stored") {
-          val slot = slot<PublishedArtifact>()
-          verify {repository.storeArtifactVersion(capture(artifactVersion)) }
+        val artifactVersion = mutableListOf<PublishedArtifact>()
+        test("a new artifact version is stored; store before adding more metadata") {
+          verify(exactly = 2) { repository.storeArtifactVersion(capture(artifactVersion)) }
 
-          with(artifactVersion.captured) {
+          with(artifactVersion.first()) {
             expectThat(name).isEqualTo(artifact.name)
             expectThat(type).isEqualTo(artifact.type)
             expectThat(version).isEqualTo(newerPublishedDeb.version)
             expectThat(status).isEqualTo(ArtifactStatus.FINAL)
+            expectThat(branch).isEqualTo(branchName)
+            expectThat(gitMetadata?.repo).isNull()
           }
         }
 
-        test("artifact metadata is added before storing") {
+        test("artifact metadata is added from rocket") {
           verify(exactly = 1) {
-            debianArtifactSupplier.getArtifactMetadata(newerPublishedDeb)
+            debianArtifactSupplier.getArtifactMetadata(any())
           }
 
-          with(artifactVersion.captured) {
-            expectThat(gitMetadata).isEqualTo(artifactMetadata.gitMetadata)
-            expectThat(buildMetadata).isEqualTo(artifactMetadata.buildMetadata)
+          with(artifactVersion[1]) {
+            expectThat(gitMetadata?.branch).isEqualTo(branchNameFromRocket)
+            expectThat(gitMetadata?.repo?.name).isEqualTo("awesome-name")
           }
         }
 
@@ -285,6 +246,71 @@ internal class WorkQueueProcessorTests : JUnit5Minutests {
         }
       }
     }
+
+    context("don't add metadata if the artifact metadata is already complete") {
+      before {
+        every { repository.isRegistered(artifact.name, artifact.type) } returns true
+        every {
+          debianArtifactSupplier.getLatestArtifact(deliveryConfig, artifact)
+        } returns publishedDeb
+        every {
+          debianArtifactSupplier.getArtifactMetadata(publishedDeb)
+        } returns artifactMetadata
+        every {
+          debianArtifactSupplier.shouldProcessArtifact(any())
+        } returns true
+        every { repository.storeArtifactVersion(any()) } returns true
+        every { repository.getAllArtifacts(DEBIAN, any()) } returns listOf(debianArtifact)
+      }
+
+      test("don't call rocket if all the metadata is there") {
+        val completeArtifact = newerPublishedDeb.copy(
+          buildMetadata = BuildMetadata(
+            status = "RUNNING",
+            id = 13,
+            job = Job(link = "www.job", name = "awesome-job"),
+            number = "13"
+          ),
+          gitMetadata = GitMetadata(
+            repo = Repo(name = "blabla"),
+            commit = "blabla",
+            branch = branchName,
+            project = "this",
+            commitInfo = Commit(sha = "blabla")
+          )
+        )
+        subject.handlePublishedArtifact(completeArtifact)
+
+        verify(exactly = 0) {
+          debianArtifactSupplier.getArtifactMetadata(completeArtifact)
+        }
+
+        verify(exactly = 1) { repository.storeArtifactVersion(completeArtifact) }
+      }
+    }
+
+    context("rocket is down") {
+      before {
+        every { debianArtifactSupplier.getArtifactMetadata(any()) } throws Exception()
+        every { repository.storeArtifactVersion(any()) } returns true
+        every { repository.getAllArtifacts(DEBIAN, any()) } returns listOf(debianArtifact)
+        every { repository.isRegistered(artifact.name, artifact.type) } returns true
+        every { debianArtifactSupplier.shouldProcessArtifact(any()) } returns true
+      }
+      test ("use basic artifact info") {
+        subject.handlePublishedArtifact(newerPublishedDeb)
+        val completeArtifact = slot<PublishedArtifact>()
+
+        verify (exactly = 1) {
+          repository.storeArtifactVersion(capture(completeArtifact))
+          debianArtifactSupplier.getArtifactMetadata(any())
+        }
+        with(completeArtifact.captured) {
+          expectThat(branch).isEqualTo(branchName)
+        }
+      }
+    }
+
 
     context("a Rocket build event for Docker is disguised as an artifact") {
       before {
@@ -324,9 +350,11 @@ internal class WorkQueueProcessorTests : JUnit5Minutests {
           get { createdAt }.isNotNull()
           get { metadata["commitId"] }.isEqualTo(disguisedPublishedDocker.buildDetail!!.commitId)
           get { metadata["buildNumber"] }.isEqualTo(disguisedPublishedDocker.buildDetail!!.buildNumber.toString())
+          get { branch }.isEqualTo(branchName)
         }
       }
     }
+
   }
 
   data class LifecycleEventsFixture(
@@ -395,7 +423,7 @@ internal class WorkQueueProcessorTests : JUnit5Minutests {
           verify(exactly = 2) { publisher.publishEvent(capture(events)) }
           expectThat(events).one {
             isA<ArtifactVersionDetected>().and {
-              get { deliveryConfig}.isEqualTo(deliveryConfig)
+              get { deliveryConfig }.isEqualTo(deliveryConfig)
               get { artifact }.isEqualTo(debianArtifact)
               get { version }.isEqualTo(publishedDeb)
             }

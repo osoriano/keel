@@ -62,22 +62,6 @@ class NpmArtifactSupplier(
     return NetflixVersions.getVersionDisplayName(artifact)
   }
 
-  /**
-   * Extracts the build number from the version string using the Netflix semver convention.
-   */
-  override fun parseDefaultBuildMetadata(artifact: PublishedArtifact, sortingStrategy: SortingStrategy): BuildMetadata? {
-    return NetflixVersions.getBuildNumber(artifact)
-      ?.let { BuildMetadata(it) }
-  }
-
-  /**
-   * Extracts the commit hash from the version string using the Netflix semver convention.
-   */
-  override fun parseDefaultGitMetadata(artifact: PublishedArtifact, sortingStrategy: SortingStrategy): GitMetadata? {
-    return NetflixVersions.getCommitHash(artifact)
-      ?.let { GitMetadata(it) }
-  }
-
 
   // The API requires colons in place of slashes to avoid path pattern conflicts
   private val DeliveryArtifact.nameForQuery: String

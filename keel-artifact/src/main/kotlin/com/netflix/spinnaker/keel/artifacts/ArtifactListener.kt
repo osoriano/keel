@@ -32,7 +32,7 @@ class ArtifactListener(
 ): DiscoveryActivated() {
 
   /**
-   * Fetch latest version of an artifact after it is registered.
+   * Fetch and store the latest versions of an artifact after it is registered
    */
   @EventListener(ArtifactRegisteredEvent::class)
   fun onArtifactRegisteredEvent(event: ArtifactRegisteredEvent) {

@@ -117,16 +117,6 @@ class ScmNotifierTests {
     }.isSuccess()
   }
 
-  @Test
-  fun `does not post deployment status if commit hash missing`() {
-    expectCatching {
-      subject.postDeploymentStatusToCommit(deliveryConfig, previewEnv, publishedArtifact.withoutCommitHash(), SUCCEEDED)
-    }.isSuccess()
-
-    verify(exactly = 0) {
-      scmService.postBuildResultToCommit(previewEnv.repoType!!, any(), any())
-    }
-  }
 
   @Test
   fun `does not post deployment status if only short commit is available`() {
@@ -135,7 +125,7 @@ class ScmNotifierTests {
     }.isSuccess()
 
     verify(exactly = 0) {
-      scmService.postBuildResultToCommit(previewEnv.repoType!!, publishedArtifact.commitHash!!, any())
+      scmService.postBuildResultToCommit(previewEnv.repoType!!, publishedArtifact.commitHash, any())
     }
   }
 
@@ -146,7 +136,7 @@ class ScmNotifierTests {
     }.isSuccess()
 
     verify {
-      scmService.postBuildResultToCommit(previewEnv.repoType!!, publishedArtifact.commitHash!!, capture(buildResult))
+      scmService.postBuildResultToCommit(previewEnv.repoType!!, publishedArtifact.commitHash, capture(buildResult))
     }
 
     expectThat(buildResult.captured.state).isEqualTo(SUCCESSFUL)

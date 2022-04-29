@@ -240,7 +240,7 @@ internal class ManualJudgementNotifierTests : JUnit5Minutests {
               project = "myproj",
               branch = "master",
               repo = Repo("myapp"),
-              commitInfo = Commit(message = "A test commit")
+              commitInfo = Commit(message = "A test commit", sha = "a1b2c3d")
             )
           )
         }

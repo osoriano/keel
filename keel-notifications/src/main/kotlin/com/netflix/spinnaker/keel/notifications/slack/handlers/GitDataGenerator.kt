@@ -83,7 +83,8 @@ class GitDataGenerator(
   }
 
   fun linkedCommitTitleSnippet(gitMetadata: GitMetadata, application: String): String {
-    var text = "${linkedApp(application)} in commit <${generateShaUrl(application, gitMetadata.commit.shortHash)}|#${gitMetadata.commit.shortHash}>"
+    val commit = gitMetadata.commit.shortHash
+    var text = "${linkedApp(application)} in commit <${generateShaUrl(application, commit)}|#${commit}>"
     text += " " + getAuthor(gitMetadata)
     return text
   }

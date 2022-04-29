@@ -132,7 +132,7 @@ class DeliveryConfigCodeEventListener(
             project = event.projectKey,
             branch = event.targetBranch,
             repo = Repo(name = event.repoKey),
-            commitInfo = Commit(sha = event.commitHash, link = scmUtils.getCommitLink(event), message = event.message)
+            commitInfo = Commit(sha = event.commitHash!!, link = scmUtils.getCommitLink(event), message = event.message)
           )
         }
         log.debug("Creating/updating delivery config for application ${app.name} from branch ${event.targetBranch}")

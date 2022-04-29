@@ -324,7 +324,9 @@ class SqlArtifactRepository(
           .set(ARTIFACT_VERSIONS.GIT_METADATA, gitMetadata)
           .set(ARTIFACT_VERSIONS.BUILD_METADATA, buildMetadata)
           .set(ARTIFACT_VERSIONS.ORIGINAL_METADATA, objectMapper.writeValueAsString(artifactVersion.metadata))
-          .onDuplicateKeyIgnore()
+          .onDuplicateKeyUpdate()
+          .set(ARTIFACT_VERSIONS.GIT_METADATA, gitMetadata)
+          .set(ARTIFACT_VERSIONS.BUILD_METADATA, buildMetadata)
           .execute()
       } == 1
     }

@@ -95,34 +95,6 @@ class DebianArtifactSupplier(
     return artifact.version
   }
 
-  override fun parseDefaultBuildMetadata(artifact: PublishedArtifact, sortingStrategy: SortingStrategy): BuildMetadata? {
-    // attempt to parse helpful info from the appversion.
-    // TODO: Frigga and Rocket version parsing are not aligned. We should consolidate.
-    return try {
-      val appversion = artifact.version.parseAppVersionOrNull()
-      if (appversion?.buildNumber != null) {
-        return BuildMetadata(id = appversion.buildNumber.toInt())
-      }
-      return null
-    } catch (ex: NumberFormatException) {
-      log.warn("parsed appversion.buildNumber for artifact version ${artifact.version} is not a number! ")
-      null
-    } catch (ex: Exception) {
-      log.warn("trying to parse artifact ${artifact.name} with version ${artifact.version} but got an exception", ex)
-      null
-    }
-  }
-
-  override fun parseDefaultGitMetadata(artifact: PublishedArtifact, sortingStrategy: SortingStrategy): GitMetadata? {
-    // attempt to parse helpful info from the appversion.
-    // TODO: Frigga and Rocket version parsing are not aligned. We should consolidate.
-    val appversion = artifact.version.parseAppVersionOrNull()
-    if (appversion?.commit != null) {
-      return GitMetadata(commit = appversion.commit)
-    }
-    return null
-  }
-
 
   private val DeliveryArtifact.statusesForQuery: List<String>
     get() = statuses.map { it.name }
@@ -149,7 +121,7 @@ class DebianArtifactSupplier(
         log.debug("Ignoring artifact which contains local is its version string: $this")
         false
       } else {
-        //appversion is not null, and the version does not contains "local"
+        //appversion is not null, and the version does not contain "local"
         true
       }
     } else {

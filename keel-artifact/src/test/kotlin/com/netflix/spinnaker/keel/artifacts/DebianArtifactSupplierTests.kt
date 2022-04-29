@@ -196,28 +196,6 @@ internal class DebianArtifactSupplierTests : JUnit5Minutests {
         }
       }
 
-      test("returns git metadata based on frigga parser") {
-        val gitMeta = GitMetadata(commit = AppVersion.parseName(latestArtifact.version)!!.commit)
-        expectThat(debianArtifactSupplier.parseDefaultGitMetadata(latestArtifact, debianArtifact.sortingStrategy))
-          .isEqualTo(gitMeta)
-      }
-
-      test("returns build metadata based on frigga parser") {
-        val buildMeta = BuildMetadata(id = AppVersion.parseName(latestArtifact.version)!!.buildNumber.toInt())
-        expectThat(debianArtifactSupplier.parseDefaultBuildMetadata(latestArtifact, debianArtifact.sortingStrategy))
-          .isEqualTo(buildMeta)
-      }
-
-      test("frigga parser can't parse this version") {
-        expectThat(
-          debianArtifactSupplier.parseDefaultBuildMetadata(
-            artifactWithInvalidVersion,
-            debianArtifact.sortingStrategy
-          )
-        )
-          .isNull()
-      }
-
       test("should process artifact successfully") {
         expectThat(debianArtifactSupplier.shouldProcessArtifact(latestArtifact))
           .isTrue()

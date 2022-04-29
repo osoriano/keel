@@ -42,7 +42,7 @@ abstract class BaseArtifactSupplier<A : DeliveryArtifact, V : SortingStrategy>(
 
     } catch (ex: Exception) {
       log.error("Failed to fetch artifact metadata for build $buildNumber and commit $commitId", ex)
-      null
+      throw ex
     }
   }
 

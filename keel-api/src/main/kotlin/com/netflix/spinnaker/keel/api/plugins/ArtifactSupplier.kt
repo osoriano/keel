@@ -51,24 +51,6 @@ interface ArtifactSupplier<A : DeliveryArtifact, V : SortingStrategy> : Spinnake
   fun getVersionDisplayName(artifact: PublishedArtifact): String = artifact.version
 
   /**
-   * Given a [PublishedArtifact] and a [SortingStrategy] supported by this [ArtifactSupplier],
-   * return the [BuildMetadata] for the artifact, if available.
-   *
-   * This function is currently *not* expected to make calls to other systems, but only look into
-   * the metadata available within the [PublishedArtifact] object itself.
-   */
-  fun parseDefaultBuildMetadata(artifact: PublishedArtifact, sortingStrategy: SortingStrategy): BuildMetadata? = null
-
-  /**
-   * Given a [PublishedArtifact] and a [SortingStrategy] supported by this [ArtifactSupplier],
-   * return the [GitMetadata] for the artifact, if available.
-   *
-   * This function is currently *not* expected to make calls to other systems, but only look into
-   * the metadata available within the [PublishedArtifact] object itself.
-   */
-  fun parseDefaultGitMetadata(artifact: PublishedArtifact, sortingStrategy: SortingStrategy): GitMetadata? = null
-
-  /**
    * Given a [PublishedArtifact] supported by this [ArtifactSupplier],
    * return the [ArtifactMetadata] for the artifact, if available.
    *

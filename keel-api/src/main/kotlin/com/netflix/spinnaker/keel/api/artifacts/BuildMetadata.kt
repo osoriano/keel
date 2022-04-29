@@ -25,6 +25,12 @@ data class BuildMetadata(
 
   fun isComplete(): Boolean =
     status in listOf("SUCCESS", "FAILURE", "ABORTED", "UNSTABLE")
+
+  fun incompleteMetadata(): Boolean =
+    status == null || job == null || number == null
+}
+fun BuildMetadata?.copyOrCreate(number: String): BuildMetadata {
+  return this?.copy(id = number.toInt(), number = number) ?: BuildMetadata(number.toInt(), number = number)
 }
 
 data class Job(

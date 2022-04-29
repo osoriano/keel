@@ -42,7 +42,7 @@ data class DeliveryConfigImportFailed(
 fun DeliveryConfigImportFailed.gitMetadata(): GitMetadata {
     return GitMetadata(
       commitInfo = Commit(
-        sha = commitHash,
+        sha = commitHash ?: "",
         link = link
       ),
       branch = branch,
@@ -50,7 +50,7 @@ fun DeliveryConfigImportFailed.gitMetadata(): GitMetadata {
       repo = Repo(
         name = repoSlug
       ),
-      commit = commitHash ?: "",
+      commit = commitHash ?: "N/A",
       author = authorEmail
     )
 }

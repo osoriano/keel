@@ -32,4 +32,8 @@ class BoostJenkinsService(
       it.name.lowercase() == jobName.lowercase() && it.scmType == ScmType.ROCKET
     }
   }
+
+  override suspend fun getArtifactMetadata(commitId: String, buildNumber: String, completionStatus: String?) {
+    TODO("Not yet implemented")
+  }
 }

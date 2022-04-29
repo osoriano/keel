@@ -10,7 +10,6 @@ import java.time.Instant
  * key fields without which it doesn't make sense for an artifact to exist in Managed Delivery terms. It also adds
  * a couple of keel-specific fields to store artifact metadata.
  */
-// TODO: rename to `Artifact` or `ArtifactInstance`
 data class PublishedArtifact(
   val name: String,
   val type: String,
@@ -103,27 +102,54 @@ data class PublishedArtifact(
         }
       }
 
-  val branch: String?
-    get() = gitMetadata?.branch ?: metadata["branch"] as? String
+  val branch: String
+    get() = gitMetadata?.branch
+      ?: metadata["branch"] as? String
+      ?: metadata.getBranchFromBuildTrigger()
+      ?: error("branch is required in metadata")
 
-  val commitHash: String?
-    get() = gitMetadata?.commitInfo?.sha ?: gitMetadata?.commit ?: metadata["commitId"] as? String
+  val commitHash: String
+    get() = gitMetadata?.commitInfo?.sha
+      ?: gitMetadata?.commit
+      ?: metadata["commitId"] as? String
+      ?: metadata.getCommitFromBuildDetail()
+      ?: error("commit hash is required in metadata")
 
-  val shortCommitHash: String?
-    get() = commitHash?.shortHash
+  val shortCommitHash: String
+    get() = commitHash.shortHash
 
   val prCommitHash: String?
     get() = (metadata["prCommitId"] as? String)?.let { it.ifEmpty { null } }
 
-  val buildNumber: String?
-    get() = buildMetadata?.number ?: metadata["buildNumber"] as? String
+  val buildNumber: String
+    get() = buildMetadata?.number
+      ?: metadata["buildNumber"] as? String
+      ?: metadata.getBuildIdFromBuildDetail()
+      ?: error("build number is required in metadata")
 
   fun normalized() = copy(
     type = type.lowercase(),
     // FIXME: it's silly that we're prepending the artifact name for Debian only...
     version = if (type.lowercase() == DEBIAN && !version.startsWith(name)) "$name-$version" else version
   )
+
 }
 
 val String.shortHash: String
   get() = this.take(7)
+
+fun Map<String, Any?>.getBranchFromBuildTrigger(): String? {
+  val event = this["triggerEvent"] as? Map<*, *>
+  val target =  event?.get("target") as? Map<*, *>
+  return target?.get("branchName") as? String
+}
+
+fun Map<String, Any?>.getCommitFromBuildDetail(): String? {
+  val buildDetails = this["buildDetail"] as? Map<*, *>
+  return buildDetails?.get("commitId") as? String
+}
+
+fun Map<String, Any?>.getBuildIdFromBuildDetail(): String? {
+  val buildDetails = this["buildDetail"] as? Map<*, *>
+  return buildDetails?.get("buildId") as? String
+}

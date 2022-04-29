@@ -31,27 +31,18 @@ class DeliveryConfigFailedImportNotificationHandler(
     val headerText = "Failed to import delivery config from branch ${gitMetadata.branch}"
     return withBlocks {
 
-      if (gitMetadata.commitInfo!!.sha != null) {
-        section {
-          markdownText(":X: *$headerText for ${gitDataGenerator.linkedCommitTitleSnippet(gitMetadata, application)}*")
-        }
+      section {
+        markdownText(":X: *$headerText for ${gitDataGenerator.linkedCommitTitleSnippet(gitMetadata, application)}*")
+      }
 
-        section {
-          markdownText("\nReason: ${gitDataGenerator.formatMessage(gitMetadata.copy(commitInfo = Commit(message = reason)))}")
-          val hash = gitMetadata.commitInfo!!.sha!!
-          gitDataGenerator.buildMoreInfoButton(this, hash, reason, "See details", "FULL_REASON_MODAL")
-        }
+      section {
+        val hash = gitMetadata.commitInfo!!.sha
+        markdownText("\nReason: ${gitDataGenerator.formatMessage(gitMetadata.copy(commitInfo = Commit(message = reason, sha = hash)))}")
+        gitDataGenerator.buildMoreInfoButton(this, hash, reason, "See details", "FULL_REASON_MODAL")
+      }
 
-        section {
-          gitDataGenerator.generateScmInfo(this, application, gitMetadata, null)
-        }
-      } else {
-        section {
-          markdownText(":X: $headerText for ${gitDataGenerator.linkedApp(application)}\n\n" +
-            "No commit info available. " +
-            "View the current <${gitDataGenerator.generateConfigUrl(application)}|config>."
-          )
-        }
+      section {
+        gitDataGenerator.generateScmInfo(this, application, gitMetadata, null)
       }
     }
   }

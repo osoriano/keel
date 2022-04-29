@@ -260,7 +260,7 @@ internal class ClusterExportTests : JUnit5Minutests {
             reference = "keel",
             type = DEBIAN,
             version = "0.0.1",
-            metadata = mapOf("branch" to "main"),
+            metadata = mapOf("branch" to "main", "commitId" to "f80cfcfdec37df59604b2ef93dfb29bade340791", "buildNumber" to "41"),
             provenance = "https://blablabla.net/job/users-my-app-build/"
           )
         }

@@ -10,6 +10,7 @@ import com.netflix.spinnaker.config.WorkhorseCoroutineContext
 import com.netflix.spinnaker.keel.activation.DiscoveryActivated
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
+import com.netflix.spinnaker.keel.api.artifacts.copyOrCreate
 import com.netflix.spinnaker.keel.api.events.ArtifactVersionDetected
 import com.netflix.spinnaker.keel.api.events.ArtifactVersionStored
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
@@ -18,6 +19,7 @@ import com.netflix.spinnaker.keel.config.WorkProcessingConfig
 import com.netflix.spinnaker.keel.exceptions.InvalidSystemStateException
 import com.netflix.spinnaker.keel.igor.BuildService
 import com.netflix.spinnaker.keel.igor.model.BuildDetail
+import com.netflix.spinnaker.keel.igor.model.TriggerEvent
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEvent
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventScope.PRE_DEPLOYMENT
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventStatus.RUNNING
@@ -66,7 +68,7 @@ class WorkQueueProcessor(
   private val clock: Clock,
   private val springEnv: Environment,
   private val objectMapper: ObjectMapper
-): DiscoveryActivated(), CoroutineScope {
+) : DiscoveryActivated(), CoroutineScope {
 
   override val coroutineContext: WorkhorseCoroutineContext = DefaultWorkhorseCoroutineContext
 
@@ -90,7 +92,7 @@ class WorkQueueProcessor(
       .using(spectator)
       .withName(NUMBER_QUEUED_GAUGE)
       .monitorValue(this) {
-        when(enabled.get()) {
+        when (enabled.get()) {
           true -> it.queueSize()
           false -> 0.0
         }
@@ -120,27 +122,27 @@ class WorkQueueProcessor(
       val startTime = clock.instant()
       val job = launch(blankMDC) {
         supervisorScope {
-           workQueueRepository
-              .removeArtifactsFromQueue(artifactBatchSize)
-              .forEach { artifactVersion ->
-                try {
-                  /**
-                   * Allow individual artifact processing to timeout but catch the `CancellationException`
-                   * to prevent the cancellation of all coroutines under [job]
-                   */
-                  log.debug("Processing artifact {}", artifactVersion)
-                  withTimeout(config.timeoutDuration.toMillis()) {
-                    launch {
-                      handlePublishedArtifact(artifactVersion)
-                      lastArtifactCheck.set(clock.instant())
-                    }
+          workQueueRepository
+            .removeArtifactsFromQueue(artifactBatchSize)
+            .forEach { artifactVersion ->
+              try {
+                /**
+                 * Allow individual artifact processing to timeout but catch the `CancellationException`
+                 * to prevent the cancellation of all coroutines under [job]
+                 */
+                log.debug("Processing artifact {}", artifactVersion)
+                withTimeout(config.timeoutDuration.toMillis()) {
+                  launch {
+                    handlePublishedArtifact(artifactVersion)
+                    lastArtifactCheck.set(clock.instant())
                   }
-                } catch (e: TimeoutCancellationException) {
-                  log.error("Timed out processing artifact version {}:", artifactVersion.version, e)
                 }
+              } catch (e: TimeoutCancellationException) {
+                log.error("Timed out processing artifact version {}:", artifactVersion.version, e)
               }
             }
         }
+      }
       runBlocking { job.join() }
       spectator.recordDuration(ARTIFACT_PROCESSING_DURATION, startTime, clock.instant())
     }
@@ -149,7 +151,7 @@ class WorkQueueProcessor(
   /**
    * Processes a new artifact version by enriching it with git/build metadata, and storing
    * it in the database.
-   * 
+   *
    * This method also acts as an event handler, allowing other components in the system to
    * trigger storage of artifact versions in flows that don't/can't use the work queue.
    */
@@ -227,37 +229,48 @@ class WorkQueueProcessor(
    * creates the appropriate build lifecycle event,
    * and stores in the database
    */
-  internal fun enrichAndStore(artifact: PublishedArtifact, supplier: ArtifactSupplier<*,*>): Boolean {
-    val enrichedArtifact = supplier.addMetadata(artifact.normalized())
-    notifyArtifactVersionDetected(enrichedArtifact)
-
-    log.debug("Storing artifact ${artifact.type}:${artifact.name} version ${artifact.version}")
-    val stored = repository.storeArtifactVersion(enrichedArtifact)
+  internal fun enrichAndStore(artifact: PublishedArtifact, supplier: ArtifactSupplier<*, *>): Boolean {
+    log.debug("Storing artifact (before adding metadata from rocket) ${artifact.type}:${artifact.name} version ${artifact.version} with branch ${artifact.branch}")
+    val basicArtifactInfo = artifact.copy(
+      gitMetadata = artifact.gitMetadata.copyOrCreate(
+        branch = artifact.branch,
+        commit = artifact.shortCommitHash
+      ),
+      buildMetadata = artifact.buildMetadata.copyOrCreate(
+          number = artifact.buildNumber
+      ))
+    //store a copy of an artifact, prior of enriching it with more metadata
+    val stored = repository.storeArtifactVersion(basicArtifactInfo)
 
     if (stored) {
-      publisher.publishEvent(ArtifactVersionStored(enrichedArtifact))
+      publisher.publishEvent(ArtifactVersionStored(basicArtifactInfo))
     }
-
+    notifyArtifactVersionDetected(basicArtifactInfo)
+    supplier.addAndStoreMetadata(basicArtifactInfo.normalized())
     return stored
   }
 
   /**
-   * Returns a copy of the [PublishedArtifact] with the git and build metadata populated, if available.
+   * Storing a copy of the [PublishedArtifact] with the git and build metadata populated, if available.
    */
-  private fun ArtifactSupplier<*, *>.addMetadata(artifact: PublishedArtifact): PublishedArtifact {
-    // only add metadata if either build or git metadata is null
-    if (artifact.buildMetadata == null || artifact.gitMetadata == null) {
-      val artifactMetadata = runBlocking {
+  fun ArtifactSupplier<*, *>.addAndStoreMetadata(artifact: PublishedArtifact) {
+    // only add metadata if either build or git metadata are currently missing information
+    if (artifact.buildMetadata!!.incompleteMetadata() || artifact.gitMetadata!!.incompleteMetadata()) {
+      runBlocking {
         try {
-          getArtifactMetadata(artifact)
+          val artifactMetadata = getArtifactMetadata(artifact)
+          val updatedArtifact = artifact.copy(
+            gitMetadata = artifactMetadata?.gitMetadata ?: artifact.gitMetadata,
+            buildMetadata = artifactMetadata?.buildMetadata ?: artifact.buildMetadata
+          )
+          log.debug("Storing updated artifact (after adding metadata from rocket): $updatedArtifact")
+          repository.storeArtifactVersion(updatedArtifact)
         } catch (ex: Exception) {
-          log.error("Could not fetch artifact metadata for name ${artifact.name} and version ${artifact.version}", ex)
-          null
+          //in case of an error from boost, don't override the current information
+          log.error("Could not fetch artifact metadata for name ${artifact.name} and version ${artifact.version}; using default data", ex)
         }
       }
-      return artifact.copy(gitMetadata = artifactMetadata?.gitMetadata, buildMetadata = artifactMetadata?.buildMetadata)
     }
-    return artifact
   }
 
   /**
@@ -278,36 +291,34 @@ class WorkQueueProcessor(
               version = artifact
             )
           )
+          log.debug("Publishing build lifecycle event for published artifact $artifact")
+          val data = mutableMapOf(
+            "buildNumber" to artifact.buildNumber,
+            "commitId" to artifact.commitHash,
+            "buildMetadata" to artifact.buildMetadata,
+            "application" to deliveryConfig.application,
+            "branch" to artifact.branch
+          )
 
-          if (artifact.buildMetadata != null) {
-            log.debug("Publishing build lifecycle event for published artifact $artifact")
-            val data = mutableMapOf(
-              "buildNumber" to artifact.buildNumber,
-              "commitId" to artifact.commitHash,
-              "buildMetadata" to artifact.buildMetadata,
-              "application" to deliveryConfig.application
+          publisher.publishEvent(
+            LifecycleEvent(
+              scope = PRE_DEPLOYMENT,
+              deliveryConfigName = configName,
+              artifactReference = deliveryArtifact.reference,
+              artifactVersion = artifact.version,
+              type = BUILD,
+              id = "build-${artifact.version}",
+              // the build has already started, and is maybe complete.
+              // We use running to convey that to users, and allow the [BuildLifecycleMonitor] to immediately
+              // update the status
+              status = RUNNING,
+              text = "Monitoring build for ${artifact.version}",
+              link = artifact.buildMetadata?.uid,
+              data = data,
+              timestamp = artifact.buildMetadata?.startedAtInstant,
+              startMonitoring = true
             )
-
-            publisher.publishEvent(
-              LifecycleEvent(
-                scope = PRE_DEPLOYMENT,
-                deliveryConfigName = configName,
-                artifactReference = deliveryArtifact.reference,
-                artifactVersion = artifact.version,
-                type = BUILD,
-                id = "build-${artifact.version}",
-                // the build has already started, and is maybe complete.
-                // We use running to convey that to users, and allow the [BuildLifecycleMonitor] to immediately
-                // update the status
-                status = RUNNING,
-                text = "Monitoring build for ${artifact.version}",
-                link = artifact.buildMetadata?.uid,
-                data = data,
-                timestamp = artifact.buildMetadata?.startedAtInstant,
-                startMonitoring = true
-              )
-            )
-          }
+          )
         }
       }
   }
@@ -321,6 +332,9 @@ class WorkQueueProcessor(
   private fun PublishedArtifact.completeDockerImageDetails(): PublishedArtifact {
     val buildDetail = buildDetail
       ?: error("Cannot complete Docker image details. Build details missing or mal-formed: (metadata: $metadata)")
+
+    val buildTriggerEvent = buildTriggerEvent
+      ?: error("Cannot complete Docker image details. Build trigger event missing or mal-formed: (metadata: $metadata)")
 
     val imagePropsFile = buildDetail.artifacts.find { artifact ->
       artifact.endsWith("/image.properties") || artifact.endsWith("/image-server.properties")
@@ -355,7 +369,8 @@ class WorkQueueProcessor(
       metadata = metadata + mapOf(
         "buildNumber" to buildDetail.buildNumber.toString(),
         "commitId" to buildDetail.commitId,
-        "createdAt" to Instant.ofEpochMilli(buildDetail.completedAt)
+        "createdAt" to Instant.ofEpochMilli(buildDetail.completedAt),
+        "branch" to buildTriggerEvent.target.branchName
       )
     )
   }
@@ -366,7 +381,10 @@ class WorkQueueProcessor(
       ?: throw InvalidSystemStateException("Unable to find registered artifact type for '$type'")
 
   private val PublishedArtifact.buildDetail: BuildDetail?
-    get() = metadata["buildDetail"] ?.let { objectMapper.convertValue<BuildDetail>(it) }
+    get() = metadata["buildDetail"]?.let { objectMapper.convertValue<BuildDetail>(it) }
+
+  private val PublishedArtifact.buildTriggerEvent: TriggerEvent?
+    get() = metadata["triggerEvent"]?.let { objectMapper.convertValue<TriggerEvent>(it) }
 
   private val artifactTypeNames by lazy {
     artifactSuppliers.map { it.supportedArtifact.name }
@@ -377,13 +395,13 @@ class WorkQueueProcessor(
       .using(spectator)
       .withName(name)
       .monitorValue(AtomicReference(clock.instant())) { previous ->
-        when(enabled.get()) {
+        when (enabled.get()) {
           true -> secondsSince(previous)
           false -> 0.0
         }
       }
 
-  private fun secondsSince(start: AtomicReference<Instant>) : Double  =
+  private fun secondsSince(start: AtomicReference<Instant>): Double =
     Duration
       .between(start.get(), clock.instant())
       .toMillis()

@@ -1,20 +1,16 @@
 package com.netflix.spinnaker.keel.artifacts
 
 import com.netflix.spinnaker.keel.api.DeliveryConfig
-import com.netflix.spinnaker.keel.api.Locatable
-import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
 import com.netflix.spinnaker.keel.api.artifacts.DOCKER
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
-import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
+import com.netflix.spinnaker.keel.api.artifacts.SortingStrategy
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.BRANCH_JOB_COMMIT_BY_JOB
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.SEMVER_JOB_COMMIT_BY_JOB
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.SEMVER_JOB_COMMIT_BY_SEMVER
-import com.netflix.spinnaker.keel.api.artifacts.SortingStrategy
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
 import com.netflix.spinnaker.keel.api.support.EventPublisher
-import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
 import com.netflix.spinnaker.keel.titus.registry.TitusRegistryService
 import org.springframework.stereotype.Component
@@ -31,6 +27,7 @@ class DockerArtifactSupplier(
 ) : BaseArtifactSupplier<DockerArtifact, DockerVersionSortingStrategy>(artifactMetadataService) {
   override val supportedArtifact = SupportedArtifact("docker", DockerArtifact::class.java)
 
+<<<<<<< 8da4e9e1496f2149a55545e0df04ef9c32073681
 <<<<<<< 9ac83e61819e44a21ac7b7d1e2c5b00e4250a8b0
 <<<<<<< 4c76b4ad2323773a3a73e2741e3695005f0c66c0
 <<<<<<< 9a74071d2401ab3654fed604310d90eb11dd94ff
@@ -102,6 +99,9 @@ class DockerArtifactSupplier(
 =======
   private suspend fun findArtifactVersions(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact, limit: Int): List<PublishedArtifact> {
 >>>>>>> 77a38e89aaf841a05240af60a0db0d0ad1aa3c91
+=======
+  private suspend fun findArtifactVersions(artifact: DeliveryArtifact): List<PublishedArtifact> {
+>>>>>>> 8e33e52beedf061804b02e595b4fa8888742e3b6
     // TODO: We currently search by image name only, i.e. we look in all accounts/registries and regions, but
     //  we could use the info about clusters using the artifacts to narrow down.
 >>>>>>> c449b3aefa1ace8696be7eab7682911f67e3ad94
@@ -142,29 +142,12 @@ class DockerArtifactSupplier(
       throw IllegalArgumentException("Only Docker artifacts are supported by this implementation.")
     }
 
-    return findArtifactVersions(deliveryConfig, artifact, limit)
+    return findArtifactVersions(artifact)
       .filter { shouldProcessArtifact(it) }
       .sortedWith(artifact.sortingStrategy.comparator)
       .take(limit) // unfortunately we can only limit here because we need to sort with the comparator above
   }
 
-  override fun parseDefaultBuildMetadata(artifact: PublishedArtifact, sortingStrategy: SortingStrategy): BuildMetadata? {
-      if (sortingStrategy.hasBuild()) {
-        val regex = Regex("""^.*-h(\d+).*$""")
-        val result = regex.find(artifact.version)
-        if (result != null && result.groupValues.size == 2) {
-          return BuildMetadata(id = result.groupValues[1].toInt())
-        }
-      }
-    return null
-  }
-
-  override fun parseDefaultGitMetadata(artifact: PublishedArtifact, sortingStrategy: SortingStrategy): GitMetadata? {
-      if (sortingStrategy.hasCommit()) {
-        return GitMetadata(commit = artifact.version.substringAfterLast("."))
-      }
-    return null
-  }
 
   private fun SortingStrategy.hasBuild(): Boolean {
     return (this as? DockerVersionSortingStrategy)
@@ -177,6 +160,7 @@ class DockerArtifactSupplier(
       ?.let { it.strategy in listOf(BRANCH_JOB_COMMIT_BY_JOB, SEMVER_JOB_COMMIT_BY_JOB, SEMVER_JOB_COMMIT_BY_SEMVER) }
       ?: false
   }
+
 
   override fun shouldProcessArtifact(artifact: PublishedArtifact): Boolean =
     artifact.version != "latest"

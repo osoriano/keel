@@ -24,7 +24,7 @@ abstract class WorkQueueRepositoryTests<IMPLEMENTATION: WorkQueueRepository> {
     type = "DEB",
     reference = "test",
     version = "1.1",
-    metadata = emptyMap()
+    metadata = mapOf("branch" to "master", "commitId" to "f80cfcfdec37df59604b2ef93dfb29bade340791", "buildNumber" to "43")
   )
   val codeEvent = CommitCreatedEvent(repoKey = "stash/project/repo", targetProjectKey = "project", targetRepoSlug = "repo", targetBranch =  "master", commitHash = "hash123")
 

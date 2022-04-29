@@ -60,7 +60,8 @@ abstract class BaseVerificationEvaluatorTests {
       commit = "116f116",
       branch = "main",
       commitInfo = Commit(
-        link = "https://stash/fnord/fnord/commits/116f116"
+        link = "https://stash/fnord/fnord/commits/116f116",
+        sha = "116f116"
       ),
       pullRequest = PullRequest(
         number = "1",

@@ -232,7 +232,7 @@ class QueryTests {
       keelRepository.getAllVersionsForEnvironment(artifact, deliveryConfig, "test")
     } returns listOf(
       PublishedArtifactInEnvironment(
-        artifact.toArtifactVersion(version = "v1"),
+        artifact.toArtifactVersion(version = "v1", metadata = mapOf("branch" to "main", "commitId" to "f80cfcfdec37df59604b2ef93dfb29bade340791", "buildNumber" to "41")),
         status = PromotionStatus.CURRENT,
         environmentName = "test"
       )

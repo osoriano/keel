@@ -401,9 +401,9 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
           expectThat(subject.getReleaseStatus(versionedSnapshotDebian, version1)).isEqualTo(SNAPSHOT)
         }
 
-        test("registering the same version is a no-op") {
+        test("registering the same version will update the git/build metadata") {
           val result = subject.storeArtifactVersion(versionedSnapshotDebian.toArtifactVersion(version1, SNAPSHOT))
-          expectThat(result).isFalse()
+          expectThat(result).isTrue()
           expectThat(subject.versions(versionedSnapshotDebian, limit)).hasSize(1)
         }
 

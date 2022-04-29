@@ -187,20 +187,6 @@ internal class DockerArtifactSupplierTests : JUnit5Minutests {
         }
       }
 
-      test("returns git metadata based on tag when available") {
-        expectThat(dockerArtifactSupplier.parseDefaultGitMetadata(latestArtifact, DockerVersionSortingStrategy(SEMVER_JOB_COMMIT_BY_SEMVER)))
-          .isEqualTo(GitMetadata(commit = "8a5b962"))
-        expectThat(dockerArtifactSupplier.parseDefaultGitMetadata(latestArtifact, DockerVersionSortingStrategy(INCREASING_TAG)))
-          .isNull()
-      }
-
-      test("returns build metadata based on tag when available") {
-        expectThat(dockerArtifactSupplier.parseDefaultBuildMetadata(latestArtifact, DockerVersionSortingStrategy(SEMVER_JOB_COMMIT_BY_SEMVER)))
-          .isEqualTo(BuildMetadata(id = 1182))
-        expectThat(dockerArtifactSupplier.parseDefaultBuildMetadata(latestArtifact, DockerVersionSortingStrategy(INCREASING_TAG)))
-          .isNull()
-      }
-
       test("should not process artifact with latest version") {
         expectThat(dockerArtifactSupplier.shouldProcessArtifact(latestArtifact))
           .isTrue()

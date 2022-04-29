@@ -74,11 +74,6 @@ class ScmNotifier(
 
     val commitHash = publishedArtifact.commitHash
 
-    if (commitHash == null) {
-      log.debug("Can't post deployment status to SCM as commit hash is not known for artifact $publishedArtifact.")
-      return
-    }
-
     if (commitHash.length < 40) {
       log.debug("Can't post deployment status to SCM with short commit hash for artifact $publishedArtifact")
       return
