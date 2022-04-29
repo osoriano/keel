@@ -18,7 +18,7 @@ environments:
         - name: us-east-1
       description: Managed Security Group for keeldemo example
       inboundRules:
-      - protocol: tcp
+      - protocol: TCP
         portRange:
           startPort: 7001
           endPort: 7001

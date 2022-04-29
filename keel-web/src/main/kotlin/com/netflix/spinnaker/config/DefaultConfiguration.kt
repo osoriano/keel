@@ -129,9 +129,6 @@ class DefaultConfiguration(
         resourceKindSchemaCustomizer,
         TagVersionStrategySchemaCustomizer,
         NamedResourceSchemaCustomizer(resourceKindSchemaCustomizer)
-      ),
-      options = Generator.Options(
-        lowerCaseEnums = true
       )
     )
   }
