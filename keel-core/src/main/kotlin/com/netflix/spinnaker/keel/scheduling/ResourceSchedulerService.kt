@@ -97,7 +97,7 @@ class ResourceSchedulerService(
         .setWorkflowIdReusePolicy(WorkflowIdReusePolicy.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY)
         .setSearchAttributes(
           mapOf(
-            WORKER_ENV_SEARCH_ATTRIBUTE to workerEnvironment.get().name
+            WORKER_ENV_SEARCH_ATTRIBUTE to workerEnvironment.get()
           )
         )
         .build()

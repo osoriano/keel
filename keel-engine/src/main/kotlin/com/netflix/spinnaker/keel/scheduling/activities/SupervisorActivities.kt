@@ -87,7 +87,7 @@ class DefaultSupervisorActivities(
 
     val listRequest = ListWorkflowExecutionsRequest.newBuilder()
       .setNamespace(TEMPORAL_NAMESPACE)
-      .setQuery("WorkflowType = 'ResourceScheduler' AND ExecutionStatus = 'Running' AND WorkerEnv = '${workerEnvironment.get().name}'")
+      .setQuery("WorkflowType = 'ResourceScheduler' AND ExecutionStatus = 'Running' AND WorkerEnv = '${workerEnvironment.get()}'")
       .build()
 
     i = 0

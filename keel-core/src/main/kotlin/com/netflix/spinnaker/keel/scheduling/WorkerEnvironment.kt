@@ -13,11 +13,22 @@ import org.springframework.stereotype.Component
 class WorkerEnvironment(
   private val environment: Environment
 ) {
-  fun get(): Type =
-    if (environment.activeProfiles.contains("laptop")) Type.LAPTOP else Type.CLOUD
+  fun get(): String =
+    if (environment.activeProfiles.contains("laptop")) getLaptopName() else CLOUD
 
-  enum class Type {
-    LAPTOP,
-    CLOUD
+  /**
+   * Produces environment names for laptop, e.g. "laptop:rzienert"
+   */
+  private fun getLaptopName(): String =
+    System.getProperty("user.name")
+      .ifEmpty {
+        throw IllegalStateException("Could not resolve laptop user (user.name property should be set)")
+      }
+      .let { "laptop:$it" }
+
+  private companion object {
+    // Capitalized for backwards compatibility with prior enum formatting. Changes would be unwelcome (may cause
+    // unnecessary termination & rescheduling of workflows)
+    private const val CLOUD = "CLOUD"
   }
 }

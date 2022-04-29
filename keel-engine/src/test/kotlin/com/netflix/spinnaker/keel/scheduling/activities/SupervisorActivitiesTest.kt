@@ -44,7 +44,7 @@ class SupervisorActivitiesTest {
   private val temporalClient: TemporalClient = mockk(relaxed = true)
 
   private val workerEnvironment: WorkerEnvironment = mockk {
-    every { get() } returns WorkerEnvironment.Type.LAPTOP
+    every { get() } returns "test"
   }
   private val registry = NoopRegistry()
 
