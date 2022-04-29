@@ -106,14 +106,14 @@ data class PublishedArtifact(
     get() = gitMetadata?.branch
       ?: metadata["branch"] as? String
       ?: metadata.getBranchFromBuildTrigger()
-      ?: error("branch is required in metadata")
+      ?: "N/A"
 
   val commitHash: String
     get() = gitMetadata?.commitInfo?.sha
       ?: gitMetadata?.commit
       ?: metadata["commitId"] as? String
       ?: metadata.getCommitFromBuildDetail()
-      ?: error("commit hash is required in metadata")
+      ?: "N/A"
 
   val shortCommitHash: String
     get() = commitHash.shortHash
@@ -125,7 +125,7 @@ data class PublishedArtifact(
     get() = buildMetadata?.number
       ?: metadata["buildNumber"] as? String
       ?: metadata.getBuildIdFromBuildDetail()
-      ?: error("build number is required in metadata")
+      ?: "-1" //can't do it as N/A as we are parsing int in BuildMetadata.copyOrCreate
 
   fun normalized() = copy(
     type = type.lowercase(),
