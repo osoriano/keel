@@ -82,11 +82,11 @@ class ResourceSchedulerImpl : ResourceScheduler {
 
   override fun schedule(request: ResourceScheduler.ScheduleResourceRequest) {
     // Just splitting v1 code out into a different method so it's a little easier to code review.
-    if (Workflow.getVersion("retrying-activity", Workflow.DEFAULT_VERSION, 1) == Workflow.DEFAULT_VERSION) {
-      v1(request)
-    } else {
-      v2(request)
-    }
+//    if (Workflow.getVersion("retrying-activity", Workflow.DEFAULT_VERSION, 1) == Workflow.DEFAULT_VERSION) {
+    v1(request)
+//    } else {
+//      v2(request)
+//    }
   }
 
   private fun v1(request: ResourceScheduler.ScheduleResourceRequest) {
