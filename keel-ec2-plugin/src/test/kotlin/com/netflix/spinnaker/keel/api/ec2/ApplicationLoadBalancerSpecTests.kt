@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonMappingException
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.netflix.spinnaker.keel.serialization.configuredYamlMapper
+import dev.minutest.experimental.SKIP
+import dev.minutest.experimental.minus
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import strikt.api.expectCatching
@@ -147,7 +149,8 @@ internal object ApplicationLoadBalancerSpecTests : JUnit5Minutests {
         )
       }
 
-      test("fails to deserialize") {
+      // TODO: reinstate if/when we add back the stickiness properties check in the model
+      SKIP - test("fails to deserialize") {
         expectCatching<ApplicationLoadBalancerSpec> {
           mapper.readValue(yaml)
         }.isFailure()

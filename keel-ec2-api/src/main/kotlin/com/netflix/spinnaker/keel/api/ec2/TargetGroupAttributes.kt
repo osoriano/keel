@@ -17,9 +17,13 @@ data class TargetGroupAttributes(
   @get:JsonAnyGetter
   val properties: Map<String, Any?> = emptyMap()
 ) {
+  // FIXME [LFP 4/29/2022]: the following should be enforced, but we have data in the DB that fails the check, and I'm not
+  //  sure about CloudDriver responses.
+  /*
   init {
     require(stickinessEnabled || (stickinessType == null && stickinessDuration == null)) {
       "Cannot set stickinessType or stickinessDuration if stickinessEnabled is false"
     }
   }
+  */
 }
