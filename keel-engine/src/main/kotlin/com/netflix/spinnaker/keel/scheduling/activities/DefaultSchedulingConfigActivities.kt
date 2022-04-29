@@ -1,7 +1,6 @@
 package com.netflix.spinnaker.keel.scheduling.activities
 
 import com.google.common.annotations.VisibleForTesting
-import com.netflix.spinnaker.keel.api.ResourceKind
 import com.netflix.spinnaker.keel.scheduling.activities.SchedulingConfigActivities.CheckResourceKindRequest
 import org.springframework.core.env.Environment
 import org.springframework.stereotype.Component
@@ -13,7 +12,7 @@ class DefaultSchedulingConfigActivities(
 ) : SchedulingConfigActivities {
 
   override fun getResourceKindCheckInterval(request: CheckResourceKindRequest): Duration =
-    configOrDefault("check-interval", sanitizeKindForFP(request.resourceKind), Duration.ofSeconds(30))
+    configOrDefault("check-interval", sanitizeKindForFP(request.resourceKind), Duration.ofMinutes(1))
 
   override fun getContinueAsNewInterval(request: CheckResourceKindRequest): Duration =
     configOrDefault("continue-as-new-interval", sanitizeKindForFP(request.resourceKind), Duration.ofHours(24))

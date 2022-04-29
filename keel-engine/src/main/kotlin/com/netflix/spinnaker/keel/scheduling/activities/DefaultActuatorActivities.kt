@@ -1,6 +1,5 @@
 package com.netflix.spinnaker.keel.scheduling.activities
 
-import com.google.common.base.Ticker
 import com.netflix.spectator.api.BasicTag
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.keel.actuation.ResourceActuator
@@ -10,8 +9,6 @@ import com.netflix.spinnaker.keel.telemetry.ResourceCheckCompleted
 import com.netflix.spinnaker.keel.telemetry.ResourceCheckStarted
 import com.netflix.spinnaker.keel.telemetry.ResourceLoadFailed
 import com.netflix.spinnaker.keel.telemetry.recordDurationPercentile
-import io.temporal.activity.Activity
-import io.temporal.client.ActivityCompletionException
 import io.temporal.failure.ApplicationFailure
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -21,7 +18,6 @@ import org.springframework.stereotype.Component
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
-import java.time.temporal.ChronoUnit
 
 @Component
 class DefaultActuatorActivities(
@@ -55,39 +51,8 @@ class DefaultActuatorActivities(
   }
 
   override fun monitorResource(request: ActuatorActivities.MonitorResourceRequest) {
-    var lastChecked = request.lastChecked
-    while (true) {
-      val startTime = System.currentTimeMillis()
-
-      // heartbeat first: this allows any cancellation to abort the check process ASAP without potentially causing
-      // a delayed check conflicting with some manual action.
-      try {
-        Activity.getExecutionContext().heartbeat("polling")
-      } catch (e: ActivityCompletionException) {
-        throw e
-      }
-
-      log.info("Checking resource ${request.resourceKind}/${request.resourceId}")
-
-      checkResource(request.toCheckResourceRequest(lastChecked))
-
-      val resourceKindInterval = configActivities.getResourceKindCheckInterval(SchedulingConfigActivities.CheckResourceKindRequest(request.resourceKind))
-      val sleepTime = resourceKindInterval.minus(System.currentTimeMillis() - startTime, ChronoUnit.MILLIS)
-      sleep(sleepTime)
-
-      lastChecked = Instant.now()
-    }
-  }
-
-  private fun sleep(duration: Duration) {
-    if (duration.isNegative || duration.isZero) {
-      return
-    }
-    try {
-      Thread.sleep(duration.toMillis())
-    } catch (e: InterruptedException) {
-      // do nothing
-    }
+    checkResource(request.toCheckResourceRequest())
+    throw ApplicationFailure.newFailure("continuation", "expected")
   }
 
   private fun recordDuration(startTime: Instant, type: String) =

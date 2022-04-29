@@ -26,6 +26,9 @@ interface ActuatorActivities {
   ) {
     fun toCheckResourceRequest(lastChecked: Instant): CheckResourceRequest =
       CheckResourceRequest(resourceId, lastChecked)
+
+    fun toCheckResourceRequest(): CheckResourceRequest =
+      CheckResourceRequest(resourceId)
   }
 
   companion object {

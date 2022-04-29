@@ -18,6 +18,7 @@ import io.temporal.workflow.WorkflowMethod
 import org.slf4j.LoggerFactory
 import java.time.Duration
 import java.time.Instant
+import kotlin.math.min
 
 @WorkflowInterface
 interface ResourceScheduler {
@@ -119,27 +120,21 @@ class ResourceSchedulerImpl : ResourceScheduler {
   }
 
   private fun v2(request: ResourceScheduler.ScheduleResourceRequest) {
-    val interval = configActivites.getResourceKindCheckInterval(CheckResourceKindRequest(request.resourceKind))
+    var interval = configActivites.getResourceKindCheckInterval(CheckResourceKindRequest(request.resourceKind))
 
-    val heartbeatTimeout = Duration.ofSeconds(30).plus(interval)
-
-    // startToClose must always be greater than the heartbeat timeout (interval). This logic is pretty arbitrary,
-    // so we may want to change the config activity to return more duration configuration options so we leave these
-    // settings as tunable by operators.
-    // startToClose is a large number by default because we want the poller to be running for awhile. If the worker
-    // dies or anything uncool like that, the heartbeat timeout will cause the activity to be retried elsewhere.
-    var startToCloseTimeout = Duration.ofMinutes(30)
-    if (heartbeatTimeout > startToCloseTimeout) {
-      startToCloseTimeout = heartbeatTimeout.plus(Duration.ofMinutes(1))
+    // TODO(rz): 60s is advised as the lowest we should go for serverside retries. Set this to 30s because
+    //  the MD team thinks 60s is too slow, but it'll likely need to switch back to 60s.
+    val minInterval = Duration.ofSeconds(30)
+    if (minInterval > interval) {
+      Workflow.getLogger(javaClass).warn("Configured interval for ${request.resourceKind} ($interval) is less than minimum $minInterval: Using minimum")
+      interval = minInterval
     }
 
     val pollerActivity = Workflow.newActivityStub(
       ActuatorActivities::class.java,
       ActivityOptions.newBuilder()
         .setTaskQueue(Workflow.getInfo().taskQueue)
-        .setScheduleToStartTimeout(Duration.ofMinutes(1))
-        .setStartToCloseTimeout(startToCloseTimeout)
-        .setHeartbeatTimeout(heartbeatTimeout)
+        .setStartToCloseTimeout(Duration.ofMinutes(5))
         .setRetryOptions(
           RetryOptions.newBuilder()
             .setBackoffCoefficient(1.0)

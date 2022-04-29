@@ -8,6 +8,8 @@ import com.netflix.spinnaker.keel.scheduling.activities.SupervisorActivities
 import com.netflix.temporal.core.WorkerFactoryVisitor
 import com.netflix.temporal.core.convention.TaskQueueNamer
 import com.netflix.temporal.spring.convention.LaptopTaskQueueNamer
+import io.grpc.Status
+import io.grpc.StatusRuntimeException
 import io.temporal.api.enums.v1.WorkflowIdReusePolicy
 import io.temporal.client.WorkflowClient
 import io.temporal.client.WorkflowExecutionAlreadyStarted
@@ -50,7 +52,7 @@ class ResourceSchedulerWorkerFactoryVisitor(
       WorkflowClient.start(workflow::supervise, SchedulerSupervisor.SuperviseRequest())
       log.info("Started {}", SchedulerSupervisor::class.java)
     } catch (e: WorkflowExecutionAlreadyStarted) {
-      // Do nothing
+      log.info("SchedulerSupervisor ${options.workflowId} already exists")
     }
   }
 
