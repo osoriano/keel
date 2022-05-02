@@ -17,6 +17,7 @@
  */
 package com.netflix.spinnaker.keel.api.titus
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY
 import com.fasterxml.jackson.annotation.JsonTypeInfo
@@ -124,12 +125,14 @@ data class TitusClusterSpec(
     get() = _defaults
 
   // Returns the artifact name set by resolvers, or attempts to find the artifact name from the container provider.
+  @get:JsonIgnore
   override val artifactName: String?
     get() = _artifactName
       ?: (container as? DigestProvider)?.repository()
 
   // Provides a hint as to cluster -> artifact linkage even _without_ resolvers being applied, by delegating to the
   // image provider.
+  @get:JsonIgnore
   override val artifactReference: String?
     get() = (container as? ReferenceProvider)?.reference
 
