@@ -8,7 +8,9 @@ import com.netflix.spectator.api.patterns.PolledMeter
 import com.netflix.spinnaker.config.DefaultWorkhorseCoroutineContext
 import com.netflix.spinnaker.config.WorkhorseCoroutineContext
 import com.netflix.spinnaker.keel.activation.DiscoveryActivated
+import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
+import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.copyOrCreate
 import com.netflix.spinnaker.keel.api.events.ArtifactVersionDetected
@@ -231,22 +233,25 @@ class WorkQueueProcessor(
    */
   internal fun enrichAndStore(artifact: PublishedArtifact, supplier: ArtifactSupplier<*, *>): Boolean {
     log.debug("Storing artifact (before adding metadata from rocket) ${artifact.type}:${artifact.name} version ${artifact.version} with branch ${artifact.branch}")
-    val basicArtifactInfo = artifact.copy(
+
+    val artifactWithBasicInfo = artifact.copy(
       gitMetadata = artifact.gitMetadata.copyOrCreate(
         branch = artifact.branch,
-        commit = artifact.shortCommitHash
+        commit = artifact.commitHash
       ),
       buildMetadata = artifact.buildMetadata.copyOrCreate(
           number = artifact.buildNumber
-      ))
+      )).normalized()
+
     //store a copy of an artifact, prior of enriching it with more metadata
-    val stored = repository.storeArtifactVersion(basicArtifactInfo)
+    val stored = repository.storeArtifactVersion(artifactWithBasicInfo)
 
     if (stored) {
-      publisher.publishEvent(ArtifactVersionStored(basicArtifactInfo))
+      publisher.publishEvent(ArtifactVersionStored(artifactWithBasicInfo))
     }
-    notifyArtifactVersionDetected(basicArtifactInfo)
-    supplier.addAndStoreMetadata(basicArtifactInfo.normalized())
+
+    notifyArtifactVersionDetected(artifactWithBasicInfo)
+    supplier.addAndStoreMetadata(artifactWithBasicInfo)
     return stored
   }
 
@@ -255,7 +260,7 @@ class WorkQueueProcessor(
    */
   fun ArtifactSupplier<*, *>.addAndStoreMetadata(artifact: PublishedArtifact) {
     // only add metadata if either build or git metadata are currently missing information
-    if (artifact.buildMetadata!!.incompleteMetadata() || artifact.gitMetadata!!.incompleteMetadata()) {
+    if (artifact.hasIncompleteMetadata()) {
       runBlocking {
         try {
           val artifactMetadata = getArtifactMetadata(artifact)
@@ -267,11 +272,15 @@ class WorkQueueProcessor(
           repository.storeArtifactVersion(updatedArtifact)
         } catch (ex: Exception) {
           //in case of an error from boost, don't override the current information
-          log.error("Could not fetch artifact metadata for name ${artifact.name} and version ${artifact.version}; using default data", ex)
+          log.debug("Could not fetch artifact metadata for name ${artifact.name} and version ${artifact.version}; using default data", ex)
         }
       }
     }
   }
+
+  private fun PublishedArtifact.hasIncompleteMetadata() =
+    (buildMetadata == null || buildMetadata!!.incompleteMetadata()) || (gitMetadata == null || gitMetadata!!.incompleteMetadata())
+
 
   /**
    * Finds the delivery configs that are using an artifact,
@@ -291,36 +300,40 @@ class WorkQueueProcessor(
               version = artifact
             )
           )
-          log.debug("Publishing build lifecycle event for published artifact $artifact")
-          val data = mutableMapOf(
-            "buildNumber" to artifact.buildNumber,
-            "commitId" to artifact.commitHash,
-            "buildMetadata" to artifact.buildMetadata,
-            "application" to deliveryConfig.application,
-            "branch" to artifact.branch
-          )
-
-          publisher.publishEvent(
-            LifecycleEvent(
-              scope = PRE_DEPLOYMENT,
-              deliveryConfigName = configName,
-              artifactReference = deliveryArtifact.reference,
-              artifactVersion = artifact.version,
-              type = BUILD,
-              id = "build-${artifact.version}",
-              // the build has already started, and is maybe complete.
-              // We use running to convey that to users, and allow the [BuildLifecycleMonitor] to immediately
-              // update the status
-              status = RUNNING,
-              text = "Monitoring build for ${artifact.version}",
-              link = artifact.buildMetadata?.uid,
-              data = data,
-              timestamp = artifact.buildMetadata?.startedAtInstant,
-              startMonitoring = true
-            )
-          )
+          publishLifecycleEvent(artifact, deliveryConfig, deliveryArtifact)
         }
       }
+  }
+
+  private fun publishLifecycleEvent(artifact: PublishedArtifact, deliveryConfig: DeliveryConfig, deliveryArtifact: DeliveryArtifact) {
+    log.debug("Publishing build lifecycle event for published artifact $artifact")
+    val data = mutableMapOf(
+      "buildNumber" to artifact.buildNumber,
+      "commitId" to artifact.commitHash,
+      "buildMetadata" to artifact.buildMetadata,
+      "application" to deliveryConfig.application,
+      "branch" to artifact.branch
+    )
+
+    publisher.publishEvent(
+      LifecycleEvent(
+        scope = PRE_DEPLOYMENT,
+        deliveryConfigName = deliveryConfig.name,
+        artifactReference = deliveryArtifact.reference,
+        artifactVersion = artifact.version,
+        type = BUILD,
+        id = "build-${artifact.version}",
+        // the build has already started, and is maybe complete.
+        // We use running to convey that to users, and allow the [BuildLifecycleMonitor] to immediately
+        // update the status
+        status = RUNNING,
+        text = "Monitoring build for ${artifact.version}",
+        link = artifact.buildMetadata?.uid ?: "N/A",
+        data = data,
+        timestamp = artifact.buildMetadata?.startedAtInstant?: Instant.now(),
+        startMonitoring = true
+      )
+    )
   }
 
   /**
