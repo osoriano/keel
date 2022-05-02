@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.services
 
+import com.fasterxml.jackson.databind.jsontype.NamedType
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.keel.actuation.EnvironmentTaskCanceler
@@ -29,6 +30,7 @@ import com.netflix.spinnaker.keel.core.api.SubmittedEnvironment
 import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.events.PinnedNotification
 import com.netflix.spinnaker.keel.events.UnpinnedNotification
+import com.netflix.spinnaker.keel.exceptions.ValidationException
 import com.netflix.spinnaker.keel.migrations.ApplicationPrData
 import com.netflix.spinnaker.keel.pause.ActuationPauser
 import com.netflix.spinnaker.keel.pause.Pause
@@ -37,6 +39,7 @@ import com.netflix.spinnaker.keel.persistence.ApplicationPullRequestDataIsMissin
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.PausedRepository
 import com.netflix.spinnaker.keel.scheduling.ResourceSchedulerService
+import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
 import com.netflix.spinnaker.keel.serialization.configuredYamlMapper
 import com.netflix.spinnaker.keel.test.DummyArtifact
 import com.netflix.spinnaker.keel.test.DummyResourceHandlerV1
@@ -45,6 +48,7 @@ import com.netflix.spinnaker.keel.test.artifactReferenceResource
 import com.netflix.spinnaker.keel.test.submittedResource
 import com.netflix.spinnaker.keel.test.versionedArtifactResource
 import com.netflix.spinnaker.keel.upsert.DeliveryConfigUpserter
+import com.netflix.spinnaker.keel.validators.DeliveryConfigValidator
 import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
@@ -187,12 +191,19 @@ class ApplicationServiceTests : JUnit5Minutests {
 
     val environmentTaskCanceler: EnvironmentTaskCanceler = mockk(relaxUnitFun = true)
     val yamlMapper: YAMLMapper = configuredYamlMapper()
+    val objectMapper = configuredObjectMapper().apply {
+      registerSubtypes(
+        NamedType(DummyArtifact::class.java, "dummy"),
+        NamedType(DummyResourceSpec::class.java, "test/whatever@v1")
+      )
+    }
     val stashBridge: StashBridge = mockk(relaxed = true)
     val jiraBridge: JiraBridge = mockk(relaxed = true)
     val resourceHandler = spyk(DummyResourceHandlerV1)
     val diffFactory = DefaultResourceDiffFactory()
     val actuationPauser: ActuationPauser = mockk()
     val resourceSchedulerService: ResourceSchedulerService = mockk()
+    val validator: DeliveryConfigValidator = mockk()
 
     // subject
     val applicationService = ApplicationService(
@@ -204,6 +215,7 @@ class ApplicationServiceTests : JUnit5Minutests {
       spectator,
       environmentTaskCanceler,
       yamlMapper,
+      objectMapper,
       stashBridge,
       jiraBridge,
       pausedRepository,
@@ -211,7 +223,8 @@ class ApplicationServiceTests : JUnit5Minutests {
       diffFactory,
       deliveryConfigUpserter,
       actuationPauser,
-      resourceSchedulerService
+      resourceSchedulerService,
+      validator
     )
 
     val buildMetadata = BuildMetadata(
@@ -226,6 +239,7 @@ class ApplicationServiceTests : JUnit5Minutests {
     }
 
     before {
+      every { validator.validate(any()) } just Runs
       every { repository.getDeliveryConfigForApplication(application1) } returns singleArtifactDeliveryConfig
       every { repository.getDeliveryConfigForApplication(application2) } returns dualArtifactDeliveryConfig
 
@@ -391,7 +405,27 @@ class ApplicationServiceTests : JUnit5Minutests {
           applicationService.openMigrationPr(application1, "keel")
         }.isSuccess()
           .second.isEqualTo(expectedPrResponse.link)
+      }
 
+      test("successfully created a PR in stash with the config for submitted config") {
+        expectCatching {
+          applicationService.openMigrationPr(application1, "keel", submittedDeliveryConfig)
+        }.isSuccess()
+          .second.isEqualTo(expectedPrResponse.link)
+      }
+
+      context("Invalid config") {
+        before {
+          every {
+            validator.validate(any())
+          }.throws(ValidationException("bad config"))
+        }
+
+        test("PR is not created") {
+          expectCatching {
+            applicationService.openMigrationPr(application1, "keel", submittedDeliveryConfig)
+          }.isFailure()
+        }
       }
 
       context("with jira") {

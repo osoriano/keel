@@ -590,4 +590,5 @@ input MD_DismissNotificationPayload {
 
 input MD_InitiateApplicationMigrationPayload {
   application: String!
+  deliveryConfig: JSON
 }

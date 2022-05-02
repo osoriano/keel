@@ -1,6 +1,9 @@
 package com.netflix.spinnaker.keel.services
 
+import com.fasterxml.jackson.module.kotlin.convertValue
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
+import com.fasterxml.jackson.module.kotlin.convertValue
 import com.netflix.spectator.api.BasicTag
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.config.ArtifactConfig
@@ -36,6 +39,7 @@ import com.netflix.spinnaker.keel.core.api.ResourceAction.NONE
 import com.netflix.spinnaker.keel.core.api.ResourceAction.UPDATE
 import com.netflix.spinnaker.keel.core.api.ResourcePlan
 import com.netflix.spinnaker.keel.core.api.ResourceSummary
+import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.events.MarkAsBadNotification
 import com.netflix.spinnaker.keel.events.MigrationReadyNotification
 import com.netflix.spinnaker.keel.events.PinnedNotification
@@ -53,6 +57,7 @@ import com.netflix.spinnaker.keel.persistence.NoSuchDeliveryConfigException
 import com.netflix.spinnaker.keel.persistence.PausedRepository
 import com.netflix.spinnaker.keel.scheduling.ResourceSchedulerService
 import com.netflix.spinnaker.keel.upsert.DeliveryConfigUpserter
+import com.netflix.spinnaker.keel.validators.DeliveryConfigValidator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -87,7 +92,8 @@ class ApplicationService(
   private val clock: Clock,
   private val spectator: Registry,
   private val environmentTaskCanceler: EnvironmentTaskCanceler,
-  private var yamlMapper: YAMLMapper,
+  private val yamlMapper: YAMLMapper,
+  private val objectMapper: ObjectMapper,
   private val stashBridge: StashBridge,
   private val jiraBridge: JiraBridge,
   private val pausedRepository: PausedRepository,
@@ -95,7 +101,8 @@ class ApplicationService(
   private val diffFactory: ResourceDiffFactory,
   private val deliveryConfigUpserter: DeliveryConfigUpserter,
   private val actuationPauser: ActuationPauser,
-  private val resourceSchedulerService: ResourceSchedulerService
+  private val resourceSchedulerService: ResourceSchedulerService,
+  private val validator: DeliveryConfigValidator,
 ) : CoroutineScope {
   override val coroutineContext: CoroutineContext = Dispatchers.Default
 
@@ -287,11 +294,22 @@ class ApplicationService(
   /**
    * This function is fetching application's data like config, repo and project name
    * And then calling Igor to create commit and open a pull request with the application's delivery config file
+   * if [rawDeliveryConfig] is not null, it'll be used to create the PR.
+   * Otherwise, we take the config that is stored in the DB
    */
-  suspend fun openMigrationPr(application: String, user: String): Pair<ApplicationPrData, String> {
+  suspend fun openMigrationPr(application: String, user: String, rawDeliveryConfig: Any? = null): Pair<ApplicationPrData, String> {
     val applicationPrData = repository.getMigratableApplicationData(application)
+
+    val deliveryConfig = if (rawDeliveryConfig == null) {
+      applicationPrData.deliveryConfig
+    } else {
+      objectMapper.convertValue<SubmittedDeliveryConfig>(rawDeliveryConfig).also {
+        validator.validate(it)
+      }
+    }
+
     //sending the exported config in a yml format, as string
-    val configAsString = yamlMapper.writeValueAsString(applicationPrData.deliveryConfig)
+    val configAsString = yamlMapper.writeValueAsString(deliveryConfig)
 
     val migrationCommitData = MigrationCommitData(
       fileContents = configAsString,

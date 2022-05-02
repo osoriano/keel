@@ -99,7 +99,8 @@ class Migration(
     val (prData, prLink) = runBlocking {
       applicationService.openMigrationPr(
         application = payload.application,
-        user = user
+        user = user,
+        rawDeliveryConfig = payload.deliveryConfig
       )
     }
 

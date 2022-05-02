@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.dgs
 
+import com.fasterxml.jackson.databind.jsontype.NamedType
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import com.netflix.graphql.dgs.DgsQueryExecutor
 import com.netflix.graphql.dgs.autoconfig.DgsAutoConfiguration
@@ -28,6 +29,7 @@ import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactVeto
 import com.netflix.spinnaker.keel.core.api.PinType
 import com.netflix.spinnaker.keel.core.api.PromotionStatus
 import com.netflix.spinnaker.keel.core.api.PublishedArtifactInEnvironment
+import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.core.api.normalize
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.Front50Service
@@ -52,6 +54,8 @@ import com.netflix.spinnaker.keel.scm.ScmUtils
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
 import com.netflix.spinnaker.keel.services.ApplicationService
 import com.netflix.spinnaker.keel.services.ResourceStatusService
+import com.netflix.spinnaker.keel.test.DummyArtifact
+import com.netflix.spinnaker.keel.test.DummyResourceSpec
 import com.netflix.spinnaker.keel.test.deliveryConfig
 import com.netflix.spinnaker.keel.test.submittedDeliveryConfig
 import com.netflix.spinnaker.keel.test.submittedResource
@@ -78,6 +82,7 @@ import strikt.assertions.isEqualTo
 import strikt.assertions.isNotNull
 import strikt.assertions.isNull
 import strikt.assertions.isSuccess
+import strikt.mockk.isCaptured
 import java.time.Instant
 
 @SpringBootTest(
@@ -259,7 +264,7 @@ class QueryTests {
     } returns true
 
     coEvery {
-      applicationService.openMigrationPr(any(), any())
+      applicationService.openMigrationPr(any(), any(), any())
     } returns Pair(
       ApplicationPrData(
         deliveryConfig = submittedDeliveryConfig,
@@ -427,7 +432,7 @@ class QueryTests {
       dgsQueryExecutor.executeAndExtractJsonPathAsObject(
         getQuery("/dgs/initiateMigration.graphql"),
         "data.md_initiateApplicationMigration",
-        mapOf("payload" to mapOf("application" to deliveryConfig.application)),
+        mapOf("payload" to mapOf("application" to deliveryConfig.application, "deliveryConfig" to mapper.convertValue(deliveryConfig, Map::class.java))),
         MD_Migration::class.java,
         getHeaders()
       )
@@ -437,7 +442,7 @@ class QueryTests {
         .get { status }.isEqualTo(MD_ActuationPlanStatus.PENDING)
     }
 
-    coVerify { applicationService.openMigrationPr(deliveryConfig.application, user) }
+    coVerify { applicationService.openMigrationPr(deliveryConfig.application, user, any()) }
     coVerify { applicationService.storePausedMigrationConfig(deliveryConfig.application, user) }
   }
 
