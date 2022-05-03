@@ -470,7 +470,7 @@ internal class TitusClusterExportTests : JUnit5Minutests {
       capacity = com.netflix.spinnaker.keel.clouddriver.model.Capacity(
         min = capacity.min * 2,
         max = capacity.max * 2,
-        desired = capacity.desired * 2
+        desired = capacity.desired?.let { it * 2 }
       )
     )
 

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test
 import strikt.api.expectCatching
 import strikt.assertions.isA
 import strikt.assertions.isFailure
+import strikt.assertions.isNull
 import strikt.assertions.isSuccess
 
 class ClusterCapacityResolutionTests {
@@ -59,6 +60,7 @@ class ClusterCapacityResolutionTests {
     }
       .isSuccess()
       .isA<AutoScalingCapacity>()
+      .get { desired }.isNull()
   }
 
   @Test
@@ -104,6 +106,7 @@ class ClusterCapacityResolutionTests {
     }
       .isSuccess()
       .isA<AutoScalingCapacity>()
+      .get { desired }.isNull()
   }
 
   @Test

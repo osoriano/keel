@@ -305,7 +305,7 @@ class TitusClusterHandler(
     }
 
     // let's assume that the largest server group is the most important and should be the base
-    val base = serverGroups.values.maxByOrNull { it.capacity.desired }
+    val base = serverGroups.values.maxByOrNull { it.capacity.desired ?: it.capacity.min }
       ?: throw ExportError("Unable to calculate the server group with the largest capacity from server groups $serverGroups")
 
     val locations = SimpleLocations(
@@ -354,7 +354,7 @@ class TitusClusterHandler(
       )
     }
 
-    val container = serverGroups.values.maxByOrNull { it.capacity.desired }?.container
+    val container = serverGroups.values.maxByOrNull { it.capacity.desired ?: it.capacity.min }?.container
       ?: throw ExportError("Unable to locate container from the largest server group: $serverGroups")
 
     val registry = cloudDriverCache.getRegistryForTitusAccount(exportable.account)
@@ -806,16 +806,14 @@ private fun jsonStringify(arguments: Map<String, Any>?) =
    arguments?.let { args -> jacksonObjectMapper().writeValueAsString(args) }
 
   /**
-   * For server groups with scaling policies, the [TitusClusterSpec] will not include a desired value. so we use the
-   * higher of the desired value the server group we're replacing uses, or the max. This means we won't catastrophically
-   * down-size a server group by deploying it.
+   * For server groups with scaling policies, the desired size should be omitted.
    */
   private fun ResourceDiff<TitusServerGroup>.resolveDesiredCapacity() =
     when (desired.capacity) {
       // easy case: spec supplied the desired value as there are no scaling policies in effect
       is DefaultCapacity -> desired.capacity.desired
-      // scaling policies exist, so use a safe value
-      is AutoScalingCapacity -> maxOf(current?.capacity?.desired ?: 0, desired.capacity.max)
+      // scaling policies exist, so don't set desired at all
+      is AutoScalingCapacity -> null
     }
 
   override fun Resource<TitusClusterSpec>.upsertServerGroupManagedRolloutJob(

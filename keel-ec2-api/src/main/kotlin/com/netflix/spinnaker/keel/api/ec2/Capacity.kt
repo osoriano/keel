@@ -6,12 +6,12 @@ import com.netflix.spinnaker.keel.api.ec2.ClusterSpec.CapacitySpec
 sealed class Capacity {
   abstract val min: Int
   abstract val max: Int
-  abstract val desired: Int
+  abstract val desired: Int?
 
   data class DefaultCapacity(
     override val min: Int,
     override val max: Int,
-    override val desired: Int
+    override val desired: Int?
   ) : Capacity() {
     constructor(spec: CapacitySpec) : this(spec.min, spec.max, requireNotNull(spec.desired) {
       "desired capacity must be specified if a cluster does not use scaling policies"
@@ -26,9 +26,8 @@ sealed class Capacity {
     override val min: Int,
     override val max: Int,
     @get:ExcludedFromDiff
-    override val desired: Int
+    override val desired: Int? = null
   ) : Capacity() {
-    // set default to max if desired is missing, because max is safe and won't cause outages
-    constructor(spec: CapacitySpec) : this(spec.min, spec.max, spec.desired ?: spec.max)
+    constructor(spec: CapacitySpec) : this(spec.min, spec.max, spec.desired)
   }
 }

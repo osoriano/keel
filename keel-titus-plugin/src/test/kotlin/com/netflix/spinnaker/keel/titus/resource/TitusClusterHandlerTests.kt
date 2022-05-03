@@ -816,7 +816,7 @@ private fun TitusServerGroup.withDoubleCapacity(): TitusServerGroup =
     capacity = Capacity.DefaultCapacity(
       min = capacity.min * 2,
       max = capacity.max * 2,
-      desired = capacity.desired * 2
+      desired = capacity.desired?.let { it * 2 }
     )
   )
 

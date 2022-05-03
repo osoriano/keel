@@ -26,8 +26,10 @@ import com.netflix.spinnaker.keel.api.ec2.ServerGroup.LaunchConfiguration
 import com.netflix.spinnaker.keel.api.ec2.TargetTrackingPolicy
 import com.netflix.spinnaker.keel.api.ec2.VirtualMachineImage
 import com.netflix.spinnaker.keel.api.ec2.byRegion
+import com.netflix.spinnaker.keel.api.ec2.hasScalingPolicies
 import com.netflix.spinnaker.keel.api.ec2.resolve
 import com.netflix.spinnaker.keel.api.ec2.resolveCapacity
+import com.netflix.spinnaker.keel.api.ec2.resolveScaling
 import com.netflix.spinnaker.keel.api.events.ArtifactVersionDeployed
 import com.netflix.spinnaker.keel.api.events.ArtifactVersionDeploying
 import com.netflix.spinnaker.keel.api.plugins.Resolver
@@ -582,422 +584,349 @@ internal class ClusterHandlerTests : JUnit5Minutests {
     }
 
     context("a diff has been detected") {
-      context("the diff is only in capacity") {
-        val modified = setOf(
-          serverGroupEast.copy(name = activeServerGroupResponseEast.name),
-          serverGroupWest.copy(name = activeServerGroupResponseWest.name).withDoubleCapacity()
-        )
-        val diff = diffFactory.compare(
-          serverGroups.byRegion(),
-          modified.byRegion()
-        )
+      context("the spec has scaling policies") {
+        context("the diff is only in capacity") {
+          val modified = setOf(
+            serverGroupEast.copy(name = activeServerGroupResponseEast.name),
+            serverGroupWest.copy(name = activeServerGroupResponseWest.name).withDoubleCapacity()
+          )
 
-        test("annealing resizes the current server group with no stagger") {
-          val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+          val diff = diffFactory.compare(
+            serverGroups.byRegion(),
+            modified.byRegion()
+          )
 
-          runBlocking {
-            upsert(resource, diff)
-          }
+          val desiredCapacity = spec.resolveCapacity("us-west-2")
 
-          expectThat(slot.captured.job.first()) {
-            get("type").isEqualTo("resizeServerGroup")
-            get("capacity").isEqualTo(
-              spec.resolveCapacity("us-west-2").let {
-                mapOf(
-                  "min" to it.min,
-                  "max" to it.max,
-                  "desired" to it.desired
-                )
-              }
-            )
-            get("serverGroupName").isEqualTo(activeServerGroupResponseWest.asg.autoScalingGroupName)
-          }
-        }
-      }
+          test("upsert resizes the current server group with no stagger") {
+            val slot = slot<OrchestrationRequest>()
+            every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
 
-      context("the diff is only in scaling policies missing from current") {
-        val modified = setOf(
-          serverGroupEast.copy(name = activeServerGroupResponseEast.name),
-          serverGroupWest.copy(name = activeServerGroupResponseWest.name).withNoScalingPolicies()
-        )
-        val diff = diffFactory.compare(
-          serverGroups.byRegion(),
-          modified.byRegion()
-        )
+            runBlocking {
+              upsert(resource, diff)
+            }
 
-        test("annealing only upserts scaling policies on the current server group") {
-          val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
-
-          val metricSpec = serverGroupWest.scaling.targetTrackingPolicies.first().customMetricSpec!!
-          runBlocking {
-            upsert(resource, diff)
-          }
-
-          expectThat(slot.captured.job.size).isEqualTo(1)
-          expectThat(slot.captured.job.first()) {
-            get("type").isEqualTo("upsertScalingPolicy")
-            get("targetTrackingConfiguration")
-              .isA<Map<String, Any?>>()
-              .and {
-                get("targetValue").isA<Double>().isEqualTo(560.0)
-                get("disableScaleIn").isA<Boolean>().isTrue()
-                get("customizedMetricSpecification").isA<CustomizedMetricSpecificationModel>().isEqualTo(
-                  CustomizedMetricSpecificationModel(
-                    metricName = metricSpec.name,
-                    namespace = metricSpec.namespace,
-                    statistic = metricSpec.statistic
+            expectThat(slot.captured.job.first()) {
+              get("type").isEqualTo("resizeServerGroup")
+              get("capacity").isEqualTo(
+                desiredCapacity.let {
+                  mapOf(
+                    "min" to it.min,
+                    "max" to it.max,
+                    "desired" to it.desired
                   )
+                }
+              )
+              get("serverGroupName").isEqualTo(activeServerGroupResponseWest.asg.autoScalingGroupName)
+            }
+          }
+
+          test("resolved capacity omits desired size") {
+            // when auto-scaling is enabled, desired size is omitted from capacity
+            expectThat(spec.defaults.scaling.hasScalingPolicies()).isTrue()
+            expectThat(desiredCapacity.desired).isNull()
+
+          }
+        }
+
+        context("the diff is only in scaling policies missing from current") {
+          val modified = setOf(
+            serverGroupEast.copy(name = activeServerGroupResponseEast.name),
+            serverGroupWest.copy(name = activeServerGroupResponseWest.name).withNoScalingPolicies()
+          )
+          val diff = diffFactory.compare(
+            serverGroups.byRegion(),
+            modified.byRegion()
+          )
+
+          test("upsert only upserts scaling policies on the current server group") {
+            val slot = slot<OrchestrationRequest>()
+            every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+
+            val metricSpec = serverGroupWest.scaling.targetTrackingPolicies.first().customMetricSpec!!
+            runBlocking {
+              upsert(resource, diff)
+            }
+
+            expectThat(slot.captured.job.size).isEqualTo(1)
+            expectThat(slot.captured.job.first()) {
+              get("type").isEqualTo("upsertScalingPolicy")
+              get("targetTrackingConfiguration")
+                .isA<Map<String, Any?>>()
+                .and {
+                  get("targetValue").isA<Double>().isEqualTo(560.0)
+                  get("disableScaleIn").isA<Boolean>().isTrue()
+                  get("customizedMetricSpecification").isA<CustomizedMetricSpecificationModel>().isEqualTo(
+                    CustomizedMetricSpecificationModel(
+                      metricName = metricSpec.name,
+                      namespace = metricSpec.namespace,
+                      statistic = metricSpec.statistic
+                    )
+                  )
+                }
+            }
+          }
+        }
+
+        context("the diff is only that deployed scaling policies are no longer desired") {
+          val modified = setOf(
+            serverGroupEast.copy(name = activeServerGroupResponseEast.name),
+            serverGroupWest.copy(name = activeServerGroupResponseWest.name).withNoScalingPolicies()
+          )
+          val diff = diffFactory.compare(
+            modified.byRegion(),
+            serverGroups.byRegion()
+          )
+
+          test("upsert only deletes policies from the current server group") {
+            val slot = slot<OrchestrationRequest>()
+            every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+
+            runBlocking {
+              upsert(resource, diff)
+            }
+
+            expectThat(slot.captured.job.size).isEqualTo(1)
+            expectThat(slot.captured.job.first()) {
+              get("type").isEqualTo("deleteScalingPolicy")
+              get("policyName").isEqualTo(targetTrackingPolicyName)
+            }
+          }
+        }
+
+        context("only an existing scaling policy has been modified") {
+          val modified = setOf(
+            serverGroupEast.copy(name = activeServerGroupResponseEast.name),
+            serverGroupWest.copy(
+              name = activeServerGroupResponseWest.name,
+              scaling = serverGroupWest.scaling.copy(
+                targetTrackingPolicies = setOf(
+                  serverGroupWest.scaling.targetTrackingPolicies
+                    .first()
+                    .copy(targetValue = 42.0)
                 )
-              }
-          }
-        }
-      }
-
-      context("the diff is only that deployed scaling policies are no longer desired") {
-        val modified = setOf(
-          serverGroupEast.copy(name = activeServerGroupResponseEast.name),
-          serverGroupWest.copy(name = activeServerGroupResponseWest.name).withNoScalingPolicies()
-        )
-        val diff = diffFactory.compare(
-          modified.byRegion(),
-          serverGroups.byRegion()
-        )
-
-        test("annealing only deletes policies from the current server group") {
-          val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
-
-          runBlocking {
-            upsert(resource, diff)
-          }
-
-          expectThat(slot.captured.job.size).isEqualTo(1)
-          expectThat(slot.captured.job.first()) {
-            get("type").isEqualTo("deleteScalingPolicy")
-            get("policyName").isEqualTo(targetTrackingPolicyName)
-          }
-        }
-      }
-
-      context("only an existing scaling policy has been modified") {
-        val modified = setOf(
-          serverGroupEast.copy(name = activeServerGroupResponseEast.name),
-          serverGroupWest.copy(
-            name = activeServerGroupResponseWest.name,
-            scaling = serverGroupWest.scaling.copy(
-              targetTrackingPolicies = setOf(
-                serverGroupWest.scaling.targetTrackingPolicies
-                  .first()
-                  .copy(targetValue = 42.0)
               )
             )
           )
-        )
-        val diff = diffFactory.compare(
-          modified.byRegion(),
-          serverGroups.byRegion()
-        )
+          val diff = diffFactory.compare(
+            modified.byRegion(),
+            serverGroups.byRegion()
+          )
 
-        test("the modified policy is applied in two phases via one task") {
-          val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+          test("the modified policy is applied in two phases via one task") {
+            val slot = slot<OrchestrationRequest>()
+            every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
 
-          runBlocking {
-            upsert(resource, diff)
-          }
+            runBlocking {
+              upsert(resource, diff)
+            }
 
-          expectThat(slot.captured.job.size).isEqualTo(2)
-          expectThat(slot.captured.job.first()) {
-            get("refId").isEqualTo("1")
-            get("requisiteStageRefIds")
-              .isA<List<String>>()
-              .isEmpty()
-            get("type").isEqualTo("deleteScalingPolicy")
-            get("policyName").isEqualTo(targetTrackingPolicyName)
-          }
-          expectThat(slot.captured.job[1]) {
-            get("refId").isEqualTo("2")
-            get("requisiteStageRefIds")
-              .isA<List<String>>()
-              .containsExactly("1")
-            get("type").isEqualTo("upsertScalingPolicy")
-            get("targetTrackingConfiguration")
-              .isA<Map<String, Any?>>()["targetValue"]
-              .isEqualTo(42.0)
-          }
-        }
-      }
-
-      context("the diff is only in capacity and scaling policies") {
-        val modified = setOf(
-          serverGroupEast.copy(name = activeServerGroupResponseEast.name),
-          serverGroupWest.copy(name = activeServerGroupResponseWest.name)
-            .withDoubleCapacity()
-            .withNoScalingPolicies()
-        )
-        val diff = diffFactory.compare(
-          serverGroups.byRegion(),
-          modified.byRegion()
-        )
-
-        test("annealing resizes and modifies scaling policies in-place on the current server group") {
-          val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
-
-          runBlocking {
-            upsert(resource, diff)
-          }
-
-          expectThat(slot.captured.job.size).isEqualTo(2)
-          expectThat(slot.captured.job.first()) {
-            get("type").isEqualTo("resizeServerGroup")
-            get("refId").isEqualTo("1")
-          }
-          expectThat(slot.captured.job[1]) {
-            get("type").isEqualTo("upsertScalingPolicy")
-            get("refId").isEqualTo("2")
-            get("requisiteStageRefIds")
-              .isA<List<String>>()
-              .containsExactly("1")
-            get("targetTrackingConfiguration")
-              .isA<Map<String, Any?>>()["targetValue"]
-              .isEqualTo(560.0)
+            expectThat(slot.captured.job.size).isEqualTo(2)
+            expectThat(slot.captured.job.first()) {
+              get("refId").isEqualTo("1")
+              get("requisiteStageRefIds")
+                .isA<List<String>>()
+                .isEmpty()
+              get("type").isEqualTo("deleteScalingPolicy")
+              get("policyName").isEqualTo(targetTrackingPolicyName)
+            }
+            expectThat(slot.captured.job[1]) {
+              get("refId").isEqualTo("2")
+              get("requisiteStageRefIds")
+                .isA<List<String>>()
+                .containsExactly("1")
+              get("type").isEqualTo("upsertScalingPolicy")
+              get("targetTrackingConfiguration")
+                .isA<Map<String, Any?>>()["targetValue"]
+                .isEqualTo(42.0)
+            }
           }
         }
-      }
 
-      context("the diff is something other than just capacity or scaling policies") {
-        val modified = setOf(
-          serverGroupEast.copy(name = activeServerGroupResponseEast.name),
-          serverGroupWest.copy(name = activeServerGroupResponseWest.name)
-            .withDoubleCapacity()
-            .withDifferentInstanceType()
-        )
-        val diff = diffFactory.compare(
-          serverGroups.byRegion(),
-          modified.byRegion()
-        )
+        context("the diff is only in capacity and scaling policies") {
+          val modified = setOf(
+            serverGroupEast.copy(name = activeServerGroupResponseEast.name),
+            serverGroupWest.copy(name = activeServerGroupResponseWest.name)
+              .withDoubleCapacity()
+              .withNoScalingPolicies()
+          )
+          val diff = diffFactory.compare(
+            serverGroups.byRegion(),
+            modified.byRegion()
+          )
 
-        test("an artifact deploying event fires when upserting the cluster") {
-          val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+          test("upsert resizes and modifies scaling policies in-place on the current server group") {
+            val slot = slot<OrchestrationRequest>()
+            every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
 
-          runBlocking {
-            upsert(resource, diff)
+            runBlocking {
+              upsert(resource, diff)
+            }
+
+            expectThat(slot.captured.job.size).isEqualTo(2)
+            expectThat(slot.captured.job.first()) {
+              get("type").isEqualTo("resizeServerGroup")
+              get("refId").isEqualTo("1")
+            }
+            expectThat(slot.captured.job[1]) {
+              get("type").isEqualTo("upsertScalingPolicy")
+              get("refId").isEqualTo("2")
+              get("requisiteStageRefIds")
+                .isA<List<String>>()
+                .containsExactly("1")
+              get("targetTrackingConfiguration")
+                .isA<Map<String, Any?>>()["targetValue"]
+                .isEqualTo(560.0)
+            }
           }
-
-          verify { publisher.publishEvent(ArtifactVersionDeploying(resource.id, "keel-0.287.0-h208.fe2e8a1")) }
         }
 
-        test("annealing clones the current server group") {
-          val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+        context("the diff is something other than just capacity or scaling policies") {
+          val modified = setOf(
+            serverGroupEast.copy(name = activeServerGroupResponseEast.name),
+            serverGroupWest.copy(name = activeServerGroupResponseWest.name)
+              .withDoubleCapacity()
+              .withDifferentInstanceType()
+          )
+          val diff = diffFactory.compare(
+            serverGroups.byRegion(),
+            modified.byRegion()
+          )
 
-          runBlocking {
-            upsert(resource, diff)
+          test("an artifact deploying event fires when upserting the cluster") {
+            val slot = slot<OrchestrationRequest>()
+            every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+
+            runBlocking {
+              upsert(resource, diff)
+            }
+
+            verify { publisher.publishEvent(ArtifactVersionDeploying(resource.id, "keel-0.287.0-h208.fe2e8a1")) }
           }
 
-          expectThat(slot.captured.job.first()) {
-            get("type").isEqualTo("createServerGroup")
-            get("source").isEqualTo(
-              mapOf(
-                "account" to activeServerGroupResponseWest.accountName,
-                "region" to activeServerGroupResponseWest.region,
-                "asgName" to activeServerGroupResponseWest.asg.autoScalingGroupName
+          test("upsert clones the current server group") {
+            val slot = slot<OrchestrationRequest>()
+            every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+
+            runBlocking {
+              upsert(resource, diff)
+            }
+
+            expectThat(slot.captured.job.first()) {
+              get("type").isEqualTo("createServerGroup")
+              get("source").isEqualTo(
+                mapOf(
+                  "account" to activeServerGroupResponseWest.accountName,
+                  "region" to activeServerGroupResponseWest.region,
+                  "asgName" to activeServerGroupResponseWest.asg.autoScalingGroupName
+                )
               )
+            }
+          }
+
+          test("the default deploy strategy is used") {
+            val slot = slot<OrchestrationRequest>()
+            every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+
+            val deployWith = RedBlack()
+            runBlocking {
+              upsert(resource, diff)
+            }
+
+            expectThat(slot.captured.job.first()) {
+              get("strategy").isEqualTo("redblack")
+              get("delayBeforeDisableSec").isEqualTo(deployWith.delayBeforeDisable?.seconds)
+              get("delayBeforeScaleDownSec").isEqualTo(deployWith.delayBeforeScaleDown?.seconds)
+              get("scaleDown").isEqualTo(deployWith.resizePreviousToZero)
+              get("maxRemainingAsgs").isEqualTo(deployWith.maxServerGroups)
+            }
+          }
+
+          test("the deploy strategy is configured") {
+            val slot = slot<OrchestrationRequest>()
+            every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+
+            val deployWith = RedBlack(
+              resizePreviousToZero = true,
+              delayBeforeDisable = Duration.ofMinutes(1),
+              delayBeforeScaleDown = Duration.ofMinutes(5),
+              maxServerGroups = 3
             )
+            runBlocking {
+              upsert(resource.copy(spec = resource.spec.copy(deployWith = deployWith)), diff)
+            }
+
+            expectThat(slot.captured.job.first()) {
+              get("strategy").isEqualTo("redblack")
+              get("delayBeforeDisableSec").isEqualTo(deployWith.delayBeforeDisable?.seconds)
+              get("delayBeforeScaleDownSec").isEqualTo(deployWith.delayBeforeScaleDown?.seconds)
+              get("scaleDown").isEqualTo(deployWith.resizePreviousToZero)
+              get("maxRemainingAsgs").isEqualTo(deployWith.maxServerGroups)
+            }
+          }
+
+          test("the cluster does not use discovery-based health during deployment") {
+            val slot = slot<OrchestrationRequest>()
+            every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+
+            val deployWith = RedBlack(health = NONE)
+            runBlocking {
+              upsert(resource.copy(spec = resource.spec.copy(deployWith = deployWith)), diff)
+            }
+
+            expectThat(slot.captured.job.first()) {
+              get("strategy").isEqualTo("redblack")
+              get("interestingHealthProviderNames").isA<List<String>>().containsExactly("Amazon")
+            }
+          }
+
+          test("the cluster uses discovery-based health during deployment") {
+            val slot = slot<OrchestrationRequest>()
+            every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+
+            val deployWith = RedBlack(health = AUTO)
+            runBlocking {
+              upsert(resource.copy(spec = resource.spec.copy(deployWith = deployWith)), diff)
+            }
+
+            expectThat(slot.captured.job.first()) {
+              get("strategy").isEqualTo("redblack")
+              get("interestingHealthProviderNames").isNull()
+            }
+          }
+
+          test("a different deploy strategy is used") {
+            val slot = slot<OrchestrationRequest>()
+            every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+
+            runBlocking {
+              upsert(resource.copy(spec = resource.spec.copy(deployWith = Highlander())), diff)
+            }
+
+            expectThat(slot.captured.job.first()) {
+              get("strategy").isEqualTo("highlander")
+              not().containsKey("delayBeforeDisableSec")
+              not().containsKey("delayBeforeScaleDownSec")
+              not().containsKey("rollback")
+              not().containsKey("scaleDown")
+              not().containsKey("maxRemainingAsgs")
+            }
           }
         }
 
-        test("the default deploy strategy is used") {
-          val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
-
-          val deployWith = RedBlack()
-          runBlocking {
-            upsert(resource, diff)
-          }
-
-          expectThat(slot.captured.job.first()) {
-            get("strategy").isEqualTo("redblack")
-            get("delayBeforeDisableSec").isEqualTo(deployWith.delayBeforeDisable?.seconds)
-            get("delayBeforeScaleDownSec").isEqualTo(deployWith.delayBeforeScaleDown?.seconds)
-            get("scaleDown").isEqualTo(deployWith.resizePreviousToZero)
-            get("maxRemainingAsgs").isEqualTo(deployWith.maxServerGroups)
-          }
-        }
-
-        test("the deploy strategy is configured") {
-          val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
-
-          val deployWith = RedBlack(
-            resizePreviousToZero = true,
-            delayBeforeDisable = Duration.ofMinutes(1),
-            delayBeforeScaleDown = Duration.ofMinutes(5),
-            maxServerGroups = 3
+        context("the diff is in cluster configuration and scaling policies") {
+          val modified = setOf(
+            serverGroupEast.copy(name = activeServerGroupResponseEast.name),
+            serverGroupWest.copy(name = activeServerGroupResponseWest.name)
+              .withDifferentInstanceType()
+              .withNoScalingPolicies()
           )
-          runBlocking {
-            upsert(resource.copy(spec = resource.spec.copy(deployWith = deployWith)), diff)
-          }
-
-          expectThat(slot.captured.job.first()) {
-            get("strategy").isEqualTo("redblack")
-            get("delayBeforeDisableSec").isEqualTo(deployWith.delayBeforeDisable?.seconds)
-            get("delayBeforeScaleDownSec").isEqualTo(deployWith.delayBeforeScaleDown?.seconds)
-            get("scaleDown").isEqualTo(deployWith.resizePreviousToZero)
-            get("maxRemainingAsgs").isEqualTo(deployWith.maxServerGroups)
-          }
-        }
-
-        test("the cluster does not use discovery-based health during deployment") {
-          val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
-
-          val deployWith = RedBlack(health = NONE)
-          runBlocking {
-            upsert(resource.copy(spec = resource.spec.copy(deployWith = deployWith)), diff)
-          }
-
-          expectThat(slot.captured.job.first()) {
-            get("strategy").isEqualTo("redblack")
-            get("interestingHealthProviderNames").isA<List<String>>().containsExactly("Amazon")
-          }
-        }
-
-        test("the cluster uses discovery-based health during deployment") {
-          val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
-
-          val deployWith = RedBlack(health = AUTO)
-          runBlocking {
-            upsert(resource.copy(spec = resource.spec.copy(deployWith = deployWith)), diff)
-          }
-
-          expectThat(slot.captured.job.first()) {
-            get("strategy").isEqualTo("redblack")
-            get("interestingHealthProviderNames").isNull()
-          }
-        }
-
-        test("a different deploy strategy is used") {
-          val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
-
-          runBlocking {
-            upsert(resource.copy(spec = resource.spec.copy(deployWith = Highlander())), diff)
-          }
-
-          expectThat(slot.captured.job.first()) {
-            get("strategy").isEqualTo("highlander")
-            not().containsKey("delayBeforeDisableSec")
-            not().containsKey("delayBeforeScaleDownSec")
-            not().containsKey("rollback")
-            not().containsKey("scaleDown")
-            not().containsKey("maxRemainingAsgs")
-          }
-        }
-      }
-
-      context("the diff is in cluster configuration and scaling policies") {
-        val modified = setOf(
-          serverGroupEast.copy(name = activeServerGroupResponseEast.name),
-          serverGroupWest.copy(name = activeServerGroupResponseWest.name)
-            .withDifferentInstanceType()
-            .withNoScalingPolicies()
-        )
-        val diff = diffFactory.compare(
-          serverGroups.byRegion(),
-          modified.byRegion()
-        )
-
-        test("scaling policy adjustment follows the deploy task") {
-          val slot = slot<OrchestrationRequest>()
-          every {
-            orcaService.orchestrate(
-              resource.serviceAccount,
-              any(),
-              capture(slot)
-            )
-          } answers { TaskRefResponse(ULID().nextULID()) }
-
-          runBlocking {
-            upsert(resource, diff)
-          }
-
-          expectThat(slot.captured.job.first()) {
-            get("type") isEqualTo "createServerGroup"
-            get("refId") isEqualTo "1"
-          }
-          expectThat(slot.captured.job[1]) {
-            get("type") isEqualTo "upsertScalingPolicy"
-            get("refId") isEqualTo "2"
-            get("requisiteStageRefIds")
-              .isA<List<String>>()
-              .containsExactly("1")
-          }
-        }
-      }
-
-      context("multiple server groups have a diff") {
-        val modified = setOf(
-          serverGroupEast.copy(name = activeServerGroupResponseEast.name).withDifferentInstanceType(),
-          serverGroupWest.copy(name = activeServerGroupResponseWest.name).withDoubleCapacity()
-        )
-        val diff = diffFactory.compare(
-          serverGroups.byRegion(),
-          modified.byRegion()
-        )
-
-        test("annealing launches one task per server group") {
-          val tasks = mutableListOf<OrchestrationRequest>()
-          every { orcaService.orchestrate(any(), any(), capture(tasks)) } answers { TaskRefResponse(ULID().nextULID()) }
-
-          runBlocking {
-            upsert(resource, diff)
-          }
-
-          expectThat(tasks)
-            .hasSize(2)
-            .map { it.job.first()["type"] }
-            .containsExactlyInAnyOrder("createServerGroup", "resizeServerGroup")
-        }
-
-        test("each task has a distinct correlation id") {
-          val tasks = mutableListOf<OrchestrationRequest>()
-          every { orcaService.orchestrate(any(), any(), capture(tasks)) } answers { TaskRefResponse(ULID().nextULID()) }
-
-          runBlocking {
-            upsert(resource, diff)
-          }
-
-          expectThat(tasks)
-            .hasSize(2)
-            .map { it.trigger.correlationId }
-            .containsDistinctElements()
-        }
-      }
-
-      context("nothing currently deployed, desired state is single region deployment") {
-        fun diff(instanceType: String) =
-          diffFactory.compare(
-            desired = clusterSpec(instanceType).resolve().filter { it.location.region == "us-west-2" }.byRegion(),
-            current = emptyMap()
+          val diff = diffFactory.compare(
+            serverGroups.byRegion(),
+            modified.byRegion()
           )
 
-        listOf(
-          mapOf("applicationOverride" to "gp3", "expectedVolumeType" to "gp3"),
-          mapOf("accountOverride" to "gp3", "expectedVolumeType" to "gp3"),
-          mapOf("applicationOverride" to "gp3", "accountOverride" to "gp1", "expectedVolumeType" to "gp3"),
-          mapOf("expectedVolumeType" to "gp2")
-        ).forEach { input ->
-          test("supported instance type for setting EBS volume type ($input)") {
-            val applicationOverride = input["applicationOverride"]
-            val accountOverride = input["accountOverride"]
-            val expectedVolumeType = input["expectedVolumeType"]
-
+          test("scaling policy adjustment follows the deploy task") {
             val slot = slot<OrchestrationRequest>()
             every {
               orcaService.orchestrate(
@@ -1007,45 +936,194 @@ internal class ClusterHandlerTests : JUnit5Minutests {
               )
             } answers { TaskRefResponse(ULID().nextULID()) }
 
-            every {
-              springEnv.getProperty("keel.plugins.ec2.volumes.application-overrides.keel.volume-type", String::class.java)
-            } returns applicationOverride
+            runBlocking {
+              upsert(resource, diff)
+            }
 
-            every {
-              springEnv.getProperty("keel.plugins.ec2.volumes.account-overrides.test.volume-type", String::class.java)
-            } returns accountOverride
+            expectThat(slot.captured.job.first()) {
+              get("type") isEqualTo "createServerGroup"
+              get("refId") isEqualTo "1"
+            }
+            expectThat(slot.captured.job[1]) {
+              get("type") isEqualTo "upsertScalingPolicy"
+              get("refId") isEqualTo "2"
+              get("requisiteStageRefIds")
+                .isA<List<String>>()
+                .containsExactly("1")
+            }
+          }
+        }
 
-            val instanceType = "m5.large"
+        context("multiple server groups have a diff") {
+          val modified = setOf(
+            serverGroupEast.copy(name = activeServerGroupResponseEast.name).withDifferentInstanceType(),
+            serverGroupWest.copy(name = activeServerGroupResponseWest.name).withDoubleCapacity()
+          )
+          val diff = diffFactory.compare(
+            serverGroups.byRegion(),
+            modified.byRegion()
+          )
+
+          test("upsert launches one task per server group") {
+            val tasks = mutableListOf<OrchestrationRequest>()
+            every { orcaService.orchestrate(any(), any(), capture(tasks)) } answers { TaskRefResponse(ULID().nextULID()) }
+
+            runBlocking {
+              upsert(resource, diff)
+            }
+
+            expectThat(tasks)
+              .hasSize(2)
+              .map { it.job.first()["type"] }
+              .containsExactlyInAnyOrder("createServerGroup", "resizeServerGroup")
+          }
+
+          test("each task has a distinct correlation id") {
+            val tasks = mutableListOf<OrchestrationRequest>()
+            every { orcaService.orchestrate(any(), any(), capture(tasks)) } answers { TaskRefResponse(ULID().nextULID()) }
+
+            runBlocking {
+              upsert(resource, diff)
+            }
+
+            expectThat(tasks)
+              .hasSize(2)
+              .map { it.trigger.correlationId }
+              .containsDistinctElements()
+          }
+        }
+
+        context("nothing currently deployed, desired state is single region deployment") {
+          fun diff(instanceType: String) =
+            diffFactory.compare(
+              desired = clusterSpec(instanceType).resolve().filter { it.location.region == "us-west-2" }.byRegion(),
+              current = emptyMap()
+            )
+
+          listOf(
+            mapOf("applicationOverride" to "gp3", "expectedVolumeType" to "gp3"),
+            mapOf("accountOverride" to "gp3", "expectedVolumeType" to "gp3"),
+            mapOf("applicationOverride" to "gp3", "accountOverride" to "gp1", "expectedVolumeType" to "gp3"),
+            mapOf("expectedVolumeType" to "gp2")
+          ).forEach { input ->
+            test("supported instance type for setting EBS volume type ($input)") {
+              val applicationOverride = input["applicationOverride"]
+              val accountOverride = input["accountOverride"]
+              val expectedVolumeType = input["expectedVolumeType"]
+
+              val slot = slot<OrchestrationRequest>()
+              every {
+                orcaService.orchestrate(
+                  resource.serviceAccount,
+                  any(),
+                  capture(slot)
+                )
+              } answers { TaskRefResponse(ULID().nextULID()) }
+
+              every {
+                springEnv.getProperty("keel.plugins.ec2.volumes.application-overrides.keel.volume-type", String::class.java)
+              } returns applicationOverride
+
+              every {
+                springEnv.getProperty("keel.plugins.ec2.volumes.account-overrides.test.volume-type", String::class.java)
+              } returns accountOverride
+
+              val instanceType = "m5.large"
+              runBlocking {
+                upsert(resource, diff(instanceType))
+              }
+
+              expectThat(slot.captured.job.first()) {
+                get("type").isEqualTo("createServerGroup")
+                get("blockDevices")
+                  .isNotNull()
+                  .isA<List<Map<String, Any>>>()
+                  .hasSize(1)
+                  .all {
+                    get("volumeType").isEqualTo(expectedVolumeType)
+                    get("size").isEqualTo(40)
+                  }
+              }
+            }
+          }
+
+          test("unsupported instance type for setting EBS volume type") {
+            val slot = slot<OrchestrationRequest>()
+            every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+
+            val instanceType = "c1.medium"
             runBlocking {
               upsert(resource, diff(instanceType))
             }
 
             expectThat(slot.captured.job.first()) {
               get("type").isEqualTo("createServerGroup")
-              get("blockDevices")
-                .isNotNull()
-                .isA<List<Map<String, Any>>>()
-                .hasSize(1)
-                .all {
-                  get("volumeType").isEqualTo(expectedVolumeType)
-                  get("size").isEqualTo(40)
-                }
+              get("blockDevices").isNull()
             }
           }
         }
+      }
 
-        test("unsupported instance type for setting EBS volume type") {
-          val slot = slot<OrchestrationRequest>()
-          every { orcaService.orchestrate(resource.serviceAccount, any(), capture(slot)) } answers { TaskRefResponse(ULID().nextULID()) }
+      context("the spec has no scaling policies") {
+        val resourceWithoutScalingPolicies = resource.copy(
+          spec = spec.copy(
+            _defaults = spec.defaults.copy(
+              scaling = null,
+              capacity = CapacitySpec(min = 1, max = 10, desired = 5)
+            )
+          )
+        )
 
-          val instanceType = "c1.medium"
-          runBlocking {
-            upsert(resource, diff(instanceType))
-          }
+        context("diff in capacity only") {
+          val current = setOf(
+            serverGroupEast.copy(name = activeServerGroupResponseEast.name)
+              .withNoScalingPolicies()
+              .withCapacity(min = 1, max = 5)
+          )
 
-          expectThat(slot.captured.job.first()) {
-            get("type").isEqualTo("createServerGroup")
-            get("blockDevices").isNull()
+          val desired = setOf(
+            serverGroupEast.copy(name = activeServerGroupResponseEast.name)
+              .withNoScalingPolicies()
+              .withCapacity(min = 1, max = 10, desired = 5)
+          )
+
+          val diff = diffFactory.compare(
+            desired.byRegion(),
+            current.byRegion()
+          )
+
+          test("upsert resizes current server group and sets desired size") {
+            val slot = slot<OrchestrationRequest>()
+            every { orcaService.orchestrate(resourceWithoutScalingPolicies.serviceAccount, any(), capture(slot)) } answers {
+              TaskRefResponse(
+                ULID().nextULID()
+              )
+            }
+
+            runBlocking {
+              upsert(resourceWithoutScalingPolicies, diff)
+            }
+
+            val desiredCapacity = resourceWithoutScalingPolicies.spec.resolveCapacity()
+
+            // when auto-scaling is not configured, desired size is included in capacity
+            expectThat(resourceWithoutScalingPolicies.spec.defaults.scaling.hasScalingPolicies()).isFalse()
+            expectThat(desiredCapacity.desired).isNotNull()
+
+            expectThat(slot.captured.job).hasSize(1)
+            expectThat(slot.captured.job.first()) {
+              get("type").isEqualTo("resizeServerGroup")
+              get("refId").isEqualTo("1")
+              get("capacity").isEqualTo(
+                desiredCapacity.let {
+                  mapOf(
+                    "min" to it.min,
+                    "max" to it.max,
+                    "desired" to it.desired
+                  )
+                }
+              )
+            }
           }
         }
       }
@@ -1129,13 +1207,20 @@ private fun <E, T : Iterable<E>> Assertion.Builder<T>.containsDistinctElements()
     }
   }
 
-private fun ServerGroup.withDoubleCapacity(): ServerGroup =
+private fun ServerGroup.withCapacity(min: Int, max: Int, desired: Int? = null): ServerGroup =
   copy(
     capacity = Capacity.DefaultCapacity(
-      min = capacity.min * 2,
-      max = capacity.max * 2,
-      desired = capacity.desired * 2
+      min = min,
+      max = max,
+      desired = desired
     )
+  )
+
+private fun ServerGroup.withDoubleCapacity(): ServerGroup =
+  withCapacity(
+    min = capacity.min * 2,
+    max = capacity.max * 2,
+    desired = capacity.desired?.let { it * 2 }
   )
 
 private fun ServerGroup.withNoScalingPolicies(): ServerGroup =

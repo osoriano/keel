@@ -296,7 +296,7 @@ class ClusterHandler(
       .toSet()
 
     // let's assume that the largest server group is the most important and should be the base
-    val base = serverGroups.values.maxByOrNull { it.capacity.desired }
+    val base = serverGroups.values.maxByOrNull { it.capacity.desired ?: it.capacity.min }
       ?: throw ExportError("Unable to calculate the server group with the largest capacity from server groups $serverGroups")
 
     // Construct the minimal locations object
@@ -352,7 +352,7 @@ class ClusterHandler(
       )
     }
 
-    val base = serverGroups.values.maxByOrNull { it.capacity.desired }
+    val base = serverGroups.values.maxByOrNull { it.capacity.desired ?: it.capacity.min }
       ?: throw ExportError("Unable to determine largest server group: $serverGroups")
 
     if (base.image == null) {
@@ -737,7 +737,7 @@ class ClusterHandler(
       "user" to DEFAULT_SERVICE_ACCOUNT
     )
 
-  fun Resource<ClusterSpec>.buildOverrides(diffs: List<ResourceDiff<ServerGroup>>): Map<String, Any?> {
+  private fun Resource<ClusterSpec>.buildOverrides(diffs: List<ResourceDiff<ServerGroup>>): Map<String, Any?> {
     val overrides: MutableMap<String, Any?> = spec.overrides.toMutableMap()
     val launchConfigOverrides = diffs.generateLaunchConfigOverrides()
     val capacityForScalingOverrides = generateCapacityOverridesIfAutoscaling(diffs)
@@ -842,16 +842,14 @@ class ClusterHandler(
 
 
   /**
-   * For server groups with scaling policies, the [ClusterSpec] will not include a desired value. so we use the higher
-   * of the desired value the server group we're replacing uses, or the max. This means we won't catastrophically down-
-   * size a server group by deploying it.
+   * For server groups with scaling policies, the desired size should be omitted.
    */
   private fun ResourceDiff<ServerGroup>.resolveDesiredCapacity() =
     when (desired.capacity) {
       // easy case: spec supplied the desired value as there are no scaling policies in effect
       is DefaultCapacity -> desired.capacity.desired
-      // scaling policies exist, so use a safe value (max, overscaled is better than underscaled)
-      is AutoScalingCapacity -> maxOf(current?.capacity?.desired ?: 0, desired.capacity.max)
+      // scaling policies exist, so don't set desired at all
+      is AutoScalingCapacity -> null
     }
 
   override fun ResourceDiff<ServerGroup>.resizeServerGroupJob(): Job {
