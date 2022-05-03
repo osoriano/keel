@@ -843,15 +843,15 @@ class ClusterHandler(
 
   /**
    * For server groups with scaling policies, the [ClusterSpec] will not include a desired value. so we use the higher
-   * of the desired value the server group we're replacing uses, or the min. This means we won't catastrophically down-
+   * of the desired value the server group we're replacing uses, or the max. This means we won't catastrophically down-
    * size a server group by deploying it.
    */
   private fun ResourceDiff<ServerGroup>.resolveDesiredCapacity() =
     when (desired.capacity) {
       // easy case: spec supplied the desired value as there are no scaling policies in effect
       is DefaultCapacity -> desired.capacity.desired
-      // scaling policies exist, so use a safe value
-      is AutoScalingCapacity -> maxOf(current?.capacity?.desired ?: 0, desired.capacity.min)
+      // scaling policies exist, so use a safe value (max, overscaled is better than underscaled)
+      is AutoScalingCapacity -> maxOf(current?.capacity?.desired ?: 0, desired.capacity.max)
     }
 
   override fun ResourceDiff<ServerGroup>.resizeServerGroupJob(): Job {

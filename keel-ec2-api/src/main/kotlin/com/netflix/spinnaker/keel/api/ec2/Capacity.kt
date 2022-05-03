@@ -28,6 +28,7 @@ sealed class Capacity {
     @get:ExcludedFromDiff
     override val desired: Int
   ) : Capacity() {
-    constructor(spec: CapacitySpec) : this(spec.min, spec.max, spec.desired ?: spec.min)
+    // set default to max if desired is missing, because max is safe and won't cause outages
+    constructor(spec: CapacitySpec) : this(spec.min, spec.max, spec.desired ?: spec.max)
   }
 }
