@@ -77,6 +77,7 @@ data class SubmittedEnvironment(
   val notifications: Set<NotificationConfig> = emptySet(),
   @get:JsonInclude(JsonInclude.Include.NON_EMPTY)
   val postDeploy: List<PostDeployAction> = emptyList(),
+  @get:JsonInclude(JsonInclude.Include.NON_EMPTY)
   @Description("Optional locations that are propagated to any [resources] where they are not specified.")
   val locations: SubnetAwareLocations? = null
 ) {
