@@ -82,6 +82,7 @@ data class SubmittedEnvironment(
 ) {
   // We declare the metadata field here such that it's not used in equals() and hashCode(), since we don't
   // care about the metadata when comparing environments.
+  @get:JsonIgnore
   val metadata: MutableMap<String, Any?> = mutableMapOf()
 
   fun addMetadata(vararg metadata: Pair<String, Any?>) =
