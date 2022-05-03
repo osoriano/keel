@@ -43,9 +43,6 @@ data class DockerArtifact(
   @JsonIgnore
   val image: String = name.substringAfter('/')
 
-  @JsonIgnore
-  override val statuses: Set<ArtifactStatus> = emptySet()
-
   override val sortingStrategy: SortingStrategy
     get() = if (filteredByBranch || filteredByPullRequest) {
       CreatedAtSortingStrategy

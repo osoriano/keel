@@ -54,7 +54,7 @@ class BaseArtifactSupplierTests {
         link = ""
       ),
       project = "spkr",
-      branch = "master"
+      branch = "main"
     )
   )
 

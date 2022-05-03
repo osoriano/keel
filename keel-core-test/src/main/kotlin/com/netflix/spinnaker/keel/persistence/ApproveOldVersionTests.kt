@@ -8,8 +8,9 @@ import com.netflix.spinnaker.keel.actuation.EnvironmentPromotionChecker
 import com.netflix.spinnaker.keel.api.Constraint
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
-import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus
+import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
+import com.netflix.spinnaker.keel.api.artifacts.fromBranch
 import com.netflix.spinnaker.keel.api.constraints.ConstraintState
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.OVERRIDE_PASS
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PENDING
@@ -33,12 +34,14 @@ import com.netflix.spinnaker.keel.test.resourceFactory
 import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
-import io.mockk.coEvery as every
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
 import org.springframework.context.ApplicationEventPublisher
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo
+import strikt.assertions.isNull
+import java.time.Instant
+import io.mockk.coEvery as every
 
 abstract class ApproveOldVersionTests<T : KeelRepository> : JUnit5Minutests {
 
@@ -113,7 +116,8 @@ abstract class ApproveOldVersionTests<T : KeelRepository> : JUnit5Minutests {
       name = "fnord",
       deliveryConfigName = "my-manifest",
       reference = "my-artifact",
-      vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2"))
+      vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2")),
+      from = fromBranch("main")
     )
     val deliveryConfig = DeliveryConfig(
       name = "my-manifest",
@@ -152,6 +156,8 @@ abstract class ApproveOldVersionTests<T : KeelRepository> : JUnit5Minutests {
       "manual-judgement",
       OVERRIDE_PASS
     )
+
+    val gitMetadata = GitMetadata(commit = "sha", branch = "main")
   }
 
   fun tests() = rootContext<Fixture<T>> {
@@ -169,8 +175,8 @@ abstract class ApproveOldVersionTests<T : KeelRepository> : JUnit5Minutests {
       before {
         repository.register(artifact)
         repository.storeDeliveryConfig(deliveryConfig)
-        repository.storeArtifactVersion(artifact.toArtifactVersion(version1, ArtifactStatus.RELEASE))
-        repository.storeArtifactVersion(artifact.toArtifactVersion(version2, ArtifactStatus.RELEASE))
+        repository.storeArtifactVersion(artifact.toArtifactVersion(version1, gitMetadata = gitMetadata, createdAt = Instant.now()))
+        repository.storeArtifactVersion(artifact.toArtifactVersion(version2, gitMetadata = gitMetadata, createdAt = Instant.now()))
         repository.storeConstraintState(pendingManualJudgement1)
         repository.storeConstraintState(pendingManualJudgement2)
 
@@ -183,7 +189,7 @@ abstract class ApproveOldVersionTests<T : KeelRepository> : JUnit5Minutests {
           subject.checkEnvironments(deliveryConfig)
         }
 
-        expectThat(repository.latestVersionApprovedIn(deliveryConfig, artifact, environment.name)).isEqualTo(null)
+        expectThat(repository.latestVersionApprovedIn(deliveryConfig, artifact, environment.name)).isNull()
       }
 
       context("old version is approved") {
@@ -196,11 +202,8 @@ abstract class ApproveOldVersionTests<T : KeelRepository> : JUnit5Minutests {
             subject.checkEnvironments(deliveryConfig)
           }
 
-          expectThat(repository.getConstraintState(deliveryConfig.name, environment.name, version1, "manual-judgement", artifact.reference)).get {
-            this?.status
-          }.isEqualTo(
-            passedManualJudgement1.status
-          )
+          expectThat(repository.getConstraintState(deliveryConfig.name, environment.name, version1, "manual-judgement", artifact.reference))
+            .get { this?.status }.isEqualTo(passedManualJudgement1.status)
           expectThat(repository.latestVersionApprovedIn(deliveryConfig, artifact, environment.name)).isEqualTo(version1)
         }
       }

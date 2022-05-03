@@ -10,6 +10,7 @@ import com.netflix.spinnaker.keel.api.SubnetAwareLocations
 import com.netflix.spinnaker.keel.api.SubnetAwareRegionSpec
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
+import com.netflix.spinnaker.keel.api.artifacts.fromBranch
 import com.netflix.spinnaker.keel.api.ec2.ApplicationLoadBalancerSpec
 import com.netflix.spinnaker.keel.api.ec2.ClusterDependencies
 import com.netflix.spinnaker.keel.api.ec2.EC2_APPLICATION_LOAD_BALANCER_V1_2
@@ -29,7 +30,12 @@ fun deliveryConfig(
   env: Environment = Environment("test", setOf(resource)),
   application: String = "fnord",
   configName: String = "myconfig",
-  artifact: DeliveryArtifact = DebianArtifact(name = "fnord", deliveryConfigName = configName, vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2"))),
+  artifact: DeliveryArtifact = DebianArtifact(
+    name = "fnord",
+    deliveryConfigName = configName,
+    vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2")),
+    from = fromBranch("main")
+  ),
   deliveryConfig: DeliveryConfig = DeliveryConfig(
     name = configName,
     application = application,
@@ -47,7 +53,12 @@ fun deliveryConfig(
   env: Environment = Environment("test", resources),
   application: String = "fnord",
   configName: String = "myconfig",
-  artifact: DeliveryArtifact = DebianArtifact(name = "fnord", deliveryConfigName = configName, vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2"))),
+  artifact: DeliveryArtifact = DebianArtifact(
+    name = "fnord",
+    deliveryConfigName = configName,
+    vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2")),
+    from = fromBranch("main")
+  ),
   deliveryConfig: DeliveryConfig = DeliveryConfig(
     name = configName,
     application = application,

@@ -14,8 +14,6 @@ import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.Job
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.Repo
-import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy
-import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
 import com.netflix.spinnaker.keel.api.events.ArtifactVersionStored
 import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
 import com.netflix.spinnaker.keel.config.WorkProcessingConfig
@@ -28,6 +26,8 @@ import com.netflix.spinnaker.keel.lifecycle.LifecycleEventStatus
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.WorkQueueRepository
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
+import com.netflix.spinnaker.keel.test.debianArtifact
+import com.netflix.spinnaker.keel.test.dockerArtifact
 import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
@@ -89,9 +89,14 @@ internal class WorkQueueProcessorTests : JUnit5Minutests {
     imageName=lpollo/lpollo-local-test:master-h232.ff1f4d4
   """.trimIndent()
 
-  val debianArtifact = DebianArtifact(name = "fnord", deliveryConfigName = "fnord-config", vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2")))
-  val dockerArtifact = DockerArtifact(name = "fnord/myimage", tagVersionStrategy = TagVersionStrategy.BRANCH_JOB_COMMIT_BY_JOB, deliveryConfigName = "fnord-config")
-  val deliveryConfig = DeliveryConfig(name = "fnord-config", application = "fnord", serviceAccount = "keel", artifacts = setOf(debianArtifact, dockerArtifact))
+  val debianArtifact = debianArtifact()
+  val dockerArtifact = dockerArtifact()
+  val deliveryConfig = DeliveryConfig(
+    name = "fnord-config",
+    application = "fnord",
+    serviceAccount = "keel",
+    artifacts = setOf(debianArtifact, dockerArtifact)
+  )
 
   val artifactMetadata = ArtifactMetadata(
     gitMetadata = GitMetadata(commit = "f00baah", author = "joesmith", branch = branchNameFromRocket, repo = Repo(name = "awesome-name")),

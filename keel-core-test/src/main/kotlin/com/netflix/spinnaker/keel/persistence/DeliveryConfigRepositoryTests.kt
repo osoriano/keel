@@ -14,12 +14,9 @@ import com.netflix.spinnaker.keel.api.PreviewEnvironmentSpec
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceKind.Companion.parseKind
 import com.netflix.spinnaker.keel.api.Verification
-import com.netflix.spinnaker.keel.api.artifacts.ArtifactOriginFilter
-import com.netflix.spinnaker.keel.api.artifacts.BranchFilter
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
-import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
 import com.netflix.spinnaker.keel.api.artifacts.branchStartsWith
 import com.netflix.spinnaker.keel.api.constraints.ConstraintState
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
@@ -38,6 +35,7 @@ import com.netflix.spinnaker.keel.persistence.DependentAttachFilter.ATTACH_NONE
 import com.netflix.spinnaker.keel.persistence.DependentAttachFilter.ATTACH_PREVIEW_ENVIRONMENTS
 import com.netflix.spinnaker.keel.resources.ResourceSpecIdentifier
 import com.netflix.spinnaker.keel.test.DummyResourceSpec
+import com.netflix.spinnaker.keel.test.debianArtifact
 import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.keel.test.withUpdatedResource
 import com.netflix.spinnaker.time.MutableClock
@@ -120,14 +118,14 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
     val pausedRepositoryProvider: () -> P,
 
     val deliveryConfig: DeliveryConfig = DeliveryConfig(
-      name = "fnord",
+      name = "fnord-manifest",
       application = "fnord",
       serviceAccount = "keel@spinnaker",
       metadata = mapOf("some" to "meta"),
       rawConfig = """
             ---
             # This can be any string you want
-            name: fnord
+            name: fnord-manifest
             application: fnord
             serviceAccount: keel@netlix.com
             artifacts: []
@@ -151,17 +149,7 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
       serviceAccount = deliveryConfig.serviceAccount
     )
 
-    val artifact: DebianArtifact = DebianArtifact(
-      name = "keel",
-      deliveryConfigName = deliveryConfig.name,
-      vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2"))
-    )
-
-    val artifactFromBranch: DebianArtifact = artifact.copy(
-      name = "frombranch",
-      reference = "frombranch",
-      from = ArtifactOriginFilter(branch = BranchFilter(name = "main"))
-    )
+    val artifact: DebianArtifact = debianArtifact()
 
     fun getByName() = expectCatching {
       repository.get(deliveryConfig.name)
@@ -187,23 +175,24 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
       }
     }
 
-    fun DeliveryArtifact.getVersionId(num: Int): String = "${name}-1.0.$num"
+    fun DeliveryArtifact.getVersionString(num: Int): String = "${name}-1.0.$num"
 
     fun storeJudgements() =
       storeArtifactVersionsAndJudgements(artifact, 1, 1)
 
+    /**
+     * Store each version in the range of [start] to [end] along with a pending manual judgement.
+     */
     fun storeArtifactVersionsAndJudgements(artifact: DeliveryArtifact, start: Int, end: Int) {
-      val range = if (start < end) {
-        start..end
-      } else {
-        start downTo end
-      }
-      range.forEach { v ->
+      (start..end).forEach { v ->
         clock.tickMinutes(1)
 
         artifactRepository.storeArtifactVersion(
           PublishedArtifact(
-            artifact.name, artifact.type, artifact.getVersionId(v), createdAt = clock.instant(),
+            name = artifact.name,
+            type = artifact.type,
+            version = artifact.getVersionString(v),
+            createdAt = clock.instant(),
             gitMetadata = GitMetadata(commit = "ignored", branch = "main")
           )
         )
@@ -213,7 +202,7 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
             ConstraintState(
               deliveryConfigName = deliveryConfig.name,
               environmentName = env.name,
-              artifactVersion = artifact.getVersionId(v),
+              artifactVersion = artifact.getVersionString(v),
               artifactReference = artifact.reference,
               type = "manual-judgement",
               status = ConstraintStatus.PENDING
@@ -224,7 +213,7 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
     }
 
     fun queueConstraintApproval() {
-      repository.queueArtifactVersionForApproval(deliveryConfig.name, "staging", artifact, "keel-1.0.1")
+      repository.queueArtifactVersionForApproval(deliveryConfig.name, "staging", artifact, "${artifact.name}-1.0.1")
     }
 
     fun getEnvironment(resource: Resource<*>) = expectCatching {
@@ -382,9 +371,7 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
       deriveFixture {
         copy(
           deliveryConfig = deliveryConfig.copy(
-            artifacts = setOf(
-              artifact, artifactFromBranch
-            ),
+            artifacts = setOf(artifact),
             environments = setOf(
               Environment(
                 name = "test",
@@ -526,12 +513,12 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
               deliveryConfig.name,
               environment.name,
               artifact.reference,
-              artifact.getVersionId(1),
+              artifact.getVersionString(1),
               "manual-judgement"
             )
             val recentConstraintState = repository.constraintStateFor(deliveryConfig.name, environment.name)
             expectThat(numDeleted) isEqualTo 1
-            expectThat(recentConstraintState).filterNot { it.artifactVersion == artifact.getVersionId(1) }
+            expectThat(recentConstraintState).filterNot { it.artifactVersion == artifact.getVersionString(1) }
           }
 
           test("constraint states can be retrieved and updated") {
@@ -561,63 +548,22 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
 
           test("can queue constraint approvals") {
             queueConstraintApproval()
-            expectThat(repository
-                         .getArtifactVersionsQueuedForApproval(deliveryConfig.name, "staging", artifact)
-                         .map { it.version }
-            ).isEqualTo(listOf("keel-1.0.1"))
-          }
-
-          context("with artifact filtered by status") {
-            before {
-              storeArtifactVersionsAndJudgements(artifact, 1, 5)
-            }
-
-            test("can retrieve sorted pending artifact versions") {
-              expectThat(
-                repository.getPendingConstraintsForArtifactVersions(deliveryConfig.name, "staging", artifact)
-                  .map { it.version }
-              )
-                .isEqualTo((1..5).map { "${artifact.name}-1.0.$it" }.reversed())
-            }
-
-            test("can retrieve sorted artifact versions queued for approval") {
-              (1..5).forEach { v ->
-                repository.queueArtifactVersionForApproval(
-                  deliveryConfig.name, "staging", artifact, "${artifact.name}-1.0.$v"
-                )
-              }
-              expectThat(
-                repository.getArtifactVersionsQueuedForApproval(deliveryConfig.name, "staging", artifact)
-                  .map { it.version }
-              )
-                .isEqualTo((1..5).map { "${artifact.name}-1.0.$it" }.reversed())
-            }
+            expectThat(
+              repository.getArtifactVersionsQueuedForApproval(deliveryConfig.name, "staging", artifact)
+               .map { it.version }
+            ).isEqualTo(listOf("${artifact.name}-1.0.1"))
           }
 
           context("with artifact filtered by branch") {
             before {
-              storeArtifactVersionsAndJudgements(artifactFromBranch, 5, 1) // versions in reverse order of time
+              storeArtifactVersionsAndJudgements(artifact, 1, 5)
             }
 
             test("can retrieve pending artifact versions sorted by timestamp") {
               expectThat(
-                repository.getPendingConstraintsForArtifactVersions(deliveryConfig.name, "staging", artifactFromBranch)
+                repository.getPendingConstraintsForArtifactVersions(deliveryConfig.name, "staging", artifact)
                   .map { it.version }
-              )
-                .isEqualTo((1..5).map { "${artifactFromBranch.name}-1.0.$it" })
-            }
-
-            test("can retrieve sorted artifact versions queued for approval") {
-              (1..5).forEach { v ->
-                repository.queueArtifactVersionForApproval(
-                  deliveryConfig.name, "staging", artifactFromBranch, "${artifactFromBranch.name}-1.0.$v"
-                )
-              }
-              expectThat(
-                repository.getArtifactVersionsQueuedForApproval(deliveryConfig.name, "staging", artifactFromBranch)
-                  .map { it.version }
-              )
-                .isEqualTo((1..5).map { "${artifactFromBranch.name}-1.0.$it" })
+              ).isEqualTo((5 downTo 1).map { "${artifact.name}-1.0.$it" })
             }
           }
         }
@@ -858,7 +804,7 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
         copy(
           deliveryConfig = deliveryConfig.copy(
             artifacts = setOf(
-              artifact, artifactFromBranch
+              artifact, artifact
             ),
             environments = setOf(
               Environment(

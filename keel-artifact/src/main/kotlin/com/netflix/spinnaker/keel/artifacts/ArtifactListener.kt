@@ -16,6 +16,7 @@ import com.netflix.spinnaker.keel.logging.withCoroutineTracingContext
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.supervisorScope
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
@@ -81,10 +82,12 @@ class ArtifactListener(
   fun syncLastLimitAllArtifactsVersions() {
     if (enabled.get()) {
       runBlocking {
-        log.debug("Syncing last ${artifactRefreshConfig.scheduledSyncLimit} artifact version(s)...")
-        repository.getAllArtifacts().forEach { artifact ->
-          launch {
-            syncLastLimitArtifactVersions(artifact, artifactRefreshConfig.scheduledSyncLimit)
+        log.debug("Syncing last ${artifactRefreshConfig.scheduledSyncLimit} artifact version(s) for all known artifacts...")
+        supervisorScope {
+          repository.getAllArtifacts().forEach { artifact ->
+            launch {
+              syncLastLimitArtifactVersions(artifact, artifactRefreshConfig.scheduledSyncLimit)
+            }
           }
         }
       }
@@ -92,6 +95,7 @@ class ArtifactListener(
   }
 
   suspend fun syncLastLimitArtifactVersions(artifact: DeliveryArtifact, limit: Int) {
+    log.debug("Syncing last $limit versions of $artifact")
     val lastStoredVersions = repository.artifactVersions(artifact, limit)
     val currentVersions = lastStoredVersions.map { it.version }
     log.debug("Last recorded versions of $artifact: $currentVersions")

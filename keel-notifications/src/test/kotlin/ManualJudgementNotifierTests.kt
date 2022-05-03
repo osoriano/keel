@@ -6,19 +6,16 @@ import com.netflix.spinnaker.keel.api.NotificationFrequency
 import com.netflix.spinnaker.keel.api.NotificationFrequency.normal
 import com.netflix.spinnaker.keel.api.NotificationType
 import com.netflix.spinnaker.keel.api.NotificationType.slack
-import com.netflix.spinnaker.keel.api.artifacts.BaseLabel.RELEASE
 import com.netflix.spinnaker.keel.api.artifacts.Commit
 import com.netflix.spinnaker.keel.api.artifacts.DEBIAN
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.Repo
-import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
 import com.netflix.spinnaker.keel.api.constraints.ConstraintState
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PENDING
 import com.netflix.spinnaker.keel.api.events.ConstraintStateChanged
 import com.netflix.spinnaker.keel.artifacts.ArtifactVersionLinks
-import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.core.api.ManualJudgementConstraint
 import com.netflix.spinnaker.keel.core.api.randomUID
 import com.netflix.spinnaker.keel.echo.EchoService
@@ -27,6 +24,7 @@ import com.netflix.spinnaker.keel.notifications.ManualJudgementNotifier
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.services.mockCacheFactory
 import com.netflix.spinnaker.keel.services.mockScmInfo
+import com.netflix.spinnaker.keel.test.debianArtifact
 import com.netflix.spinnaker.keel.test.resource
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
@@ -60,9 +58,7 @@ internal class ManualJudgementNotifierTests : JUnit5Minutests {
     val keelNotificationConfig: com.netflix.spinnaker.config.KeelNotificationConfig = mockk(relaxed = true)
     val echoService: EchoService = mockk(relaxed = true)
     val repository: KeelRepository = mockk(relaxed = true)
-    val artifact = DebianArtifact("mypkg", "test", "deb",
-      vmOptions = VirtualMachineOptions(RELEASE, "bionic", emptySet())
-    )
+    val artifact = debianArtifact()
 
     val springEnv: org.springframework.core.env.Environment = mockk(relaxed = true) {
       coEvery { getProperty("keel.notifications.slack", Boolean::class.java, true) } returns false
@@ -125,15 +121,14 @@ internal class ManualJudgementNotifierTests : JUnit5Minutests {
 
         every {
           repository.getArtifact("test", "deb")
-        } returns DebianArtifact("mypkg", "test", "deb",
-          vmOptions = VirtualMachineOptions(RELEASE, "bionic", emptySet()))
+        } returns debianArtifact()
 
         every {
           repository.getDeliveryConfig("test")
         } returns config
 
         every {
-          repository.getArtifactVersion(artifact, "v1.0.0", any())
+          repository.getArtifactVersion(artifact, "v1.0.0")
         } returns null
       }
 
@@ -217,9 +212,9 @@ internal class ManualJudgementNotifierTests : JUnit5Minutests {
 
         val notificationBody = notification.captured.additionalContext!!["body"].toString()
         expectThat(notificationBody)
-          .contains(":warning: Manual approval required to deploy artifact *mypkg*")
+          .contains(":warning: Manual approval required to deploy artifact *fnord*")
         expectThat(notificationBody)
-          .contains("*Version:* <${BaseUrlConfig().baseUrl}/#/applications/test/environments/deb/v1.0.0|v1.0.0>")
+          .contains("*Version:* <${BaseUrlConfig().baseUrl}/#/applications/test/environments/fnord-deb/v1.0.0|v1.0.0>")
         expectThat(notificationBody)
           .contains("*Application:* test")
         expectThat(notificationBody)
@@ -229,16 +224,16 @@ internal class ManualJudgementNotifierTests : JUnit5Minutests {
       context("when git metadata is available for the artifact") {
         before {
           every {
-            repository.getArtifactVersion(artifact, "v1.0.0", any())
+            repository.getArtifactVersion(artifact, "v1.0.0")
           } returns PublishedArtifact(
-            name = "mypkg",
+            name = "fnord",
             type = DEBIAN,
             version = "v1.0.0",
             gitMetadata = GitMetadata(
               commit = "a1b2c3d",
               author = "joesmith",
               project = "myproj",
-              branch = "master",
+              branch = "main",
               repo = Repo("myapp"),
               commitInfo = Commit(message = "A test commit", sha = "a1b2c3d")
             )
@@ -262,7 +257,7 @@ internal class ManualJudgementNotifierTests : JUnit5Minutests {
           expectThat(notificationBody)
             .contains("*Repo:* myproj/myapp")
           expectThat(notificationBody)
-            .contains("*Branch:* master")
+            .contains("*Branch:* main")
           expectThat(notificationBody)
             .contains("*Message:* A test commit")
         }
@@ -271,16 +266,16 @@ internal class ManualJudgementNotifierTests : JUnit5Minutests {
       context("compare links in notification") {
         before {
           every {
-            repository.getArtifactVersion(artifact, "v1.0.0", any())
+            repository.getArtifactVersion(artifact, "v1.0.0")
           } returns PublishedArtifact(
-            name = "mypkg",
+            name = "fnord",
             type = DEBIAN,
             version = "v2.0.0",
             gitMetadata = GitMetadata(
               commit = "a1b2c3d",
               author = "joesmith",
               project = "myproj",
-              branch = "master",
+              branch = "main",
               repo = Repo("myapp"),
               commitInfo = Commit(message = "A test commit #2", link = "https://stash", sha = "v2.0.0")
             )
@@ -306,14 +301,14 @@ internal class ManualJudgementNotifierTests : JUnit5Minutests {
             every {
               repository.getCurrentlyDeployedArtifactVersion(any(), artifact, any())
             } returns PublishedArtifact(
-              name = "mypkg",
+              name = "fnord",
               type = DEBIAN,
               version = "v1.0.0",
               gitMetadata = GitMetadata(
                 commit = "e5f6g7h",
                 author = "joesmith",
                 project = "myproj",
-                branch = "master",
+                branch = "main",
                 repo = Repo("myapp"),
                 commitInfo = Commit(message = "A test commit", link = "https://stash", sha = "v1.0.0")
               )

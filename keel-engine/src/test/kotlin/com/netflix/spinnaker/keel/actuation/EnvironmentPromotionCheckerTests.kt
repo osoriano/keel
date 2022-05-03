@@ -6,6 +6,7 @@ import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.SEMVER_TAG
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
+import com.netflix.spinnaker.keel.api.artifacts.fromBranch
 import com.netflix.spinnaker.keel.api.constraints.ConstraintState
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PASS
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
@@ -80,7 +81,8 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
       name = "debian",
       deliveryConfigName = "my-manifest",
       reference = "debian-artifact",
-      vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2"))
+      vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2")),
+      from = fromBranch("main")
     )
 
     val environment: Environment = Environment(

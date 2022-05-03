@@ -3,7 +3,6 @@ package com.netflix.spinnaker.keel.persistence
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
-import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 import com.netflix.spinnaker.keel.api.artifacts.CurrentlyDeployedVersion
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
@@ -72,17 +71,12 @@ interface ArtifactRepository : PeriodicallyCheckedRepository<DeliveryArtifact> {
    * @return The [PublishedArtifact] matching the specified name, type, version and (optionally) status, or `null`
    * if not found.
    */
-  fun getArtifactVersion(artifact: DeliveryArtifact, version: String, status: ArtifactStatus? = null): PublishedArtifact?
+  fun getArtifactVersion(artifact: DeliveryArtifact, version: String): PublishedArtifact?
 
   /**
    * Update metadata for the specified [PublishedArtifact].
    */
   fun updateArtifactMetadata(artifact: PublishedArtifact, artifactMetadata: ArtifactMetadata)
-
-  /**
-   * Returns the release status for the specified [version] of the [artifact], if available.
-   */
-  fun getReleaseStatus(artifact: DeliveryArtifact, version: String): ArtifactStatus?
 
   /**
    * @return the latest version of [artifact] that can be deployed in [targetEnvironment]
@@ -316,11 +310,6 @@ interface ArtifactRepository : PeriodicallyCheckedRepository<DeliveryArtifact> {
    * This is meant to calculate how many pending versions would be promoted if a manual judgement was approved.
    */
   fun getNumPendingToBePromoted(deliveryConfig: DeliveryConfig, artifactReference: String, environmentName: String, version: String): Int
-
-  /**
-   * Fetches the status of artifact versions in the environments of [deliveryConfig].
-   */
-  fun getEnvironmentSummaries(deliveryConfig: DeliveryConfig): List<EnvironmentSummary>
 
   /**
    * Pin an environment to only deploy a specific DeliveryArtifact version

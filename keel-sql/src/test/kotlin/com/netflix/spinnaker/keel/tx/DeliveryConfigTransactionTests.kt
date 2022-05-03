@@ -5,6 +5,7 @@ import com.netflix.spinnaker.keel.api.ResourceKind.Companion.parseKind
 import com.netflix.spinnaker.keel.api.ResourceSpec
 import com.netflix.spinnaker.keel.api.artifacts.DEBIAN
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
+import com.netflix.spinnaker.keel.api.artifacts.fromBranch
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.core.api.SubmittedEnvironment
@@ -70,7 +71,8 @@ internal class DeliveryConfigTransactionTests
         DebianArtifact(
           name = "keel",
           deliveryConfigName = "keel-manifest",
-          vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2"))
+          vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2")),
+          from = fromBranch("main")
         )
       ),
       environments = setOf(

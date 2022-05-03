@@ -15,6 +15,7 @@ import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.Repo
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
+import com.netflix.spinnaker.keel.api.artifacts.fromBranch
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec
 import com.netflix.spinnaker.keel.api.ec2.EC2_CLUSTER_V1_1
 import com.netflix.spinnaker.keel.api.migration.ApplicationMigrationStatus
@@ -54,6 +55,7 @@ import com.netflix.spinnaker.keel.scm.ScmUtils
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
 import com.netflix.spinnaker.keel.services.ApplicationService
 import com.netflix.spinnaker.keel.services.ResourceStatusService
+import com.netflix.spinnaker.keel.test.debianArtifact
 import com.netflix.spinnaker.keel.test.deliveryConfig
 import com.netflix.spinnaker.keel.test.submittedDeliveryConfig
 import com.netflix.spinnaker.keel.test.submittedResource
@@ -168,17 +170,13 @@ class QueryTests {
 
   val clock = MutableClock()
 
-  private val artifact = DebianArtifact(
-    name = "fnord",
-    deliveryConfigName = "fnord",
-    vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2"))
-  )
+  private val artifact = debianArtifact()
 
   private val resource = submittedResource(
     kind = EC2_CLUSTER_V1_1.kind,
     spec = ClusterSpec(
       moniker = Moniker("fnord"),
-      artifactReference = "fnord",
+      artifactReference = artifact.reference,
       locations = SubnetAwareLocations(
         account = "test",
         vpc = "vpc0",
@@ -297,7 +295,6 @@ class QueryTests {
     return headers
   }
 
-
   @Test
   fun basicTest() {
     expectCatching {
@@ -386,7 +383,7 @@ class QueryTests {
       dgsQueryExecutor.executeAndExtractJsonPath<String>(
         getQuery("/dgs/pinningAndRollback.graphql"),
         "data.md_application.versionOnUnpinning.version",
-        mapOf("appName" to "fnord", "reference" to "fnord", "environment" to "test")
+        mapOf("appName" to "fnord", "reference" to artifact.reference, "environment" to "test")
       )
     }.isSuccess().isEqualTo("v123")
   }

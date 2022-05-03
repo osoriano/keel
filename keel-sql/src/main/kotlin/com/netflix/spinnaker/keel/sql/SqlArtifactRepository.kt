@@ -6,7 +6,6 @@ import com.netflix.kotlin.OpenClass
 import com.netflix.spinnaker.keel.activation.ApplicationUp
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
-import com.netflix.spinnaker.keel.api.GitRepository
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
@@ -336,8 +335,7 @@ class SqlArtifactRepository(
 
   override fun getArtifactVersion(
     artifact: DeliveryArtifact,
-    version: String,
-    status: ArtifactStatus?
+    version: String
   ): PublishedArtifact? {
     return sqlRetry.withRetry(READ) {
       jooq
@@ -346,7 +344,6 @@ class SqlArtifactRepository(
         .where(ARTIFACT_VERSIONS.NAME.eq(artifact.name))
         .and(ARTIFACT_VERSIONS.TYPE.eq(artifact.type))
         .and(ARTIFACT_VERSIONS.VERSION.eq(version))
-        .apply { if (status != null) and(ARTIFACT_VERSIONS.RELEASE_STATUS.eq(status)) }
         .fetchArtifactVersions(artifact.reference)
         .firstOrNull()
     }
@@ -367,26 +364,10 @@ class SqlArtifactRepository(
             ARTIFACT_VERSIONS.TYPE.eq(type),
             ARTIFACT_VERSIONS.VERSION.eq(version).or(ARTIFACT_VERSIONS.VERSION.eq("$name-$version"))
           )
-          .apply { if (status != null) and(ARTIFACT_VERSIONS.RELEASE_STATUS.eq(status)) }
           .execute()
       }
     }
   }
-
-  override fun getReleaseStatus(artifact: DeliveryArtifact, version: String): ArtifactStatus? =
-    if (isRegistered(artifact.name, artifact.type)) {
-      sqlRetry.withRetry(READ) {
-        jooq
-          .select(ARTIFACT_VERSIONS.RELEASE_STATUS)
-          .from(ARTIFACT_VERSIONS)
-          .where(ARTIFACT_VERSIONS.NAME.eq(artifact.name))
-          .and(ARTIFACT_VERSIONS.TYPE.eq(artifact.type))
-          .and(ARTIFACT_VERSIONS.VERSION.eq(version))
-          .fetchOne(ARTIFACT_VERSIONS.RELEASE_STATUS)
-      }
-    } else {
-      throw NoSuchArtifactException(artifact)
-    }
 
   override fun latestDeployableVersionIn(
     deliveryConfig: DeliveryConfig,
@@ -433,7 +414,7 @@ class SqlArtifactRepository(
      * the pinned version. Otherwise return the most recently approved version.
      *
      */
-    sqlRetry.withRetry(READ) {
+    val pinnedVersion = sqlRetry.withRetry(READ) {
       jooq.select(ENVIRONMENT_ARTIFACT_PIN.ARTIFACT_VERSION)
         .from(ENVIRONMENT_ARTIFACT_PIN)
         .where(
@@ -442,7 +423,10 @@ class SqlArtifactRepository(
         )
         .fetchOne(ENVIRONMENT_ARTIFACT_PIN.ARTIFACT_VERSION)
     }
-      ?.also { return it }
+
+    if (pinnedVersion != null) {
+      return pinnedVersion
+    }
 
     return latestApprovedArtifact(envUid, artifactId, listOf(VETOED), artifact)?.version
   }
@@ -641,7 +625,7 @@ class SqlArtifactRepository(
   ): PublishedArtifact? =
     getCurrentlyDeployedArtifactVersionId(deliveryConfig, artifact, environmentName)
       ?.let { (version, deployedAt) ->
-        val publishedArtifact = getArtifactVersion(artifact, version, null)
+        val publishedArtifact = getArtifactVersion(artifact, version)
         val originalMetadata = publishedArtifact?.metadata ?: emptyMap()
         val deployedAtMetadata = mapOf("deployedAt" to deployedAt)
         return publishedArtifact?.copy(metadata = originalMetadata + deployedAtMetadata, reference = artifact.reference)
@@ -1494,9 +1478,6 @@ class SqlArtifactRepository(
       .and(ARTIFACT_VERSIONS.NAME.eq(artifact.name))
       .and(ARTIFACT_VERSIONS.TYPE.eq(artifact.type))
       .apply {
-        if (artifact.statuses.isNotEmpty()) {
-          and(ARTIFACT_VERSIONS.RELEASE_STATUS.`in`(*artifact.statuses.toTypedArray()))
-        }
         // For preview environments, select only those artifact versions with a matching branch
         if (environment.isPreview) {
           and(ARTIFACT_VERSIONS.BRANCH.eq(ACTIVE_ENVIRONMENT.BRANCH))
@@ -1601,124 +1582,6 @@ class SqlArtifactRepository(
       newerRemoved.dropLastWhile { it != currentVersion }.filterNot { it == currentVersion }
     } else {
       newerRemoved
-    }
-  }
-
-  override fun getEnvironmentSummaries(deliveryConfig: DeliveryConfig): List<EnvironmentSummary> {
-    val pinnedEnvs = getPinnedEnvironments(deliveryConfig)
-    return deliveryConfig.environments.map { environment ->
-      val artifactVersions = deliveryConfig.artifacts.map { artifact ->
-        val versionsInEnvironment = jooq
-          .select(
-            ARTIFACT_VERSIONS.NAME,
-            ARTIFACT_VERSIONS.TYPE,
-            ARTIFACT_VERSIONS.VERSION,
-            ARTIFACT_VERSIONS.RELEASE_STATUS,
-            ARTIFACT_VERSIONS.CREATED_AT,
-            ARTIFACT_VERSIONS.GIT_METADATA,
-            ARTIFACT_VERSIONS.BUILD_METADATA,
-            ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS
-          )
-          .from(
-            ENVIRONMENT_ARTIFACT_VERSIONS,
-            ARTIFACT_VERSIONS,
-            DELIVERY_ARTIFACT,
-            ACTIVE_ENVIRONMENT,
-            DELIVERY_CONFIG
-          )
-          .whereArtifactVersionsMatch(deliveryConfig, environment, artifact)
-          .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(DELIVERY_ARTIFACT.UID))
-          .and(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(ACTIVE_ENVIRONMENT.UID))
-          .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION.eq(ARTIFACT_VERSIONS.VERSION))
-
-        val pendingVersions = jooq
-          .select(
-            ARTIFACT_VERSIONS.NAME,
-            ARTIFACT_VERSIONS.TYPE,
-            ARTIFACT_VERSIONS.VERSION,
-            ARTIFACT_VERSIONS.RELEASE_STATUS,
-            ARTIFACT_VERSIONS.CREATED_AT,
-            ARTIFACT_VERSIONS.GIT_METADATA,
-            ARTIFACT_VERSIONS.BUILD_METADATA,
-            DSL.`val`(PENDING)
-          )
-          .from(
-            ARTIFACT_VERSIONS,
-            DELIVERY_ARTIFACT,
-            ACTIVE_ENVIRONMENT,
-            DELIVERY_CONFIG
-          )
-          .whereArtifactVersionsMatch(deliveryConfig, environment, artifact)
-          .andNotExists(
-            selectOne()
-              .from(ENVIRONMENT_ARTIFACT_VERSIONS)
-              .where(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION.eq(ARTIFACT_VERSIONS.VERSION))
-              .and(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(ACTIVE_ENVIRONMENT.UID))
-              .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(DELIVERY_ARTIFACT.UID))
-          )
-
-        val unionedVersions = sqlRetry.withRetry(READ) {
-          versionsInEnvironment
-            .unionAll(pendingVersions)
-            .fetch { (name, type, version, status, createdAt, gitMetadata, buildMetadata, promotionStatus) ->
-              PublishedArtifact(
-                name = name,
-                type = type,
-                version = version,
-                status = status,
-                createdAt = createdAt,
-                gitMetadata = gitMetadata,
-                buildMetadata = buildMetadata,
-              ) to promotionStatus
-            }
-        }
-          .filter { (artifactVersion, _) ->
-            if (artifact is DockerArtifact) {
-              // filter out invalid docker tags
-              filterDockerTag(artifactVersion.version, artifact)
-            } else {
-              true
-            }
-          }
-
-        val releaseStatuses: Set<ArtifactStatus> = unionedVersions
-          .mapNotNull { (artifactVersion, _) ->
-            artifactVersion.status
-          }
-          .toSet()
-
-        val versions = unionedVersions
-          .sortedWith(compareBy(artifact.sortingStrategy.comparator) { (artifactVersion, _) -> artifactVersion })
-          .groupBy(
-            { (_, promotionStatus) ->
-              promotionStatus
-            },
-            { (artifactVersion, _) ->
-              artifactVersion
-            }
-          )
-
-        val currentVersion = getCurrentlyDeployedArtifactVersion(deliveryConfig, artifact, environment.name)
-        ArtifactVersions(
-          name = artifact.name,
-          type = artifact.type,
-          reference = artifact.reference,
-          statuses = releaseStatuses,
-          versions = ArtifactVersionStatus(
-            current = currentVersion?.version,
-            deploying = versions[DEPLOYING]?.firstOrNull()?.version,
-            // take out stateful constraint values that will never happen
-            pending = removeOlderIfCurrentExists(artifact, currentVersion, versions[PENDING]).map { it.version },
-            approved = (versions[APPROVED] ?: emptyList()).map { it.version },
-            previous = (versions[PREVIOUS] ?: emptyList()).map { it.version },
-            vetoed = (versions[VETOED] ?: emptyList()).map { it.version },
-            skipped = removeNewerIfCurrentExists(artifact, currentVersion, versions[PENDING])
-              .plus(versions[SKIPPED] ?: emptyList()).map { it.version }
-          ),
-          pinnedVersion = pinnedEnvs.find { it.targetEnvironment == environment.name }?.version
-        )
-      }.toSet()
-      EnvironmentSummary(environment, artifactVersions)
     }
   }
 

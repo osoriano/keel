@@ -5,17 +5,23 @@ import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus.RELEASE
 import com.netflix.spinnaker.keel.api.artifacts.DOCKER
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
+import com.netflix.spinnaker.keel.api.artifacts.fromBranch
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
 import com.netflix.spinnaker.keel.core.api.DependsOnConstraint
 import com.netflix.spinnaker.keel.core.api.ManualJudgementConstraint
+import com.netflix.spinnaker.keel.core.api.PromotionStatus.CURRENT
+import com.netflix.spinnaker.keel.core.api.PromotionStatus.PENDING
+import com.netflix.spinnaker.keel.core.api.PromotionStatus.SKIPPED
 import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import strikt.api.expect
 import strikt.assertions.containsExactly
+import strikt.assertions.hasSize
 import strikt.assertions.isEmpty
 import strikt.assertions.isEqualTo
+import strikt.assertions.isNull
 import java.time.Clock
 
 /**
@@ -39,18 +45,18 @@ abstract class ApplicationSummaryGenerationTests<T : ArtifactRepository> : JUnit
       deliveryConfigName = "my-manifest",
       reference = "my-artifact",
       vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2")),
-      statuses = setOf(RELEASE)
+      from = fromBranch("main")
     )
     val dockerArtifact = DockerArtifact(
       name = "myorg/myapp",
       deliveryConfigName = "my-manifest",
       reference = "my-docker-artifact",
-      branch = "main"
+      from = fromBranch("main")
     )
     val environmentA = Environment("aa")
     val environmentB = Environment(
       name = "bb",
-      constraints = setOf(DependsOnConstraint("test"), ManualJudgementConstraint())
+      constraints = setOf(DependsOnConstraint("aa"), ManualJudgementConstraint())
     )
     val manifest = DeliveryConfig(
       name = "my-manifest",
@@ -59,8 +65,8 @@ abstract class ApplicationSummaryGenerationTests<T : ArtifactRepository> : JUnit
       artifacts = setOf(debianArtifact, dockerArtifact),
       environments = setOf(environmentA, environmentB)
     )
-    val debVersion1 = "keeldemo-1.0.1-h11.1a1a1a1" // release
-    val debVersion2 = "keeldemo-1.0.2-h12.2b2b2b2" // release
+    val debVersion1 = "keeldemo-1.0.1-h11.1a1a1a1"
+    val debVersion2 = "keeldemo-1.0.2-h12.2b2b2b2"
     val dockerVersion = "doesn't-really-matter"
   }
 
@@ -104,15 +110,16 @@ abstract class ApplicationSummaryGenerationTests<T : ArtifactRepository> : JUnit
       }
 
       test("skipped versions don't get a pending status in the next env") {
-        val envSummaries = subject.getEnvironmentSummaries(manifest).sortedBy { it.name }
+        val envAVersions = subject.getAllVersionsForEnvironment(debianArtifact, manifest, environmentA.name)
+        val envBVersions = subject.getAllVersionsForEnvironment(debianArtifact, manifest, environmentB.name)
         expect {
-          that(envSummaries.size).isEqualTo(2)
-          that(envSummaries[0].artifacts.first().versions.current).isEqualTo(debVersion2)
-          that(envSummaries[0].artifacts.first().versions.pending).isEmpty()
-          that(envSummaries[0].artifacts.first().versions.skipped).containsExactly(debVersion1)
-          that(envSummaries[1].artifacts.first().versions.current).isEqualTo(debVersion2)
-          that(envSummaries[1].artifacts.first().versions.pending).isEmpty()
-          that(envSummaries[1].artifacts.first().versions.skipped).containsExactly(debVersion1)
+          that(envAVersions).hasSize(2)
+          that(envAVersions.find { it.status == CURRENT }!!.publishedArtifact.version).isEqualTo(debVersion2)
+          that(envAVersions.find { it.status == SKIPPED }!!.publishedArtifact.version).isEqualTo(debVersion1)
+
+          that(envBVersions).hasSize(1)
+          that(envBVersions.find { it.status == CURRENT }!!.publishedArtifact.version).isEqualTo(debVersion2)
+          that(envBVersions.find { it.status == PENDING }).isNull()
         }
       }
     }
@@ -125,10 +132,9 @@ abstract class ApplicationSummaryGenerationTests<T : ArtifactRepository> : JUnit
       }
 
       test("version is found to be CURRENT") {
-        val envSummary = subject.getEnvironmentSummaries(manifest).find { it.name == environmentA.name }
+        val envAVersions = subject.getAllVersionsForEnvironment(dockerArtifact, manifest, environmentA.name)
         expect {
-          val current = envSummary!!.artifacts.find { it.type == DOCKER }!!.versions.current
-          that(current).isEqualTo(dockerVersion)
+          that(envAVersions.find { it.status == CURRENT }!!.publishedArtifact.version).isEqualTo(dockerVersion)
         }
       }
     }

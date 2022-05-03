@@ -30,6 +30,15 @@ import com.netflix.spinnaker.keel.api.ec2.EC2_CLUSTER_V1_1
 import com.netflix.spinnaker.keel.api.ec2.EC2_SECURITY_GROUP_V1
 import com.netflix.spinnaker.keel.api.ec2.SecurityGroupSpec
 import com.netflix.spinnaker.keel.api.migration.SkipReason
+import com.netflix.spinnaker.keel.api.migration.SkipReason.ARTIFACT_METADATA_UNAVAILABLE
+import com.netflix.spinnaker.keel.api.migration.SkipReason.DISABLED
+import com.netflix.spinnaker.keel.api.migration.SkipReason.FROM_TEMPLATE
+import com.netflix.spinnaker.keel.api.migration.SkipReason.HAS_PARALLEL_STAGES
+import com.netflix.spinnaker.keel.api.migration.SkipReason.NOT_EXECUTED_RECENTLY
+import com.netflix.spinnaker.keel.api.migration.SkipReason.RESOURCE_NOT_SUPPORTED
+import com.netflix.spinnaker.keel.api.migration.SkipReason.SHAPE_NOT_SUPPORTED
+import com.netflix.spinnaker.keel.api.migration.SkipReason.TAG_TO_RELEASE_ARTIFACT
+import com.netflix.spinnaker.keel.api.migration.SkipReason.UNSPECIFIED_ARTIFACT_EXPORT_ERROR
 import com.netflix.spinnaker.keel.api.plugins.ResourceHandler
 import com.netflix.spinnaker.keel.api.plugins.supporting
 import com.netflix.spinnaker.keel.api.titus.TITUS_CLUSTER_V1
@@ -37,6 +46,7 @@ import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.clouddriver.model.ApplicationLoadBalancerModel
+import com.netflix.spinnaker.keel.core.api.AllowedTimesConstraint
 import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.core.api.DependsOnConstraint
 import com.netflix.spinnaker.keel.core.api.ManualJudgementConstraint
@@ -44,10 +54,11 @@ import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.core.api.SubmittedEnvironment
 import com.netflix.spinnaker.keel.core.api.SubmittedResource
 import com.netflix.spinnaker.keel.core.api.TimeWindow
-import com.netflix.spinnaker.keel.core.api.AllowedTimesConstraint
 import com.netflix.spinnaker.keel.core.api.id
 import com.netflix.spinnaker.keel.core.parseMoniker
-import com.netflix.spinnaker.keel.exceptions.ArtifactNotSupportedException
+import com.netflix.spinnaker.keel.exceptions.ArtifactExportException
+import com.netflix.spinnaker.keel.exceptions.ArtifactMetadataUnavailableException
+import com.netflix.spinnaker.keel.exceptions.TagToReleaseArtifactException
 import com.netflix.spinnaker.keel.export.canary.extractCanaryConstraints
 import com.netflix.spinnaker.keel.filterNotNullValues
 import com.netflix.spinnaker.keel.front50.Front50Cache
@@ -354,15 +365,20 @@ class ExportService(
         // 5. infer from the cluster all dependent resources, including artifacts
         val resourcesAndArtifacts = try {
           createResourcesBasedOnCluster(cluster, environments, applicationName)
-        } catch (e: ArtifactNotSupportedException) {
-          log.debug("could not export artifacts from cluster ${cluster.moniker.toName()}")
-          nonExportablePipelines = nonExportablePipelines + (pipeline to SkipReason.ARTIFACT_NOT_SUPPORTED)
+        } catch (e: ArtifactExportException) {
+          log.debug("Unable to export artifacts from cluster ${cluster.moniker.toName()}")
+          val skipReason = when (e) {
+            is ArtifactMetadataUnavailableException -> ARTIFACT_METADATA_UNAVAILABLE
+            is TagToReleaseArtifactException -> TAG_TO_RELEASE_ARTIFACT
+            else -> UNSPECIFIED_ARTIFACT_EXPORT_ERROR
+          }
+          nonExportablePipelines = nonExportablePipelines + (pipeline to skipReason)
           return@mapValues emptyList()
         }
 
         if (resourcesAndArtifacts.resources.isEmpty()) {
           log.debug("could not create resources from cluster ${cluster.moniker.toName()}")
-          nonExportablePipelines = nonExportablePipelines + (pipeline to SkipReason.RESOURCE_NOT_SUPPORTED)
+          nonExportablePipelines = nonExportablePipelines + (pipeline to RESOURCE_NOT_SUPPORTED)
           return@mapValues emptyList()
         }
 
@@ -567,11 +583,11 @@ class ExportService(
         }
       }
       when {
-        pipeline.disabled -> SkipReason.DISABLED
-        (lastExecution == null || lastExecution.olderThan(maxAgeDays)) -> SkipReason.NOT_EXECUTED_RECENTLY
-        pipeline.fromTemplate -> SkipReason.FROM_TEMPLATE
-        pipeline.hasParallelStages -> SkipReason.HAS_PARALLEL_STAGES
-        !isExportable(pipeline, includeVerifications) -> SkipReason.SHAPE_NOT_SUPPORTED
+        pipeline.disabled -> DISABLED
+        (lastExecution == null || lastExecution.olderThan(maxAgeDays)) -> NOT_EXECUTED_RECENTLY
+        pipeline.fromTemplate -> FROM_TEMPLATE
+        pipeline.hasParallelStages -> HAS_PARALLEL_STAGES
+        !isExportable(pipeline, includeVerifications) -> SHAPE_NOT_SUPPORTED
         else -> null
       }
     }.filterNotNullValues()
@@ -603,8 +619,8 @@ class ExportService(
     // Export the artifact matching the cluster while we're at it
     val artifact = try {
       handlers.supporting(cluster.clusterKind).exportArtifact(cluster)
-    } catch (e: ArtifactNotSupportedException) {
-      log.error("artifact for application $applicationName is not supported")
+    } catch (e: ArtifactExportException) {
+      log.error("Unable to export artifact for cluster ${cluster.moniker.toName()}")
       throw e
     }
 

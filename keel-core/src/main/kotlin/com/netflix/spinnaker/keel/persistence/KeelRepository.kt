@@ -15,7 +15,6 @@ import com.netflix.spinnaker.keel.api.action.ActionState
 import com.netflix.spinnaker.keel.api.action.ActionStateFull
 import com.netflix.spinnaker.keel.api.action.ActionType.VERIFICATION
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
-import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
@@ -250,6 +249,7 @@ class KeelRepository(
   fun DeliveryConfig.environment(name : String) : Environment? =
     environments.firstOrNull { it.name == name }
 
+  @Transactional
   fun storeConstraintState(state: ConstraintState) {
     val previousState = getConstraintState(
       deliveryConfigName = state.deliveryConfigName,
@@ -517,8 +517,8 @@ class KeelRepository(
   fun storeArtifactVersion(artifactVersion: PublishedArtifact): Boolean =
     artifactRepository.storeArtifactVersion(artifactVersion)
 
-  override fun getArtifactVersion(artifact: DeliveryArtifact, version: String, status: ArtifactStatus?): PublishedArtifact? =
-    artifactRepository.getArtifactVersion(artifact, version, status)
+  override fun getArtifactVersion(artifact: DeliveryArtifact, version: String): PublishedArtifact? =
+    artifactRepository.getArtifactVersion(artifact, version)
 
   fun getLatestApprovedInEnvArtifactVersion(config: DeliveryConfig, artifact: DeliveryArtifact, environmentName: String, excludeCurrent: Boolean?): PublishedArtifact? =
     artifactRepository.getApprovedInEnvArtifactVersion(config, artifact, environmentName, excludeCurrent)
@@ -583,9 +583,6 @@ class KeelRepository(
   ): PublishedArtifact? =
     artifactRepository.getCurrentlyDeployedArtifactVersion(deliveryConfig, artifact, environmentName)
 
-  override fun getReleaseStatus(artifact: DeliveryArtifact, version: String): ArtifactStatus? =
-    artifactRepository.getReleaseStatus(artifact, version)
-
   fun markAsSuccessfullyDeployedTo(
     deliveryConfig: DeliveryConfig,
     artifact: DeliveryArtifact,
@@ -636,9 +633,6 @@ class KeelRepository(
     artifact: DeliveryArtifact, config: DeliveryConfig, environmentName: String
   ): List<PublishedArtifactInEnvironment> =
     artifactRepository.getAllVersionsForEnvironment(artifact, config, environmentName)
-
-  fun getEnvironmentSummaries(deliveryConfig: DeliveryConfig): List<EnvironmentSummary> =
-    artifactRepository.getEnvironmentSummaries(deliveryConfig)
 
   fun pinEnvironment(deliveryConfig: DeliveryConfig, environmentArtifactPin: EnvironmentArtifactPin) =
     artifactRepository.pinEnvironment(deliveryConfig, environmentArtifactPin)

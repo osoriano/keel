@@ -132,7 +132,6 @@ data class PublishedArtifact(
     // FIXME: it's silly that we're prepending the artifact name for Debian only...
     version = if (type.lowercase() == DEBIAN && !version.startsWith(name)) "$name-$version" else version
   )
-
 }
 
 val String.shortHash: String

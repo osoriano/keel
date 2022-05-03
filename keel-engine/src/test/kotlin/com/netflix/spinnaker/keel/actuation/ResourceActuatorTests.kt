@@ -8,6 +8,7 @@ import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceKind.Companion.parseKind
 import com.netflix.spinnaker.keel.api.actuation.Task
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
+import com.netflix.spinnaker.keel.api.artifacts.fromBranch
 import com.netflix.spinnaker.keel.api.plugins.ActionDecision
 import com.netflix.spinnaker.keel.api.plugins.ResourceHandler
 import com.netflix.spinnaker.keel.api.plugins.SupportedKind
@@ -44,6 +45,7 @@ import com.netflix.spinnaker.keel.plugin.CannotResolveDesiredState
 import com.netflix.spinnaker.keel.telemetry.ResourceCheckSkipped
 import com.netflix.spinnaker.keel.test.DummyArtifactVersionedResourceSpec
 import com.netflix.spinnaker.keel.test.artifactVersionedResource
+import com.netflix.spinnaker.keel.test.debianArtifact
 import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.keel.veto.Veto
 import com.netflix.spinnaker.keel.veto.VetoEnforcer
@@ -153,7 +155,7 @@ internal class ResourceActuatorTests : JUnit5Minutests {
           name = "fnord-manifest",
           application = "fnord",
           serviceAccount = "keel@spin",
-          artifacts = setOf(DebianArtifact("fnord", vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2")))),
+          artifacts = setOf(debianArtifact()),
           environments = setOf(Environment(name = "staging", resources = setOf(resource)))
         )
       }
@@ -706,7 +708,7 @@ internal class ResourceActuatorTests : JUnit5Minutests {
             name = "fnord-manifest",
             application = "fnord",
             serviceAccount = "keel@spin",
-            artifacts = setOf(DebianArtifact("fnord", vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2")))),
+            artifacts = setOf(debianArtifact()),
             environments = setOf(Environment(name = "staging", resources = setOf(resource)))
           )
           every { veto.check(resource) } returns VetoResponse(true, "all")
@@ -737,7 +739,7 @@ internal class ResourceActuatorTests : JUnit5Minutests {
             name = "fnord-manifest",
             application = "fnord",
             serviceAccount = "keel@spin",
-            artifacts = setOf(DebianArtifact("fnord", vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2")))),
+            artifacts = setOf(debianArtifact()),
             environments = setOf(Environment(name = "staging", resources = setOf(resource)))
           )
           every { veto.check(resource) } returns VetoResponse(true, "all")

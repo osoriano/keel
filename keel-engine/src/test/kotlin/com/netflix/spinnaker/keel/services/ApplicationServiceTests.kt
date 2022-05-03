@@ -10,8 +10,6 @@ import com.netflix.spinnaker.keel.api.JiraBridge
 import com.netflix.spinnaker.keel.api.ResourceStatus.CREATED
 import com.netflix.spinnaker.keel.api.StashBridge
 import com.netflix.spinnaker.keel.api.Verification
-import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus.RELEASE
-import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus.SNAPSHOT
 import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
@@ -244,18 +242,10 @@ class ApplicationServiceTests : JUnit5Minutests {
       every { repository.getDeliveryConfigForApplication(application2) } returns dualArtifactDeliveryConfig
 
       every {
-        repository.getArtifactVersion(any(), any(), any())
+        repository.getArtifactVersion(any(), any())
       } answers {
         PublishedArtifact(arg<DeliveryArtifact>(0).name, arg<DeliveryArtifact>(0).type, arg(1))
       }
-
-      every {
-        repository.getReleaseStatus(releaseArtifact, any())
-      } returns RELEASE
-
-      every {
-        repository.getReleaseStatus(snapshotArtifact, any())
-      } returns SNAPSHOT
 
       every {
         repository.getArtifactVersionByPromotionStatus(any(), any(), any(), any())

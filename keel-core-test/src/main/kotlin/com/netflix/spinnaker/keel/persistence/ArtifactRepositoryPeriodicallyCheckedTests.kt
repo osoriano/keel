@@ -3,6 +3,7 @@ package com.netflix.spinnaker.keel.persistence
 import com.netflix.spinnaker.keel.api.artifacts.DEBIAN
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
+import com.netflix.spinnaker.keel.api.artifacts.fromBranch
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 
 abstract class ArtifactRepositoryPeriodicallyCheckedTests<S : ArtifactRepository> :
@@ -20,7 +21,8 @@ abstract class ArtifactRepositoryPeriodicallyCheckedTests<S : ArtifactRepository
           vmOptions = VirtualMachineOptions(
             baseOs = "bionic-classic",
             regions = setOf("us-west-2", "us-east-1")
-          )
+          ),
+          from = fromBranch("main")
         )
           .also(subject::register)
       }

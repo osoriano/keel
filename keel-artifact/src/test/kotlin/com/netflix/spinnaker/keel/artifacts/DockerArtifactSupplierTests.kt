@@ -87,7 +87,7 @@ internal class DockerArtifactSupplierTests : JUnit5Minutests {
         "buildNumber" to "1",
         "commitId" to "a15p0",
         "prCommitId" to "b26q1",
-        "branch" to "master",
+        "branch" to "main",
         "createdAt" to "1598707355157"
       ) + metadata
     )
@@ -118,10 +118,15 @@ internal class DockerArtifactSupplierTests : JUnit5Minutests {
       commitId = "a15p0",
       prCommitId = "b26q1",
       buildNumber = "1",
+<<<<<<< 6239bfa1ee2e1b3db3f19c96245d9cec8c672b1d
       branch = "master",
       date = "1598707355157",
       artifact = artifactProperty,
       registry = "index.docker.io"
+=======
+      branch = "main",
+      date = "1598707355157"
+>>>>>>> cd63f84b218e6a4ff2aa1d65b6858ce2280bfb51
     )
 
     val artifactMetadata = ArtifactMetadata(
@@ -153,7 +158,7 @@ internal class DockerArtifactSupplierTests : JUnit5Minutests {
           link = ""
         ),
         project = "spkr",
-        branch = "master"
+        branch = "main"
       )
     )
 

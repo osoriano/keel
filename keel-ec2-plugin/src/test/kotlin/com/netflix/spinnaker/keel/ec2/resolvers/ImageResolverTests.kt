@@ -7,7 +7,6 @@ import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.SubnetAwareLocations
 import com.netflix.spinnaker.keel.api.SubnetAwareRegionSpec
-import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus.RELEASE
 import com.netflix.spinnaker.keel.api.artifacts.BaseLabel
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec
@@ -24,6 +23,7 @@ import com.netflix.spinnaker.keel.persistence.BakedImageRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.resolvers.DesiredVersionResolver
 import com.netflix.spinnaker.keel.resolvers.NoDeployableVersionForEnvironment
+import com.netflix.spinnaker.keel.test.debianArtifact
 import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService
 import dev.minutest.junit.JUnit5Minutests
@@ -48,13 +48,7 @@ internal class ImageResolverTests : JUnit5Minutests {
     val imageRegion: String = "ap-south-1",
     val resourceRegion: String = imageRegion
   ) {
-    val artifact = DebianArtifact(
-      name = "fnord",
-      deliveryConfigName = "my-manifest",
-      vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf(imageRegion)),
-      statuses = setOf(RELEASE),
-      reference = "my-artifact"
-    )
+    val artifact = debianArtifact(reference = "my-artifact")
     private val account = "test"
     val version1 = "1.0.0-123456"
     val version2 = "1.1.0-123456"

@@ -4,9 +4,6 @@ import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactOriginFilter
-import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus.FINAL
-import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus.RELEASE
-import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus.SNAPSHOT
 import com.netflix.spinnaker.keel.api.artifacts.BranchFilter
 import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
 import com.netflix.spinnaker.keel.api.artifacts.Commit
@@ -17,26 +14,23 @@ import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.Job
 import com.netflix.spinnaker.keel.api.artifacts.PullRequest
 import com.netflix.spinnaker.keel.api.artifacts.Repo
-import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.BRANCH_JOB_COMMIT_BY_JOB
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.SEMVER_JOB_COMMIT_BY_JOB
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
 import com.netflix.spinnaker.keel.core.api.ActionMetadata
-import com.netflix.spinnaker.keel.core.api.ArtifactVersionStatus
 import com.netflix.spinnaker.keel.core.api.ArtifactVersionVetoData
 import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactPin
 import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactVeto
 import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactVetoes
-import com.netflix.spinnaker.keel.core.api.PromotionStatus
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.APPROVED
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.CURRENT
+import com.netflix.spinnaker.keel.core.api.PromotionStatus.DEPLOYING
+import com.netflix.spinnaker.keel.core.api.PromotionStatus.PREVIOUS
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.SKIPPED
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.VETOED
-import com.netflix.spinnaker.keel.services.doInParallel
+import com.netflix.spinnaker.keel.persistence.ArtifactRepositoryTests.ArtifactRepositoryFixture
 import com.netflix.spinnaker.time.MutableClock
-import dev.minutest.experimental.SKIP
-import dev.minutest.experimental.minus
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import io.mockk.mockk
@@ -47,7 +41,9 @@ import strikt.api.expectThat
 import strikt.api.expectThrows
 import strikt.assertions.containsExactly
 import strikt.assertions.containsExactlyInAnyOrder
+import strikt.assertions.doesNotContainKey
 import strikt.assertions.first
+import strikt.assertions.getValue
 import strikt.assertions.hasSize
 import strikt.assertions.isA
 import strikt.assertions.isEmpty
@@ -60,60 +56,44 @@ import strikt.assertions.isNotNull
 import strikt.assertions.isNull
 import strikt.assertions.isSuccess
 import strikt.assertions.isTrue
-import java.time.Clock
 import java.time.Instant
-import java.util.Collections
 
 abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests {
   val publisher: ApplicationEventPublisher = mockk(relaxed = true)
 
-  abstract fun factory(clock: Clock, publisher: ApplicationEventPublisher): T
-
   val clock = MutableClock()
+
+  abstract fun factory(): T
+
+  abstract fun deliveryConfigRepository(): DeliveryConfigRepository
 
   open fun T.flush() {}
 
-  data class Fixture<T : ArtifactRepository>(
-    val subject: T
+  open class ArtifactRepositoryFixture<T : ArtifactRepository>(
+    open val subject: T,
+    open val deliveryConfigRepository: DeliveryConfigRepository,
+    open val clock: MutableClock,
   ) {
-    // the artifact built off a feature branch
-    val versionedSnapshotDebian = DebianArtifact(
-      name = "keeldemo",
-      deliveryConfigName = "my-manifest",
-      reference = "candidate",
-      vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2")),
-      statuses = setOf(SNAPSHOT)
-    )
-
-    // the artifact built off of master
-    val versionedReleaseDebian = DebianArtifact(
-      name = "keeldemo",
-      deliveryConfigName = "my-manifest",
-      reference = "master",
-      vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2")),
-      statuses = setOf(RELEASE)
-    )
-
     val versionedDockerArtifact = DockerArtifact(
       name = "docker",
       deliveryConfigName = "my-manifest",
       reference = "docker-artifact",
-      tagVersionStrategy = BRANCH_JOB_COMMIT_BY_JOB
+      tagVersionStrategy = SEMVER_JOB_COMMIT_BY_JOB
     )
 
-    val debianFilteredByBranch = DebianArtifact(
+    val debianFromMainBranch = DebianArtifact(
       name = "keeldemo",
       deliveryConfigName = "my-manifest",
-      reference = "feature-branch",
+      reference = "main",
       vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2")),
       from = ArtifactOriginFilter(
         branch = BranchFilter(
-          name = "my-feature-branch"
+          name = "main"
         )
       )
     )
 
-    val debianFilteredByBranchPrefix = DebianArtifact(
+    val debianFromBranchPrefix = DebianArtifact(
       name = "keeldemo",
       deliveryConfigName = "my-manifest",
       reference = "feature-branch",
@@ -125,7 +105,7 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
       )
     )
 
-    val debianFilteredByBranchPattern = DebianArtifact(
+    val debianFromBranchPattern = DebianArtifact(
       name = "keeldemo",
       deliveryConfigName = "my-manifest",
       reference = "feature-branch-pattern",
@@ -137,7 +117,7 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
       )
     )
 
-    val debianFilteredByPullRequest = DebianArtifact(
+    val debianFromPullRequest = DebianArtifact(
       name = "keeldemo",
       deliveryConfigName = "my-manifest",
       reference = "feature-pr",
@@ -147,14 +127,14 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
       )
     )
 
-    val debianFilteredByPullRequestAndBranch = DebianArtifact(
+    val debianFromPullRequestAndBranch = DebianArtifact(
       name = "keeldemo",
       deliveryConfigName = "my-manifest",
       reference = "feature-pr-and-branch",
       vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2")),
       from = ArtifactOriginFilter(
         branch = BranchFilter(
-          name = "my-feature-branch"
+          name = "feature"
         ),
         pullRequestOnly = true
       )
@@ -162,57 +142,27 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
 
     val testEnvironment = Environment("test")
     val stagingEnvironment = Environment("staging")
-    val manifest = DeliveryConfig(
+    open val manifest = DeliveryConfig(
       name = "my-manifest",
       application = "fnord",
       serviceAccount = "keel@spinnaker",
       artifacts = setOf(
-        versionedSnapshotDebian,
-        versionedReleaseDebian,
         versionedDockerArtifact,
-        debianFilteredByBranch,
-        debianFilteredByBranchPattern,
-        debianFilteredByPullRequest,
-        debianFilteredByPullRequestAndBranch
+        debianFromMainBranch,
+        debianFromBranchPattern,
+        debianFromPullRequest,
+        debianFromPullRequestAndBranch
       ),
       environments = setOf(testEnvironment, stagingEnvironment)
     )
-    val version1 = "keeldemo-0.0.1~dev.8-h8.41595c4" // snapshot
-    val version2 = "keeldemo-0.0.1~dev.9-h9.3d2c8ff" // snapshot
-    val version3 = "keeldemo-0.0.1~dev.10-h10.1d2d542" // snapshot
-    val version4 = "keeldemo-1.0.0-h11.518aea2" // release
-    val version5 = "keeldemo-1.0.0-h12.4ea8a9d" // release
-    val version6 = "master-h12.4ea8a9d"
+    val debVersion1 = "keeldemo-1.0.0-h8.41595c4"
+    val debVersion2 = "keeldemo-1.0.0-h9.3d2c8ff"
+    val debVersion3 = "keeldemo-1.0.0-h10.1d2d542"
     val versionOnly = "0.0.1~dev.8-h8.41595c4"
+    open val debVersions = listOf(debVersion1, debVersion2, debVersion3)
 
-    val pin1 = EnvironmentArtifactPin(
-      targetEnvironment = stagingEnvironment.name, // staging
-      reference = versionedReleaseDebian.reference,
-      version = version4, // the older release build
-      pinnedBy = "keel@spinnaker",
-      comment = "fnord"
-    )
-
-    fun gitMetadata(branch: String?, prNumber: String? = null) =
-      GitMetadata(
-        commit = "a15p0",
-        author = "keel-user",
-        repo = Repo(
-          name = "keel",
-          link = ""
-        ),
-        pullRequest = if (prNumber == null) null else PullRequest(
-          number = prNumber,
-          url = "www.github.com/pr/$prNumber"
-        ),
-        commitInfo = Commit(
-          sha = "a15p0",
-          message = "this is a commit message",
-          link = ""
-        ),
-        branch = branch,
-        project = "spkr",
-      )
+    val dockerVersion = "master-h12.4ea8a9d"
+    open val dockerVersions = listOf(dockerVersion)
 
     val buildMetadata = BuildMetadata(
       id = 1,
@@ -226,113 +176,63 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
       number = "1"
     )
 
+    val gitMetadata = GitMetadata(
+      commit = "a15p0",
+      author = "keel-user",
+      repo = Repo(
+        name = "keel",
+        link = ""
+      ),
+      commitInfo = Commit(
+        sha = "a15p0",
+        message = "this is a commit message",
+        link = ""
+      ),
+      branch = "main",
+      project = "spkr",
+    )
+
     val artifactMetadata = ArtifactMetadata(
       buildMetadata,
-      gitMetadata(branch = null, prNumber = "111")
+      gitMetadata
     )
 
     val limit = 15
-  }
 
-  open fun Fixture<T>.persist() {
-    with(subject) {
-      register(versionedSnapshotDebian)
-      setOf(version1, version2, version3).forEach {
-        storeArtifactVersion(versionedSnapshotDebian.toArtifactVersion(it, SNAPSHOT, clock.tickMinutes(1)))
-      }
-      setOf(version4, version5).forEach {
-        storeArtifactVersion(versionedSnapshotDebian.toArtifactVersion(it, RELEASE, clock.tickMinutes(1)))
-      }
-      register(versionedReleaseDebian)
-      setOf(version1, version2, version3).forEach {
-        storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(it, SNAPSHOT, clock.tickMinutes(1)))
-      }
-      setOf(version4, version5).forEach {
-        storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(it, RELEASE, clock.tickMinutes(1)))
-      }
-      register(versionedDockerArtifact)
-      setOf(version6).forEach {
-        storeArtifactVersion(versionedDockerArtifact.toArtifactVersion(it, null, clock.tickMinutes(1)))
-      }
-      register(debianFilteredByBranch)
-      register(debianFilteredByBranchPattern)
-      register(debianFilteredByPullRequest)
-      register(debianFilteredByPullRequestAndBranch)
-    }
-    persist(manifest)
-  }
+    fun persist(storeVersions: Boolean = false) {
+      with(subject) {
+        register(debianFromMainBranch)
+        register(debianFromBranchPrefix)
+        register(debianFromBranchPattern)
+        register(debianFromPullRequest)
+        register(debianFromPullRequestAndBranch)
+        register(versionedDockerArtifact)
 
-  abstract fun persist(manifest: DeliveryConfig)
+        if (storeVersions) {
+          debVersions.forEach {
+            storeArtifactVersionWithMetadata(debianFromMainBranch, it)
+          }
 
-  private fun Fixture<T>.versionsIn(
-    environment: Environment,
-    artifact: DeliveryArtifact = versionedSnapshotDebian
-  ): ArtifactVersionStatus {
-    return subject
-      .getEnvironmentSummaries(manifest)
-      .first { it.name == environment.name }
-      .artifacts
-      .first {
-        it.reference == artifact.reference
-      }
-      .versions
-  }
-
-  private fun Fixture<T>.storeArtifactVersionWithBranch(artifact: DeliveryArtifact, version: String, branch: String) =
-    subject.storeArtifactVersion(
-      artifact.toArtifactVersion(
-        version = version,
-        createdAt = clock.tickMinutes(10)
-      ).copy(
-        gitMetadata = artifactMetadata.gitMetadata?.copy(branch = branch),
-        buildMetadata = artifactMetadata.buildMetadata
-      )
-    )
-
-  /**
-   * This function creates `versions.size` versions for artifact `debianFilteredByBranchPattern`,
-   * where only the first 15 of them have branch names that match the requested pattern
-   */
-  private fun Fixture<T>.storeVersionsForDebianFilteredByBranchPattern(versions: List<String>) {
-    subject.register(debianFilteredByBranchPattern)
-    versions.forEachIndexed { index, version ->
-      storeArtifactVersionWithBranch(
-        artifact = debianFilteredByBranchPattern,
-        version = version,
-        branch = when {
-          index < 5 -> "my-feature-x"
-          index < 10 -> "feature-branch-x"
-          index < 15 -> "myfeature"
-          else -> "a-non-matching-branch"
+          dockerVersions.forEach {
+            storeArtifactVersion(versionedDockerArtifact.toArtifactVersion(it, null, clock.tickMinutes(1)))
+          }
         }
-      )
+      }
+      persist(manifest)
     }
+
+    fun persist(manifest: DeliveryConfig) {
+      deliveryConfigRepository.store(manifest)
+    }
+
+    fun versionsIn(environment: Environment, artifact: DeliveryArtifact) =
+      subject.getAllVersionsForEnvironment(artifact, manifest, environment.name)
+        .groupBy {it.status }
+        .mapValues { it.value.map { v -> v.publishedArtifact.version } }
   }
 
-  /**
-   * This function creates `versions.size` versions for artifact `debianFilteredByPullRequest`,
-   * where only the first 10 of them have the PR info
-   */
-  private fun Fixture<T>.storeVersionsForDebianFilteredByPullRequest(versions: List<String>) {
-    subject.register(debianFilteredByPullRequest)
-    versions.forEachIndexed { index, version ->
-      subject.storeArtifactVersion(
-        debianFilteredByPullRequest.toArtifactVersion(
-          version = version,
-          createdAt = clock.tickMinutes(10)
-        ).copy(
-          gitMetadata = artifactMetadata.gitMetadata!!.copy(
-            // first 10 "versions" don't have pull request info
-            pullRequest = if (index < 10) null else artifactMetadata.gitMetadata!!.pullRequest
-          ),
-          buildMetadata = artifactMetadata.buildMetadata
-        )
-      )
-    }
-  }
-
-  fun tests() = rootContext<Fixture<T>> {
-    fixture { Fixture(factory(clock, publisher)) }
+  fun tests() = rootContext<ArtifactRepositoryFixture<T>> {
+    fixture { ArtifactRepositoryFixture(factory(), deliveryConfigRepository(), clock) }
 
     after {
       subject.flush()
@@ -340,51 +240,51 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
 
     context("the artifact is unknown") {
       test("the artifact is not registered") {
-        expectThat(subject.isRegistered(versionedSnapshotDebian.name, versionedSnapshotDebian.type)).isFalse()
+        expectThat(subject.isRegistered(debianFromMainBranch.name, debianFromMainBranch.type)).isFalse()
       }
 
       test("storing a new version throws an exception") {
         expectThrows<NoSuchArtifactException> {
-          subject.storeArtifactVersion(versionedSnapshotDebian.toArtifactVersion(version1, SNAPSHOT))
+          subject.storeArtifactVersion(debianFromMainBranch.toArtifactVersion(debVersion1))
         }
       }
 
       test("trying to get versions throws an exception") {
         expectThrows<NoSuchArtifactException> {
-          subject.versions(versionedSnapshotDebian, limit)
+          subject.versions(debianFromMainBranch, limit)
         }
       }
     }
 
     context("the artifact is known") {
       before {
-        subject.register(versionedSnapshotDebian)
+        subject.register(debianFromMainBranch)
       }
 
       test("VM options are persisted and read correctly") {
-        expectThat(subject.get(versionedSnapshotDebian.name, versionedSnapshotDebian.type, versionedSnapshotDebian.deliveryConfigName!!))
+        expectThat(subject.get(debianFromMainBranch.name, debianFromMainBranch.type, debianFromMainBranch.deliveryConfigName!!))
           .hasSize(1)
           .first()
           .isA<DebianArtifact>()
           .get { vmOptions }
-          .isEqualTo(versionedSnapshotDebian.vmOptions)
+          .isEqualTo(debianFromMainBranch.vmOptions)
       }
 
       test("re-registering the same artifact does not raise an exception") {
-        subject.register(versionedSnapshotDebian)
+        subject.register(debianFromMainBranch)
 
-        expectThat(subject.isRegistered(versionedSnapshotDebian.name, versionedSnapshotDebian.type)).isTrue()
+        expectThat(subject.isRegistered(debianFromMainBranch.name, debianFromMainBranch.type)).isTrue()
       }
 
       test("changing an artifact name works") {
-        subject.register(versionedSnapshotDebian.copy(name = "keeldemo-but-a-different-name"))
-        val artifact = subject.get(versionedSnapshotDebian.deliveryConfigName!!, versionedSnapshotDebian.reference)
+        subject.register(debianFromMainBranch.copy(name = "keeldemo-but-a-different-name"))
+        val artifact = subject.get(debianFromMainBranch.deliveryConfigName!!, debianFromMainBranch.reference)
         expectThat(artifact.name).isEqualTo("keeldemo-but-a-different-name")
       }
 
       context("no versions exist") {
         test("listing versions returns an empty list") {
-          expectThat(subject.versions(versionedSnapshotDebian, limit)).isEmpty()
+          expectThat(subject.versions(debianFromMainBranch, limit)).isEmpty()
         }
 
         test("no version is deploying") {
@@ -394,101 +294,36 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
 
       context("an artifact version already exists") {
         before {
-          subject.storeArtifactVersion(versionedSnapshotDebian.toArtifactVersion(version1, SNAPSHOT))
-        }
-
-        test("release status for the version is returned correctly") {
-          expectThat(subject.getReleaseStatus(versionedSnapshotDebian, version1)).isEqualTo(SNAPSHOT)
+          storeArtifactVersionWithMetadata(debianFromMainBranch, debVersion1)
         }
 
         test("registering the same version will update the git/build metadata") {
-          val result = subject.storeArtifactVersion(versionedSnapshotDebian.toArtifactVersion(version1, SNAPSHOT))
+          val result = storeArtifactVersionWithMetadata(debianFromMainBranch, debVersion1)
           expectThat(result).isTrue()
-          expectThat(subject.versions(versionedSnapshotDebian, limit)).hasSize(1)
+          expectThat(subject.versions(debianFromMainBranch, limit)).hasSize(1)
         }
 
         test("adding a new version adds it to the list") {
-          val result = subject.storeArtifactVersion(versionedSnapshotDebian.toArtifactVersion(version2, SNAPSHOT))
+          val result = storeArtifactVersionWithMetadata(debianFromMainBranch, debVersion2)
 
           expectThat(result).isTrue()
-          expectThat(subject.versions(versionedSnapshotDebian, limit).map { it.version })
-            .containsExactly(version2, version1)
-        }
-
-        test("querying for the list of versions returns both versions") {
-          // status is stored on the artifact
-          subject.storeArtifactVersion(versionedSnapshotDebian.toArtifactVersion(version2, SNAPSHOT))
-          expectThat(subject.versions(versionedSnapshotDebian, limit).map { it.version })
-            .containsExactly(version2, version1)
+          expectThat(subject.versions(debianFromMainBranch, limit).map { it.version })
+            .containsExactly(debVersion2, debVersion1)
         }
       }
 
-      context("sorting is consistent") {
+      context("sorting is consistent by artifact publication time") {
         before {
-          listOf(version1, version2, version3, version4, version5)
-            .shuffled()
+          debVersions
             .forEach {
-              if (it == version4 || it == version5) {
-                subject.storeArtifactVersion(versionedSnapshotDebian.toArtifactVersion(it, RELEASE))
-              } else {
-                subject.storeArtifactVersion(versionedSnapshotDebian.toArtifactVersion(it, SNAPSHOT))
-              }
+              storeArtifactVersionWithMetadata(debianFromMainBranch, it)
             }
         }
 
-        test("versions are returned newest first and status is respected") {
+        test("versions are returned newest first") {
           expect {
-            that(subject.versions(versionedSnapshotDebian, limit).map { it.version })
-              .isEqualTo(listOf(version3, version2, version1))
-            that(subject.versions(versionedReleaseDebian, limit).map { it.version })
-              .isEqualTo(listOf(version5, version4))
-          }
-        }
-      }
-
-      context("filtering based on status works") {
-        before {
-          persist()
-        }
-
-        context("debian") {
-          test("querying for all returns all") {
-            val artifactWithAll = versionedSnapshotDebian.copy(statuses = emptySet())
-            expectThat(subject.versions(artifactWithAll, limit).map { it.version })
-              .containsExactly(version5, version4, version3, version2, version1)
-          }
-
-          test("querying with only release returns correct versions") {
-            expectThat(subject.versions(versionedReleaseDebian, limit).map { it.version })
-              .containsExactly(version5, version4)
-          }
-
-          test("querying for limit returns limit") {
-            val artifactWithAll = versionedSnapshotDebian.copy(statuses = emptySet())
-            expectThat(subject.versions(artifactWithAll, 2).map { it.version })
-              .containsExactly(version5, version4)
-          }
-        }
-
-        context("docker") {
-          test("querying for all returns all") {
-            expectThat(subject.versions(versionedDockerArtifact, limit).map { it.version })
-              .containsExactlyInAnyOrder(version6)
-          }
-
-          test("querying the artifact filters out the bad tag") {
-            expectThat(subject.versions(versionedDockerArtifact, limit).map { it.version })
-              .containsExactly(version6)
-          }
-
-          test("querying with a wrong strategy filters out everything") {
-            val incorrectArtifact = DockerArtifact(
-              name = "docker",
-              deliveryConfigName = "my-manifest",
-              reference = "docker-artifact",
-              tagVersionStrategy = SEMVER_JOB_COMMIT_BY_JOB
-            )
-            expectThat(subject.versions(incorrectArtifact, limit)).isEmpty()
+            that(subject.versions(debianFromMainBranch, limit).map { it.version })
+              .isEqualTo(debVersions.reversed())
           }
         }
       }
@@ -496,46 +331,44 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
       context("limiting versions works") {
         before {
           (1..100).map { "1.0.$it" }.forEach {
-            subject.storeArtifactVersion(versionedSnapshotDebian.toArtifactVersion(it, SNAPSHOT))
+            storeArtifactVersionWithMetadata(debianFromMainBranch, it)
           }
         }
 
         test("limit parameter takes effect when specified") {
-          expectThat(subject.versions(versionedSnapshotDebian, 20)).hasSize(20)
-          expectThat(subject.versions(versionedSnapshotDebian, 100)).hasSize(100)
+          expectThat(subject.versions(debianFromMainBranch, 20)).hasSize(20)
+          expectThat(subject.versions(debianFromMainBranch, 100)).hasSize(100)
         }
       }
     }
 
     context("artifact approval querying") {
       before {
-        persist()
-        subject.approveVersionFor(manifest, versionedReleaseDebian, version1, testEnvironment.name)
-        subject.approveVersionFor(manifest, versionedReleaseDebian, version2, testEnvironment.name)
-        subject.approveVersionFor(manifest, versionedReleaseDebian, version3, testEnvironment.name)
+        persist(storeVersions = true)
+        subject.approveVersionFor(manifest, debianFromMainBranch, debVersion1, testEnvironment.name)
+        subject.approveVersionFor(manifest, debianFromMainBranch, debVersion2, testEnvironment.name)
+        subject.approveVersionFor(manifest, debianFromMainBranch, debVersion3, testEnvironment.name)
       }
 
       test("we can query for all the versions and know they're approved") {
         expect {
-          that(subject.isApprovedFor(manifest, versionedReleaseDebian, version1, testEnvironment.name)).isTrue()
-          that(subject.isApprovedFor(manifest, versionedReleaseDebian, version2, testEnvironment.name)).isTrue()
-          that(subject.isApprovedFor(manifest, versionedReleaseDebian, version3, testEnvironment.name)).isTrue()
+          that(subject.isApprovedFor(manifest, debianFromMainBranch, debVersion1, testEnvironment.name)).isTrue()
+          that(subject.isApprovedFor(manifest, debianFromMainBranch, debVersion2, testEnvironment.name)).isTrue()
+          that(subject.isApprovedFor(manifest, debianFromMainBranch, debVersion3, testEnvironment.name)).isTrue()
         }
       }
     }
 
     context("getting all filters by type") {
       before {
-        persist()
-        subject.storeArtifactVersion(versionedSnapshotDebian.toArtifactVersion(version4, FINAL))
-        subject.storeArtifactVersion(versionedDockerArtifact.toArtifactVersion(version6, FINAL))
+        persist(storeVersions = true)
       }
 
       test("querying works") {
         expect {
-          that(subject.getAll().size).isEqualTo(7)
+          that(subject.getAll().size).isEqualTo(6)
           that(subject.getAll(DOCKER).size).isEqualTo(1)
-          that(subject.getAll(DEBIAN).size).isEqualTo(6)
+          that(subject.getAll(DEBIAN).size).isEqualTo(5)
         }
       }
     }
@@ -544,16 +377,18 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
       before {
         subject.flush()
         persist()
-        subject.approveVersionFor(manifest, versionedReleaseDebian, version4, stagingEnvironment.name)
-        subject.approveVersionFor(manifest, versionedReleaseDebian, version5, stagingEnvironment.name)
-        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version5, stagingEnvironment.name)
-        subject.markAsVetoedIn(manifest, EnvironmentArtifactVeto(stagingEnvironment.name, versionedReleaseDebian.reference, version5, "tester", "you bad"))
+        storeArtifactVersionWithMetadata(debianFromMainBranch, debVersion1)
+        storeArtifactVersionWithMetadata(debianFromMainBranch, debVersion2)
+        subject.approveVersionFor(manifest, debianFromMainBranch, debVersion1, stagingEnvironment.name)
+        subject.approveVersionFor(manifest, debianFromMainBranch, debVersion2, stagingEnvironment.name)
+        subject.markAsSuccessfullyDeployedTo(manifest, debianFromMainBranch, debVersion2, stagingEnvironment.name)
+        subject.markAsVetoedIn(manifest, EnvironmentArtifactVeto(stagingEnvironment.name, debianFromMainBranch.reference, debVersion2, "tester", "you bad"))
         clock.tickMinutes(1)
       }
 
       test("latestVersionApprovedIn reflects the veto") {
-        expectThat(subject.latestVersionApprovedIn(manifest, versionedReleaseDebian, stagingEnvironment.name))
-          .isEqualTo(version4)
+        expectThat(subject.latestVersionApprovedIn(manifest, debianFromMainBranch, stagingEnvironment.name))
+          .isEqualTo(debVersion1)
       }
 
       test("vetoedEnvironmentVersions reflects the veto") {
@@ -565,28 +400,28 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
               EnvironmentArtifactVetoes(
                 deliveryConfigName = manifest.name,
                 targetEnvironment = stagingEnvironment.name,
-                artifact = versionedReleaseDebian,
-                versions = mutableSetOf(ArtifactVersionVetoData(version = version5, vetoedBy = "tester", vetoedAt = null, comment = "you bad"))
+                artifact = debianFromMainBranch,
+                versions = mutableSetOf(ArtifactVersionVetoData(version = debVersion2, vetoedBy = "tester", vetoedAt = null, comment = "you bad"))
               )
             )
           )
       }
 
       test("version status reflects the veto") {
-        expectThat(versionsIn(stagingEnvironment, versionedReleaseDebian)) {
-          get(ArtifactVersionStatus::vetoed).containsExactly(version5)
-          get(ArtifactVersionStatus::current).isEqualTo(version5)
+        expectThat(versionsIn(stagingEnvironment, debianFromMainBranch)) {
+          getValue(SKIPPED).containsExactly(debVersion1)
+          getValue(VETOED).containsExactly(debVersion2)
         }
       }
 
       test("current version is still the vetoed version") {
-        expectThat(subject.getCurrentlyDeployedArtifactVersion(manifest, versionedReleaseDebian, stagingEnvironment.name)?.version).isEqualTo(version5)
+        expectThat(subject.getCurrentlyDeployedArtifactVersion(manifest, debianFromMainBranch, stagingEnvironment.name)?.version).isEqualTo(debVersion2)
       }
 
       test("correctly returns count of approved versions in time window") {
         val numVersions = subject.versionsInStatusBetween(
           manifest,
-          versionedReleaseDebian,
+          debianFromMainBranch,
           stagingEnvironment.name,
           APPROVED,
           clock.instant().minusSeconds(120),
@@ -598,7 +433,7 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
       test("correctly returns count of current versions in time window") {
         val numVersions = subject.versionsInStatusBetween(
           manifest,
-          versionedReleaseDebian,
+          debianFromMainBranch,
           stagingEnvironment.name,
           CURRENT,
           clock.instant().minusSeconds(120),
@@ -610,7 +445,7 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
       test("correctly returns count of recorded vetoed versions in time window") {
         val numVersions = subject.versionsInStatusBetween(
           manifest,
-          versionedReleaseDebian,
+          debianFromMainBranch,
           stagingEnvironment.name,
           VETOED,
           clock.instant().minusSeconds(120),
@@ -620,11 +455,11 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
       }
 
       test("can get all information about the versions") {
-        val versions = subject.getAllVersionsForEnvironment(versionedReleaseDebian, manifest, stagingEnvironment.name)
+        val versions = subject.getAllVersionsForEnvironment(debianFromMainBranch, manifest, stagingEnvironment.name)
         expectThat(versions.size).isEqualTo(2)
         expectThat(versions.map { it.status }).containsExactlyInAnyOrder(listOf(VETOED, SKIPPED))
-        expectThat(versions.first { it.status == SKIPPED }.publishedArtifact.version).isEqualTo(version4)
-        expectThat(versions.first { it.status == VETOED }.publishedArtifact.version).isEqualTo(version5)
+        expectThat(versions.first { it.status == SKIPPED }.publishedArtifact.version).isEqualTo(debVersion1)
+        expectThat(versions.first { it.status == VETOED }.publishedArtifact.version).isEqualTo(debVersion2)
         expectThat(versions.first { it.status == VETOED }.isCurrent).isEqualTo(true)
       }
 
@@ -632,8 +467,8 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
         val envArtifactSummaries = subject.getArtifactSummariesInEnvironment(
           deliveryConfig = manifest,
           environmentName = stagingEnvironment.name,
-          artifactReference = versionedReleaseDebian.reference,
-          versions = listOf(version5)
+          artifactReference = debianFromMainBranch.reference,
+          versions = listOf(debVersion2)
         )
         expect {
           that(envArtifactSummaries).isNotEmpty()
@@ -642,22 +477,22 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
       }
 
       test("unveto the vetoed version") {
-        subject.deleteVeto(manifest, versionedReleaseDebian, version5, stagingEnvironment.name)
+        subject.deleteVeto(manifest, debianFromMainBranch, debVersion2, stagingEnvironment.name)
 
         val envArtifactSummaries = subject.getArtifactSummariesInEnvironment(
           deliveryConfig = manifest,
           environmentName = stagingEnvironment.name,
-          artifactReference = versionedReleaseDebian.reference,
-          versions = listOf(version5)
+          artifactReference = debianFromMainBranch.reference,
+          versions = listOf(debVersion2)
         )
 
-        expectThat(subject.latestVersionApprovedIn(manifest, versionedReleaseDebian, stagingEnvironment.name))
-          .isEqualTo(version5)
-        expectThat(versionsIn(stagingEnvironment, versionedReleaseDebian)) {
-          get(ArtifactVersionStatus::vetoed).isEmpty()
-          get(ArtifactVersionStatus::approved).isEmpty()
-          get(ArtifactVersionStatus::skipped).containsExactly(version4)
-          get(ArtifactVersionStatus::current).isEqualTo(version5)
+        expectThat(subject.latestVersionApprovedIn(manifest, debianFromMainBranch, stagingEnvironment.name))
+          .isEqualTo(debVersion2)
+        expectThat(versionsIn(stagingEnvironment, debianFromMainBranch)) {
+          doesNotContainKey(VETOED)
+          doesNotContainKey(APPROVED)
+          getValue(SKIPPED).containsExactly(debVersion1)
+          getValue(CURRENT).containsExactly(debVersion2)
         }
         expect {
           that(envArtifactSummaries).isNotEmpty()
@@ -668,15 +503,15 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
 
     context("artifact metadata exists") {
       before {
-        subject.register(versionedSnapshotDebian)
-        subject.storeArtifactVersion(versionedSnapshotDebian.toArtifactVersion(version1, SNAPSHOT).copy(
+        subject.register(debianFromMainBranch)
+        subject.storeArtifactVersion(debianFromMainBranch.toArtifactVersion(debVersion1).copy(
           gitMetadata = artifactMetadata.gitMetadata,
           buildMetadata = artifactMetadata.buildMetadata
         ))
       }
 
       test("retrieves successfully") {
-        val artifactVersion = subject.getArtifactVersion(versionedSnapshotDebian, version1, SNAPSHOT)!!
+        val artifactVersion = subject.getArtifactVersion(debianFromMainBranch, debVersion1)!!
 
         expectThat(artifactVersion.buildMetadata)
           .isEqualTo(artifactMetadata.buildMetadata)
@@ -686,12 +521,12 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
       }
 
       test("update with non-prefixed version works") {
-        subject.storeArtifactVersion(versionedSnapshotDebian.toArtifactVersion(versionOnly, SNAPSHOT).copy(
+        subject.storeArtifactVersion(debianFromMainBranch.toArtifactVersion(versionOnly).copy(
           gitMetadata = artifactMetadata.gitMetadata,
           buildMetadata = artifactMetadata.buildMetadata
         ))
 
-        val artifactVersion = subject.getArtifactVersion(versionedSnapshotDebian, version1, SNAPSHOT)!!
+        val artifactVersion = subject.getArtifactVersion(debianFromMainBranch, debVersion1)!!
 
         expectThat(artifactVersion.buildMetadata)
           .isEqualTo(artifactMetadata.buildMetadata)
@@ -705,12 +540,12 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
       val createdAt = Instant.now()
 
       before {
-        subject.register(versionedSnapshotDebian)
-        subject.storeArtifactVersion(versionedSnapshotDebian.toArtifactVersion(version1, SNAPSHOT, createdAt = createdAt))
+        subject.register(debianFromMainBranch)
+        subject.storeArtifactVersion(debianFromMainBranch.toArtifactVersion(debVersion1, createdAt = createdAt))
       }
 
       test("retrieves timestamp successfully") {
-        val artifactVersion = subject.getArtifactVersion(versionedSnapshotDebian, version1, SNAPSHOT)!!
+        val artifactVersion = subject.getArtifactVersion(debianFromMainBranch, debVersion1)!!
         expectThat(artifactVersion.createdAt).isEqualTo(createdAt)
       }
     }
@@ -721,16 +556,16 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
         val allVersions = (20 downTo 1).map { "keeldemo-any-string-$it" }
 
         before {
-          subject.register(debianFilteredByBranch)
+          subject.register(debianFromMainBranch)
           allVersions.forEachIndexed { index, version ->
             subject.storeArtifactVersion(
-              debianFilteredByBranch.toArtifactVersion(
+              debianFromMainBranch.toArtifactVersion(
                 version = version,
                 // half of the versions doesn't have a timestamp
                 createdAt = if (index < 10) null else clock.tickMinutes(10)
               ).copy(
                 gitMetadata = artifactMetadata.gitMetadata?.copy(
-                  branch = debianFilteredByBranch.from!!.branch!!.name
+                  branch = debianFromMainBranch.from.branch!!.name
                 ),
                 buildMetadata = artifactMetadata.buildMetadata
               )
@@ -738,37 +573,37 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
           }
         }
 
-        test("returns \"versions\" with matching branch sorted by timestamp") {
-          val versions = subject.versions(debianFilteredByBranch, 5)
+        test("returns versions with matching branch sorted by timestamp") {
+          val versions = subject.versions(debianFromMainBranch, 5)
           expectThat(versions.map { it.version })
             .containsExactly(allVersions.reversed().subList(0, 5))
         }
 
         test("skips artifacts without a timestamp") {
-          val versions = subject.versions(debianFilteredByBranch, 20)
+          val versions = subject.versions(debianFromMainBranch, 20)
           expectThat(versions.map { it.version })
             .containsExactly(allVersions.reversed().subList(0, 10))
         }
       }
 
       context("with branch prefix specified in the artifact spec") {
-        // registers versions backwards to check that sorting by timestamp takes precedence
+        // register versions backwards to check that sorting by timestamp takes precedence
         val allVersions = (20 downTo 1).map { "keeldemo-any-string-$it" }
 
         before {
-          val prefix = debianFilteredByBranchPrefix.from!!.branch!!.startsWith!!
-          subject.register(debianFilteredByBranchPrefix)
+          val prefix = debianFromBranchPrefix.from.branch!!.startsWith!!
+          subject.register(debianFromBranchPrefix)
           allVersions.forEachIndexed { index, version ->
-            storeArtifactVersionWithBranch(
-              artifact = debianFilteredByBranchPrefix,
+            storeArtifactVersionWithMetadata(
+              artifact = debianFromBranchPrefix,
               version = version,
               branch = if (index < 10) "not-a-matching-branch" else "${prefix}my-feature-$index"
             )
           }
         }
 
-        test("returns \"versions\" with matching branches sorted by timestamp") {
-          val versions = subject.versions(debianFilteredByBranchPrefix, 20)
+        test("returns versions with matching branches sorted by timestamp") {
+          val versions = subject.versions(debianFromBranchPrefix, 20)
           // only the first 10 versions have matching branches
           expectThat(versions.map { it.version })
             .containsExactly(allVersions.reversed().subList(0, 10))
@@ -776,15 +611,15 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
       }
 
       context("with branch pattern specified in the artifact spec") {
-        // registers versions backwards to check that sorting by timestamp takes precedence
+        // register versions backwards to check that sorting by timestamp takes precedence
         val allVersions = (20 downTo 1).map { "keeldemo-any-string-$it" }
 
         before {
-          storeVersionsForDebianFilteredByBranchPattern(allVersions)
+          storeVersionsForDebianFromBranchPattern(allVersions)
         }
 
-        test("returns \"versions\" with matching branches sorted by timestamp") {
-          val versions = subject.versions(debianFilteredByBranchPattern, 20)
+        test("returns versions with matching branches sorted by timestamp") {
+          val versions = subject.versions(debianFromBranchPattern, 20)
           // first 5 have "a-non-matching-branch"
           expectThat(versions.map { it.version })
             .containsExactly(allVersions.reversed().subList(5, 20))
@@ -793,15 +628,15 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
     }
 
     context("artifact filtered by pull request") {
-      // registers versions backwards to check that sorting by timestamp takes precedence
+      // register versions backwards to check that sorting by timestamp takes precedence
       val allVersions = (20 downTo 1).map { "keeldemo-any-string-$it" }
 
       before {
-        storeVersionsForDebianFilteredByPullRequest(allVersions)
+        storeVersionsForDebianFromPullRequest(allVersions)
       }
 
-      test("returns \"versions\" with pull request sorted by timestamp") {
-        val versions = subject.versions(debianFilteredByPullRequest, 20)
+      test("returns versions with pull request sorted by timestamp") {
+        val versions = subject.versions(debianFromPullRequest, 20)
         // half the "versions" don't have pull request info
         expectThat(versions.map { it.version })
           .containsExactly(allVersions.reversed().subList(0, 10))
@@ -813,18 +648,18 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
       val allVersions = (20 downTo 1).map { "keeldemo-any-string-$it" }
 
       before {
-        subject.register(debianFilteredByPullRequestAndBranch)
+        subject.register(debianFromPullRequestAndBranch)
         allVersions.forEachIndexed { index, version ->
           subject.storeArtifactVersion(
-            debianFilteredByPullRequestAndBranch.toArtifactVersion(
+            debianFromPullRequestAndBranch.toArtifactVersion(
               version = version,
               createdAt = clock.tickMinutes(10)
             ).copy(
               gitMetadata = artifactMetadata.gitMetadata!!.copy(
                 // the last 5 versions don't have a matching branch
-                branch = if (index in 0..4) null else debianFilteredByBranch.from!!.branch!!.name,
+                branch = if (index in 0..4) null else debianFromPullRequestAndBranch.from.branch!!.name,
                 // the 5 versions before that don't have pull request info
-                pullRequest = if (index in 5..9) null else artifactMetadata.gitMetadata!!.pullRequest
+                pullRequest = if (index in 5..9) null else PullRequest(number = "111", url = "www.github.com/pr/111")
               ),
               buildMetadata = artifactMetadata.buildMetadata
             )
@@ -832,8 +667,8 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
         }
       }
 
-      test("returns \"versions\" with pull request and matching branch sorted by timestamp") {
-        val versions = subject.versions(debianFilteredByPullRequestAndBranch, 20)
+      test("returns versions with pull request and matching branch sorted by timestamp") {
+        val versions = subject.versions(debianFromPullRequestAndBranch, 20)
         // all versions should match
         expectThat(versions.map { it.version })
           .containsExactly(allVersions.reversed().subList(0, 10))
@@ -843,43 +678,37 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
     context("artifact versions by promotion status") {
       before {
         persist(manifest)
-        subject.register(versionedReleaseDebian)
-        subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(version1, RELEASE).copy(
-          gitMetadata = artifactMetadata.gitMetadata
-        ))
-        subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(version2, RELEASE).copy(
-          gitMetadata = artifactMetadata.gitMetadata?.copy(
-            commit = "12345"
-          ),
-        ))
-        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        subject.register(debianFromMainBranch)
+        storeArtifactVersionWithMetadata(debianFromMainBranch, debVersion1)
+        storeArtifactVersionWithMetadata(debianFromMainBranch, debVersion2)
+        subject.markAsSuccessfullyDeployedTo(manifest, debianFromMainBranch, debVersion1, testEnvironment.name)
       }
 
       test("no versions exists if not persisted") {
-        expectThat(subject.getArtifactVersionByPromotionStatus(manifest, testEnvironment.name, versionedReleaseDebian, PromotionStatus.PREVIOUS))
+        expectThat(subject.getArtifactVersionByPromotionStatus(manifest, testEnvironment.name, debianFromMainBranch, PREVIOUS))
           .isNull()
       }
 
       test("get artifact versions for deploying status") {
-        expectThat(subject.getArtifactVersionByPromotionStatus(manifest, testEnvironment.name, versionedReleaseDebian, CURRENT)?.gitMetadata)
+        expectThat(subject.getArtifactVersionByPromotionStatus(manifest, testEnvironment.name, debianFromMainBranch, CURRENT)?.gitMetadata)
           .isEqualTo(artifactMetadata.gitMetadata)
       }
 
       test("get a single results (and newest) data per status") {
-        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version2, testEnvironment.name)
-        expectThat(subject.getArtifactVersionByPromotionStatus(manifest, testEnvironment.name, versionedReleaseDebian, CURRENT)?.gitMetadata)
-          .get { this?.commit }.isEqualTo("12345")
+        subject.markAsSuccessfullyDeployedTo(manifest, debianFromMainBranch, debVersion2, testEnvironment.name)
+        expectThat(subject.getArtifactVersionByPromotionStatus(manifest, testEnvironment.name, debianFromMainBranch, CURRENT)?.gitMetadata)
+          .get { this?.commit }.isEqualTo(gitMetadata.commit)
       }
 
       test("get artifact version by promotion status and the version it replaced") {
-        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version2, testEnvironment.name)
-        expectThat(subject.getArtifactVersionByPromotionStatus(manifest, testEnvironment.name, versionedReleaseDebian, PromotionStatus.PREVIOUS, version2))
-          .get { this?.version }.isEqualTo("keeldemo-0.0.1~dev.8-h8.41595c4")
+        subject.markAsSuccessfullyDeployedTo(manifest, debianFromMainBranch, debVersion2, testEnvironment.name)
+        expectThat(subject.getArtifactVersionByPromotionStatus(manifest, testEnvironment.name, debianFromMainBranch, PREVIOUS, debVersion2))
+          .get { this?.version }.isEqualTo(debVersion1)
       }
 
       test("unsupported promotion status throws exception") {
         expectThrows<IllegalArgumentException> {
-          subject.getArtifactVersionByPromotionStatus(manifest, testEnvironment.name, versionedReleaseDebian, PromotionStatus.DEPLOYING)
+          subject.getArtifactVersionByPromotionStatus(manifest, testEnvironment.name, debianFromMainBranch, DEPLOYING)
         }
       }
     }
@@ -887,43 +716,35 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
 
     context("can only mark a version as deployed once") {
       before {
-        persist(manifest)
-        subject.register(versionedReleaseDebian)
-        subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(version1, RELEASE).copy(
-          gitMetadata = artifactMetadata.gitMetadata
-        ))
-        subject.approveVersionFor(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        persist()
+        storeArtifactVersionWithMetadata(debianFromMainBranch, debVersion1)
       }
+
       test("only one is true") {
-        val results = Collections.synchronizedList<Boolean>(mutableListOf())
-        doInParallel(200) {
-          subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        val results = mutableListOf<Boolean>()
+        repeat(3) {
+          subject.markAsSuccessfullyDeployedTo(manifest, debianFromMainBranch, debVersion1, testEnvironment.name)
             .let(results::add)
         }
-        expectThat(results.size).isEqualTo(200)
-        expectThat(results.count { it == true }).isEqualTo(1)
+        expectThat(results.size).isEqualTo(3)
+        expectThat(results.count { it }).isEqualTo(1)
       }
     }
 
     context("versions that weren't deployed") {
       before {
-        persist(manifest)
-        subject.register(versionedReleaseDebian)
-        subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(version1, RELEASE))
-        subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(version2, RELEASE))
-        subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(version3, RELEASE))
-        subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(version4, RELEASE))
+        persist(storeVersions = true)
         // approving version 1 then deploying version 2 makes version 1 skipped in testEnvironment
-        subject.approveVersionFor(manifest, versionedReleaseDebian, version1, testEnvironment.name)
-        subject.approveVersionFor(manifest, versionedReleaseDebian, version2, testEnvironment.name)
-        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version2, testEnvironment.name)
+        subject.approveVersionFor(manifest, debianFromMainBranch, debVersion1, testEnvironment.name)
+        subject.approveVersionFor(manifest, debianFromMainBranch, debVersion2, testEnvironment.name)
+        subject.markAsSuccessfullyDeployedTo(manifest, debianFromMainBranch, debVersion2, testEnvironment.name)
         clock.tickMinutes(1)
       }
 
       test("correctly returns count of recorded skipped versions in time window") {
         val numVersions = subject.versionsInStatusBetween(
           manifest,
-          versionedReleaseDebian,
+          debianFromMainBranch,
           testEnvironment.name,
           SKIPPED,
           clock.instant().minusSeconds(120),
@@ -933,79 +754,77 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
       }
 
       test("can fetch skipped and pending versions") {
-        val notDeployedVersions = subject.getNotYetDeployedVersionsInEnvironment(manifest, versionedReleaseDebian.reference, testEnvironment.name)
+        val notDeployedVersions = subject.getNotYetDeployedVersionsInEnvironment(manifest, debianFromMainBranch.reference, testEnvironment.name)
         expect {
-          that(notDeployedVersions).hasSize(3)
-          that(notDeployedVersions.map { it.version }).containsExactlyInAnyOrder(listOf(version1, version3, version4))
+          that(notDeployedVersions).hasSize(2)
+          that(notDeployedVersions.map { it.version }).containsExactlyInAnyOrder(listOf(debVersion1, debVersion3))
         }
       }
 
       test("can approve a skipped") {
-        subject.approveVersionFor(manifest, versionedReleaseDebian, version1, testEnvironment.name)
-        expectThat(subject.isApprovedFor(manifest, versionedReleaseDebian, version1, testEnvironment.name)).isTrue()
+        subject.approveVersionFor(manifest, debianFromMainBranch, debVersion1, testEnvironment.name)
+        expectThat(subject.isApprovedFor(manifest, debianFromMainBranch, debVersion1, testEnvironment.name)).isTrue()
       }
     }
 
     context("pinned version") {
       before {
         persist(manifest)
-        subject.register(versionedReleaseDebian)
+        subject.register(debianFromMainBranch)
       }
       test("there isn't any pinned version in any environment") {
-        expectThat(subject.getPinnedVersion(manifest, testEnvironment.name, versionedReleaseDebian.reference))
+        expectThat(subject.getPinnedVersion(manifest, testEnvironment.name, debianFromMainBranch.reference))
           .isNull()
-        expectThat(subject.getPinnedVersion(manifest, stagingEnvironment.name, versionedReleaseDebian.reference))
+        expectThat(subject.getPinnedVersion(manifest, stagingEnvironment.name, debianFromMainBranch.reference))
           .isNull()
       }
 
       test("there is one pinned version in test, non in staging") {
-        subject.pinEnvironment(manifest, EnvironmentArtifactPin(testEnvironment.name, versionedReleaseDebian.reference, version1, null, null))
-        expectThat(subject.getPinnedVersion(manifest, testEnvironment.name, versionedReleaseDebian.reference))
-          .isEqualTo(version1)
-        expectThat(subject.getPinnedVersion(manifest, stagingEnvironment.name, versionedReleaseDebian.reference))
+        subject.pinEnvironment(manifest, EnvironmentArtifactPin(testEnvironment.name, debianFromMainBranch.reference, debVersion1, null, null))
+        expectThat(subject.getPinnedVersion(manifest, testEnvironment.name, debianFromMainBranch.reference))
+          .isEqualTo(debVersion1)
+        expectThat(subject.getPinnedVersion(manifest, stagingEnvironment.name, debianFromMainBranch.reference))
           .isNull()
       }
 
       test("pinned two versions, get only the latest pinned version") {
-        subject.pinEnvironment(manifest, EnvironmentArtifactPin(testEnvironment.name, versionedReleaseDebian.reference, version1, null, null))
-        subject.pinEnvironment(manifest, EnvironmentArtifactPin(testEnvironment.name, versionedReleaseDebian.reference, version2, null, null))
-        expectThat(subject.getPinnedVersion(manifest, testEnvironment.name, versionedReleaseDebian.reference))
-          .isEqualTo(version2)
+        subject.pinEnvironment(manifest, EnvironmentArtifactPin(testEnvironment.name, debianFromMainBranch.reference, debVersion1, null, null))
+        subject.pinEnvironment(manifest, EnvironmentArtifactPin(testEnvironment.name, debianFromMainBranch.reference, debVersion2, null, null))
+        expectThat(subject.getPinnedVersion(manifest, testEnvironment.name, debianFromMainBranch.reference))
+          .isEqualTo(debVersion2)
       }
     }
 
     context("latest artifact versions") {
       before {
-        persist(manifest)
-        subject.register(versionedReleaseDebian)
-        subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(version1, RELEASE))
-        subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(version2, RELEASE))
-        subject.approveVersionFor(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        persist()
+        storeArtifactVersionWithMetadata(debianFromMainBranch, debVersion1)
+        storeArtifactVersionWithMetadata(debianFromMainBranch, debVersion2)
+        subject.approveVersionFor(manifest, debianFromMainBranch, debVersion1, testEnvironment.name)
         clock.tickMinutes(1)
-        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        subject.markAsSuccessfullyDeployedTo(manifest, debianFromMainBranch, debVersion1, testEnvironment.name)
       }
       test("get the current version by default") {
-        expectThat(subject.getApprovedInEnvArtifactVersion(manifest, versionedReleaseDebian, testEnvironment.name)?.version).isEqualTo(version1)
+        expectThat(subject.getApprovedInEnvArtifactVersion(manifest, debianFromMainBranch, testEnvironment.name)?.version).isEqualTo(debVersion1)
       }
 
       test("we are not updating the approval time") {
-        val deployedAt = subject.getArtifactSummariesInEnvironment(manifest, testEnvironment.name, versionedReleaseDebian.reference, listOf(version1)).firstOrNull()?.deployedAt
-        expectThat(subject.getApprovedAt(manifest, versionedReleaseDebian, version1, testEnvironment.name)).isNotNull().isNotEqualTo(deployedAt)
+        val deployedAt = subject.getArtifactSummariesInEnvironment(manifest, testEnvironment.name, debianFromMainBranch.reference, listOf(debVersion1)).firstOrNull()?.deployedAt
+        expectThat(subject.getApprovedAt(manifest, debianFromMainBranch, debVersion1, testEnvironment.name)).isNotNull().isNotEqualTo(deployedAt)
       }
 
       test("when exclude current is true, get the latest approved version which is not current") {
-        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version2, testEnvironment.name)
-        expectThat(subject.getApprovedInEnvArtifactVersion(manifest, versionedReleaseDebian, testEnvironment.name, true)?.version).isEqualTo(version1)
+        subject.markAsSuccessfullyDeployedTo(manifest, debianFromMainBranch, debVersion2, testEnvironment.name)
+        expectThat(subject.getApprovedInEnvArtifactVersion(manifest, debianFromMainBranch, testEnvironment.name, true)?.version).isEqualTo(debVersion1)
       }
     }
 
     context("last previously deployed version (replaced by the current version)") {
       before {
-        persist(manifest)
-        subject.register(versionedReleaseDebian)
-        listOf(version1, version2, version3).forEach {
-          subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(it, RELEASE))
-          subject.approveVersionFor(manifest, versionedReleaseDebian, it, testEnvironment.name)
+        persist()
+        listOf(debVersion1, debVersion2, debVersion3).forEach {
+          storeArtifactVersionWithMetadata(debianFromMainBranch, it)
+          subject.approveVersionFor(manifest, debianFromMainBranch, it, testEnvironment.name)
           clock.tickMinutes(1)
         }
       }
@@ -1013,44 +832,44 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
         expectThat(
           subject.getPreviouslyDeployedArtifactVersion(
             manifest,
-            versionedReleaseDebian,
+            debianFromMainBranch,
             testEnvironment.name
           )
         ).isNull()
       }
 
       test("only one version was deployed") {
-        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        subject.markAsSuccessfullyDeployedTo(manifest, debianFromMainBranch, debVersion1, testEnvironment.name)
         expectThat(
           subject.getPreviouslyDeployedArtifactVersion(
             manifest,
-            versionedReleaseDebian,
+            debianFromMainBranch,
             testEnvironment.name
           )
         ).isNull()
       }
 
       test("there is one previous version. We don't roll back to a skipped version") {
-        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
-        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version3, testEnvironment.name)
+        subject.markAsSuccessfullyDeployedTo(manifest, debianFromMainBranch, debVersion1, testEnvironment.name)
+        subject.markAsSuccessfullyDeployedTo(manifest, debianFromMainBranch, debVersion3, testEnvironment.name)
 
         expectThat(
-          subject.getArtifactPromotionStatus(manifest, versionedReleaseDebian, version2, testEnvironment.name)
+          subject.getArtifactPromotionStatus(manifest, debianFromMainBranch, debVersion2, testEnvironment.name)
         ).isNotNull().isEqualTo(SKIPPED)
 
         expectThat(
           subject.getPreviouslyDeployedArtifactVersion(
             manifest,
-            versionedReleaseDebian,
+            debianFromMainBranch,
             testEnvironment.name
           )
-        ).isNotNull().get { version }.isEqualTo(version1)
+        ).isNotNull().get { version }.isEqualTo(debVersion1)
       }
 
       context("picking the right previous version") {
         before {
-          listOf(version1, version2, version3).forEach {
-            subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, it, testEnvironment.name)
+          listOf(debVersion1, debVersion2, debVersion3).forEach {
+            subject.markAsSuccessfullyDeployedTo(manifest, debianFromMainBranch, it, testEnvironment.name)
             clock.tickMinutes(1)
           }
         }
@@ -1059,71 +878,66 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
           expectThat(
             subject.getPreviouslyDeployedArtifactVersion(
               manifest,
-              versionedReleaseDebian,
+              debianFromMainBranch,
               testEnvironment.name
             )
-          ).isNotNull().get { version }.isEqualTo(version2) // We go to the version that replaced current
+          ).isNotNull().get { version }.isEqualTo(debVersion2) // We go to the version that replaced current
         }
 
         test("Still picking the right version after rolling back") {
-          subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version2, testEnvironment.name)
+          subject.markAsSuccessfullyDeployedTo(manifest, debianFromMainBranch, debVersion2, testEnvironment.name)
           expectThat(
             subject.getPreviouslyDeployedArtifactVersion(
               manifest,
-              versionedReleaseDebian,
+              debianFromMainBranch,
               testEnvironment.name
             )
-          ).isNotNull().get { version }.isEqualTo(version1) // We should go to the version that replace version2 (and not to the newer version)
+          ).isNotNull().get { version }.isEqualTo(debVersion1) // We should go to the version that replace debVersion2 (and not to the newer version)
         }
       }
     }
 
     context("set approvedAt") {
       before {
-        persist(manifest)
-        subject.register(versionedReleaseDebian)
-        subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(version1, RELEASE))
-        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        persist()
+        storeArtifactVersionWithMetadata(debianFromMainBranch, debVersion1)
+        subject.markAsSuccessfullyDeployedTo(manifest, debianFromMainBranch, debVersion1, testEnvironment.name)
       }
       test("we are setting the approvedAt") {
-        val deployedAt = subject.getArtifactSummariesInEnvironment(manifest, testEnvironment.name, versionedReleaseDebian.reference, listOf(version1)).firstOrNull()?.deployedAt
-        expectThat(subject.getApprovedAt(manifest, versionedReleaseDebian, version1, testEnvironment.name)).isNotNull().isEqualTo(deployedAt)
+        val deployedAt = subject.getArtifactSummariesInEnvironment(manifest, testEnvironment.name, debianFromMainBranch.reference, listOf(debVersion1)).firstOrNull()?.deployedAt
+        expectThat(subject.getApprovedAt(manifest, debianFromMainBranch, debVersion1, testEnvironment.name)).isNotNull().isEqualTo(deployedAt)
       }
     }
 
     context("latest deployable version") {
       before {
-        persist(manifest)
-        subject.register(versionedReleaseDebian)
-        subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(version1, RELEASE))
-        subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(version2, RELEASE))
-        subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(version3, RELEASE))
+        persist(storeVersions = true)
         clock.tickMinutes(1)
-        subject.approveVersionFor(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        subject.approveVersionFor(manifest, debianFromMainBranch, debVersion1, testEnvironment.name)
         clock.tickMinutes(1)
-        subject.approveVersionFor(manifest, versionedReleaseDebian, version2, testEnvironment.name)
+        subject.approveVersionFor(manifest, debianFromMainBranch, debVersion2, testEnvironment.name)
         clock.tickMinutes(1)
-        subject.approveVersionFor(manifest, versionedReleaseDebian, version3, testEnvironment.name)
+        subject.approveVersionFor(manifest, debianFromMainBranch, debVersion3, testEnvironment.name)
         clock.tickMinutes(1)
       }
 
       test("no versions have started deploying, so version is null"){
-        val version = subject.latestDeployableVersionIn(manifest, versionedReleaseDebian, testEnvironment.name)
+        val version = subject.latestDeployableVersionIn(manifest, debianFromMainBranch, testEnvironment.name)
         expectThat(version).isNull()
       }
 
       test("there is one version deploying, so that version in returned") {
-        subject.markAsDeployingTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
-        val version = subject.latestDeployableVersionIn(manifest, versionedReleaseDebian, testEnvironment.name)
-        expectThat(version).isEqualTo(version1)
+        subject.markAsDeployingTo(manifest, debianFromMainBranch, debVersion1, testEnvironment.name)
+        val version = subject.latestDeployableVersionIn(manifest, debianFromMainBranch, testEnvironment.name)
+        expectThat(version).isEqualTo(debVersion1)
       }
 
       test("deploying version is counted as a deployed version in the window") {
-        subject.markAsDeployingTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        subject.markAsDeployingTo(manifest, debianFromMainBranch, debVersion1, testEnvironment.name)
         clock.tickMinutes(1)
         val numDeployed = subject.versionsDeployedBetween(
           manifest,
-          versionedReleaseDebian,
+          debianFromMainBranch,
           testEnvironment.name,
           clock.instant().minusSeconds(120),
           clock.instant()
@@ -1132,126 +946,98 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
       }
 
       test("there is one version that is current, so that version is returned") {
-        subject.markAsDeployingTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        subject.markAsDeployingTo(manifest, debianFromMainBranch, debVersion1, testEnvironment.name)
         clock.tickMinutes(1)
-        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        subject.markAsSuccessfullyDeployedTo(manifest, debianFromMainBranch, debVersion1, testEnvironment.name)
 
-        val version = subject.latestDeployableVersionIn(manifest, versionedReleaseDebian, testEnvironment.name)
-        expectThat(version).isEqualTo(version1)
+        val version = subject.latestDeployableVersionIn(manifest, debianFromMainBranch, testEnvironment.name)
+        expectThat(version).isEqualTo(debVersion1)
       }
 
       test("two versions have been deployed, we pick the correct one before and after a veto") {
-        subject.markAsDeployingTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        subject.markAsDeployingTo(manifest, debianFromMainBranch, debVersion1, testEnvironment.name)
         clock.tickMinutes(1)
-        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        subject.markAsSuccessfullyDeployedTo(manifest, debianFromMainBranch, debVersion1, testEnvironment.name)
         clock.tickMinutes(1)
 
-        subject.markAsDeployingTo(manifest, versionedReleaseDebian, version2, testEnvironment.name)
+        subject.markAsDeployingTo(manifest, debianFromMainBranch, debVersion2, testEnvironment.name)
         clock.tickMinutes(1)
-        val version = subject.latestDeployableVersionIn(manifest, versionedReleaseDebian, testEnvironment.name)
-        expectThat(version).isEqualTo(version2)
-        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version2, testEnvironment.name)
+        val version = subject.latestDeployableVersionIn(manifest, debianFromMainBranch, testEnvironment.name)
+        expectThat(version).isEqualTo(debVersion2)
+        subject.markAsSuccessfullyDeployedTo(manifest, debianFromMainBranch, debVersion2, testEnvironment.name)
 
-        val versionAfterSecondDeploy = subject.latestDeployableVersionIn(manifest, versionedReleaseDebian, testEnvironment.name)
-        expectThat(versionAfterSecondDeploy).isEqualTo(version2)
+        val versionAfterSecondDeploy = subject.latestDeployableVersionIn(manifest, debianFromMainBranch, testEnvironment.name)
+        expectThat(versionAfterSecondDeploy).isEqualTo(debVersion2)
 
         // veto version two
-        subject.markAsVetoedIn(manifest, EnvironmentArtifactVeto(testEnvironment.name, versionedReleaseDebian.reference, version2, "me", "it bad"), true)
-        val versionAfterVeto = subject.latestDeployableVersionIn(manifest, versionedReleaseDebian, testEnvironment.name)
-        expectThat(versionAfterVeto).isEqualTo(version1)
+        subject.markAsVetoedIn(manifest, EnvironmentArtifactVeto(testEnvironment.name, debianFromMainBranch.reference, debVersion2, "me", "it bad"), true)
+        val versionAfterVeto = subject.latestDeployableVersionIn(manifest, debianFromMainBranch, testEnvironment.name)
+        expectThat(versionAfterVeto).isEqualTo(debVersion1)
       }
 
       test("there is a deploying, current, and previous version, we pick the deploying one because it is newest") {
-        subject.markAsDeployingTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        subject.markAsDeployingTo(manifest, debianFromMainBranch, debVersion1, testEnvironment.name)
         clock.tickMinutes(1)
-        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
-        clock.tickMinutes(1)
-
-        subject.markAsDeployingTo(manifest, versionedReleaseDebian, version2, testEnvironment.name)
-        clock.tickMinutes(1)
-        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version2, testEnvironment.name)
+        subject.markAsSuccessfullyDeployedTo(manifest, debianFromMainBranch, debVersion1, testEnvironment.name)
         clock.tickMinutes(1)
 
-        subject.markAsDeployingTo(manifest, versionedReleaseDebian, version3, testEnvironment.name)
+        subject.markAsDeployingTo(manifest, debianFromMainBranch, debVersion2, testEnvironment.name)
+        clock.tickMinutes(1)
+        subject.markAsSuccessfullyDeployedTo(manifest, debianFromMainBranch, debVersion2, testEnvironment.name)
+        clock.tickMinutes(1)
 
-        val version = subject.latestDeployableVersionIn(manifest, versionedReleaseDebian, testEnvironment.name)
-        expectThat(version).isEqualTo(version3)
+        subject.markAsDeployingTo(manifest, debianFromMainBranch, debVersion3, testEnvironment.name)
+
+        val version = subject.latestDeployableVersionIn(manifest, debianFromMainBranch, testEnvironment.name)
+        expectThat(version).isEqualTo(debVersion3)
       }
     }
 
     context("get deployment candidates") {
       before {
-        val branch = "my-feature-branch"
-        persist(manifest)
-        subject.register(debianFilteredByBranch)
-        subject.storeArtifactVersion(
-          debianFilteredByBranch.toArtifactVersion(
-            version = version1,
-            status = RELEASE,
-            createdAt = clock.instant(),
-            gitMetadata = gitMetadata(branch)
-          )
-        )
-        clock.tickMinutes(5)
-        subject.storeArtifactVersion(
-          debianFilteredByBranch.toArtifactVersion(
-            version = version2,
-            status = RELEASE,
-            createdAt = clock.instant(),
-            gitMetadata = gitMetadata(branch)
-          )
-        )
-        clock.tickMinutes(5)
-        subject.storeArtifactVersion(
-          debianFilteredByBranch.toArtifactVersion(
-            version = version3,
-            status = RELEASE,
-            createdAt = clock.instant(),
-            gitMetadata = gitMetadata(branch)
-          )
-        )
+        persist(storeVersions = true)
+        subject.register(debianFromMainBranch)
 
-        clock.tickMinutes(5)
         // approving 3 first, then 2, then 1, to make sure that we order candidates not by approval time,
         //   but instead with the correct version sorting logic
-        subject.approveVersionFor(manifest, debianFilteredByBranch, version3, testEnvironment.name)
+        subject.approveVersionFor(manifest, debianFromMainBranch, debVersion3, testEnvironment.name)
         clock.tickMinutes(1)
-        subject.approveVersionFor(manifest, debianFilteredByBranch, version2, testEnvironment.name)
+        subject.approveVersionFor(manifest, debianFromMainBranch, debVersion2, testEnvironment.name)
         clock.tickMinutes(1)
-        subject.approveVersionFor(manifest, debianFilteredByBranch, version1, testEnvironment.name)
+        subject.approveVersionFor(manifest, debianFromMainBranch, debVersion1, testEnvironment.name)
         clock.tickMinutes(1)
       }
 
       test("all approved versions are candidates") {
-        val candidates = subject.deploymentCandidateVersions(manifest, debianFilteredByBranch, testEnvironment.name)
+        val candidates = subject.deploymentCandidateVersions(manifest, debianFromMainBranch, testEnvironment.name)
         // order is important here, 3 is the newest.
-        expectThat(candidates).containsExactly(version3, version2, version1)
+        expectThat(candidates).containsExactly(debVersion3, debVersion2, debVersion1)
       }
 
       test("versions that have already started deploying or have been deployed are not candidates") {
-        subject.markAsDeployingTo(manifest, debianFilteredByBranch, version1, testEnvironment.name)
+        subject.markAsDeployingTo(manifest, debianFromMainBranch, debVersion1, testEnvironment.name)
         clock.tickMinutes(1)
-        subject.markAsSuccessfullyDeployedTo(manifest, debianFilteredByBranch, version1, testEnvironment.name)
-        clock.tickMinutes(1)
-
-        subject.markAsDeployingTo(manifest, debianFilteredByBranch, version2, testEnvironment.name)
-        clock.tickMinutes(1)
-        subject.markAsSuccessfullyDeployedTo(manifest, debianFilteredByBranch, version2, testEnvironment.name)
+        subject.markAsSuccessfullyDeployedTo(manifest, debianFromMainBranch, debVersion1, testEnvironment.name)
         clock.tickMinutes(1)
 
-        subject.markAsDeployingTo(manifest, debianFilteredByBranch, version3, testEnvironment.name)
+        subject.markAsDeployingTo(manifest, debianFromMainBranch, debVersion2, testEnvironment.name)
+        clock.tickMinutes(1)
+        subject.markAsSuccessfullyDeployedTo(manifest, debianFromMainBranch, debVersion2, testEnvironment.name)
         clock.tickMinutes(1)
 
-        val candidates = subject.deploymentCandidateVersions(manifest, debianFilteredByBranch, testEnvironment.name)
+        subject.markAsDeployingTo(manifest, debianFromMainBranch, debVersion3, testEnvironment.name)
+        clock.tickMinutes(1)
+
+        val candidates = subject.deploymentCandidateVersions(manifest, debianFromMainBranch, testEnvironment.name)
 
         expectThat(candidates).isEmpty()
       }
 
       test("only approved versions newer than the latest deploying version are candidates") {
-        subject.markAsDeployingTo(manifest, debianFilteredByBranch, version3, testEnvironment.name)
+        subject.markAsDeployingTo(manifest, debianFromMainBranch, debVersion3, testEnvironment.name)
         clock.tickMinutes(1)
 
-        val candidates = subject.deploymentCandidateVersions(manifest, debianFilteredByBranch, testEnvironment.name)
+        val candidates = subject.deploymentCandidateVersions(manifest, debianFromMainBranch, testEnvironment.name)
 
         expectThat(candidates).isEmpty()
       }
@@ -1260,27 +1046,86 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
     context("recording and retrieving deployment timestamp") {
       before {
         persist(manifest)
-        subject.register(versionedReleaseDebian)
-        listOf(version1, version2).forEach {
-          subject.storeArtifactVersion(versionedReleaseDebian.toArtifactVersion(it, RELEASE))
-          subject.approveVersionFor(manifest, versionedReleaseDebian, it, testEnvironment.name)
+        subject.register(debianFromMainBranch)
+        listOf(debVersion1, debVersion2).forEach {
+          storeArtifactVersionWithMetadata(debianFromMainBranch, it)
+          subject.approveVersionFor(manifest, debianFromMainBranch, it, testEnvironment.name)
           clock.tickMinutes(1)
         }
       }
 
       test("can retrieve deployment timestamp for versions marked as deployed") {
-        subject.markAsSuccessfullyDeployedTo(manifest, versionedReleaseDebian, version1, testEnvironment.name)
+        subject.markAsSuccessfullyDeployedTo(manifest, debianFromMainBranch, debVersion1, testEnvironment.name)
         expectCatching {
-          subject.getDeployedAt(manifest, testEnvironment, versionedReleaseDebian, version1)
+          subject.getDeployedAt(manifest, testEnvironment, debianFromMainBranch, debVersion1)
         }.isSuccess()
       }
 
       test("cannot retrieve deployment timestamp for versions not marked as deployed") {
         expectCatching {
-          subject.getDeployedAt(manifest, testEnvironment, versionedReleaseDebian, version2)
+          subject.getDeployedAt(manifest, testEnvironment, debianFromMainBranch, debVersion2)
         }.isFailure()
           .isA<NoSuchDeploymentException>()
       }
     }
+  }
+}
+
+internal fun <T : ArtifactRepository> ArtifactRepositoryFixture<T>.storeArtifactVersionWithMetadata(
+  artifact: DeliveryArtifact,
+  version: String,
+  branch: String = "main"
+) =
+  subject.storeArtifactVersion(
+    artifact.toArtifactVersion(
+      version = version,
+      createdAt = clock.tickMinutes(10)
+    ).copy(
+      gitMetadata = artifactMetadata.gitMetadata?.copy(branch = branch),
+      buildMetadata = artifactMetadata.buildMetadata
+    )
+  )
+
+/**
+ * This function creates `versions.size` versions for artifact `debianFilteredByBranchPattern`,
+ * where only the first 15 of them have branch names that match the requested pattern
+ */
+internal fun <T : ArtifactRepository> ArtifactRepositoryFixture<T>.storeVersionsForDebianFromBranchPattern(versions: List<String>) {
+  assert(versions.size == 20)
+  subject.register(debianFromBranchPattern)
+  versions.forEachIndexed { index, version ->
+    storeArtifactVersionWithMetadata(
+      artifact = debianFromBranchPattern,
+      version = version,
+      branch = when {
+        index < 5 -> "my-feature-x"
+        index < 10 -> "feature-branch-x"
+        index < 15 -> "myfeature"
+        else -> "a-non-matching-branch"
+      }
+    )
+  }
+}
+
+/**
+ * This function creates `versions.size` versions for artifact `debianFilteredByPullRequest`,
+ * where only the first half have the PR info.
+ */
+internal fun <T : ArtifactRepository>  ArtifactRepositoryFixture<T>.storeVersionsForDebianFromPullRequest(versions: List<String>) {
+  assert(versions.size == 20)
+  subject.register(debianFromPullRequest)
+  versions.forEachIndexed { index, version ->
+    subject.storeArtifactVersion(
+      debianFromPullRequest.toArtifactVersion(
+        version = version,
+        createdAt = clock.tickMinutes(10)
+      ).copy(
+        gitMetadata = artifactMetadata.gitMetadata!!.copy(
+          // first half of the versions don't have pull request info
+          pullRequest = if (index < 10) null else PullRequest(number = "111", url = "www.github.com/pr/111")
+        ),
+        buildMetadata = artifactMetadata.buildMetadata
+      )
+    )
   }
 }

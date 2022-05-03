@@ -7,7 +7,6 @@ import com.netflix.spinnaker.keel.api.RedBlack
 import com.netflix.spinnaker.keel.api.SubnetAwareLocations
 import com.netflix.spinnaker.keel.api.SubnetAwareRegionSpec
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactOriginFilter
-import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus.RELEASE
 import com.netflix.spinnaker.keel.api.artifacts.BranchFilter
 import com.netflix.spinnaker.keel.api.artifacts.DEBIAN
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
@@ -41,7 +40,8 @@ import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.ec2.resource.BlockDeviceConfig
 import com.netflix.spinnaker.keel.ec2.resource.ClusterHandler
 import com.netflix.spinnaker.keel.ec2.resource.toCloudDriverResponse
-import com.netflix.spinnaker.keel.exceptions.ArtifactNotSupportedException
+import com.netflix.spinnaker.keel.exceptions.ArtifactMetadataUnavailableException
+import com.netflix.spinnaker.keel.exceptions.TagToReleaseArtifactException
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactService
 import com.netflix.spinnaker.keel.jenkins.JenkinsService
 import com.netflix.spinnaker.keel.orca.ClusterExportHelper
@@ -61,7 +61,6 @@ import strikt.api.expectThat
 import strikt.api.expectThrows
 import strikt.assertions.hasSize
 import strikt.assertions.isA
-import strikt.assertions.isEmpty
 import strikt.assertions.isEqualTo
 import strikt.assertions.isNotEmpty
 import strikt.assertions.isNotNull
@@ -283,7 +282,6 @@ internal class ClusterExportTests : JUnit5Minutests {
               }
               .and {
                 get { from }.isEqualTo(ArtifactOriginFilter(branch = BranchFilter(name = "main")))
-                get { statuses }.isEmpty()
               }
           }
         }
@@ -306,37 +304,23 @@ internal class ClusterExportTests : JUnit5Minutests {
           )
         }
 
-        test("deb is exported correctly using status and not branch") {
-          val artifact = runBlocking {
+        test("artifact is not exported and exception is thrown") {
+          expectThrows<TagToReleaseArtifactException> {
             exportArtifact(exportable.copy(regions = setOf("us-east-1")))
-          }
-
-          expectThat(artifact) {
-            get { name }.isEqualTo("keel")
-            isA<DebianArtifact>()
-              .and {
-                get { vmOptions }.isEqualTo(
-                  VirtualMachineOptions(
-                    regions = setOf("us-east-1"),
-                    baseOs = "bionic-classic"
-                  )
-                )
-                get { statuses }.isEqualTo(setOf(RELEASE))
-                get { from }.isNull()
-              }
           }
         }
       }
 
-      context("with artifact is not on rocket") {
+      context("with artifact that is not on rocket") {
         before {
           every { cloudDriverService.activeServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast
           every {
             artifactService.getArtifact("keel", any(), DEBIAN)
           } throws RETROFIT_NOT_FOUND
         }
-        test("artifact is not being exported and exception is thrown") {
-          expectThrows<ArtifactNotSupportedException> {
+
+        test("artifact is not exported and exception is thrown") {
+          expectThrows<ArtifactMetadataUnavailableException> {
             exportArtifact(exportable.copy(regions = setOf("us-east-1")))
           }
         }

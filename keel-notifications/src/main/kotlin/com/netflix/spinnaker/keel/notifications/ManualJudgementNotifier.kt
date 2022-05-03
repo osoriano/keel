@@ -69,7 +69,7 @@ class ManualJudgementNotifier(
     val artifact = repository.getArtifact(currentState.deliveryConfigName, currentState.artifactReference)
     val artifactUrl = "${baseUrlConfig.baseUrl}/#/applications/${deliveryConfig.application}/environments/${artifact.reference}/${currentState.artifactVersion}"
     val normalizedVersion = currentState.artifactVersion.removePrefix("${artifact.name}-")
-    val currentDeployableArtifact = repository.getArtifactVersion(artifact, currentState.artifactVersion, null)
+    val currentDeployableArtifact = repository.getArtifactVersion(artifact, currentState.artifactVersion)
     val gitMetadata = currentDeployableArtifact
       ?.gitMetadata
     val currentArtifactInEnvironment = repository.getCurrentlyDeployedArtifactVersion(deliveryConfig, artifact, currentState.environmentName)

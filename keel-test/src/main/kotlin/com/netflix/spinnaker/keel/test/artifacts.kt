@@ -7,6 +7,7 @@ import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.SortingStrategy
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
 import com.netflix.spinnaker.keel.api.artifacts.branchName
+import com.netflix.spinnaker.keel.api.artifacts.fromBranch
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.api.support.SpringEventPublisherBridge
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
@@ -50,16 +51,19 @@ fun defaultArtifactSuppliers(): List<ArtifactSupplier<*, *>> {
   )
 }
 
-fun debianArtifact(metadata: Map<String, Any?> = emptyMap()) = DebianArtifact(
-  name ="fnord-debian",
-  vmOptions = VirtualMachineOptions(baseOs = "ubuntu", regions = setOf("us-east-1", "us-west-2")),
-  from = ArtifactOriginFilter(branchName("main")),
+fun debianArtifact(name: String = "fnord", reference: String = "$name-deb", metadata: Map<String, Any?> = emptyMap()) = DebianArtifact(
+  name = name,
+  reference = reference,
+  deliveryConfigName = "fnord-manifest",
+  vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2")),
+  from = fromBranch("main"),
   metadata = metadata
 )
 
 fun dockerArtifact(metadata: Map<String, Any?> = emptyMap()) = DockerArtifact(
   name = "org/fnord",
   reference = "fnord-docker",
+  deliveryConfigName = "fnord-manifest",
   from = ArtifactOriginFilter(branchName("main")),
   metadata = metadata
 )

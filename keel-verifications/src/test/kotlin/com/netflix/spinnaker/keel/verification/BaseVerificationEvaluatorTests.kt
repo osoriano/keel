@@ -77,7 +77,7 @@ abstract class BaseVerificationEvaluatorTests {
   ).normalized()
 
   protected val keelRepository: KeelRepository = mockk {
-    coEvery { getArtifactVersion(any(), any(), any()) } returns publishedArtifact
+    coEvery { getArtifactVersion(any(), any()) } returns publishedArtifact
   }
 
   protected val eurekaClusterDns = "fnord-test-cluster.cluster.us-east-1.keel.io"

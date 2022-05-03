@@ -41,16 +41,16 @@ class CreatedAtSortingStrategyTests : JUnit5Minutests {
     val versions = (0..10).map {
       clock.tickMinutes(1)
       PublishedArtifact("keeldemo", DEBIAN, "1.0.$it", createdAt = clock.instant(),
-        gitMetadata = GitMetadata("commit", branch = if (it % 2 == 0) "my-feature-branch" else "master")
+        gitMetadata = GitMetadata("commit", branch = if (it % 2 == 0) "my-feature-branch" else "main")
       )
     }
 
     val version1 = PublishedArtifact("keeldemo", DEBIAN, "1.0.10", createdAt = clock.instant(),
-      gitMetadata = GitMetadata("commit", branch = "master")
+      gitMetadata = GitMetadata("commit", branch = "main")
     )
 
     val version2 = PublishedArtifact("keeldemo", DEBIAN, "1.0.3", createdAt = clock.instant().plusSeconds(3),
-      gitMetadata = GitMetadata("commit", branch = "master")
+      gitMetadata = GitMetadata("commit", branch = "main")
     )
 
     val subject = CreatedAtSortingStrategy

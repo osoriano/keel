@@ -72,6 +72,10 @@ fun branchStartsWith(startsWith: String) = BranchFilter(startsWith = startsWith)
 fun branchName(name: String) = BranchFilter(name = name)
 fun branchRegex(regex: String) = BranchFilter(regex = regex)
 fun from(branchFilter: BranchFilter) = ArtifactOriginFilter(branch = branchFilter)
+fun fromBranch(branch: String) = from(BranchFilter(name = branch))
+
+// Short handle for a branch filter that matches any branch
+val FROM_ANY_BRANCH = from(branchRegex(".*"))
 
 /**
  * Filters for the origin of an artifact in source control.
@@ -115,10 +119,6 @@ abstract class DeliveryArtifact {
 
   abstract fun withDeliveryConfigName(deliveryConfigName: String): DeliveryArtifact
 
-  /** A set of release statuses to filter by. Mutually exclusive with [from] filters. */
-  @get:JsonInclude(NON_EMPTY)
-  open val statuses: Set<ArtifactStatus> = emptySet()
-
   /** Filters for the artifact origin in source control. */
   open val from: ArtifactOriginFilter? = null
 
@@ -144,11 +144,6 @@ abstract class DeliveryArtifact {
   @get:ExcludedFromDiff
   val filteredBySource: Boolean
     get() = filteredByBranch || filteredByPullRequest
-
-  @get:JsonIgnore
-  @get:ExcludedFromDiff
-  val filteredByReleaseStatus: Boolean
-    get() = statuses.isNotEmpty()
 
   fun hasMatchingSource(gitMetadata: GitMetadata?): Boolean {
     return when {

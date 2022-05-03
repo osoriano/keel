@@ -2,6 +2,7 @@ package com.netflix.spinnaker.keel.test
 
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
+import com.netflix.spinnaker.keel.api.artifacts.fromBranch
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.core.api.SubmittedEnvironment
@@ -17,7 +18,8 @@ fun deliveryArtifact(
     vmOptions = VirtualMachineOptions(
       baseOs = "bionic",
       regions = setOf("us-west-2")
-    )
+    ),
+    from = fromBranch("main")
   )
 }
 

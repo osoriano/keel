@@ -45,8 +45,7 @@ abstract class BaseVerificationEvaluator<V: Verification>(
   ): Map<String, String> {
     val fullArtifact = keelRepository.getArtifactVersion(
       artifact = testContext.artifact,
-      version = testContext.version,
-      status = null
+      version = testContext.version
     ) ?: error("No artifact details found for artifact reference ${testContext.artifactReference}" +
       " and version ${testContext.version} in config ${testContext.deliveryConfig.application}")
 

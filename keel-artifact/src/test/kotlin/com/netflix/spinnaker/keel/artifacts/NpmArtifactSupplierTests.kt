@@ -10,6 +10,7 @@ import com.netflix.spinnaker.keel.api.artifacts.NPM
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PullRequest
 import com.netflix.spinnaker.keel.api.artifacts.Repo
+import com.netflix.spinnaker.keel.api.artifacts.fromBranch
 import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
 import com.netflix.spinnaker.keel.api.support.SpringEventPublisherBridge
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
@@ -35,7 +36,7 @@ internal class NpmArtifactSupplierTests : JUnit5Minutests {
     val npmArtifact = NpmArtifact(
       name = "fnord",
       deliveryConfigName = deliveryConfig.name,
-      statuses = setOf(CANDIDATE)
+      from = fromBranch("main")
     )
     val versions = listOf("1.0.0-rc", "1.0.0-rc.1", "1.0.0", "1.0.1-5", "1.0.2-h6", "1.0.3-rc-h7.gc0c603")
     val latestArtifact = PublishedArtifact(
@@ -87,8 +88,8 @@ internal class NpmArtifactSupplierTests : JUnit5Minutests {
       val versionSlot = slot<String>()
       before {
         every {
-          artifactService.getVersions(npmArtifact.name, listOf(CANDIDATE.name), artifactType = NPM)
-        } returns versions
+          artifactService.getVersions(npmArtifact.name, artifactType = NPM)
+        } returns versions.reversed()
         every {
           artifactService.getArtifact(npmArtifact.name, capture(versionSlot), NPM)
         } answers {
@@ -117,7 +118,7 @@ internal class NpmArtifactSupplierTests : JUnit5Minutests {
         }
         expectThat(result?.version).isNotNull().isEqualTo(latestArtifact.version)
         verify(exactly = 1) {
-          artifactService.getVersions(npmArtifact.name, listOf(CANDIDATE.name), artifactType = NPM)
+          artifactService.getVersions(npmArtifact.name, artifactType = NPM)
         }
         verify(exactly = versions.size) {
           artifactService.getArtifact(npmArtifact.name, any(), NPM)

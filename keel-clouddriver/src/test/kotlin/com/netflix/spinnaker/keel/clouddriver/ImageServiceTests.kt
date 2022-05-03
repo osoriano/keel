@@ -19,6 +19,7 @@ package com.netflix.spinnaker.keel.clouddriver
 
 import com.netflix.frigga.ami.AppVersion
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
+import com.netflix.spinnaker.keel.api.artifacts.fromBranch
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.caffeine.TEST_CACHE_FACTORY
 import com.netflix.spinnaker.keel.clouddriver.model.NamedImage
@@ -51,7 +52,11 @@ class ImageServiceTests : JUnit5Minutests {
   class Fixture {
     val cloudDriver = mockk<CloudDriverService>()
     val subject = ImageService(cloudDriver, TEST_CACHE_FACTORY, MockEnvironment())
-    val artifact = DebianArtifact("my-package", vmOptions = VirtualMachineOptions(baseOs = "trusty", regions = emptySet()))
+    val artifact = DebianArtifact(
+      name = "my-package",
+      vmOptions = VirtualMachineOptions(baseOs = "trusty", regions = emptySet()),
+      from = fromBranch("main")
+    )
 
     val image1 = NamedImage(
       imageName = "my-package-0.0.1_rc.97-h98",

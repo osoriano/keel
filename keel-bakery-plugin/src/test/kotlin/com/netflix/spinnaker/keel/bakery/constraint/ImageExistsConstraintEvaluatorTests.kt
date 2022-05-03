@@ -9,6 +9,7 @@ import com.netflix.spinnaker.keel.api.SimpleRegionSpec
 import com.netflix.spinnaker.keel.api.artifacts.BaseLabel.RELEASE
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
+import com.netflix.spinnaker.keel.api.artifacts.fromBranch
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.artifacts.BakedImage
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
@@ -44,7 +45,8 @@ internal class ImageExistsConstraintEvaluatorTests : JUnit5Minutests {
       vmOptions = VirtualMachineOptions(
         baseOs = "bionique-classique",
         regions = regions.toSet()
-      )
+      ),
+      from = fromBranch("main")
     ),
     val resource: Resource<*> = locatableResource(
       locations = SimpleLocations(

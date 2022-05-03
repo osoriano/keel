@@ -205,7 +205,7 @@ class ImageHandler(
 
     // even though the artifact isn't registered we should grab the latest version to use
     val versions = igorService
-      .getVersions(name, statuses.map { it.toString() }, DEBIAN)
+      .getVersions(name, DEBIAN)
     log.debug("Finding latest version of $name: versions igor knows about = $versions")
     return versions
       .firstOrNull()
@@ -235,8 +235,7 @@ class ImageHandler(
     val version = desiredVersion.substringAfter("$packageName-")
     val fullArtifact = repository.getArtifactVersion(
       artifact,
-      desiredVersion,
-      null
+      desiredVersion
     )
     val arch = fullArtifact?.metadata?.get("arch") ?: "all"
     val artifactRef = "/${packageName}_${version}_$arch.deb"

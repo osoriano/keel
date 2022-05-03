@@ -7,7 +7,7 @@ artifacts:
     reference: fnord
     from:
       branch:
-        name: master
+        name: main
 environments:
   - name: test
     locations:

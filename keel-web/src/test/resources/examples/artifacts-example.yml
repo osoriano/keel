@@ -7,7 +7,7 @@ artifacts:
     reference: fnord-docker
     from:
       branch:
-        name: master
+        name: main
   - name: fnord
     type: deb
     reference: fnord-deb
@@ -17,13 +17,13 @@ artifacts:
         - us-west-2
     from:
       branch:
-        name: master
+        name: main
   - name: fnord
     type: npm
     reference: fnord-npm
     from:
       branch:
-        name: master
+        name: main
   - name: fnord
     type: docker
     reference: fnord-branch-starts-with

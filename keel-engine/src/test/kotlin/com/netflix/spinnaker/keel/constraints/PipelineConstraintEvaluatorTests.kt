@@ -7,6 +7,7 @@ import com.netflix.spinnaker.keel.api.TaskStatus.RUNNING
 import com.netflix.spinnaker.keel.api.TaskStatus.SUCCEEDED
 import com.netflix.spinnaker.keel.api.TaskStatus.TERMINAL
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
+import com.netflix.spinnaker.keel.api.artifacts.fromBranch
 import com.netflix.spinnaker.keel.api.constraints.ConstraintRepository
 import com.netflix.spinnaker.keel.api.constraints.ConstraintState
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
@@ -21,6 +22,7 @@ import com.netflix.spinnaker.keel.core.api.randomUID
 import com.netflix.spinnaker.keel.orca.ExecutionDetailResponse
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.orca.TaskRefResponse
+import com.netflix.spinnaker.keel.test.debianArtifact
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import io.mockk.MockKAnswerScope
@@ -58,11 +60,7 @@ internal class PipelineConstraintEvaluatorTests : JUnit5Minutests {
       constraints = setOf(constraint)
     )
 
-    val artifact = DebianArtifact(
-      name = "fnord",
-      reference = "fnord",
-      vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2"))
-    )
+    val artifact = debianArtifact()
 
     val manifest = DeliveryConfig(
       name = "my-manifest",
@@ -82,8 +80,7 @@ internal class PipelineConstraintEvaluatorTests : JUnit5Minutests {
     fun evaluate() {
       result = runBlocking {
         subject.constraintPasses(
-          DebianArtifact("fnord", vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2"))),
-          version, manifest, environment
+          debianArtifact(), version, manifest, environment
         )
       }
     }

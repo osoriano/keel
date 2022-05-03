@@ -637,122 +637,101 @@ class SqlDeliveryConfigRepository(
   override fun storeConstraintState(state: ConstraintState) {
     state.log("storeConstraintState (before)")
 
-    environmentUidByName(state.deliveryConfigName, state.environmentName)
-      ?.also { envUid ->
-        val uid = sqlRetry.withRetry(READ) {
-          jooq
-            .select(ENVIRONMENT_ARTIFACT_CONSTRAINT.UID)
-            .from(ENVIRONMENT_ARTIFACT_CONSTRAINT)
-            .where(
-              ENVIRONMENT_ARTIFACT_CONSTRAINT.ENVIRONMENT_UID.eq(envUid),
-              ENVIRONMENT_ARTIFACT_CONSTRAINT.TYPE.eq(state.type),
-              ENVIRONMENT_ARTIFACT_CONSTRAINT.ARTIFACT_VERSION.eq(state.artifactVersion),
-              ENVIRONMENT_ARTIFACT_CONSTRAINT.ARTIFACT_REFERENCE.eq(state.artifactReference)
-            )
-            .fetchOne(ENVIRONMENT_ARTIFACT_CONSTRAINT.UID)
-        } ?: randomUID().toString()
+    val environmentUid = environmentUidByName(state.deliveryConfigName, state.environmentName)
+      ?: error("Environment ${state.environmentName} not found in delivery config ${state.deliveryConfigName}")
 
-        val application = applicationByDeliveryConfigName(state.deliveryConfigName)
-        val environment = get(state.deliveryConfigName)
-          .environments
-          .firstOrNull {
-            it.name == state.environmentName
-          }
-          ?: error("Environment ${state.environmentName} does not exist in ${state.deliveryConfigName}")
+    val uid = sqlRetry.withRetry(READ) {
+      jooq
+        .select(ENVIRONMENT_ARTIFACT_CONSTRAINT.UID)
+        .from(ENVIRONMENT_ARTIFACT_CONSTRAINT)
+        .where(
+          ENVIRONMENT_ARTIFACT_CONSTRAINT.ENVIRONMENT_UID.eq(environmentUid),
+          ENVIRONMENT_ARTIFACT_CONSTRAINT.TYPE.eq(state.type),
+          ENVIRONMENT_ARTIFACT_CONSTRAINT.ARTIFACT_VERSION.eq(state.artifactVersion),
+          ENVIRONMENT_ARTIFACT_CONSTRAINT.ARTIFACT_REFERENCE.eq(state.artifactReference)
+        )
+        .fetchOne(ENVIRONMENT_ARTIFACT_CONSTRAINT.UID)
+    } ?: randomUID().toString()
 
-        sqlRetry.withRetry(WRITE) {
-          jooq.transaction { config ->
-            val txn = DSL.using(config)
-            txn
-              .insertInto(ENVIRONMENT_ARTIFACT_CONSTRAINT)
-              .set(ENVIRONMENT_ARTIFACT_CONSTRAINT.UID, uid)
-              .set(ENVIRONMENT_ARTIFACT_CONSTRAINT.ENVIRONMENT_UID, envUid)
-              .set(ENVIRONMENT_ARTIFACT_CONSTRAINT.ARTIFACT_VERSION, state.artifactVersion)
-              .set(ENVIRONMENT_ARTIFACT_CONSTRAINT.ARTIFACT_REFERENCE, state.artifactReference)
-              .set(ENVIRONMENT_ARTIFACT_CONSTRAINT.TYPE, state.type)
-              .set(ENVIRONMENT_ARTIFACT_CONSTRAINT.CREATED_AT, state.createdAt)
-              .set(ENVIRONMENT_ARTIFACT_CONSTRAINT.STATUS, state.status)
-              .set(ENVIRONMENT_ARTIFACT_CONSTRAINT.JUDGED_BY, state.judgedBy)
-              .set(ENVIRONMENT_ARTIFACT_CONSTRAINT.JUDGED_AT, state.judgedAt)
-              .set(ENVIRONMENT_ARTIFACT_CONSTRAINT.COMMENT, state.comment)
-              .set(
-                ENVIRONMENT_ARTIFACT_CONSTRAINT.ATTRIBUTES,
-                objectMapper.writeValueAsString(state.attributes)
-              )
-              .onDuplicateKeyUpdate()
-              .set(
-                ENVIRONMENT_ARTIFACT_CONSTRAINT.STATUS,
-                values(ENVIRONMENT_ARTIFACT_CONSTRAINT.STATUS)
-              )
-              .set(
-                ENVIRONMENT_ARTIFACT_CONSTRAINT.JUDGED_BY,
-                values(ENVIRONMENT_ARTIFACT_CONSTRAINT.JUDGED_BY)
-              )
-              .set(
-                ENVIRONMENT_ARTIFACT_CONSTRAINT.JUDGED_AT,
-                values(ENVIRONMENT_ARTIFACT_CONSTRAINT.JUDGED_AT)
-              )
-              .set(
-                ENVIRONMENT_ARTIFACT_CONSTRAINT.COMMENT,
-                values(ENVIRONMENT_ARTIFACT_CONSTRAINT.COMMENT)
-              )
-              .set(
-                ENVIRONMENT_ARTIFACT_CONSTRAINT.ATTRIBUTES,
-                values(ENVIRONMENT_ARTIFACT_CONSTRAINT.ATTRIBUTES)
-              )
-              .set(ENVIRONMENT_ARTIFACT_CONSTRAINT.ARTIFACT_REFERENCE, state.artifactReference)
-              .execute()
+    val application = applicationByDeliveryConfigName(state.deliveryConfigName)
+    val environment = get(state.deliveryConfigName)
+      .environments
+      .firstOrNull {
+        it.name == state.environmentName
+      }
+      ?: error("Environment ${state.environmentName} does not exist in ${state.deliveryConfigName}")
 
-            txn
-              .insertInto(CURRENT_CONSTRAINT)
-              .set(CURRENT_CONSTRAINT.APPLICATION, application)
-              .set(CURRENT_CONSTRAINT.ENVIRONMENT_UID, envUid)
-              .set(CURRENT_CONSTRAINT.TYPE, state.type)
-              .set(CURRENT_CONSTRAINT.CONSTRAINT_UID, uid)
-              .onDuplicateKeyUpdate()
-              .set(
-                CURRENT_CONSTRAINT.CONSTRAINT_UID,
-                values(CURRENT_CONSTRAINT.CONSTRAINT_UID)
-              )
-              .execute()
+    sqlRetry.withRetry(WRITE) {
+      jooq.transaction { config ->
+        val txn = DSL.using(config)
+        txn
+          .insertInto(ENVIRONMENT_ARTIFACT_CONSTRAINT)
+          .set(ENVIRONMENT_ARTIFACT_CONSTRAINT.UID, uid)
+          .set(ENVIRONMENT_ARTIFACT_CONSTRAINT.ENVIRONMENT_UID, environmentUid)
+          .set(ENVIRONMENT_ARTIFACT_CONSTRAINT.ARTIFACT_VERSION, state.artifactVersion)
+          .set(ENVIRONMENT_ARTIFACT_CONSTRAINT.ARTIFACT_REFERENCE, state.artifactReference)
+          .set(ENVIRONMENT_ARTIFACT_CONSTRAINT.TYPE, state.type)
+          .set(ENVIRONMENT_ARTIFACT_CONSTRAINT.CREATED_AT, state.createdAt)
+          .set(ENVIRONMENT_ARTIFACT_CONSTRAINT.STATUS, state.status)
+          .set(ENVIRONMENT_ARTIFACT_CONSTRAINT.JUDGED_BY, state.judgedBy)
+          .set(ENVIRONMENT_ARTIFACT_CONSTRAINT.JUDGED_AT, state.judgedAt)
+          .set(ENVIRONMENT_ARTIFACT_CONSTRAINT.COMMENT, state.comment)
+          .set(ENVIRONMENT_ARTIFACT_CONSTRAINT.ATTRIBUTES, objectMapper.writeValueAsString(state.attributes))
+          .onDuplicateKeyUpdate()
+          .set(ENVIRONMENT_ARTIFACT_CONSTRAINT.ARTIFACT_REFERENCE, state.artifactReference)
+          .set(ENVIRONMENT_ARTIFACT_CONSTRAINT.STATUS, state.status)
+          .set(ENVIRONMENT_ARTIFACT_CONSTRAINT.JUDGED_BY, state.judgedBy)
+          .set(ENVIRONMENT_ARTIFACT_CONSTRAINT.JUDGED_AT, state.judgedAt)
+          .set(ENVIRONMENT_ARTIFACT_CONSTRAINT.COMMENT, state.comment)
+          .set(ENVIRONMENT_ARTIFACT_CONSTRAINT.ATTRIBUTES, objectMapper.writeValueAsString(state.attributes))
+          .execute()
 
-            /**
-             * Passing the transaction here since [constraintStateForWithTransaction] is querying [ENVIRONMENT_ARTIFACT_CONSTRAINT]
-             * table, and we need to make sure the new state was persisted prior to checking all states for a given artifact version.
-             *
-             * We need to do this so that stateful constraints that aren't the latest still get approved for deployment.
-             */
-            val allStates = constraintStateForWithTransaction(
-              state.deliveryConfigName,
-              state.environmentName,
-              state.artifactVersion,
-              state.artifactReference,
-              txn
-            )
-            if (allStates.allPass && allStates.size >= environment.constraints.statefulCount) {
-              log.debug("Queueing version ${state.artifactVersion} of artifact reference ${state.artifactReference} in " +
-                "environment ${state.environmentName} and config ${state.deliveryConfigName} for approval")
-              txn.insertInto(ENVIRONMENT_ARTIFACT_QUEUED_APPROVAL)
-                .set(ENVIRONMENT_ARTIFACT_QUEUED_APPROVAL.ENVIRONMENT_UID, envUid)
-                .set(ENVIRONMENT_ARTIFACT_QUEUED_APPROVAL.ARTIFACT_VERSION, state.artifactVersion)
-                .set(ENVIRONMENT_ARTIFACT_QUEUED_APPROVAL.QUEUED_AT, clock.instant())
-                .set(
-                  ENVIRONMENT_ARTIFACT_QUEUED_APPROVAL.ARTIFACT_REFERENCE,
-                  state.artifactReference
-                )
-                .onDuplicateKeyIgnore()
-                .execute()
-            } else {
-              log.debug("Not queueing version ${state.artifactVersion} of artifact reference ${state.artifactReference} in " +
-                "environment ${state.environmentName} and config ${state.deliveryConfigName} for approval: " +
-                "allStatefulPass=${allStates.allPass}, allStates.size=${allStates.size}, " +
-                "envStatefulCount=${environment.constraints.statefulCount}, states=$allStates")
-            }
-          }
-          // Store generated UID in constraint state object so it can be used by caller
-          state.uid = parseUID(uid)
+        txn
+          .insertInto(CURRENT_CONSTRAINT)
+          .set(CURRENT_CONSTRAINT.APPLICATION, application)
+          .set(CURRENT_CONSTRAINT.ENVIRONMENT_UID, environmentUid)
+          .set(CURRENT_CONSTRAINT.TYPE, state.type)
+          .set(CURRENT_CONSTRAINT.CONSTRAINT_UID, uid)
+          .onDuplicateKeyUpdate()
+          .set(
+            CURRENT_CONSTRAINT.CONSTRAINT_UID,
+            values(CURRENT_CONSTRAINT.CONSTRAINT_UID)
+          )
+          .execute()
+
+        /**
+         * Passing the transaction here since [constraintStateForWithTransaction] is querying [ENVIRONMENT_ARTIFACT_CONSTRAINT]
+         * table, and we need to make sure the new state was persisted prior to checking all states for a given artifact version.
+         *
+         * We need to do this so that stateful constraints that aren't the latest still get approved for deployment.
+         */
+        val allStates = constraintStateForWithTransaction(
+          state.deliveryConfigName,
+          state.environmentName,
+          state.artifactVersion,
+          state.artifactReference,
+          txn
+        )
+        if (allStates.allPass && allStates.size >= environment.constraints.statefulCount) {
+          log.debug("Queueing version ${state.artifactVersion} of artifact reference ${state.artifactReference} in " +
+            "environment ${state.environmentName} and config ${state.deliveryConfigName} for approval")
+          txn.insertInto(ENVIRONMENT_ARTIFACT_QUEUED_APPROVAL)
+            .set(ENVIRONMENT_ARTIFACT_QUEUED_APPROVAL.ENVIRONMENT_UID, environmentUid)
+            .set(ENVIRONMENT_ARTIFACT_QUEUED_APPROVAL.ARTIFACT_VERSION, state.artifactVersion)
+            .set(ENVIRONMENT_ARTIFACT_QUEUED_APPROVAL.QUEUED_AT, clock.instant())
+            .set(ENVIRONMENT_ARTIFACT_QUEUED_APPROVAL.ARTIFACT_REFERENCE, state.artifactReference)
+            .onDuplicateKeyIgnore()
+            .execute()
+        } else {
+          log.debug("Not queueing version ${state.artifactVersion} of artifact reference ${state.artifactReference} in " +
+            "environment ${state.environmentName} and config ${state.deliveryConfigName} for approval: " +
+            "allStatefulPass=${allStates.allPass}, allStates.size=${allStates.size}, " +
+            "envStatefulCount=${environment.constraints.statefulCount}, states=$allStates")
         }
       }
+      // Store generated UID in constraint state object so it can be used by caller
+      state.uid = parseUID(uid)
+    }
     state.log("storeConstraintState (after)")
   }
 
@@ -1187,6 +1166,7 @@ class SqlDeliveryConfigRepository(
             .set(ENVIRONMENT_ARTIFACT_QUEUED_APPROVAL.ARTIFACT_VERSION, artifactVersion)
             .set(ENVIRONMENT_ARTIFACT_QUEUED_APPROVAL.QUEUED_AT, clock.instant())
             .set(ENVIRONMENT_ARTIFACT_QUEUED_APPROVAL.ARTIFACT_REFERENCE, artifact.reference)
+            // don't update anything if we attempt to re-queue
             .onDuplicateKeyIgnore()
             .execute()
         }

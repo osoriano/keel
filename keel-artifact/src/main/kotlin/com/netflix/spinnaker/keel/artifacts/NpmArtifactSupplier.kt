@@ -3,12 +3,9 @@ package com.netflix.spinnaker.keel.artifacts
 import com.netflix.spinnaker.config.DefaultWorkhorseCoroutineContext
 import com.netflix.spinnaker.config.WorkhorseCoroutineContext
 import com.netflix.spinnaker.keel.api.DeliveryConfig
-import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
-import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.NPM
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
-import com.netflix.spinnaker.keel.api.artifacts.SortingStrategy
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
 import com.netflix.spinnaker.keel.api.support.EventPublisher
@@ -42,7 +39,7 @@ class NpmArtifactSupplier(
     limit: Int
   ): List<PublishedArtifact> {
     return artifactService
-      .getVersions(artifact.nameForQuery, artifact.statusesForQuery, NPM)
+      .getVersions(artifact.nameForQuery, NPM)
       // FIXME: this is making N calls to fill in data for each version so we can sort.
       //  Ideally, we'd make a single call to return the list with details for each version.
       .also {
@@ -66,9 +63,6 @@ class NpmArtifactSupplier(
   // The API requires colons in place of slashes to avoid path pattern conflicts
   private val DeliveryArtifact.nameForQuery: String
     get() = name.replace("/", ":")
-
-  private val DeliveryArtifact.statusesForQuery: List<String>
-    get() = statuses.map { it.name }
 
   // Currently, we don't have any limitations for NPM artifact versions
   override fun shouldProcessArtifact(artifact: PublishedArtifact) = true

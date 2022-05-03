@@ -12,7 +12,7 @@ class BasicCodeEventTests : JUnit5Minutests {
     context("base class validation") {
       test("passes when repo key is well-formed") {
         expectCatching {
-          val goodCodeEvent = object : CodeEvent(repoKey = "stash/project/repo", targetBranch = "master", targetProjectKey = "project", targetRepoSlug = "repo")  {
+          val goodCodeEvent = object : CodeEvent(repoKey = "stash/project/repo", targetBranch = "main", targetProjectKey = "project", targetRepoSlug = "repo")  {
             override val type: String = "fake"
           }
           goodCodeEvent.validate()
@@ -21,7 +21,7 @@ class BasicCodeEventTests : JUnit5Minutests {
 
       test("throws an exception when the repo key is mal-formed") {
         expectCatching {
-          val badCodeEvent = object : CodeEvent("a-bad-repo-key", "master", targetProjectKey = "project", targetRepoSlug = "repo") {
+          val badCodeEvent = object : CodeEvent("a-bad-repo-key", "main", targetProjectKey = "project", targetRepoSlug = "repo") {
             override val type: String = "fake"
           }
           badCodeEvent.validate()

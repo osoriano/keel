@@ -10,6 +10,7 @@ import com.netflix.spinnaker.config.PostDeployActionsConfig
 import com.netflix.spinnaker.config.ResourceCheckConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
+import com.netflix.spinnaker.keel.api.artifacts.fromBranch
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
 import com.netflix.spinnaker.keel.persistence.AgentLockRepository
@@ -108,7 +109,8 @@ internal class CheckSchedulerTests : JUnit5Minutests {
       vmOptions = VirtualMachineOptions(
         baseOs = "bionic-classic",
         regions = setOf("us-west-2", "us-east-1")
-      )
+      ),
+      from = fromBranch("main")
     ),
     DockerArtifact(
       name = "fnord-but-like-in-a-container",

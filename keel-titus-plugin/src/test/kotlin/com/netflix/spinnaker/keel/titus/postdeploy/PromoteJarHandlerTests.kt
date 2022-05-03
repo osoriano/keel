@@ -69,7 +69,7 @@ class PromoteJarHandlerTests {
 
   @Test
   fun `passes branch to the container`() {
-    coEvery { keelRepository.getArtifactVersion(any(), any(), any()) } returns publishedArtifact
+    coEvery { keelRepository.getArtifactVersion(any(), any()) } returns publishedArtifact
 
     runBlocking { subject.start(context, PromoteJarPostDeployAction()) }
 
@@ -94,7 +94,7 @@ class PromoteJarHandlerTests {
 
   @Test
   fun `defaults to master branch`() {
-    coEvery { keelRepository.getArtifactVersion(any(), any(), any()) } returns publishedArtifact.copy(gitMetadata = null)
+    coEvery { keelRepository.getArtifactVersion(any(), any()) } returns publishedArtifact.copy(gitMetadata = null)
 
     runBlocking { subject.start(context, PromoteJarPostDeployAction()) }
 
@@ -113,7 +113,7 @@ class PromoteJarHandlerTests {
     }
 
     expectThat(containerVars).captured.and {
-      hasEntry("GIT_BRANCH", "master")
+      hasEntry("GIT_BRANCH", "main")
     }
   }
 }

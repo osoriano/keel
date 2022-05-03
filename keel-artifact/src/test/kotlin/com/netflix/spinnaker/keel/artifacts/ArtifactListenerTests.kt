@@ -8,11 +8,11 @@ import com.netflix.spinnaker.keel.api.artifacts.DOCKER
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.BRANCH_JOB_COMMIT_BY_JOB
-import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
 import com.netflix.spinnaker.keel.api.events.ArtifactRegisteredEvent
 import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
 import com.netflix.spinnaker.keel.config.ArtifactRefreshConfig
 import com.netflix.spinnaker.keel.persistence.KeelRepository
+import com.netflix.spinnaker.keel.test.debianArtifact
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import io.mockk.coEvery as every
@@ -56,15 +56,24 @@ internal class ArtifactListenerTests : JUnit5Minutests {
     type = DOCKER,
     customKind = false,
     name = "fnord/myimage",
-    version = "master-h5.blahblah",
+    version = "main-h5.blahblah",
     reference = "fnord"
   )
 
   val newerPublishedDocker = publishedDocker.copy(version = "master-h6.hehehe")
 
-  val debianArtifact = DebianArtifact(name = "fnord", deliveryConfigName = "fnord-config", vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2")))
-  val dockerArtifact = DockerArtifact(name = "fnord/myimage", tagVersionStrategy = BRANCH_JOB_COMMIT_BY_JOB, deliveryConfigName = "fnord-config")
-  val deliveryConfig = DeliveryConfig(name = "fnord-config", application = "fnord", serviceAccount = "keel", artifacts = setOf(debianArtifact, dockerArtifact))
+  val debianArtifact = debianArtifact()
+  val dockerArtifact = DockerArtifact(
+    name = "fnord/myimage",
+    tagVersionStrategy = BRANCH_JOB_COMMIT_BY_JOB,
+    deliveryConfigName = "fnord-config"
+  )
+  val deliveryConfig = DeliveryConfig(
+    name = "fnord-config",
+    application = "fnord",
+    serviceAccount = "keel",
+    artifacts = setOf(debianArtifact, dockerArtifact)
+  )
 
   abstract class ArtifactListenerFixture {
     val repository: KeelRepository = mockk(relaxUnitFun = true)
@@ -93,11 +102,7 @@ internal class ArtifactListenerTests : JUnit5Minutests {
 
   fun artifactRegisteredEventTests() = rootContext<RegisteredFixture> {
     fixture {
-      DebianArtifact(
-        name = "fnord",
-        vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2")),
-        deliveryConfigName = "fnord-config"
-      ).let {
+      debianArtifact().let {
         RegisteredFixture(
           event = ArtifactRegisteredEvent(it),
           artifact = it

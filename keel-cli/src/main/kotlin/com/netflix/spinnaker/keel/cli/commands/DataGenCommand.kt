@@ -10,6 +10,7 @@ import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
+import com.netflix.spinnaker.keel.api.artifacts.fromBranch
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec
 import com.netflix.spinnaker.keel.api.ec2.EC2_CLUSTER_V1_1
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
@@ -35,7 +36,8 @@ class DataGenCommand(
       deliveryConfigName = TEST_APP,
       name = TEST_DEB_PACKAGE,
       vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2")),
-      reference = TEST_APP
+      reference = TEST_APP,
+      from = fromBranch("main")
     )
     private val HEX_CHAR_POOL : List<Char> = ('0'..'9') + ('a'..'f')
   }
@@ -74,7 +76,7 @@ class DataGenCommand(
           type = TEST_ARTIFACT.type,
           version = "1.0.$index",
           createdAt = Instant.now(),
-          gitMetadata = GitMetadata(commit = makeFakeCommitHash(), author = "joesmith", branch = "master"),
+          gitMetadata = GitMetadata(commit = makeFakeCommitHash(), author = "joesmith", branch = "main"),
           buildMetadata = BuildMetadata(id = index, status = "SUCCEEDED")
         )
       )

@@ -33,29 +33,24 @@ class SqlArtifactRepositoryTests : ArtifactRepositoryTests<SqlArtifactRepository
     every { isEnabled(FeatureToggles.USE_READ_REPLICA, any()) } returns true
   }
   private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties), featureToggles)
-  private val mutableClock = MutableClock()
   private val artifact = DockerArtifact(name = "myart", deliveryConfigName = "myconfig", from = ArtifactOriginFilter(branch = BranchFilter("main")))
 
-  private val deliveryConfigRepository = SqlDeliveryConfigRepository(
-      jooq,
-      mutableClock,
-      objectMapper,
-      resourceFactory(),
-      sqlRetry,
-      defaultArtifactSuppliers(),
-      publisher = mockk(relaxed = true),
-      featureToggles = mockk()
+  override fun deliveryConfigRepository() = SqlDeliveryConfigRepository(
+    jooq,
+    clock,
+    objectMapper,
+    resourceFactory(),
+    sqlRetry,
+    defaultArtifactSuppliers(),
+    publisher = mockk(relaxed = true),
+    featureToggles = mockk()
   )
 
-  override fun factory(clock: Clock, publisher: ApplicationEventPublisher): SqlArtifactRepository =
+  override fun factory(): SqlArtifactRepository =
     SqlArtifactRepository(jooq, clock, objectMapper, sqlRetry, defaultArtifactSuppliers(), publisher)
 
   override fun SqlArtifactRepository.flush() {
     cleanupDb(jooq)
-  }
-
-  override fun persist(manifest: DeliveryConfig) {
-    deliveryConfigRepository.store(manifest)
   }
 
   @AfterEach
@@ -74,7 +69,7 @@ class SqlArtifactRepositoryTests : ArtifactRepositoryTests<SqlArtifactRepository
 
     // version 3 is the candidate
     // version 1 is the current
-    val pending = factory(mutableClock, publisher).removeExtra(
+    val pending = factory().removeExtra(
       versions = versions,
       artifact = artifact,
       mjVersion = version3,
@@ -94,7 +89,7 @@ class SqlArtifactRepositoryTests : ArtifactRepositoryTests<SqlArtifactRepository
     val versions = listOf(version0, version1, version2, version3, version4).toArtifactVersions(artifact)
 
     // version 3 is the candidate
-    val pending = factory(mutableClock, publisher).removeExtra(
+    val pending = factory().removeExtra(
       versions = versions,
       artifact = artifact,
       mjVersion = version3,
@@ -113,7 +108,7 @@ class SqlArtifactRepositoryTests : ArtifactRepositoryTests<SqlArtifactRepository
         version = version,
         gitMetadata = null,
         buildMetadata = null,
-        createdAt = mutableClock.tickMinutes(1)
+        createdAt = clock.tickMinutes(1)
       )
     }
 }

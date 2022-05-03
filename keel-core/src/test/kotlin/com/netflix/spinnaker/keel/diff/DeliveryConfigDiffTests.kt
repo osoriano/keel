@@ -38,7 +38,7 @@ internal class DeliveryConfigDiffTests : JUnit5Minutests {
     val artifact = DockerArtifact(
       name = "docker-artifact",
       deliveryConfigName = "myconfig",
-      from = ArtifactOriginFilter(branch = BranchFilter("master"))
+      from = ArtifactOriginFilter(branch = BranchFilter("main"))
     )
 
     val anotherArtifact = DockerArtifact(

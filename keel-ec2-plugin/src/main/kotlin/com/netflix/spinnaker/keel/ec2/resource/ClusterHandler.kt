@@ -15,10 +15,10 @@ import com.netflix.spinnaker.keel.api.SubnetAwareLocations
 import com.netflix.spinnaker.keel.api.SubnetAwareRegionSpec
 import com.netflix.spinnaker.keel.api.actuation.Job
 import com.netflix.spinnaker.keel.api.actuation.TaskLauncher
-import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus.UNKNOWN
 import com.netflix.spinnaker.keel.api.artifacts.DEBIAN
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
+import com.netflix.spinnaker.keel.api.artifacts.fromBranch
 import com.netflix.spinnaker.keel.api.ec2.Capacity
 import com.netflix.spinnaker.keel.api.ec2.Capacity.AutoScalingCapacity
 import com.netflix.spinnaker.keel.api.ec2.Capacity.DefaultCapacity
@@ -90,8 +90,9 @@ import com.netflix.spinnaker.keel.ec2.MissingAppVersionException
 import com.netflix.spinnaker.keel.ec2.toEc2Api
 import com.netflix.spinnaker.keel.events.ResourceHealthEvent
 import com.netflix.spinnaker.keel.exceptions.ActiveServerGroupsException
-import com.netflix.spinnaker.keel.exceptions.ArtifactNotSupportedException
-import com.netflix.spinnaker.keel.exceptions.ExportError
+import com.netflix.spinnaker.keel.exceptions.ArtifactMetadataUnavailableException
+import com.netflix.spinnaker.keel.exceptions.ArtifactExportException
+import com.netflix.spinnaker.keel.exceptions.TagToReleaseArtifactException
 import com.netflix.spinnaker.keel.filterNotNullValues
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactService
 import com.netflix.spinnaker.keel.jenkins.JenkinsService
@@ -297,7 +298,7 @@ class ClusterHandler(
 
     // let's assume that the largest server group is the most important and should be the base
     val base = serverGroups.values.maxByOrNull { it.capacity.desired ?: it.capacity.min }
-      ?: throw ExportError("Unable to calculate the server group with the largest capacity from server groups $serverGroups")
+      ?: throw ArtifactExportException("Unable to calculate the server group with the largest capacity from server groups $serverGroups")
 
     // Construct the minimal locations object
     val locations = SubnetAwareLocations(
@@ -342,8 +343,7 @@ class ClusterHandler(
       moniker = exportable.moniker,
       regions = exportable.regions,
       serviceAccount = exportable.user
-    )
-      .byRegion()
+    ).byRegion()
 
     if (serverGroups.isEmpty()) {
       throw ResourceNotFound(
@@ -353,10 +353,10 @@ class ClusterHandler(
     }
 
     val base = serverGroups.values.maxByOrNull { it.capacity.desired ?: it.capacity.min }
-      ?: throw ExportError("Unable to determine largest server group: $serverGroups")
+      ?: throw ArtifactExportException("Unable to determine largest server group: $serverGroups")
 
     if (base.image == null) {
-      throw ExportError("Server group ${base.name} doesn't have image information - unable to correctly export artifact.")
+      throw ArtifactExportException("Server group ${base.name} doesn't have image information - unable to correctly export artifact.")
     }
 
     // TODO: Frigga and Rocket version parsing are not aligned. We should consolidate.
@@ -366,12 +366,15 @@ class ClusterHandler(
     val artifact = try {
       artifactService.getArtifact(artifactName, artifactVersion, DEBIAN)
     } catch (e: HttpException) {
-      if (e.isNotFound)
-        throw ArtifactNotSupportedException("Failed to fetch information for artifact $artifactName")
-      else throw ExportError("Error fetching information for artifact $artifactName: ${e.message}")
+      if (e.isNotFound) {
+        throw ArtifactMetadataUnavailableException(DEBIAN, artifactName)
+      }
+      else {
+        throw ArtifactExportException("Error fetching information for artifact $artifactName: ${e.message}")
+      }
     }
 
-    // prefer branch-based artifact spec, fallback to release statuses
+    // fail if branch-based artifact spec is not possible
     if (artifact.branch != null && artifact.branch != artifact.commitHash) {
       log.debug("Found branch name '{}' for artifact {}:{} from metadata. Returning source-driven artifact.",
         artifact.branch, artifactName, artifactVersion)
@@ -379,29 +382,18 @@ class ClusterHandler(
       return DebianArtifact(
         name = artifactName,
         vmOptions = VirtualMachineOptions(regions = serverGroups.keys, baseOs = guessBaseOsFrom(base.image)),
-        branch = artifact.branch,
-        //provide a unique reference name
+        from = fromBranch(artifact.branch),
+        // provide a unique reference name
         reference = "$artifactName:${artifact.branch}"
       )
     } else {
       if (artifact.branch == artifact.commitHash) {
         log.debug("artifact $artifactName branch is set to commit hash. It can happen because it was tag-to-release" +
           "or was build with a non-rocket build plugin")
+        throw TagToReleaseArtifactException(artifact)
+      } else {
+        throw ArtifactMetadataUnavailableException(DEBIAN, artifactName)
       }
-      // fall back to exporting the artifact in the old format if we can't retrieve metadata
-      log.debug("Unable to retrieve branch name for artifact {}:{} from metadata. Returning legacy artifact.",
-        appVersion.packageName, appVersion.version)
-
-      val status = debianArtifactParser.parseStatus(base.launchConfiguration.appVersion?.substringAfter("$artifactName-"))
-      if (status == UNKNOWN) {
-        throw ExportError("Unable to determine release status from appVersion ${base.launchConfiguration.appVersion}, you'll have to configure this artifact manually.")
-      }
-
-      return DebianArtifact(
-        name = artifactName,
-        vmOptions = VirtualMachineOptions(regions = serverGroups.keys, baseOs = guessBaseOsFrom(base.image)),
-        statuses = setOf(status)
-      )
     }
   }
 
@@ -411,7 +403,7 @@ class ClusterHandler(
    */
   private fun guessBaseOsFrom(image: ActiveServerGroupImage?): String =
     parseBaseOsFrom(image?.description)
-      ?: throw ExportError("Unable to determine the base image from image description: $image")
+      ?: throw ArtifactExportException("Unable to determine the base image from image description: $image")
 
   /**
    * Parses the base os from the start of the ancestor name of a description like:

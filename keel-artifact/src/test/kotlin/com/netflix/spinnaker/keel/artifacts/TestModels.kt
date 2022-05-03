@@ -55,7 +55,7 @@ val disguisedPublishedDocker = PublishedArtifact(
         "projectKey" to "abe",
         "repoName" to "xp-env",
         "refId" to "refs/heads/master",
-        "branchName" to "master",
+        "branchName" to "main",
         "sha" to "8a946cccabf31fb8352a69e0f4d2dbfb5d73503a",
         "message" to "Merge pull request #44 in ABE/xp-env from jeffreyw/add_r_kernel to master\n\n* commit 'b6043374d8a569…",
         "url" to "https://stash.corp.netflix.com/projects/abe/repos/xp-env/commits/8a946cccabf31fb8352a69e0f4d2dbfb5d73503a",

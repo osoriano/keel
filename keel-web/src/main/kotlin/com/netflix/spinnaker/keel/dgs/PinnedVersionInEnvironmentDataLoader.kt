@@ -1,6 +1,5 @@
 package com.netflix.spinnaker.keel.dgs
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.graphql.dgs.DgsDataLoader
 import com.netflix.graphql.dgs.context.DgsContext
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
@@ -40,7 +39,7 @@ class PinnedVersionInEnvironmentDataLoader(
           PinnedArtifactAndEnvironment(artifactUniqueId = it.artifact.uniqueId(), environment = it.targetEnvironment)
         },
         {
-          val versionData = keelRepository.getArtifactVersion(artifact = it.artifact, version = it.version, status = null)
+          val versionData = keelRepository.getArtifactVersion(artifact = it.artifact, version = it.version)
           it.toDgs(versionData)
         }
       ).toMutableMap()

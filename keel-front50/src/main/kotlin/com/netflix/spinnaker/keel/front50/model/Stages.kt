@@ -8,13 +8,10 @@ import com.fasterxml.jackson.annotation.JsonSubTypes.Type
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.annotation.JsonTypeInfo.As
 import com.fasterxml.jackson.annotation.JsonTypeInfo.Id
-import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus
 import com.netflix.spinnaker.keel.api.artifacts.BaseLabel
 import com.netflix.spinnaker.keel.api.artifacts.BaseLabel.RELEASE
 import com.netflix.spinnaker.keel.api.artifacts.StoreType
 import com.netflix.spinnaker.keel.api.artifacts.StoreType.EBS
-import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
-import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 
 /**
  * A stage in a Spinnaker [Pipeline].
@@ -69,24 +66,7 @@ data class BakeStage(
   val vmType: String = "hvm",
   val cloudProviderType: String = "aws"
 ) : Stage() {
-
   override val type = "bake"
-
-  val artifact: DebianArtifact
-    get() = DebianArtifact(
-      name = `package`,
-      vmOptions = VirtualMachineOptions(
-        baseLabel = baseLabel,
-        baseOs = baseOs,
-        regions = regions,
-        storeType = storeType
-      ),
-      statuses = try {
-        setOf(ArtifactStatus.valueOf(baseLabel.name))
-      } catch (e: IllegalArgumentException) {
-        emptySet()
-      }
-    )
 }
 
 data class DeployStage(

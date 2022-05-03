@@ -11,6 +11,7 @@ import com.netflix.spinnaker.keel.api.actuation.Task
 import com.netflix.spinnaker.keel.api.actuation.TaskLauncher
 import com.netflix.spinnaker.keel.api.artifacts.DEBIAN
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
+import com.netflix.spinnaker.keel.api.artifacts.fromBranch
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.FAIL
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus.PASS
 import com.netflix.spinnaker.keel.api.plugins.CurrentImages
@@ -59,7 +60,8 @@ class ImageTaggerTests : JUnit5Minutests {
       reference = "waffle",
       name = "waffle",
       deliveryConfigName = "waffles",
-      vmOptions = VirtualMachineOptions(baseOs = "butter-classic", regions = setOf("table", "plate"))
+      vmOptions = VirtualMachineOptions(baseOs = "butter-classic", regions = setOf("table", "plate")),
+      from = fromBranch("main")
     )
     val env = Environment(
       name = "breakfast",

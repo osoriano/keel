@@ -56,8 +56,7 @@ class PromoteJarHandler(
 
     val fullArtifact = keelRepository.getArtifactVersion(
       artifact = deliveryArtifact,
-      version = context.version,
-      status = null
+      version = context.version
     )
     requireNotNull(fullArtifact) { "No artifact details found for artifact reference ${context.artifactReference} and version ${context.version} in config ${context.deliveryConfig.application}" }
 
@@ -80,7 +79,7 @@ class PromoteJarHandler(
     "$buildNumber"
 
   fun PublishedArtifact.branch(): String =
-    gitMetadata?.branch ?: "master"
+    gitMetadata?.branch ?: "main"
 
   private fun PromoteJarConfig.location() : TitusServerGroup.Location {
     requireNotNull(account) { "Titus account must be set in the promote jar config"}

@@ -40,6 +40,7 @@ import com.netflix.spinnaker.keel.ec2.resource.SecurityGroupHandler
 import com.netflix.spinnaker.keel.export.ExportService.Companion.EXPORTABLE_PIPELINE_SHAPES
 import com.netflix.spinnaker.keel.export.canary.CanaryConstraint
 import com.netflix.spinnaker.keel.front50.Front50Cache
+import com.netflix.spinnaker.keel.api.artifacts.fromBranch
 import com.netflix.spinnaker.keel.front50.model.Cluster
 import com.netflix.spinnaker.keel.front50.model.DeployStage
 import com.netflix.spinnaker.keel.front50.model.GenericStage
@@ -62,6 +63,7 @@ import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.test.applicationLoadBalancer
 import com.netflix.spinnaker.keel.test.classicLoadBalancer
 import com.netflix.spinnaker.keel.test.configuredTestObjectMapper
+import com.netflix.spinnaker.keel.test.debianArtifact
 import com.netflix.spinnaker.keel.test.ec2Cluster
 import com.netflix.spinnaker.keel.test.mockEnvironment
 import com.netflix.spinnaker.keel.test.securityGroup
@@ -386,11 +388,7 @@ internal class ExportServiceTests {
       })
     )
 
-  private val artifact = DebianArtifact(
-    appName,
-    reference = appName,
-    vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2"))
-  )
+  private val artifact = debianArtifact(appName)
 
   private val dockerArtifact = DockerArtifact(
     name = "org/$appName",

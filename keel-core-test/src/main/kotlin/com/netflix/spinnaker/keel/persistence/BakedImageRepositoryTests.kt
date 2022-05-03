@@ -2,6 +2,7 @@ package com.netflix.spinnaker.keel.persistence
 
 import com.netflix.spinnaker.keel.api.artifacts.BaseLabel.RELEASE
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
+import com.netflix.spinnaker.keel.api.artifacts.fromBranch
 import com.netflix.spinnaker.keel.artifacts.BakedImage
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.time.MutableClock
@@ -46,7 +47,8 @@ abstract class BakedImageRepositoryTests<T : BakedImageRepository> : JUnit5Minut
     vmOptions = VirtualMachineOptions(
       baseOs = "bionic-classic",
       regions = setOf("us-west-1", "us-east-1")
-    )
+    ),
+    from = fromBranch("main")
   )
 
   data class Fixture<T : BakedImageRepository>(

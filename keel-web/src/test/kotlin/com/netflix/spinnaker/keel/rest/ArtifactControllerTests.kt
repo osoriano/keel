@@ -50,9 +50,9 @@ internal class ArtifactControllerTests {
             "repoKey" to "stash/org/myrepo",
             "prId" to "11494",
             "sha" to  "953910b24a776eceab03d4dcae8ac050b2e0b668",
-            "branch" to "master",
+            "branch" to "main",
             "prBranch" to "feature/branch",
-            "targetBranch" to "master",
+            "targetBranch" to "main",
             "originalPayload" to mapOf(
               "causedBy" to mapOf(
                 "email" to "keel@keel"

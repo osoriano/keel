@@ -1,6 +1,5 @@
 package com.netflix.spinnaker.keel.artifacts
 
-import com.netflix.frigga.ami.AppVersion
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus.SNAPSHOT
@@ -12,11 +11,11 @@ import com.netflix.spinnaker.keel.api.artifacts.Job
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PullRequest
 import com.netflix.spinnaker.keel.api.artifacts.Repo
-import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
 import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
 import com.netflix.spinnaker.keel.api.support.SpringEventPublisherBridge
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactService
+import com.netflix.spinnaker.keel.test.debianArtifact
 import com.netflix.spinnaker.keel.test.deliveryConfig
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
@@ -28,7 +27,6 @@ import strikt.api.expectThat
 import strikt.assertions.isEqualTo
 import strikt.assertions.isFalse
 import strikt.assertions.isNotNull
-import strikt.assertions.isNull
 import strikt.assertions.isTrue
 import io.mockk.coEvery as every
 import io.mockk.coVerify as verify
@@ -39,16 +37,8 @@ internal class DebianArtifactSupplierTests : JUnit5Minutests {
     val eventBridge: SpringEventPublisherBridge = mockk(relaxUnitFun = true)
     val artifactMetadataService: ArtifactMetadataService = mockk(relaxUnitFun = true)
     val deliveryConfig = deliveryConfig()
-
-    val debianArtifact = DebianArtifact(
-      name = "fnord",
-      deliveryConfigName = deliveryConfig.name,
-      vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2")),
-      statuses = setOf(SNAPSHOT)
-    )
-
+    val debianArtifact = debianArtifact()
     val commitId = "a15p0"
-
     val versions = listOf("2.0.0-h120.608bd90", "2.1.0-h130.18ed1dc")
 
     val latestArtifact = PublishedArtifact(
@@ -111,7 +101,7 @@ internal class DebianArtifactSupplierTests : JUnit5Minutests {
           link = ""
         ),
         project = "spkr",
-        branch = "master"
+        branch = "main"
       )
     )
 
@@ -128,8 +118,8 @@ internal class DebianArtifactSupplierTests : JUnit5Minutests {
       val versionSlot = slot<String>()
       before {
         every {
-          artifactService.getVersions(debianArtifact.name, listOf(SNAPSHOT.name), DEBIAN)
-        } returns versions
+          artifactService.getVersions(debianArtifact.name, DEBIAN)
+        } returns versions.reversed()
 
         every {
           artifactService.getArtifact(debianArtifact.name, capture(versionSlot), DEBIAN)
@@ -168,7 +158,7 @@ internal class DebianArtifactSupplierTests : JUnit5Minutests {
             }
             expectThat(result?.version).isNotNull().isEqualTo(latestArtifact.version)
             verify(exactly = 1) {
-              artifactService.getVersions(debianArtifact.name, listOf(SNAPSHOT.name), DEBIAN)
+              artifactService.getVersions(debianArtifact.name, DEBIAN)
               artifactService.getArtifact(debianArtifact.name, any(), DEBIAN)
             }
           }
@@ -187,7 +177,7 @@ internal class DebianArtifactSupplierTests : JUnit5Minutests {
             }
             expectThat(result?.version).isNotNull().isEqualTo(latestArtifact.version)
             verify(exactly = 1) {
-              artifactService.getVersions(debianArtifact.name, listOf(SNAPSHOT.name), DEBIAN)
+              artifactService.getVersions(debianArtifact.name, DEBIAN)
             }
             verify(exactly = versions.size) {
               artifactService.getArtifact(debianArtifact.name, any(), DEBIAN)
@@ -208,11 +198,6 @@ internal class DebianArtifactSupplierTests : JUnit5Minutests {
 
       test("should not process artifact with local in its version string") {
         expectThat(debianArtifactSupplier.shouldProcessArtifact(artifactWithInvalidVersion))
-          .isFalse()
-      }
-
-      test("should not process artifact without a status") {
-        expectThat(debianArtifactSupplier.shouldProcessArtifact(artifactWithoutStatus))
           .isFalse()
       }
     }

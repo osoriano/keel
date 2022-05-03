@@ -9,7 +9,6 @@ import com.netflix.spinnaker.keel.api.ResourceSpec
 import com.netflix.spinnaker.keel.api.action.Action
 import com.netflix.spinnaker.keel.api.action.ActionState
 import com.netflix.spinnaker.keel.api.action.ActionStateFull
-import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
@@ -112,12 +111,7 @@ interface KeelReadOnlyRepository {
   ): Set<String>
 
   /**
-   * Returns the release status for the specified [version] of the [artifact], if available.
-   */
-  fun getReleaseStatus(artifact: DeliveryArtifact, version: String): ArtifactStatus?
-
-  /**
    * @return A [PublishedArtifact] object representing the specified artifact version, if known to Keel.
    */
-  fun getArtifactVersion(artifact: DeliveryArtifact, version: String, status: ArtifactStatus? = null): PublishedArtifact?
+  fun getArtifactVersion(artifact: DeliveryArtifact, version: String): PublishedArtifact?
 }

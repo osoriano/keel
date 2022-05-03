@@ -3,13 +3,13 @@ package com.netflix.spinnaker.keel.bakery.artifact
 import com.netflix.frigga.ami.AppVersion
 import com.netflix.spinnaker.keel.api.actuation.Task
 import com.netflix.spinnaker.keel.api.actuation.TaskLauncher
-import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus
 import com.netflix.spinnaker.keel.api.artifacts.BaseLabel.RELEASE
 import com.netflix.spinnaker.keel.api.artifacts.DEBIAN
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.StoreType.EBS
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
+import com.netflix.spinnaker.keel.api.artifacts.fromBranch
 import com.netflix.spinnaker.keel.api.events.ArtifactRegisteredEvent
 import com.netflix.spinnaker.keel.artifacts.BakedImage
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
@@ -61,7 +61,8 @@ internal class ImageHandlerTests : JUnit5Minutests {
         baseOs = "xenial",
         regions = setOf("us-west-2", "us-east-1"),
         storeType = EBS
-      )
+      ),
+      from = fromBranch("main")
     )
     val artifactIgnoreBaseUpdates = DebianArtifact(
       name = "keel",
@@ -240,7 +241,7 @@ internal class ImageHandlerTests : JUnit5Minutests {
           before {
             every { repository.artifactVersions(artifact, any()) } throws NoSuchArtifactException(artifact)
             every { repository.isRegistered(artifact.name, artifact.type) } returns false
-            every { igorService.getVersions(any(), any(), DEBIAN) } returns listOf(appVersion)
+            every { igorService.getVersions(any(), DEBIAN) } returns listOf(appVersion)
 
             runHandler(artifact)
           }
@@ -264,13 +265,13 @@ internal class ImageHandlerTests : JUnit5Minutests {
               every { repository.artifactVersions(artifact, any()) } returns emptyList()
               every { repository.versionsInUse(artifact) } returns emptySet()
               every { repository.isRegistered(artifact.name, artifact.type) } returns true
-              every { igorService.getVersions(any(), any(), DEBIAN) } returns emptyList()
+              every { igorService.getVersions(any(), DEBIAN) } returns emptyList()
 
               runHandler(artifact)
             }
 
             test("we do actually go check in Igor") {
-              verify { igorService.getVersions(artifact.name, artifact.statuses.map(ArtifactStatus::toString), DEBIAN) }
+              verify { igorService.getVersions(artifact.name, DEBIAN) }
             }
 
             test("the handler completes successfully") {
@@ -351,7 +352,7 @@ internal class ImageHandlerTests : JUnit5Minutests {
                     )
                   } returns null
 
-                  every { repository.getArtifactVersion(artifact, appVersion, null) } returns PublishedArtifact(
+                  every { repository.getArtifactVersion(artifact, appVersion) } returns PublishedArtifact(
                     name = artifact.name,
                     reference = artifact.reference,
                     version = appVersion,
@@ -414,7 +415,7 @@ internal class ImageHandlerTests : JUnit5Minutests {
                     )
                   } returns null
 
-                  every { repository.getArtifactVersion(artifact, appVersion, null) } returns PublishedArtifact(
+                  every { repository.getArtifactVersion(artifact, appVersion) } returns PublishedArtifact(
                     name = artifact.name,
                     reference = artifact.reference,
                     version = appVersion,
@@ -457,7 +458,7 @@ internal class ImageHandlerTests : JUnit5Minutests {
                     )
                   } returns null
 
-                  every { repository.getArtifactVersion(artifact, appVersion, null) } returns PublishedArtifact(
+                  every { repository.getArtifactVersion(artifact, appVersion) } returns PublishedArtifact(
                     name = artifact.name,
                     reference = artifact.reference,
                     version = appVersion,
@@ -499,7 +500,7 @@ internal class ImageHandlerTests : JUnit5Minutests {
                     imageService.getLatestNamedImage(any(), any(), any(), any())
                   } returns image
 
-                  every { repository.getArtifactVersion(artifact, appVersion, null) } returns PublishedArtifact(
+                  every { repository.getArtifactVersion(artifact, appVersion) } returns PublishedArtifact(
                     name = artifact.name,
                     reference = artifact.reference,
                     version = appVersion,
@@ -594,7 +595,7 @@ internal class ImageHandlerTests : JUnit5Minutests {
                   amis = artifact.vmOptions.regions.associateWith { listOf("ami-${it.hashCode()}") }
                 )
 
-                every { repository.getArtifactVersion(artifact, version, null) } returns PublishedArtifact(
+                every { repository.getArtifactVersion(artifact, version) } returns PublishedArtifact(
                   name = artifact.name,
                   reference = artifact.reference,
                   version = version,

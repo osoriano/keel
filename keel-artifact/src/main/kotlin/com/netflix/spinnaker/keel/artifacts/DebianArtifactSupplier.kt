@@ -3,12 +3,9 @@ package com.netflix.spinnaker.keel.artifacts
 import com.netflix.spinnaker.config.DefaultWorkhorseCoroutineContext
 import com.netflix.spinnaker.config.WorkhorseCoroutineContext
 import com.netflix.spinnaker.keel.api.DeliveryConfig
-import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
 import com.netflix.spinnaker.keel.api.artifacts.DEBIAN
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
-import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
-import com.netflix.spinnaker.keel.api.artifacts.SortingStrategy
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
 import com.netflix.spinnaker.keel.api.support.EventPublisher
@@ -47,7 +44,7 @@ class DebianArtifactSupplier(
     limit: Int
   ): List<PublishedArtifact> {
     log.info("Fetching latest $limit debian versions for $artifact")
-    val versions = artifactService.getVersions(artifact.name, artifact.statusesForQuery, DEBIAN)
+    val versions = artifactService.getVersions(artifact.name, DEBIAN)
 
     val importantVersions = if (forceSortByVersion) {
       versions.sortedWith(DEBIAN_VERSION_COMPARATOR)
@@ -95,12 +92,8 @@ class DebianArtifactSupplier(
     return artifact.version
   }
 
-
-  private val DeliveryArtifact.statusesForQuery: List<String>
-    get() = statuses.map { it.name }
-
   override fun shouldProcessArtifact(artifact: PublishedArtifact): Boolean =
-    artifact.hasReleaseStatus() && artifact.hasCorrectVersion()
+    artifact.hasCorrectVersion()
 
 
   // Debian Artifacts should contain a releaseStatus in the metadata

@@ -291,7 +291,7 @@ class NotificationEventListenerTests : JUnit5Minutests {
         } returns SectionBlockBuilder()
 
 
-        every { repository.getArtifactVersion(releaseArtifact, any(), any()) } returns versions.toArtifactVersions(releaseArtifact).first()
+        every { repository.getArtifactVersion(releaseArtifact, any()) } returns versions.toArtifactVersions(releaseArtifact).first()
 
         every {
           repository.getArtifactVersionByPromotionStatus(any(), any(), any(), any())
@@ -352,7 +352,7 @@ class NotificationEventListenerTests : JUnit5Minutests {
           repository.getDeliveryConfig(any())
         } returns singleArtifactDeliveryConfig
 
-        every { repository.getArtifactVersion(releaseArtifact, any(), any()) } returns versions.toArtifactVersions(releaseArtifact).first()
+        every { repository.getArtifactVersion(releaseArtifact, any()) } returns versions.toArtifactVersions(releaseArtifact).first()
       }
 
       test("send notifications to relevant environments only") {
@@ -365,7 +365,7 @@ class NotificationEventListenerTests : JUnit5Minutests {
 
     context("artifact deployment notifications") {
       before {
-        every { repository.getArtifactVersion(releaseArtifact, any(), any()) } returns versions.toArtifactVersions(releaseArtifact).first()
+        every { repository.getArtifactVersion(releaseArtifact, any()) } returns versions.toArtifactVersions(releaseArtifact).first()
 
         every {
           repository.getArtifactVersionByPromotionStatus(any(), any(), any(), any())
@@ -493,7 +493,7 @@ class NotificationEventListenerTests : JUnit5Minutests {
 
     context("verification completed notifications") {
       before {
-        every { repository.getArtifactVersion(releaseArtifact, any(), any()) } returns versions.toArtifactVersions(releaseArtifact).first()
+        every { repository.getArtifactVersion(releaseArtifact, any()) } returns versions.toArtifactVersions(releaseArtifact).first()
 
         every {
           repository.getDeliveryConfig(any())

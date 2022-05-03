@@ -78,9 +78,8 @@ import com.netflix.spinnaker.keel.docker.DigestProvider
 import com.netflix.spinnaker.keel.docker.ReferenceProvider
 import com.netflix.spinnaker.keel.events.ResourceHealthEvent
 import com.netflix.spinnaker.keel.exceptions.ActiveServerGroupsException
-import com.netflix.spinnaker.keel.exceptions.ArtifactNotSupportedException
 import com.netflix.spinnaker.keel.exceptions.DockerArtifactExportError
-import com.netflix.spinnaker.keel.exceptions.ExportError
+import com.netflix.spinnaker.keel.exceptions.ArtifactExportException
 import com.netflix.spinnaker.keel.orca.ClusterExportHelper
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.orca.toOrcaJobProperties
@@ -306,7 +305,7 @@ class TitusClusterHandler(
 
     // let's assume that the largest server group is the most important and should be the base
     val base = serverGroups.values.maxByOrNull { it.capacity.desired ?: it.capacity.min }
-      ?: throw ExportError("Unable to calculate the server group with the largest capacity from server groups $serverGroups")
+      ?: throw ArtifactExportException("Unable to calculate the server group with the largest capacity from server groups $serverGroups")
 
     val locations = SimpleLocations(
       account = exportable.account,
@@ -355,7 +354,7 @@ class TitusClusterHandler(
     }
 
     val container = serverGroups.values.maxByOrNull { it.capacity.desired ?: it.capacity.min }?.container
-      ?: throw ExportError("Unable to locate container from the largest server group: $serverGroups")
+      ?: throw ArtifactExportException("Unable to locate container from the largest server group: $serverGroups")
 
     val registry = cloudDriverCache.getRegistryForTitusAccount(exportable.account)
 
@@ -365,7 +364,7 @@ class TitusClusterHandler(
     )
 
     val matchingImage = images.firstOrNull { it.digest == container.digest }
-      ?: throw ExportError("Unable to find matching image (searching by digest) in registry ($registry) for $container")
+      ?: throw ArtifactExportException("Unable to find matching image (searching by digest) in registry ($registry) for $container")
 
     // prefer branch-based artifact spec, fallback to tag version strategy
     return if (matchingImage.branch != null) {

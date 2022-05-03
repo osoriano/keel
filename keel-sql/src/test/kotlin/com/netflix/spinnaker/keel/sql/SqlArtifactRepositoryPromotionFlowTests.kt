@@ -3,6 +3,7 @@ package com.netflix.spinnaker.keel.sql
 import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.persistence.ArtifactRepositoryPromotionFlowTests
+import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
 import com.netflix.spinnaker.keel.test.configuredTestObjectMapper
 import com.netflix.spinnaker.keel.test.defaultArtifactSuppliers
 import com.netflix.spinnaker.keel.test.resourceFactory
@@ -24,28 +25,23 @@ class SqlArtifactRepositoryPromotionFlowTests : ArtifactRepositoryPromotionFlowT
   }
   private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties), featureToggles)
 
-  private val deliveryConfigRepository = SqlDeliveryConfigRepository(
-      jooq,
-      Clock.systemUTC(),
-      objectMapper,
-      resourceFactory(),
-      sqlRetry,
-      defaultArtifactSuppliers(),
-      publisher = mockk(relaxed = true),
-      featureToggles = mockk()
+  override fun deliveryConfigRepository() = SqlDeliveryConfigRepository(
+    jooq,
+    Clock.systemUTC(),
+    objectMapper,
+    resourceFactory(),
+    sqlRetry,
+    defaultArtifactSuppliers(),
+    publisher = mockk(relaxed = true),
+    featureToggles = mockk()
   )
 
-  override fun factory(clock: Clock, publisher: ApplicationEventPublisher): SqlArtifactRepository =
+  override fun factory(): SqlArtifactRepository =
     SqlArtifactRepository(jooq, clock, objectMapper, sqlRetry, defaultArtifactSuppliers(), publisher)
 
   override fun SqlArtifactRepository.flush() {
     cleanupDb(jooq)
   }
-
-  override fun persist(manifest: DeliveryConfig) {
-    deliveryConfigRepository.store(manifest)
-  }
-
 
   @AfterEach
   fun flush() {

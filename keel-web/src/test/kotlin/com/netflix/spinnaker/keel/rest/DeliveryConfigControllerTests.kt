@@ -7,6 +7,7 @@ import com.netflix.spinnaker.keel.KeelApplication
 import com.netflix.spinnaker.keel.api.PreviewEnvironmentSpec
 import com.netflix.spinnaker.keel.api.artifacts.BranchFilter
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
+import com.netflix.spinnaker.keel.api.artifacts.fromBranch
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport.TargetEntity.APPLICATION
@@ -102,7 +103,8 @@ internal class DeliveryConfigControllerTests
         vmOptions = VirtualMachineOptions(
           baseOs = "bionic",
           regions = setOf("us-west-2")
-        )
+        ),
+        from = fromBranch("main")
       )
     ),
     environments = setOf(
@@ -188,6 +190,9 @@ internal class DeliveryConfigControllerTests
         |    baseOs: bionic
         |    regions:
         |    - ap-south-1
+        |  from:
+        |    branch:
+        |      name: main
         |environments:
         |- name: test
         |  locations: &locations
@@ -232,6 +237,11 @@ internal class DeliveryConfigControllerTests
         |        "regions": [
         |          "ap-south-1"
         |        ]
+        |      },
+        |      "from": {
+        |        "branch": {
+        |          "name": "main"
+        |        }
         |      }
         |    }
         |  ],
