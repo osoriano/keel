@@ -23,6 +23,7 @@ import com.netflix.spinnaker.keel.api.ResourceStatusSnapshot
 import com.netflix.spinnaker.keel.events.ApplicationEvent
 import com.netflix.spinnaker.keel.events.ResourceEvent
 import com.netflix.spinnaker.keel.events.ResourceHistoryEvent
+import com.netflix.spinnaker.keel.events.ResourceState
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -159,6 +160,10 @@ interface ResourceRepository : PeriodicallyCheckedRepository<Resource<ResourceSp
    * different values.
    */
   override fun itemsDueForCheck(minTimeSinceLastCheck: Duration, limit: Int): Collection<Resource<ResourceSpec>>
+
+  fun getLastCheckedTime(resource: Resource<*>): Instant?
+
+  fun setLastCheckedTime(resource: Resource<*>)
 
   /**
    * Resets the last checked time for all resources in the environmet to the initial value

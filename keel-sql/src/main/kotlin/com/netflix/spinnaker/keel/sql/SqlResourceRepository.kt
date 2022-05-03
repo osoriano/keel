@@ -588,6 +588,28 @@ class SqlResourceRepository(
     }
   }
 
+  override fun getLastCheckedTime(resource: Resource<*>): Instant? =
+    sqlRetry.withRetry(READ) {
+      jooq
+        .select(RESOURCE_LAST_CHECKED.AT)
+        .from(RESOURCE_LAST_CHECKED)
+        .where(RESOURCE_LAST_CHECKED.RESOURCE_UID.eq(resource.uid))
+        .fetchOne(RESOURCE_LAST_CHECKED.AT)
+    }
+
+  override fun setLastCheckedTime(resource: Resource<*>) {
+    sqlRetry.withRetry(WRITE) {
+      val now = clock.instant()
+      jooq
+        .insertInto(RESOURCE_LAST_CHECKED)
+        .set(RESOURCE_LAST_CHECKED.RESOURCE_UID, resource.uid)
+        .set(RESOURCE_LAST_CHECKED.AT, now)
+        .onDuplicateKeyUpdate()
+        .set(RESOURCE_LAST_CHECKED.AT, now)
+        .execute()
+    }
+  }
+
   override fun markCheckComplete(resource: Resource<*>, status: Any?) {
     require(status is ResourceState)
     sqlRetry.withRetry(WRITE) {

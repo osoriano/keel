@@ -9,8 +9,10 @@ import com.netflix.spinnaker.keel.scheduling.SchedulingConsts.TEMPORAL_CHECKER
 import com.netflix.spinnaker.keel.telemetry.ResourceCheckStarted
 import com.netflix.spinnaker.keel.telemetry.ResourceLoadFailed
 import com.netflix.spinnaker.keel.test.resource
+import io.mockk.Runs
 import io.mockk.coVerify
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.jupiter.api.Test
@@ -41,12 +43,15 @@ class DefaultActuatorActivitiesTest {
       application = "keel"
     )
     every { keelRepository.getResource("ec2:security-group:prod:ap-south-1:keel-sg") } returns res
+    every { keelRepository.getLastCheckedTime(any()) } returns clock.instant().minusSeconds(60)
+    every { keelRepository.setLastCheckedTime(any()) } just Runs
 
     subject.checkResource(ActuatorActivities.CheckResourceRequest("ec2:security-group:prod:ap-south-1:keel-sg"))
 
     coVerify(timeout = 500) {
       publisher.publishEvent(ResourceCheckStarted(res, checker = TEMPORAL_CHECKER))
       resourceActuator.checkResource(res)
+      keelRepository.setLastCheckedTime(any())
     }
   }
 
@@ -59,6 +64,9 @@ class DefaultActuatorActivitiesTest {
 
     verify {
       publisher.publishEvent(ResourceLoadFailed(ex))
+    }
+    verify (exactly = 0) {
+      keelRepository.setLastCheckedTime(any())
     }
   }
 }

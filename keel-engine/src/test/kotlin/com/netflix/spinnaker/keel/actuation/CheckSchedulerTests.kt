@@ -112,7 +112,9 @@ internal class CheckSchedulerTests : JUnit5Minutests {
 
   private val environmentCleaner: EnvironmentCleaner = mockk()
 
-  private val resourceSchedulerService: ResourceSchedulerService = mockk(relaxed = true)
+  private val resourceSchedulerService: ResourceSchedulerService = mockk(relaxed = true) {
+    every { isFullyEnabled() } returns false
+  }
 
   private val resources = listOf(
     resource(

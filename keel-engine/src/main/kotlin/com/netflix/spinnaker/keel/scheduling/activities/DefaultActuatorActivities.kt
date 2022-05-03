@@ -3,6 +3,8 @@ package com.netflix.spinnaker.keel.scheduling.activities
 import com.netflix.spectator.api.BasicTag
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.keel.actuation.ResourceActuator
+import com.netflix.spinnaker.keel.events.ResourceState
+import com.netflix.spinnaker.keel.events.ResourceState.Ok
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.scheduling.SchedulingConsts.TEMPORAL_CHECKER
 import com.netflix.spinnaker.keel.telemetry.ResourceCheckCompleted
@@ -41,13 +43,15 @@ class DefaultActuatorActivities(
             publisher.publishEvent(ResourceCheckStarted(it, TEMPORAL_CHECKER))
             resourceActuator.checkResource(it)
             publisher.publishEvent(ResourceCheckCompleted(Duration.between(startTime, clock.instant()), it.id, TEMPORAL_CHECKER))
+
+            keelRepository.getLastCheckedTime(it)?.let { lastCheckTime ->
+              recordCheckAge(lastCheckTime)
+            }
+            keelRepository.setLastCheckedTime(it)
           }
         }
     }
     recordDuration(startTime, "resource")
-    request.lastChecked?.also {
-      recordCheckAge(it)
-    }
   }
 
   override fun monitorResource(request: ActuatorActivities.MonitorResourceRequest) {

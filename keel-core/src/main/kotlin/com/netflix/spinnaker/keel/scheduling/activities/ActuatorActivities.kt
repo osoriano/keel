@@ -21,8 +21,7 @@ interface ActuatorActivities {
 
   data class MonitorResourceRequest(
     val resourceId: String,
-    val resourceKind: String,
-    val lastChecked: Instant = Instant.now()
+    val resourceKind: String
   ) {
     fun toCheckResourceRequest(lastChecked: Instant): CheckResourceRequest =
       CheckResourceRequest(resourceId, lastChecked)

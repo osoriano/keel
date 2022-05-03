@@ -40,6 +40,13 @@ class ResourceSchedulerService(
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
+  /**
+   * return true if temporal scheduling is fully on, and all old scheduling should be disabled
+   */
+  fun isFullyEnabled(): Boolean =
+    environment.getProperty(ENABLED_GLOBALLY_CONFIG, Boolean::class.java, false) &&
+     featureToggles.isEnabled(SUPERVISOR_SCHEDULING_CONFIG, false)
+
   fun isScheduling(application: String): Boolean {
     return environment.isTemporalSchedulingEnabled(application)
   }

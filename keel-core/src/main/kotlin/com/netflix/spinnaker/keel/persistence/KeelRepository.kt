@@ -8,6 +8,7 @@ import com.netflix.spinnaker.keel.api.NotificationConfig
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceDiffFactory
 import com.netflix.spinnaker.keel.api.ResourceSpec
+import com.netflix.spinnaker.keel.api.ResourceStatus
 import com.netflix.spinnaker.keel.api.ResourceStatusSnapshot
 import com.netflix.spinnaker.keel.api.action.Action
 import com.netflix.spinnaker.keel.api.action.ActionRepository
@@ -481,6 +482,12 @@ class KeelRepository(
     resourceRepository.triggerResourceRecheck(environmentName, deliveryConfig.application)
     resourceSchedulerService.checkNow(deliveryConfig, environmentName)
   }
+
+  fun getLastCheckedTime(resource: Resource<*>): Instant? =
+    resourceRepository.getLastCheckedTime(resource)
+
+  fun setLastCheckedTime(resource: Resource<*>) =
+    resourceRepository.setLastCheckedTime(resource)
 
   // END ResourceRepository methods
 

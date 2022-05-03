@@ -156,8 +156,7 @@ class ResourceSchedulerImpl : ResourceScheduler {
           pollerActivity.monitorResource(
             ActuatorActivities.MonitorResourceRequest(
               request.resourceId,
-              request.resourceKind,
-              request.lastChecked
+              request.resourceKind
             )
           )
         }

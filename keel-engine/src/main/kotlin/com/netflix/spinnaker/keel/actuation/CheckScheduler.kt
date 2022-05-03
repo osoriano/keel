@@ -124,7 +124,7 @@ class CheckScheduler(
   @Scheduled(fixedDelayString = "\${keel.resource-check.frequency:PT1S}")
   @NewSpan
   fun checkResources() {
-    if (enabled.get()) {
+    if (enabled.get() && !resourceSchedulerService.isFullyEnabled()) {
       val startTime = clock.instant()
       val job = launch(blankMDC) {
         supervisorScope {
