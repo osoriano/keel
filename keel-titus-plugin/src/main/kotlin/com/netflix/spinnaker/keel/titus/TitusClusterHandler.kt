@@ -807,7 +807,7 @@ private fun jsonStringify(arguments: Map<String, Any>?) =
 
   /**
    * For server groups with scaling policies, the [TitusClusterSpec] will not include a desired value. so we use the
-   * higher of the desired value the server group we're replacing uses, or the min. This means we won't catastrophically
+   * higher of the desired value the server group we're replacing uses, or the max. This means we won't catastrophically
    * down-size a server group by deploying it.
    */
   private fun ResourceDiff<TitusServerGroup>.resolveDesiredCapacity() =
@@ -815,7 +815,7 @@ private fun jsonStringify(arguments: Map<String, Any>?) =
       // easy case: spec supplied the desired value as there are no scaling policies in effect
       is DefaultCapacity -> desired.capacity.desired
       // scaling policies exist, so use a safe value
-      is AutoScalingCapacity -> maxOf(current?.capacity?.desired ?: 0, desired.capacity.min)
+      is AutoScalingCapacity -> maxOf(current?.capacity?.desired ?: 0, desired.capacity.max)
     }
 
   override fun Resource<TitusClusterSpec>.upsertServerGroupManagedRolloutJob(
