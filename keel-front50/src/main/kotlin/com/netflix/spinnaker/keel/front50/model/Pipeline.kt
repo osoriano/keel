@@ -18,6 +18,7 @@ data class Pipeline(
   @JsonAlias("updateTs")
   private val _updateTs: Long? = null,
   val lastModifiedBy: String? = null,
+  val parameterConfig: List<PipelineParameterConfig> = emptyList(),
   val notifications: List<PipelineNotifications> = emptyList()
 ) {
   /**
@@ -106,3 +107,8 @@ fun List<Pipeline>.findPipelineWithDeployForCluster(findImageStage: FindImageSta
   }
   return null
 }
+
+data class PipelineParameterConfig(
+  val name: String,
+  val default: String? = null,
+)

@@ -32,7 +32,8 @@ import com.netflix.spinnaker.keel.artifacts.DebianArtifact
   Type(value = FindImageStage::class, name = "findImage"),
   Type(value = FindImageFromTagsStage::class, name = "findImageFromTags"),
   Type(value = ManualJudgmentStage::class, name = "manualJudgment"),
-  Type(value = JenkinsStage::class, name = "jenkins")
+  Type(value = JenkinsStage::class, name = "jenkins"),
+  Type(value = ChapCanaryStage::class, name = "runChapCanary")
 )
 abstract class Stage {
   abstract val type: String
@@ -159,3 +160,52 @@ data class JenkinsStage(
 ) : Stage() {
   override val type = "jenkins"
 }
+
+data class ChapCanaryStage(
+  override val name: String,
+  override val refId: String,
+  override val requisiteStageRefIds: List<String> = emptyList(),
+  val pipelineParameters: ChapCanaryParameters
+) : Stage() {
+  override val type = "runChapCanary"
+}
+
+data class ChapCanaryParameters(
+  val app: String,
+  val baselinePropertyOverrides: Map<String, String> = emptyMap(),
+  val configProperties: Map<String, String> = emptyMap(),
+  val cluster: String = "",
+  val clusterTag: String? = null,
+  val constraints: ChapCanaryConstraints,
+  val durationInMinutes: Any,
+  val env: String,
+  val global: Boolean = false,
+  val intervalInMinutes: Any,
+  val kayentaConfigIds: List<String>,
+  val numberOfInstances: Any?,
+  val regionMetadata: List<ChapCanaryRegionMetadata>,
+  val slidingWindow: Boolean = false,
+  val slidingWindowSize: Int?,
+  val warmupInMinutes: Any = 0
+)
+
+data class ChapCanaryRegionMetadata(
+  val imageId: String?,
+  val region: String,
+  val startDelayInMinutes: Int?,
+)
+
+data class ChapCanaryConstraints(
+  val canaryAnalysisThresholds: ChapCanaryAnalysisThresholds,
+  val resultStrategy: ChapCanaryResultStrategy
+)
+
+enum class ChapCanaryResultStrategy {
+  LOWEST, AVERAGE
+}
+
+data class ChapCanaryAnalysisThresholds(
+  val marginal: Int,
+  val pass: Int
+)
+

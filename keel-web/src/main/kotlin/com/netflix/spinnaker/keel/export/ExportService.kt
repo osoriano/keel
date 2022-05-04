@@ -47,6 +47,7 @@ import com.netflix.spinnaker.keel.core.api.AllowedTimesConstraint
 import com.netflix.spinnaker.keel.core.api.id
 import com.netflix.spinnaker.keel.core.parseMoniker
 import com.netflix.spinnaker.keel.exceptions.ArtifactNotSupportedException
+import com.netflix.spinnaker.keel.export.canary.extractCanaryConstraints
 import com.netflix.spinnaker.keel.filterNotNullValues
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.model.DeployStage
@@ -114,6 +115,7 @@ class ExportService(
       listOf("deploy", "manualJudgment", "deploy", "manualJudgment", "deploy"),
       listOf("deploy", "deploy", "deploy"),
       listOf("findImage", "deploy"),
+      listOf("findImage", "runChapCanary", "deploy"),
       listOf("findImage", "manualJudgement", "deploy"),
       listOf("findImageFromTags", "deploy"),
       listOf("findImageFromTags", "manualJudgement", "deploy"),
@@ -413,6 +415,8 @@ class ExportService(
           // 8a. look at the pipeline triggers and dependencies between pipelines to find any additional constraints
           val additionalConstraints = exportConstraintsFromTriggers(applicationName, deployPipeline, environment, deployPipelinesToEnvironments)
 
+          val canaryConstraints = extractCanaryConstraints(deployPipeline)
+
           // 8b. look at test pipelines independent of the deployment pipeline to find any additional verifications
           val additionalVerifications = if (includeVerifications) {
             testPipelines.exportVerifications(deployPipeline).onEach { (testPipeline, _) ->
@@ -426,7 +430,7 @@ class ExportService(
 
           pipelineNotifications = pipelineNotifications + deployPipeline.notifications
           environment.copy(
-            constraints = environment.constraints + additionalConstraints,
+            constraints = environment.constraints + additionalConstraints + canaryConstraints,
             notifications = notifications(environment.name, application.slackChannel?.name, deployPipeline.notifications),
             verifyWith = environment.verifyWith + additionalVerifications.values
           ).addMetadata(
