@@ -479,7 +479,9 @@ class KeelRepository(
     resourceRepository.itemsDueForCheck(minTimeSinceLastCheck, limit)
 
   fun triggerResourceRecheck(environmentName: String, deliveryConfig: DeliveryConfig) {
-    resourceRepository.triggerResourceRecheck(environmentName, deliveryConfig.application)
+    if (!resourceSchedulerService.isFullyEnabled()) {
+      resourceRepository.triggerResourceRecheck(environmentName, deliveryConfig.application)
+    }
     resourceSchedulerService.checkNow(deliveryConfig, environmentName)
   }
 
