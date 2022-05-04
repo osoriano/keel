@@ -98,13 +98,21 @@ internal class DependsOnConstraintEvaluatorTests : JUnit5Minutests {
     context("the requested version is not in the required environment") {
       before {
         every {
-          artifactRepository.wasSuccessfullyDeployedTo(deliveryConfig, artifact, "1.1", previousEnvironment.name)
+          artifactRepository.wasSuccessfullyDeployedTo(any(), artifact, "1.1", previousEnvironment.name)
         } returns false
       }
 
       test("promotion is vetoed") {
         expectThat(runBlocking { subject.constraintPasses(artifact, "1.1", deliveryConfig, constrainedEnvironment)})
           .isFalse()
+      }
+
+      test("with deploy delay") {
+        runBlocking {
+          expectThat(
+            subject.constraintPasses(artifact, "1.1", deliveryConfigWithDelay, constrainedEnvironmentWithDelay))
+            .isFalse()
+        }
       }
     }
 

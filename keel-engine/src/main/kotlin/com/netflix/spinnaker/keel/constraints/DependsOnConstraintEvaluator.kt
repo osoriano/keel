@@ -69,8 +69,12 @@ class DependsOnConstraintEvaluator(
     val verificationsPassed = actionRepository.allPassed(context, VERIFICATION)
     val postDeployActionsStarted = actionRepository.allStarted(context, POST_DEPLOY)
     val enoughTimeElapsed = if (constraint.deployAfter > Duration.ZERO) {
-      val deployedAt = artifactRepository.getDeployedAt(deliveryConfig, requiredEnvironment, artifact, version)
-      deployedAt.isBefore(clock.instant() - constraint.deployAfter)
+      if (successfullyDeployed) {
+        val deployedAt = artifactRepository.getDeployedAt(deliveryConfig, requiredEnvironment, artifact, version)
+        deployedAt.isBefore(clock.instant() - constraint.deployAfter)
+      } else {
+        false
+      }
     } else {
       true
     }
