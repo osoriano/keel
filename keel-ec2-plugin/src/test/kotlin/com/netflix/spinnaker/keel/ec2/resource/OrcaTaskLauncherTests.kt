@@ -42,10 +42,13 @@ import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.runBlocking
 import strikt.api.expectThat
+import strikt.assertions.all
 import strikt.assertions.first
+import strikt.assertions.getValue
 import strikt.assertions.hasSize
 import strikt.assertions.isEqualTo
 import strikt.assertions.isNotEmpty
+import strikt.assertions.isNotNull
 import org.springframework.core.env.Environment as SpringEnv
 
 class OrcaTaskLauncherTests : JUnit5Minutests {
@@ -58,6 +61,7 @@ class OrcaTaskLauncherTests : JUnit5Minutests {
     val taskLauncher = OrcaTaskLauncher(orcaService, combinedRepository, publisher, springEnv, listOf(jobInterceptor))
     val resource: Resource<DummyResourceSpec> = resource()
     val request = slot<OrchestrationRequest>()
+    val job = mapOf("type" to "fake")
   }
 
   fun tests() = rootContext<Fixture> {
@@ -73,7 +77,7 @@ class OrcaTaskLauncherTests : JUnit5Minutests {
       } returns false
     }
 
-    context("an environment exists") {
+    context("a job is submitted") {
       before {
         val notification = NotificationConfig(slack, "#my-channel", quiet)
         val env = Environment(
@@ -85,10 +89,10 @@ class OrcaTaskLauncherTests : JUnit5Minutests {
 
         every { combinedRepository.environmentFor(resource.id) } returns env
 
-        every { jobInterceptor.intercept(any(), any()) } returns emptyList()
+        every { jobInterceptor.intercept(any(), any()) } answers { arg(0) }
 
         runBlocking {
-          taskLauncher.submitJob(resource, "task description", "correlate this", mapOf())
+          taskLauncher.submitJob(resource, "task description", "correlate this", job)
         }
       }
 
@@ -106,6 +110,14 @@ class OrcaTaskLauncherTests : JUnit5Minutests {
       test("job interceptors get called") {
         verify {
           jobInterceptor.intercept(any(), any())
+        }
+      }
+
+      test("every stage indicates it came from Managed Delivery") {
+        expectThat(request.captured.job).all {
+          getValue("user")
+            .isNotNull()
+            .isEqualTo("Managed Delivery")
         }
       }
     }

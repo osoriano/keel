@@ -384,7 +384,7 @@ internal class ApplicationLoadBalancerHandlerTests : JUnit5Minutests {
           "regions" to resource.spec.locations.regions.map { it.name },
           "credentials" to resource.spec.locations.account,
           "vpcId" to lbModel.vpcId,
-          "user" to resource.serviceAccount,
+          "user" to "Managed Delivery"
         )
 
         runBlocking {

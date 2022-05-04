@@ -349,7 +349,7 @@ internal class ClassicLoadBalancerHandlerTests : JUnit5Minutests {
           "regions" to resource.spec.locations.regions.map { it.name },
           "credentials" to resource.spec.locations.account,
           "vpcId" to model.vpcId,
-          "user" to resource.serviceAccount,
+          "user" to "Managed Delivery"
         )
 
         runBlocking {

@@ -570,7 +570,7 @@ internal class SecurityGroupHandlerTests : JUnit5Minutests {
             "regions" to listOf(vpc.region),
             "credentials" to resource.spec.locations.account,
             "vpcId" to vpc.id,
-            "user" to resource.serviceAccount,
+            "user" to "Managed Delivery"
           )
         }
 

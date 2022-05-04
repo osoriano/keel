@@ -7,11 +7,13 @@ import com.netflix.spinnaker.keel.api.actuation.Job
 import com.netflix.spinnaker.keel.api.actuation.SubjectType
 import com.netflix.spinnaker.keel.api.actuation.Task
 import com.netflix.spinnaker.keel.api.actuation.TaskLauncher
+import com.netflix.spinnaker.keel.api.actuation.type
 import com.netflix.spinnaker.keel.api.plugins.JobInterceptor
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport.Companion.getSpinnakerAuthToken
 import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.events.TaskCreatedEvent
+import com.netflix.spinnaker.keel.model.OrcaJob
 import com.netflix.spinnaker.keel.model.OrcaNotification
 import com.netflix.spinnaker.keel.model.OrchestrationRequest
 import com.netflix.spinnaker.keel.model.OrchestrationTrigger
@@ -95,6 +97,11 @@ class OrcaTaskLauncher(
           description = description,
           job = jobInterceptors.fold(stages) { updatedStages, interceptor ->
             interceptor.intercept(updatedStages, user)
+          }.map {
+            // normalize to OrcaJob which sets the user field with a standardized value/format indicating the task
+            // originated in Managed Delivery (the actual user identity is taken from the authentication headers
+            // passed on the call to Orca)
+            OrcaJob(it.type, it)
           },
           trigger = OrchestrationTrigger(
             correlationId = correlationId,
