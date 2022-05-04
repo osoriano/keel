@@ -291,6 +291,12 @@ class ApplicationService(
     }
   }
 
+  fun validateDeliveryConfig(rawDeliveryConfig: Any): SubmittedDeliveryConfig {
+    return objectMapper.convertValue<SubmittedDeliveryConfig>(rawDeliveryConfig).also {
+      validator.validate(it)
+    }
+  }
+
   /**
    * This function is fetching application's data like config, repo and project name
    * And then calling Igor to create commit and open a pull request with the application's delivery config file
@@ -303,9 +309,7 @@ class ApplicationService(
     val deliveryConfig = if (rawDeliveryConfig == null) {
       applicationPrData.deliveryConfig
     } else {
-      objectMapper.convertValue<SubmittedDeliveryConfig>(rawDeliveryConfig).also {
-        validator.validate(it)
-      }
+      validateDeliveryConfig(rawDeliveryConfig)
     }
 
     //sending the exported config in a yml format, as string

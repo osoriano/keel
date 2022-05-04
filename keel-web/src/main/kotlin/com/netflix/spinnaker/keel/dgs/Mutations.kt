@@ -2,6 +2,7 @@ package com.netflix.spinnaker.keel.dgs
 
 import com.netflix.graphql.dgs.DgsComponent
 import com.netflix.graphql.dgs.DgsData
+import com.netflix.graphql.dgs.DgsMutation
 import com.netflix.graphql.dgs.InputArgument
 import com.netflix.graphql.dgs.exceptions.DgsEntityNotFoundException
 import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
@@ -25,6 +26,7 @@ import com.netflix.spinnaker.keel.graphql.types.MD_RetryArtifactActionPayload
 import com.netflix.spinnaker.keel.graphql.types.MD_RollbackToVersionPayload
 import com.netflix.spinnaker.keel.graphql.types.MD_ToggleResourceManagementPayload
 import com.netflix.spinnaker.keel.graphql.types.MD_UnpinArtifactVersionPayload
+import com.netflix.spinnaker.keel.graphql.types.MD_ValidateResult
 import com.netflix.spinnaker.keel.pause.ActuationPauser
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
@@ -49,7 +51,7 @@ class Mutations(
     private val log by lazy { LoggerFactory.getLogger(Mutations::class.java) }
   }
 
-  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_restartConstraintEvaluation)
+  @DgsMutation(field = DgsConstants.MUTATION.Md_restartConstraintEvaluation)
   @PreAuthorize(
     """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
     and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
@@ -64,7 +66,7 @@ class Mutations(
     return repository.deleteConstraintState(config.name, payload.environment, payload.reference, payload.version, payload.type) > 0
   }
 
-  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_updateConstraintStatus)
+  @DgsMutation(field = DgsConstants.MUTATION.Md_updateConstraintStatus)
   @PreAuthorize(
     """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
     and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
@@ -86,7 +88,7 @@ class Mutations(
     }
   }
 
-  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_toggleManagement)
+  @DgsMutation(field = DgsConstants.MUTATION.Md_toggleManagement)
   @PreAuthorize("@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #application)")
   fun toggleManagement(
     @InputArgument application: String,
@@ -103,7 +105,7 @@ class Mutations(
     return true
   }
 
-  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_pauseManagement)
+  @DgsMutation(field = DgsConstants.MUTATION.Md_pauseManagement)
   @PreAuthorize("@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #application)")
   fun pauseManagement(
     @InputArgument payload: MD_PausePayload,
@@ -114,7 +116,7 @@ class Mutations(
       return true
     }
 
-  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_resumeManagement)
+  @DgsMutation(field = DgsConstants.MUTATION.Md_resumeManagement)
   @PreAuthorize("@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #application)")
   fun resumeManagement(
     @InputArgument application: String,
@@ -124,7 +126,7 @@ class Mutations(
     return true
   }
 
-  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_rollbackToArtifactVersion)
+  @DgsMutation(field = DgsConstants.MUTATION.Md_rollbackToArtifactVersion)
   @PreAuthorize(
     """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
     and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
@@ -143,7 +145,7 @@ class Mutations(
     return true
   }
 
-  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_lockEnvironmentArtifact)
+  @DgsMutation(field = DgsConstants.MUTATION.Md_lockEnvironmentArtifact)
   @PreAuthorize(
     """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
     and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
@@ -156,7 +158,7 @@ class Mutations(
     return true
   }
 
-  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_pinArtifactVersion)
+  @DgsMutation(field = DgsConstants.MUTATION.Md_pinArtifactVersion)
   @PreAuthorize(
     """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
     and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
@@ -169,7 +171,7 @@ class Mutations(
     return true
   }
 
-  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_unpinArtifactVersion)
+  @DgsMutation(field = DgsConstants.MUTATION.Md_unpinArtifactVersion)
   @PreAuthorize(
     """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
     and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
@@ -187,7 +189,7 @@ class Mutations(
     return true
   }
 
-  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_markArtifactVersionAsBad)
+  @DgsMutation(field = DgsConstants.MUTATION.Md_markArtifactVersionAsBad)
   @PreAuthorize(
     """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
     and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
@@ -200,7 +202,7 @@ class Mutations(
     return true
   }
 
-  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_markArtifactVersionAsGood)
+  @DgsMutation(field = DgsConstants.MUTATION.Md_markArtifactVersionAsGood)
   @PreAuthorize(
     """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
     and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
@@ -218,7 +220,7 @@ class Mutations(
     return true
   }
 
-  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_retryArtifactVersionAction)
+  @DgsMutation(field = DgsConstants.MUTATION.Md_retryArtifactVersionAction)
   @PreAuthorize(
     """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
     and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
@@ -256,7 +258,7 @@ class Mutations(
   /**
    * Dismisses a notification, given it's ID.
    */
-  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_dismissNotification)
+  @DgsMutation(field = DgsConstants.MUTATION.Md_dismissNotification)
   @PreAuthorize(
     """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
     and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
@@ -269,7 +271,7 @@ class Mutations(
     return notificationRepository.dismissNotificationById(payload.application, ULID.parseULID(payload.id), user)
   }
 
-  @DgsData(parentType = DgsConstants.MUTATION.TYPE_NAME, field = DgsConstants.MUTATION.Md_toggleResourceManagement)
+  @DgsMutation(field = DgsConstants.MUTATION.Md_toggleResourceManagement)
   @PreAuthorize(
     """@authorizationSupport.hasApplicationPermission('WRITE', 'RESOURCE', #payload.id)
     and @authorizationSupport.hasServiceAccountAccess('RESOURCE', #payload.id)"""
@@ -284,6 +286,18 @@ class Mutations(
       actuationPauser.resumeResource(payload.id, user)
     }
     return true
+  }
+
+  @DgsMutation
+  fun md_validateDeliveryConfig(
+    @InputArgument config: Any,
+  ): MD_ValidateResult {
+    try {
+      applicationService.validateDeliveryConfig(config)
+    } catch (e: Exception) {
+      return MD_ValidateResult(success = false, errors = e.message?.let { listOf(it) })
+    }
+    return MD_ValidateResult(success = true)
   }
 }
 

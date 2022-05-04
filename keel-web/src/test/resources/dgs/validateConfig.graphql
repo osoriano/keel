@@ -1,0 +1,6 @@
+mutation initiateMigration($config: JSON!) {
+  md_validateDeliveryConfig(config: $config) {
+    success
+    errors
+  }
+}

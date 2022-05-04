@@ -1,6 +1,5 @@
 package com.netflix.spinnaker.keel.dgs
 
-import com.fasterxml.jackson.databind.jsontype.NamedType
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import com.netflix.graphql.dgs.DgsQueryExecutor
 import com.netflix.graphql.dgs.autoconfig.DgsAutoConfiguration
@@ -29,8 +28,8 @@ import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactVeto
 import com.netflix.spinnaker.keel.core.api.PinType
 import com.netflix.spinnaker.keel.core.api.PromotionStatus
 import com.netflix.spinnaker.keel.core.api.PublishedArtifactInEnvironment
-import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.core.api.normalize
+import com.netflix.spinnaker.keel.exceptions.InvalidAppNameException
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.Front50Service
 import com.netflix.spinnaker.keel.front50.model.ServiceAccount
@@ -38,6 +37,7 @@ import com.netflix.spinnaker.keel.graphql.types.MD_ActuationPlanStatus
 import com.netflix.spinnaker.keel.graphql.types.MD_Migration
 import com.netflix.spinnaker.keel.graphql.types.MD_MigrationStatus
 import com.netflix.spinnaker.keel.graphql.types.MD_UserPermissions
+import com.netflix.spinnaker.keel.graphql.types.MD_ValidateResult
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 import com.netflix.spinnaker.keel.persistence.LifecycleEventRepository
 import com.netflix.spinnaker.keel.migrations.ApplicationPrData
@@ -54,8 +54,6 @@ import com.netflix.spinnaker.keel.scm.ScmUtils
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
 import com.netflix.spinnaker.keel.services.ApplicationService
 import com.netflix.spinnaker.keel.services.ResourceStatusService
-import com.netflix.spinnaker.keel.test.DummyArtifact
-import com.netflix.spinnaker.keel.test.DummyResourceSpec
 import com.netflix.spinnaker.keel.test.deliveryConfig
 import com.netflix.spinnaker.keel.test.submittedDeliveryConfig
 import com.netflix.spinnaker.keel.test.submittedResource
@@ -79,9 +77,11 @@ import strikt.api.expectCatching
 import strikt.api.expectThat
 import strikt.assertions.contains
 import strikt.assertions.isEqualTo
+import strikt.assertions.isFalse
 import strikt.assertions.isNotNull
 import strikt.assertions.isNull
 import strikt.assertions.isSuccess
+import strikt.assertions.isTrue
 import strikt.mockk.isCaptured
 import java.time.Instant
 
@@ -256,6 +256,10 @@ class QueryTests {
     } just Runs
 
     every {
+      applicationService.validateDeliveryConfig(any())
+    } returns submittedDeliveryConfig
+
+    every {
       authorizationSupport.hasApplicationPermission("WRITE", "APPLICATION", any())
     } returns true
 
@@ -284,7 +288,6 @@ class QueryTests {
       timestamp = Instant.now(),
       environmentPlans = emptyList()
     )
-
   }
 
   fun getQuery(path: String) = javaClass.getResource(path).readText().trimIndent()
@@ -444,6 +447,46 @@ class QueryTests {
 
     coVerify { applicationService.openMigrationPr(deliveryConfig.application, user, any()) }
     coVerify { applicationService.storePausedMigrationConfig(deliveryConfig.application, user) }
+  }
+
+  @Test
+  fun `valid delivery config`() {
+    val configAsMap = mapper.convertValue(deliveryConfig, Map::class.java)
+
+    expectCatching {
+      dgsQueryExecutor.executeAndExtractJsonPathAsObject(
+        getQuery("/dgs/validateConfig.graphql"),
+        "data.md_validateDeliveryConfig",
+        mapOf("config" to configAsMap),
+        MD_ValidateResult::class.java,
+        getHeaders()
+      )
+    }.isSuccess().and {
+      get { success }.isTrue()
+      get { errors }.isNull()
+    }
+  }
+
+  @Test
+  fun `invalid delivery config`() {
+    every {
+      applicationService.validateDeliveryConfig(any())
+    } throws InvalidAppNameException("App name is missing")
+
+    val configAsMap = mapper.convertValue(deliveryConfig, Map::class.java).toMutableMap().remove("application")
+
+    expectCatching {
+      dgsQueryExecutor.executeAndExtractJsonPathAsObject(
+        getQuery("/dgs/validateConfig.graphql"),
+        "data.md_validateDeliveryConfig",
+        mapOf("config" to configAsMap),
+        MD_ValidateResult::class.java,
+        getHeaders()
+      )
+    }.isSuccess().and {
+      get { success }.isFalse()
+      get { errors }.isNotNull()
+    }
   }
 
   @Test

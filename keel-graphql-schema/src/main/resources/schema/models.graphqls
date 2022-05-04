@@ -445,6 +445,11 @@ type MD_Action {
   actionType: MD_ActionType!
 }
 
+type MD_ValidateResult {
+  success: Boolean!
+  errors: [String!]
+}
+
 type Mutation @extends {
   md_updateConstraintStatus(payload: MD_ConstraintStatusPayload!): Boolean
   md_restartConstraintEvaluation(payload: MD_RestartConstraintEvaluationPayload!): Boolean
@@ -467,6 +472,7 @@ type Mutation @extends {
   md_initiateApplicationMigration(payload: MD_InitiateApplicationMigrationPayload!): MD_Migration
   md_migrationReportIssue(payload: MD_MigrationReportIssuePayload!): Boolean
   md_recheckResource(payload: MD_RecheckResourcePayload!): Boolean
+  md_validateDeliveryConfig(config: JSON!): MD_ValidateResult
 }
 
 input MD_RecheckResourcePayload {
