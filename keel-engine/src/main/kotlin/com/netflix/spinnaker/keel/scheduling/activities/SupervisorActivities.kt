@@ -108,7 +108,7 @@ class DefaultSupervisorActivities(
         maybeHeartbeat(i++)
       }
 
-    throw ApplicationFailure.newFailure("continuing activity", "continuation")
+    throw ApplicationFailure.newFailure("continuation", "expected")
   }
 
   private fun maybeHeartbeat(i: Int) {
