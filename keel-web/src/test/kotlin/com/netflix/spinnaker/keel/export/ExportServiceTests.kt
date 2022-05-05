@@ -5,9 +5,13 @@ import com.fasterxml.jackson.databind.jsontype.NamedType
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import com.fasterxml.jackson.module.kotlin.convertValue
 import com.netflix.spinnaker.config.BaseUrlConfig
+import com.netflix.spinnaker.keel.api.Application
 import com.netflix.spinnaker.keel.api.Moniker
+import com.netflix.spinnaker.keel.api.SlackChannel
 import com.netflix.spinnaker.keel.api.TaskStatus.SUCCEEDED
+import com.netflix.spinnaker.keel.api.artifacts.ArtifactOriginFilter
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
+import com.netflix.spinnaker.keel.api.artifacts.branchName
 import com.netflix.spinnaker.keel.api.ec2.ApplicationLoadBalancerSpec
 import com.netflix.spinnaker.keel.api.ec2.ClusterDependencies
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec
@@ -22,10 +26,12 @@ import com.netflix.spinnaker.keel.api.titus.TITUS_CLUSTER_V1
 import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroupSpec
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
+import com.netflix.spinnaker.keel.artifacts.DockerArtifact
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.clouddriver.model.ApplicationLoadBalancerModel
 import com.netflix.spinnaker.keel.clouddriver.model.Credential
+import com.netflix.spinnaker.keel.core.api.AllowedTimesConstraint
 import com.netflix.spinnaker.keel.core.api.SubmittedResource
 import com.netflix.spinnaker.keel.ec2.resource.ApplicationLoadBalancerHandler
 import com.netflix.spinnaker.keel.ec2.resource.ClassicLoadBalancerHandler
@@ -33,8 +39,6 @@ import com.netflix.spinnaker.keel.ec2.resource.ClusterHandler
 import com.netflix.spinnaker.keel.ec2.resource.SecurityGroupHandler
 import com.netflix.spinnaker.keel.export.ExportService.Companion.EXPORTABLE_PIPELINE_SHAPES
 import com.netflix.spinnaker.keel.front50.Front50Cache
-import com.netflix.spinnaker.keel.api.Application
-import com.netflix.spinnaker.keel.api.SlackChannel
 import com.netflix.spinnaker.keel.front50.model.Cluster
 import com.netflix.spinnaker.keel.front50.model.DeployStage
 import com.netflix.spinnaker.keel.front50.model.GenericStage
@@ -127,19 +131,19 @@ internal class ExportServiceTests {
 
   private val ec2Cluster = ec2Cluster().copy(
     spec = ec2Cluster().spec.copy(
-       _defaults = ClusterSpec.ServerGroupSpec(
-         launchConfiguration = LaunchConfigurationSpec(
-           instanceType = "m5.large",
-           ebsOptimized = true,
-           iamRole = "fnordInstanceProfile",
-           instanceMonitoring = false
-         ),
-         dependencies = ClusterDependencies(
-           loadBalancerNames = setOf("fnord-internal"),
-           securityGroupNames = setOf("fnord", "fnord-elb", "nf-somthing"),
-           targetGroups = setOf("fnord-awesome")
-         ),
-       )
+      _defaults = ClusterSpec.ServerGroupSpec(
+        launchConfiguration = LaunchConfigurationSpec(
+          instanceType = "m5.large",
+          ebsOptimized = true,
+          iamRole = "fnordInstanceProfile",
+          instanceMonitoring = false
+        ),
+        dependencies = ClusterDependencies(
+          loadBalancerNames = setOf("fnord-internal"),
+          securityGroupNames = setOf("fnord", "fnord-elb", "nf-somthing"),
+          targetGroups = setOf("fnord-awesome")
+        ),
+      )
     )
   )
 
@@ -155,7 +159,7 @@ internal class ExportServiceTests {
     )
   )
 
-  private val loadBalancer =  ApplicationLoadBalancerModel(
+  private val loadBalancer = ApplicationLoadBalancerModel(
     moniker = Moniker(ec2Cluster.application, "stub", "alb"),
     loadBalancerName = "fnord-test",
     dnsName = "stub-alb-1234567890.elb.amazonaws.com",
@@ -266,6 +270,22 @@ internal class ExportServiceTests {
     )
   )
 
+  private val restrictedExecutionWindow = RestrictedExecutionWindow(
+    whitelist = listOf(
+      TimeWindowConfig(startHour = 2, startMin = 0, endHour = 5, endMin = 0),
+      TimeWindowConfig(startHour = 10, startMin = 0, endHour = 19, endMin = 0)),
+    days = listOf(2, 3, 4, 5, 6)
+  )
+
+  private val pipelineWithTwoDeploy = pipelineWithNotifications.copy(
+    _stages = listOf(
+      deployStage.copy(
+        restrictedExecutionWindow = restrictedExecutionWindow
+      ),
+      deployStageForTitus
+    )
+  )
+
   private val jenkinsStageWithTests = JenkinsStage(
     name = "Integration tests",
     refId = "2",
@@ -321,17 +341,10 @@ internal class ExportServiceTests {
     endTime = null
   )
 
-  private val restrictedExecutionWindow = RestrictedExecutionWindow(
-    whitelist = listOf(
-      TimeWindowConfig(startHour = 2, startMin = 0, endHour = 5, endMin = 0),
-      TimeWindowConfig(startHour = 10, startMin = 0, endHour = 19, endMin = 0)),
-    days = listOf(2, 3, 4, 5, 6)
-  )
-
   private val exportResult = PipelineExportResult(
     deliveryConfig = submittedDeliveryCofig,
     baseUrl = "https://baseurl.com",
-    processed = mapOf(pipeline to submittedDeliveryCofig.environments.toList()),
+    exported = mapOf(pipeline to submittedDeliveryCofig.environments.toList()),
     projectKey = "spkr",
     repoSlug = "keel",
     configValidationException = null,
@@ -349,6 +362,13 @@ internal class ExportServiceTests {
     appName,
     reference = appName,
     vmOptions = VirtualMachineOptions(baseOs = "bionic", regions = setOf("us-west-2"))
+  )
+
+  private val dockerArtifact = DockerArtifact(
+    name = "org/$appName",
+    reference = "$appName-docker",
+    from = ArtifactOriginFilter(branchName("main")),
+    metadata = emptyMap()
   )
 
 
@@ -519,7 +539,7 @@ internal class ExportServiceTests {
     val result = PipelineExportResult(
       deliveryConfig = submittedDeliveryCofig.copy(environments = emptySet()),
       baseUrl = "https://baseurl.com",
-      processed = emptyMap(),
+      exported = emptyMap(),
       projectKey = "spkr",
       repoSlug = "keel",
       configValidationException = null,
@@ -721,7 +741,7 @@ internal class ExportServiceTests {
   }
 
   @Test
-  fun `throw an exception if a target group not found in the load balancers list`(){
+  fun `throw an exception if a target group not found in the load balancers list`() {
     every {
       clouddriverService.loadBalancersForApplication(any(), any())
     } returns emptyList()
@@ -737,9 +757,10 @@ internal class ExportServiceTests {
     }
     expectThat(result) {
       isA<PipelineExportResult>().and {
-        get { deliveryConfig.environments.first().resources.filterIsInstance<ApplicationLoadBalancerSpec>().all {
-          it.moniker.toName() == loadBalancer.loadBalancerName
-        }
+        get {
+          deliveryConfig.environments.first().resources.filterIsInstance<ApplicationLoadBalancerSpec>().all {
+            it.moniker.toName() == loadBalancer.loadBalancerName
+          }
         }.isTrue()
       }
     }
@@ -758,9 +779,10 @@ internal class ExportServiceTests {
     }
     expectThat(result) {
       isA<PipelineExportResult>().and {
-        get { deliveryConfig.environments.first().resources.filterIsInstance<ApplicationLoadBalancerSpec>().all {
-          it.moniker.toName() == loadBalancer.loadBalancerName
-        }
+        get {
+          deliveryConfig.environments.first().resources.filterIsInstance<ApplicationLoadBalancerSpec>().all {
+            it.moniker.toName() == loadBalancer.loadBalancerName
+          }
         }.isTrue()
       }
     }
@@ -773,11 +795,89 @@ internal class ExportServiceTests {
     }
     expectThat(result) {
       isA<PipelineExportResult>().and {
-        get { deliveryConfig.environments.first().resources.filterIsInstance<SecurityGroupSpec>().any {
-          it.moniker.toName() == "nf-something"
-        }
+        get {
+          deliveryConfig.environments.first().resources.filterIsInstance<SecurityGroupSpec>().any {
+            it.moniker.toName() == "nf-something"
+          }
         }.isFalse()
       }
+    }
+  }
+
+  @Test
+  fun `application with one unsupported pipeline shape producing floating artifacts, resources and constraints`() {
+    every {
+      front50Cache.pipelinesByApplication(appName)
+    } returns listOf(pipelineWithTwoDeploy)
+    every { titusClusterHandler.exportArtifact(any()) } returns dockerArtifact
+
+    val result = runBlocking {
+      subject.exportFromPipelines(appName)
+    }
+    expectThat(result) {
+      isA<PipelineExportResult>().and {
+        get { exported }
+          .hasSize(0)
+      }
+        .and {
+          get { skipped }
+            .hasSize(1)
+            .get { keys }
+            .first()
+            .and {
+              get { resources }
+                .isA<Set<SubmittedResource<*>>>()
+                .hasSize(5)
+                .get {
+                  this.any {
+                    it.kind == titusCluster.kind
+                  }
+                }.isTrue()
+            }
+            .and {
+              get { constraints }
+                .isA<Set<AllowedTimesConstraint>>()
+                .hasSize(1)
+            }
+            .get { artifacts }
+            .isEqualTo(mutableSetOf(artifact, dockerArtifact))
+        }
+    }
+  }
+
+  @Test
+  fun `application with two pipelines, one supported and one not, return correct both supported and unsupported pipeline` () {
+    every {
+      front50Cache.pipelinesByApplication(appName)
+    } returns listOf(pipelineWithTwoDeploy, pipelineWithTitus)
+    every { titusClusterHandler.exportArtifact(any()) } returns dockerArtifact
+
+    val result = runBlocking {
+      subject.exportFromPipelines(appName)
+    }
+    expectThat(result) {
+      isA<PipelineExportResult>().and {
+        get { exported }
+          .hasSize(1)
+          .get { keys }
+          .first()
+          .and {
+            get { resources }
+              .isA<Set<SubmittedResource<*>>>()
+              .hasSize(4)
+            }
+      }
+        .and {
+          get { skipped }
+            .hasSize(1)
+            .get { keys }
+            .first()
+            .and {
+              get { resources }
+                .isA<Set<SubmittedResource<*>>>()
+                .hasSize(5)
+            }
+        }
     }
   }
 }

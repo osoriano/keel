@@ -1,12 +1,22 @@
 package com.netflix.spinnaker.keel.export
 
 import com.fasterxml.jackson.annotation.JsonIgnore
+import com.fasterxml.jackson.module.kotlin.convertValue
+import com.netflix.spinnaker.keel.api.Constraint
+import com.netflix.spinnaker.keel.api.ResourceSpec
+import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
+import com.netflix.spinnaker.keel.api.migration.PipelineArtifact
+import com.netflix.spinnaker.keel.api.migration.PipelineConstraint
+import com.netflix.spinnaker.keel.api.migration.PipelineResource
 import com.netflix.spinnaker.keel.api.migration.SkipReason
 import com.netflix.spinnaker.keel.api.migration.MigrationPipeline
 import com.netflix.spinnaker.keel.api.migration.PipelineStatus
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.core.api.SubmittedEnvironment
+import com.netflix.spinnaker.keel.core.api.SubmittedResource
+import com.netflix.spinnaker.keel.core.api.id
 import com.netflix.spinnaker.keel.front50.model.Pipeline
+import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
 
 interface ExportResult
 
@@ -23,7 +33,7 @@ data class PipelineExportResult(
   val deliveryConfig: SubmittedDeliveryConfig,
   val configValidationException: String?,
   @JsonIgnore
-  val processed: Map<Pipeline, List<SubmittedEnvironment>>,
+  val exported: Map<Pipeline, List<SubmittedEnvironment>>,
   @JsonIgnore
   val skipped: Map<Pipeline, SkipReason>,
   @JsonIgnore
@@ -35,6 +45,7 @@ data class PipelineExportResult(
 ) : ExportResult {
   companion object {
     val VALID_SKIP_REASONS = listOf(SkipReason.DISABLED, SkipReason.NOT_EXECUTED_RECENTLY)
+    val objectMapper = configuredObjectMapper()
   }
 
   val pipelines: List<MigrationPipeline> = toMigratblePipelines()
@@ -59,14 +70,13 @@ fun PipelineExportResult.toMigratblePipelines(): List<MigrationPipeline> =
       shape = pipeline.shape.joinToString(" -> "),
       reason = reason,
       status = PipelineStatus.PROCESSED,
-      /** TODO[gyardeni]: implement this:
-       orphanConstraints = emptyList(),
-       orphanResources = emptyList()
-      */
+      constraints = pipeline.constraints.toMigratbleConstraints(),
+      resources = pipeline.resources.toMigratbleResouces(),
+      artifacts = pipeline.artifacts.toMigratbleArtifacts()
     )
   } +
-    (processed.keys - skipped.keys).map { pipeline ->
-        val environments = processed[pipeline]
+    (exported.keys - skipped.keys).map { pipeline ->
+        val environments = exported[pipeline]
         MigrationPipeline(
           name =  pipeline.name,
           link =  pipeline.link(baseUrl),
@@ -76,6 +86,39 @@ fun PipelineExportResult.toMigratblePipelines(): List<MigrationPipeline> =
           status = PipelineStatus.EXPORTED
         )
       }
+
+private fun Set<Constraint>?.toMigratbleConstraints(): Set<PipelineConstraint>? {
+  val objectMapper = configuredObjectMapper()
+  return this?.map { constraint ->
+    PipelineConstraint (
+      type = constraint.type,
+      spec = objectMapper.convertValue(constraint)
+      )
+  }?.toSet()
+}
+
+private fun Set<SubmittedResource<ResourceSpec>>?.toMigratbleResouces(): Set<PipelineResource>? {
+  val objectMapper = configuredObjectMapper()
+  return this?.map { resource ->
+    PipelineResource (
+      id = resource.id,
+      kind = resource.kind.kind,
+      spec = objectMapper.convertValue(resource)
+    )
+  }?.toSet()
+}
+
+private fun Set<DeliveryArtifact>?.toMigratbleArtifacts(): Set<PipelineArtifact>? {
+  val objectMapper = configuredObjectMapper()
+  return this?.map { artifact ->
+    PipelineArtifact (
+      name = artifact.name,
+      type = artifact.type,
+      spec = objectMapper.convertValue(artifact)
+    )
+  }?.toSet()
+}
+
 
 fun Pipeline.link(baseUrl: String) = "$baseUrl/#/applications/${application}/executions/configure/${id}"
 

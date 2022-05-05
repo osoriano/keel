@@ -14,6 +14,9 @@ import com.netflix.spinnaker.keel.api.TaskStatus
 import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.migration.ApplicationMigrationStatus
+import com.netflix.spinnaker.keel.api.migration.PipelineArtifact
+import com.netflix.spinnaker.keel.api.migration.PipelineConstraint
+import com.netflix.spinnaker.keel.api.migration.PipelineResource
 import com.netflix.spinnaker.keel.api.migration.MigrationPipeline
 import com.netflix.spinnaker.keel.api.migration.PipelineStatus
 import com.netflix.spinnaker.keel.bakery.diff.PackageDiff
@@ -25,8 +28,10 @@ import com.netflix.spinnaker.keel.core.api.ResourceAction.UPDATE
 import com.netflix.spinnaker.keel.graphql.types.MD_ActuationPlan
 import com.netflix.spinnaker.keel.graphql.types.MD_ActuationPlanStatus
 import com.netflix.spinnaker.keel.graphql.types.MD_Artifact
+import com.netflix.spinnaker.keel.graphql.types.MD_ArtifactSpec
 import com.netflix.spinnaker.keel.graphql.types.MD_ArtifactVersionInEnvironment
 import com.netflix.spinnaker.keel.graphql.types.MD_CommitInfo
+import com.netflix.spinnaker.keel.graphql.types.MD_ConstraintSpec
 import com.netflix.spinnaker.keel.graphql.types.MD_DeployLocation
 import com.netflix.spinnaker.keel.graphql.types.MD_DeployTarget
 import com.netflix.spinnaker.keel.graphql.types.MD_EnvironmentPlan
@@ -56,6 +61,7 @@ import com.netflix.spinnaker.keel.graphql.types.MD_ResourceAction
 import com.netflix.spinnaker.keel.graphql.types.MD_ResourceActuationState
 import com.netflix.spinnaker.keel.graphql.types.MD_ResourceActuationStatus
 import com.netflix.spinnaker.keel.graphql.types.MD_ResourcePlan
+import com.netflix.spinnaker.keel.graphql.types.MD_ResourceSpec
 import com.netflix.spinnaker.keel.graphql.types.MD_ResourceTask
 import com.netflix.spinnaker.keel.graphql.types.MD_RolloutTargetStatus
 import com.netflix.spinnaker.keel.graphql.types.MD_StageDetail
@@ -265,9 +271,42 @@ fun List<MigrationPipeline>?.toDgs(): List<MD_Pipeline>? =
         else ->  PROCESSED
       },
       reason = pipeline.reason?.name,
-      shape = pipeline.shape
+      shape = pipeline.shape,
+      resources = pipeline.resources.toResources(),
+      artifacts = pipeline.artifacts.toArtifacts(),
+      constraints = pipeline.constraints.toConstraints()
       )
   }?.toList()
+
+private fun Set<PipelineConstraint>?.toConstraints(): List<MD_ConstraintSpec>? {
+  return this?.map { constraint ->
+    MD_ConstraintSpec(
+      id = constraint.type,
+      type = constraint.type,
+      spec = constraint
+    )
+  }?.toList()
+}
+
+private fun Set<PipelineResource>?.toResources(): List<MD_ResourceSpec>? {
+  return this?.map { resource ->
+    MD_ResourceSpec(
+      id = resource.id,
+      kind = resource.kind,
+      spec = resource
+    )
+  }?.toList()
+}
+
+private fun Set<PipelineArtifact>?.toArtifacts(): List<MD_ArtifactSpec>? {
+  return this?.map { artifact ->
+    MD_ArtifactSpec(
+      type = artifact.type,
+      id = artifact.name,
+      spec = artifact
+    )
+  }?.toList()
+}
 
 fun ApplicationMigrationStatus.toDgs(appName: String) = MD_Migration(
   id = "migration-$appName",

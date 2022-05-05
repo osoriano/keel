@@ -323,7 +323,7 @@ class ExportService(
     }
 
     // 1. find pipelines which are not matching to the supported patterns above
-    var nonExportablePipelines = pipelines.findNonExportable(maxAgeDays, includeVerifications)
+    var nonExportablePipelines = pipelines.findNonExportable(maxAgeDays, includeVerifications, serviceAccount, applicationName)
 
     // 2. get the actual supported pipelines
     val exportablePipelines = pipelines - nonExportablePipelines.keys
@@ -465,7 +465,7 @@ class ExportService(
     val result = PipelineExportResult(
       deliveryConfig = deliveryConfig,
       // include the test pipelines that exported verifications
-      processed = deployPipelinesToEnvironments + testPipelinesToEnvironments,
+      exported = deployPipelinesToEnvironments + testPipelinesToEnvironments,
       skipped = nonExportablePipelines,
       baseUrl = baseUrlConfig.baseUrl,
       configValidationException = configValidationException?.message,
@@ -536,7 +536,7 @@ class ExportService(
   /**
    * Finds non-exportable pipelines in the list and associates them with the reason why they're not.
    */
-  private fun List<Pipeline>.findNonExportable(maxAgeDays: Long, includeVerifications: Boolean): Map<Pipeline, SkipReason> {
+  private fun List<Pipeline>.findNonExportable(maxAgeDays: Long, includeVerifications: Boolean, serviceAccount: String, applicationName: String): Map<Pipeline, SkipReason> {
     val lastExecutions = runBlocking {
       associateWith { pipeline ->
         //return a map with the pipeline and its latest execution
@@ -547,7 +547,24 @@ class ExportService(
     return associateWith { pipeline ->
       val lastExecution = lastExecutions[pipeline]
       log.debug("Checking pipeline [${pipeline.name}], last execution: ${lastExecution?.buildTime}")
-
+      val exportPipeline = listOf(pipeline).toDeploysAndClusters(serviceAccount)
+      exportPipeline.mapValues { (pipeline, deploysAndClusters) ->
+        //TODO: add more pipeline constraints here, like canaries
+        deploysAndClusters.map { (deploy, cluster) ->
+          val allowedTimes = createAllowedTimeConstraint(deploy.restrictedExecutionWindow)
+          pipeline.constraints?.addAll(allowedTimes)
+          try {
+            runBlocking {
+              val resourcesAndArtifact = createResourcesBasedOnCluster(cluster, emptySet(), applicationName)
+              resourcesAndArtifact.artifact?.let { pipeline.artifacts?.add(it) }
+              pipeline.resources?.addAll(resourcesAndArtifact.resources)
+            }
+          } catch (ex: Exception) {
+            log.error("caught an exception while try to export resources for non supported pipeline ${pipeline.name} in application $applicationName", ex)
+            return@map
+          }
+        }
+      }
       when {
         pipeline.disabled -> SkipReason.DISABLED
         (lastExecution == null || lastExecution.olderThan(maxAgeDays)) -> SkipReason.NOT_EXECUTED_RECENTLY
@@ -586,7 +603,6 @@ class ExportService(
     val artifact = try {
       handlers.supporting(cluster.clusterKind).exportArtifact(cluster)
     } catch (e: ArtifactNotSupportedException) {
-      deliveryConfigRepository.updateMigratingAppScmStatus(applicationName, false)
       log.error("artifact for application $applicationName is not supported")
       throw e
     }
@@ -595,7 +611,6 @@ class ExportService(
       cloudDriverService.loadBalancersForApplication(DEFAULT_SERVICE_ACCOUNT, applicationName)
     } as List<ApplicationLoadBalancerModel>
 
-    deliveryConfigRepository.updateMigratingAppScmStatus(applicationName, true)
     log.debug("Exported artifact $artifact from cluster ${cluster.moniker}")
     // get the cluster dependencies
     val dependencies = spec as Dependent

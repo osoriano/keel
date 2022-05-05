@@ -1,6 +1,11 @@
 package com.netflix.spinnaker.keel.front50.model
 
 import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonIgnore
+import com.netflix.spinnaker.keel.api.Constraint
+import com.netflix.spinnaker.keel.api.ResourceSpec
+import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
+import com.netflix.spinnaker.keel.core.api.SubmittedResource
 import java.time.Instant
 
 /**
@@ -18,6 +23,15 @@ data class Pipeline(
   @JsonAlias("updateTs")
   private val _updateTs: Long? = null,
   val lastModifiedBy: String? = null,
+  @JsonIgnore
+  /* will hold resources we are able to export from the pipeline for migration purposes  */
+  val resources: MutableSet<SubmittedResource<ResourceSpec>>? = mutableSetOf(),
+  @JsonIgnore
+  /* will hold constraints we are able to export from the pipeline for migration purposes */
+  val constraints: MutableSet<Constraint>? = mutableSetOf(),
+  @JsonIgnore
+  /* will hold artifacts we are able to export from the pipeline for migration purposes*/
+  val artifacts: MutableSet<DeliveryArtifact>? = mutableSetOf(),
   val parameterConfig: List<PipelineParameterConfig> = emptyList(),
   val notifications: List<PipelineNotifications> = emptyList()
 ) {

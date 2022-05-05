@@ -367,18 +367,6 @@ class TitusClusterHandler(
     val matchingImage = images.firstOrNull { it.digest == container.digest }
       ?: throw ExportError("Unable to find matching image (searching by digest) in registry ($registry) for $container")
 
-    // check this image was produced by a rocket job
-    val commitId = matchingImage.commitId
-    val buildNumber = matchingImage.buildNumber
-    if (buildNumber != null && commitId != null) {
-      if (artifactBridge.getArtifactMetadata(buildNumber, commitId, 1) == null) {
-        throw ArtifactNotSupportedException("Failed to fetch information for artifact ${matchingImage.repository}")
-      }
-    } else {
-      throw ArtifactNotSupportedException("Artifact ${matchingImage.repository} is missing commit $commitId and/or build $buildNumber details")
-    }
-
-
     // prefer branch-based artifact spec, fallback to tag version strategy
     return if (matchingImage.branch != null) {
       DockerArtifact(

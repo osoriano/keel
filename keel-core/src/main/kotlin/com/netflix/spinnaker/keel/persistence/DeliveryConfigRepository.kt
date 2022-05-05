@@ -7,13 +7,13 @@ import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.constraints.ConstraintState
-import com.netflix.spinnaker.keel.api.migration.ApplicationMigrationStatus
 import com.netflix.spinnaker.keel.migrations.ApplicationPrData
-import com.netflix.spinnaker.keel.api.migration.MigrationPipeline
 import com.netflix.spinnaker.keel.core.api.ApplicationSummary
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.core.api.UID
 import com.netflix.spinnaker.keel.events.ResourceState
+import com.netflix.spinnaker.keel.api.migration.ApplicationMigrationStatus
+import com.netflix.spinnaker.keel.api.migration.MigrationPipeline
 import com.netflix.spinnaker.keel.persistence.DependentAttachFilter.ATTACH_ALL
 import com.netflix.spinnaker.kork.exceptions.ConfigurationException
 import com.netflix.spinnaker.kork.exceptions.SystemException

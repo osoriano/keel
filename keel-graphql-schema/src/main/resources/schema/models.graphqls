@@ -57,8 +57,9 @@ type MD_Pipeline {
   status: MD_PipelineStatus
   deployablePipeline: Boolean # contains a deploy stage?
   reason: String # reason for non-supported pipeline
-  orphanResources: [MD_ResourceSpec!] # will hold resources from non-supported pipeline
-  orphanConstraints: [MD_ConstraintSpec!]# will hold constraints from non-supported pipeline
+  resources: [MD_ResourceSpec!] # will hold exported resources for the pipeline
+  constraints: [MD_ConstraintSpec!]# will hold exported constraints for the pipeline
+  artifacts: [MD_ArtifactSpec!]# will hold exported artifact for the pipeline
 }
 
 enum MD_PipelineStatus{
@@ -67,18 +68,23 @@ enum MD_PipelineStatus{
   NOT_SUPPORTED
 }
 
+type MD_ArtifactSpec {
+  id: ID!
+  type: String
+  spec: JSON
+}
+
 
 type MD_ConstraintSpec {
-  type: MD_ConstraintType!
-  name: String
-  constraintSpec: JSON
-  # add more info here...
+  id: ID!
+  type: String
+  spec: JSON
 }
 
 type MD_ResourceSpec{
-  id: ID! #is it important?
-  name: String
-  resourceSpec: JSON
+  id: ID!
+  kind: String
+  spec: JSON
 }
 
 enum MD_ConstraintType {
