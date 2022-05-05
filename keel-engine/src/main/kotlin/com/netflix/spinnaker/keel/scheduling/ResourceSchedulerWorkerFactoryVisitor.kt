@@ -14,10 +14,12 @@ import io.temporal.api.enums.v1.WorkflowIdReusePolicy
 import io.temporal.client.WorkflowClient
 import io.temporal.client.WorkflowExecutionAlreadyStarted
 import io.temporal.client.WorkflowOptions
+import io.temporal.common.RetryOptions
 import io.temporal.worker.WorkerFactory
 import io.temporal.worker.WorkerOptions
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import java.time.Duration
 
 @Component
 class ResourceSchedulerWorkerFactoryVisitor(
@@ -45,6 +47,12 @@ class ResourceSchedulerWorkerFactoryVisitor(
       .setWorkflowId(supervisorId(taskQueueNamer))
       .setTaskQueue(taskQueueNamer.name(RESOURCE_SCHEDULER_TASK_QUEUE))
       .setWorkflowIdReusePolicy(WorkflowIdReusePolicy.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY)
+      .setRetryOptions(
+        RetryOptions.newBuilder()
+          .setInitialInterval(Duration.ofMinutes(1))
+          .setBackoffCoefficient(1.0)
+          .build()
+      )
       .build()
 
     val workflow = workflowClient.newWorkflowStub(SchedulerSupervisor::class.java, options)
