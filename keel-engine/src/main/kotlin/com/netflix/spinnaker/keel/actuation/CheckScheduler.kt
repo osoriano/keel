@@ -61,7 +61,6 @@ import kotlin.math.max
 class CheckScheduler(
   private val repository: KeelRepository,
   private val environmentDeletionRepository: EnvironmentDeletionRepository,
-  private val resourceActuator: ResourceActuator,
   private val environmentPromotionChecker: EnvironmentPromotionChecker,
   private val verificationRunner: VerificationRunner,
   private val artifactHandlers: Collection<ArtifactHandler>,
@@ -78,16 +77,12 @@ class CheckScheduler(
   private val clock: Clock,
   private val springEnv: Environment,
   private val spectator: Registry,
-  private val resourceSchedulerService: ResourceSchedulerService,
   override val coroutineContext: CoroutineContext
 ) : DiscoveryActivated(), CoroutineScope {
 
   // Used for resources, environments, and artifacts.
   private val checkMinAge: Duration
     get() = springEnv.getProperty("keel.check.min-age-duration", Duration::class.java, resourceCheckConfig.minAgeDuration)
-
-  private val resourceBatchSize: Int
-    get() = springEnv.getProperty("keel.resource-check.batch-size", Int::class.java, resourceCheckConfig.batchSize)
 
   private val environmentBatchSize: Int
     get() = springEnv.getProperty("keel.environment-check.batch-size", Int::class.java, environmentCheckConfig.batchSize)
@@ -118,56 +113,6 @@ class CheckScheduler(
 
   private val postDeployWaitForBatchToComplete: Boolean
     get() = springEnv.getProperty("keel.post-deploy.wait-for-batch.enabled", Boolean::class.java, true)
-
-
-
-  @Scheduled(fixedDelayString = "\${keel.resource-check.frequency:PT1S}")
-  @NewSpan
-  fun checkResources() {
-    if (enabled.get() && !resourceSchedulerService.isFullyEnabled()) {
-      val startTime = clock.instant()
-      val job = launch(blankMDC) {
-        supervisorScope {
-          runCatching {
-            repository
-              .resourcesDueForCheck(checkMinAge, resourceBatchSize)
-          }
-            .onFailure {
-              publisher.publishEvent(ResourceLoadFailed(it))
-            }
-            .onSuccess { resources ->
-              resources
-                .filterNot { resourceSchedulerService.isScheduling(it.application) }
-                .forEach {
-                try {
-                  /**
-                   * Allow individual resource checks to timeout but catch the `CancellationException`
-                   * to prevent the cancellation of all coroutines under `job`.
-                   */
-                  withTimeout(resourceCheckConfig.timeoutDuration.toMillis()) {
-                    launch {
-                      publisher.publishEvent(ResourceCheckStarted(it))
-                      resourceActuator.checkResource(it)
-                      publisher.publishEvent(
-                        ResourceCheckCompleted(Duration.between(startTime, clock.instant()), it.id)
-                      )
-                    }
-                  }
-                } catch (e: TimeoutCancellationException) {
-                  log.error("Timed out checking resource ${it.id}", e)
-                  publisher.publishEvent(ResourceCheckTimedOut(it.kind, it.id, it.application))
-                }
-              }
-            }
-        }
-      }
-
-      if(resourceWaitForBatchToComplete) {
-        runBlocking { job.join() }
-      }
-      recordDuration(startTime, "resource")
-    }
-  }
 
   @Scheduled(fixedDelayString = "\${keel.environment-check.frequency:PT1S}")
   @NewSpan

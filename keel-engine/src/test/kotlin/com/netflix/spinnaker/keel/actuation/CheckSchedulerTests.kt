@@ -2,7 +2,6 @@ package com.netflix.spinnaker.keel.actuation
 
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.config.ArtifactCheckConfig
-import com.netflix.spinnaker.config.CoroutineProperties
 import com.netflix.spinnaker.config.DefaultWorkhorseCoroutineContext
 import com.netflix.spinnaker.config.EnvironmentCheckConfig
 import com.netflix.spinnaker.config.EnvironmentDeletionConfig
@@ -10,9 +9,7 @@ import com.netflix.spinnaker.config.EnvironmentVerificationConfig
 import com.netflix.spinnaker.config.PostDeployActionsConfig
 import com.netflix.spinnaker.config.ResourceCheckConfig
 import com.netflix.spinnaker.keel.api.Environment
-import com.netflix.spinnaker.keel.api.ResourceKind.Companion.parseKind
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
-import com.netflix.spinnaker.keel.api.plugins.UnsupportedKind
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
 import com.netflix.spinnaker.keel.persistence.AgentLockRepository
@@ -20,17 +17,12 @@ import com.netflix.spinnaker.keel.persistence.EnvironmentDeletionRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.postdeploy.PostDeployActionRunner
 import com.netflix.spinnaker.keel.scheduled.ScheduledAgent
-import com.netflix.spinnaker.keel.scheduling.ResourceSchedulerService
 import com.netflix.spinnaker.keel.telemetry.EnvironmentCheckStarted
-import com.netflix.spinnaker.keel.telemetry.ResourceCheckStarted
-import com.netflix.spinnaker.keel.telemetry.ResourceLoadFailed
 import com.netflix.spinnaker.keel.test.deliveryConfig
-import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.keel.verification.VerificationRunner
 import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
-import io.mockk.Called
 import io.mockk.clearAllMocks
 import io.mockk.coVerify as verify
 import io.mockk.coEvery as every
@@ -45,7 +37,6 @@ internal class CheckSchedulerTests : JUnit5Minutests {
 
   private val repository: KeelRepository = mockk()
   private val postDeployActionRunner: PostDeployActionRunner = mockk()
-  private val resourceActuator = mockk<ResourceActuator>(relaxUnitFun = true)
   private val environmentPromotionChecker = mockk<EnvironmentPromotionChecker>()
   private val artifactHandler = mockk<ArtifactHandler>(relaxUnitFun = true)
   private val publisher = mockk<ApplicationEventPublisher>(relaxUnitFun = true)
@@ -72,7 +63,6 @@ internal class CheckSchedulerTests : JUnit5Minutests {
     it.minAgeDuration = checkMinAge
     it.batchSize = 2
   }
-  private val config = CoroutineProperties()
 
   private val springEnv: SpringEnvironment = mockk(relaxed = true) {
     every {
@@ -112,23 +102,6 @@ internal class CheckSchedulerTests : JUnit5Minutests {
 
   private val environmentCleaner: EnvironmentCleaner = mockk()
 
-  private val resourceSchedulerService: ResourceSchedulerService = mockk(relaxed = true) {
-    every { isFullyEnabled() } returns false
-  }
-
-  private val resources = listOf(
-    resource(
-      kind = parseKind("ec2/security-group@v1"),
-      id = "ec2:security-group:prod:ap-south-1:keel-sg",
-      application = "keel"
-    ),
-    resource(
-      kind = parseKind("ec2/cluster@v1"),
-      id = "ec2:cluster:prod:keel",
-      application = "keel"
-    )
-  )
-
   private val artifacts = listOf(
     DebianArtifact(
       name = "fnord",
@@ -158,7 +131,6 @@ internal class CheckSchedulerTests : JUnit5Minutests {
       CheckScheduler(
         repository = repository,
         environmentDeletionRepository = environmentDeletionRepository,
-        resourceActuator = resourceActuator,
         environmentPromotionChecker = environmentPromotionChecker,
         postDeployActionRunner = postDeployActionRunner,
         artifactHandlers = listOf(artifactHandler),
@@ -175,31 +147,8 @@ internal class CheckSchedulerTests : JUnit5Minutests {
         clock = MutableClock(),
         springEnv = springEnv,
         spectator = registry,
-        resourceSchedulerService = resourceSchedulerService,
         coroutineContext = DefaultWorkhorseCoroutineContext
       )
-    }
-
-    context("scheduler is disabled") {
-      before {
-        checkResources()
-      }
-
-      test("no resources are checked") {
-        verify { resourceActuator wasNot Called }
-      }
-
-      test("no environments are checked") {
-        verify { environmentPromotionChecker wasNot Called }
-      }
-
-      test("no artifacts are checked") {
-        verify { artifactHandler wasNot Called }
-      }
-
-      test("no environments are checked for deletion") {
-        verify { environmentCleaner wasNot Called }
-      }
     }
 
     context("scheduler is enabled") {
@@ -209,48 +158,6 @@ internal class CheckSchedulerTests : JUnit5Minutests {
 
       after {
         onApplicationDown()
-      }
-
-      context("checking resources") {
-        context("resources are read from the database") {
-          before {
-            every {
-              repository.resourcesDueForCheck(any(), any())
-            } returns resources
-
-            checkResources()
-          }
-
-          test("all resources are checked") {
-            resources.forEach { resource ->
-              verify(timeout = 500) {
-                resourceActuator.checkResource(resource)
-              }
-            }
-          }
-
-          test("a telemetry event is published for each resource check") {
-            resources.forEach { resource ->
-              verify {
-                publisher.publishEvent(ResourceCheckStarted(resource))
-              }
-            }
-          }
-        }
-
-        context("resources cannot be loaded from the database") {
-          before {
-            every {
-              repository.resourcesDueForCheck(any(), any())
-            } throws UnsupportedKind("some-invalid-kind")
-
-            checkResources()
-          }
-
-          test("an event is published") {
-            verify { publisher.publishEvent(match<Any> { it is ResourceLoadFailed }) }
-          }
-        }
       }
 
       context("checking environments") {
