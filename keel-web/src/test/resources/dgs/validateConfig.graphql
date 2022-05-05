@@ -1,5 +1,5 @@
-mutation initiateMigration($config: JSON!) {
-  md_validateDeliveryConfig(config: $config) {
+mutation validateConfig($payload: MD_DeliveryConfigValidationPayload!) {
+  md_validateDeliveryConfig(payload: $payload) {
     success
     errors
   }

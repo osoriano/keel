@@ -457,7 +457,7 @@ class QueryTests {
       dgsQueryExecutor.executeAndExtractJsonPathAsObject(
         getQuery("/dgs/validateConfig.graphql"),
         "data.md_validateDeliveryConfig",
-        mapOf("config" to configAsMap),
+        mapOf("payload" to mapOf("deliveryConfig" to configAsMap)),
         MD_ValidateResult::class.java,
         getHeaders()
       )
@@ -479,7 +479,7 @@ class QueryTests {
       dgsQueryExecutor.executeAndExtractJsonPathAsObject(
         getQuery("/dgs/validateConfig.graphql"),
         "data.md_validateDeliveryConfig",
-        mapOf("config" to configAsMap),
+        mapOf("payload" to mapOf("deliveryConfig" to configAsMap)),
         MD_ValidateResult::class.java,
         getHeaders()
       )

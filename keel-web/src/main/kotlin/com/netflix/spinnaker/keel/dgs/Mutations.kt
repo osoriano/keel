@@ -18,6 +18,7 @@ import com.netflix.spinnaker.keel.graphql.types.MD_Action
 import com.netflix.spinnaker.keel.graphql.types.MD_ArtifactVersionActionPayload
 import com.netflix.spinnaker.keel.graphql.types.MD_ConstraintStatus
 import com.netflix.spinnaker.keel.graphql.types.MD_ConstraintStatusPayload
+import com.netflix.spinnaker.keel.graphql.types.MD_DeliveryConfigValidationPayload
 import com.netflix.spinnaker.keel.graphql.types.MD_DismissNotificationPayload
 import com.netflix.spinnaker.keel.graphql.types.MD_MarkArtifactVersionAsGoodPayload
 import com.netflix.spinnaker.keel.graphql.types.MD_PausePayload
@@ -290,10 +291,10 @@ class Mutations(
 
   @DgsMutation
   fun md_validateDeliveryConfig(
-    @InputArgument config: Any,
+    @InputArgument payload: MD_DeliveryConfigValidationPayload,
   ): MD_ValidateResult {
     try {
-      applicationService.validateDeliveryConfig(config)
+      applicationService.validateDeliveryConfig(payload.deliveryConfig)
     } catch (e: Exception) {
       return MD_ValidateResult(success = false, errors = e.message?.let { listOf(it) })
     }
