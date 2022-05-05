@@ -283,7 +283,7 @@ private fun Set<PipelineConstraint>?.toConstraints(): List<MD_ConstraintSpec>? {
     MD_ConstraintSpec(
       id = constraint.type,
       type = constraint.type,
-      spec = constraint
+      spec = constraint.spec
     )
   }?.toList()
 }
@@ -293,7 +293,7 @@ private fun Set<PipelineResource>?.toResources(): List<MD_ResourceSpec>? {
     MD_ResourceSpec(
       id = resource.id,
       kind = resource.kind,
-      spec = resource
+      spec = resource.spec
     )
   }?.toList()
 }
@@ -303,7 +303,7 @@ private fun Set<PipelineArtifact>?.toArtifacts(): List<MD_ArtifactSpec>? {
     MD_ArtifactSpec(
       type = artifact.type,
       id = artifact.name,
-      spec = artifact
+      spec = artifact.spec
     )
   }?.toList()
 }
