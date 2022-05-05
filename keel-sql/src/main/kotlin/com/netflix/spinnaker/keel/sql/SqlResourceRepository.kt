@@ -34,17 +34,14 @@ import com.netflix.spinnaker.keel.persistence.metamodel.Tables.RESOURCE
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.RESOURCE_LAST_CHECKED
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.RESOURCE_VERSION
 import com.netflix.spinnaker.keel.resources.ResourceFactory
-import com.netflix.spinnaker.keel.scheduling.ResourceSchedulerService
 import com.netflix.spinnaker.keel.sql.RetryCategory.READ
 import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
 import com.netflix.spinnaker.keel.telemetry.AboutToBeChecked
 import com.netflix.spinnaker.keel.telemetry.ResourceAboutToBeChecked
 import com.netflix.spinnaker.keel.telemetry.ResourceCheckCompleted
 import de.huxhorn.sulky.ulid.ULID
-import org.jooq.Cursor
 import org.jooq.DSLContext
 import org.jooq.Record1
-import org.jooq.Record4
 import org.jooq.Select
 import org.jooq.impl.DSL
 import org.jooq.impl.DSL.coalesce
@@ -251,11 +248,13 @@ class SqlResourceRepository(
 
     spectator.counter(resourceVersionInsertId.withTag("success", "true")).increment()
 
+    // todo eb: remove this when the scheduling is entirely on temporal. This is just for metrics.
+    val fiveMinutesAgo = clock.instant().minus(Duration.ofMinutes(5))
     jooq.insertInto(RESOURCE_LAST_CHECKED)
       .set(RESOURCE_LAST_CHECKED.RESOURCE_UID, uid)
-      .set(RESOURCE_LAST_CHECKED.AT, EPOCH.plusSeconds(1))
+      .set(RESOURCE_LAST_CHECKED.AT, fiveMinutesAgo)
       .onDuplicateKeyUpdate()
-      .set(RESOURCE_LAST_CHECKED.AT, EPOCH.plusSeconds(1))
+      .set(RESOURCE_LAST_CHECKED.AT, fiveMinutesAgo)
       .execute()
 
     return resource.copy(

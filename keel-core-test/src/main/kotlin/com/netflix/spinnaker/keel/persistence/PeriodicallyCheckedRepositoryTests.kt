@@ -28,7 +28,7 @@ abstract class PeriodicallyCheckedRepositoryTests<T : Any, S : PeriodicallyCheck
     val factory: (Clock) -> S,
     val createAndStore: Fixture<T, S>.(Int) -> Collection<T>,
     val updateOne: Fixture<T, S>.() -> T,
-    val ifNotCheckedInLast: Duration = Duration.ofMinutes(30),
+    val ifNotCheckedInLast: Duration = Duration.ofMinutes(4),
     val limit: Int = 2
   ) {
     val clock = MutableClock()
