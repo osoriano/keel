@@ -56,9 +56,9 @@ interface ArtifactRepository : PeriodicallyCheckedRepository<DeliveryArtifact> {
   ): List<PublishedArtifact>
 
   /**
-   * @return [limit] number of versions without metadata newer than [maxAge]
+   * @return [limit] number of versions with incomplete metadata newer than [maxAge]
    */
-  fun getVersionsWithMissingMetadata(limit: Int, maxAge: Duration): List<PublishedArtifact>
+  fun getVersionsWithIncompleteMetadata(limit: Int, maxAge: Duration): List<PublishedArtifact>
 
   /**
    * Persists the specified instance of the artifact.

@@ -83,7 +83,7 @@ interface KeelReadOnlyRepository {
 
   fun artifactVersions(artifact: DeliveryArtifact, limit: Int): List<PublishedArtifact>
 
-  fun getVersionsWithoutMetadata(limit: Int, maxAge: Duration): List<PublishedArtifact>
+  fun getVersionsWithIncompleteMetadata(limit: Int, maxAge: Duration): List<PublishedArtifact>
 
   fun getAllActionStatesBatch(contexts: List<ArtifactInEnvironmentContext>) : List<List<ActionStateFull>>
 

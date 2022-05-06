@@ -131,7 +131,7 @@ class AdminService(
     log.debug("Starting to back-fill old artifacts versions with artifact metadata...")
     val versions = repository
       // only check versions that are < 3 hours old, and probably nothing changes after one hour
-      .getVersionsWithoutMetadata(100, age)
+      .getVersionsWithIncompleteMetadata(100, age)
     versions.forEach { artifactVersion ->
       log.debug("Evaluating version ${artifactVersion.version} as candidate to back-fill metadata")
       try {

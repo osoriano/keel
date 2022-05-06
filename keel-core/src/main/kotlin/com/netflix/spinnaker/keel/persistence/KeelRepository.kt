@@ -8,7 +8,6 @@ import com.netflix.spinnaker.keel.api.NotificationConfig
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceDiffFactory
 import com.netflix.spinnaker.keel.api.ResourceSpec
-import com.netflix.spinnaker.keel.api.ResourceStatus
 import com.netflix.spinnaker.keel.api.ResourceStatusSnapshot
 import com.netflix.spinnaker.keel.api.action.Action
 import com.netflix.spinnaker.keel.api.action.ActionRepository
@@ -539,8 +538,8 @@ class KeelRepository(
   override fun artifactVersions(artifact: DeliveryArtifact, limit: Int): List<PublishedArtifact> =
     artifactRepository.versions(artifact, limit)
 
-  override fun getVersionsWithoutMetadata(limit: Int, maxAge: Duration): List<PublishedArtifact> =
-    artifactRepository.getVersionsWithMissingMetadata(limit, maxAge)
+  override fun getVersionsWithIncompleteMetadata(limit: Int, maxAge: Duration): List<PublishedArtifact> =
+    artifactRepository.getVersionsWithIncompleteMetadata(limit, maxAge)
 
   override fun latestDeployableVersionIn(
     deliveryConfig: DeliveryConfig,

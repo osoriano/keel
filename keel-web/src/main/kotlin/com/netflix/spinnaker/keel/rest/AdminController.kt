@@ -158,7 +158,6 @@ class AdminController(
       val parsedAge = Duration.parse(age)
       adminService.backfillArtifactMetadataAsync(parsedAge)
     }
-
   }
 
   @PostMapping(

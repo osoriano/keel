@@ -292,18 +292,20 @@ class SqlArtifactRepository(
     }
   }
 
-  override fun getVersionsWithMissingMetadata(limit: Int, maxAge: Duration): List<PublishedArtifact> {
+  override fun getVersionsWithIncompleteMetadata(limit: Int, maxAge: Duration): List<PublishedArtifact> {
     val cutoff = clock.instant().minus(maxAge)
 
     return sqlRetry.withRetry(READ) {
       jooq
         .selectArtifactVersionColumns()
         .from(ARTIFACT_VERSIONS)
-        .where(ARTIFACT_VERSIONS.GIT_METADATA.isNull.or(ARTIFACT_VERSIONS.BUILD_METADATA.isNull))
-        .and(ARTIFACT_VERSIONS.CREATED_AT.greaterOrEqual(cutoff))
-        .limit(limit)
+        .where(ARTIFACT_VERSIONS.CREATED_AT.greaterOrEqual(cutoff))
         // TODO: is filling in the reference important here? if so, we can join on DELIVERY_ARTIFACT
         .fetchArtifactVersions(null)
+        .filter {
+          it.buildMetadata?.job == null
+        } // we save partial metadata, so we need to filter after we load
+        .take(limit)
     }
   }
 
