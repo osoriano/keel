@@ -16,7 +16,6 @@ import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.Repo
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
-import com.netflix.spinnaker.keel.api.events.ArtifactVersionDetected
 import com.netflix.spinnaker.keel.api.events.ArtifactVersionStored
 import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
 import com.netflix.spinnaker.keel.config.WorkProcessingConfig
@@ -214,14 +213,15 @@ internal class WorkQueueProcessorTests : JUnit5Minutests {
           subject.handlePublishedArtifact(newerPublishedDeb)
         }
 
-        val artifactVersion = mutableListOf<PublishedArtifact>()
+        val artifactVersions = mutableListOf<PublishedArtifact>()
         test("a new artifact version is stored; store before adding more metadata") {
-          verify(exactly = 2) { repository.storeArtifactVersion(capture(artifactVersion)) }
+          verify(exactly = 2) { repository.storeArtifactVersion(capture(artifactVersions)) }
 
-          with(artifactVersion.first()) {
+          val normalizedArtifact = newerPublishedDeb.normalized()
+          with(artifactVersions.first()) {
             expectThat(name).isEqualTo(artifact.name)
-            expectThat(type).isEqualTo(artifact.type)
-            expectThat(version).isEqualTo(newerPublishedDeb.version)
+            expectThat(type).isEqualTo(normalizedArtifact.type)
+            expectThat(version).isEqualTo(normalizedArtifact.version)
             expectThat(status).isEqualTo(ArtifactStatus.FINAL)
             expectThat(branch).isEqualTo(branchName)
             expectThat(gitMetadata?.repo).isNull()
@@ -233,7 +233,7 @@ internal class WorkQueueProcessorTests : JUnit5Minutests {
             debianArtifactSupplier.getArtifactMetadata(any())
           }
 
-          with(artifactVersion[1]) {
+          with(artifactVersions[1]) {
             expectThat(gitMetadata?.branch).isEqualTo(branchNameFromRocket)
             expectThat(gitMetadata?.repo?.name).isEqualTo("awesome-name")
           }
@@ -388,15 +388,11 @@ internal class WorkQueueProcessorTests : JUnit5Minutests {
               debianArtifact,
               debianArtifact.copy(reference = "blah-blay", deliveryConfigName = "another-config")
             )
-          subject.notifyArtifactVersionDetected(publishedDeb)
+          subject.findArtifactsAndPublishEvent(publishedDeb)
         }
 
         test("publishes build lifecycle event for each artifact") {
           verify(exactly = 2) { publisher.publishEvent(ofType<LifecycleEvent>()) }
-        }
-
-        test("publishes version detected event for each artifact") {
-          verify(exactly = 2) { publisher.publishEvent(ofType<ArtifactVersionDetected>()) }
         }
       }
 
@@ -404,12 +400,12 @@ internal class WorkQueueProcessorTests : JUnit5Minutests {
         before {
           every { repository.getAllArtifacts(DEBIAN, any()) } returns
             listOf(debianArtifact)
-          subject.notifyArtifactVersionDetected(publishedDeb)
+          subject.findArtifactsAndPublishEvent(publishedDeb)
         }
 
         test("publishes build lifecycle event with monitor = true") {
           val events = mutableListOf<Any>()
-          verify(exactly = 2) { publisher.publishEvent(capture(events)) }
+          verify(exactly = 1) { publisher.publishEvent(capture(events)) }
           expectThat(events).one {
             isA<LifecycleEvent>().and {
               get { status }.isEqualTo(LifecycleEventStatus.RUNNING)
@@ -420,12 +416,12 @@ internal class WorkQueueProcessorTests : JUnit5Minutests {
 
         test("publishes artifact version detected event with the right information") {
           val events = mutableListOf<Any>()
-          verify(exactly = 2) { publisher.publishEvent(capture(events)) }
+          verify(exactly = 1) { publisher.publishEvent(capture(events)) }
           expectThat(events).one {
-            isA<ArtifactVersionDetected>().and {
+            isA<LifecycleEvent>().and {
               get { deliveryConfig }.isEqualTo(deliveryConfig)
-              get { artifact }.isEqualTo(debianArtifact)
-              get { version }.isEqualTo(publishedDeb)
+              get { artifactReference }.isEqualTo(debianArtifact.reference)
+              get { artifactVersion }.isEqualTo(publishedDeb.version)
             }
           }
         }

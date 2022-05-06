@@ -13,7 +13,6 @@ import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.copyOrCreate
-import com.netflix.spinnaker.keel.api.events.ArtifactVersionDetected
 import com.netflix.spinnaker.keel.api.events.ArtifactVersionStored
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.api.plugins.supporting
@@ -240,7 +239,7 @@ class WorkQueueProcessor(
         commit = artifact.commitHash
       ),
       buildMetadata = artifact.buildMetadata.copyOrCreate(
-          number = artifact.buildNumber
+        number = artifact.buildNumber
       )).normalized()
 
     //store a copy of an artifact, prior of enriching it with more metadata
@@ -250,17 +249,23 @@ class WorkQueueProcessor(
       publisher.publishEvent(ArtifactVersionStored(artifactWithBasicInfo))
     }
 
-    notifyArtifactVersionDetected(artifactWithBasicInfo)
-    supplier.addAndStoreMetadata(artifactWithBasicInfo)
+    val response = supplier.addMetadata(artifactWithBasicInfo)
+    //if we were able to add metadata, update the artifact in DB
+    if (response.metadataAdded) {
+      repository.storeArtifactVersion(response.updatedArtifact)
+    }
+    //publish a build lifecycle event with using the most updated artifact
+    findArtifactsAndPublishEvent(response.updatedArtifact)
+
     return stored
   }
 
   /**
-   * Storing a copy of the [PublishedArtifact] with the git and build metadata populated, if available.
+   * Returning a copy of the [PublishedArtifact] with the git and build metadata populated, if available.
    */
-  fun ArtifactSupplier<*, *>.addAndStoreMetadata(artifact: PublishedArtifact) {
-    // only add metadata if either build or git metadata are currently missing information
-    if (artifact.hasIncompleteMetadata()) {
+  fun ArtifactSupplier<*, *>.addMetadata(artifact: PublishedArtifact): MetadataAndArtifact {
+    return if (artifact.hasIncompleteMetadata()) {
+      // only add metadata if either build or git metadata are currently missing information
       runBlocking {
         try {
           val artifactMetadata = getArtifactMetadata(artifact)
@@ -269,12 +274,15 @@ class WorkQueueProcessor(
             buildMetadata = artifactMetadata?.buildMetadata ?: artifact.buildMetadata
           )
           log.debug("Storing updated artifact (after adding metadata from rocket): $updatedArtifact")
-          repository.storeArtifactVersion(updatedArtifact)
+          return@runBlocking MetadataAndArtifact(true, updatedArtifact)
         } catch (ex: Exception) {
           //in case of an error from boost, don't override the current information
           log.debug("Could not fetch artifact metadata for name ${artifact.name} and version ${artifact.version}; using default data", ex)
+          return@runBlocking MetadataAndArtifact(false, artifact)
         }
       }
+    } else {
+      return MetadataAndArtifact(false, artifact)
     }
   }
 
@@ -284,22 +292,14 @@ class WorkQueueProcessor(
 
   /**
    * Finds the delivery configs that are using an artifact,
-   * and publishes an [ArtifactVersionDetected] event and a build [LifecycleEvent] for them.
+   * and publishes a build [LifecycleEvent] for them.
    */
-  internal fun notifyArtifactVersionDetected(artifact: PublishedArtifact) {
+  internal fun findArtifactsAndPublishEvent(artifact: PublishedArtifact) {
     repository
       .getAllArtifacts(artifact.artifactType, artifact.name)
       .forEach { deliveryArtifact ->
         deliveryArtifact.deliveryConfigName?.let { configName ->
           val deliveryConfig = repository.getDeliveryConfig(configName)
-
-          publisher.publishEvent(
-            ArtifactVersionDetected(
-              deliveryConfig = deliveryConfig,
-              artifact = deliveryArtifact,
-              version = artifact
-            )
-          )
           publishLifecycleEvent(artifact, deliveryConfig, deliveryArtifact)
         }
       }
@@ -330,7 +330,7 @@ class WorkQueueProcessor(
         text = "Monitoring build for ${artifact.version}",
         link = artifact.buildMetadata?.uid ?: "N/A",
         data = data,
-        timestamp = artifact.buildMetadata?.startedAtInstant?: Instant.now(),
+        timestamp = artifact.buildMetadata?.startedAtInstant ?: Instant.now(),
         startMonitoring = true
       )
     )
@@ -420,4 +420,13 @@ class WorkQueueProcessor(
       .toMillis()
       .toDouble()
       .div(1000)
+
+
+
+  /* store information if metadata was added to an artifact, and the updated artifact*/
+  data class MetadataAndArtifact (
+    val metadataAdded: Boolean,
+    val updatedArtifact: PublishedArtifact
+    )
 }
+
