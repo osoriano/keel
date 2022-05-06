@@ -27,11 +27,8 @@ class DefaultActuatorActivities(
   private val resourceActuator: ResourceActuator,
   private val publisher: ApplicationEventPublisher,
   private val clock: Clock,
-  private val spectator: Registry,
-  private val configActivities: SchedulingConfigActivities
+  private val spectator: Registry
 ) : ActuatorActivities {
-
-  private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
   override fun checkResource(request: ActuatorActivities.CheckResourceRequest) {
     val startTime = clock.instant()

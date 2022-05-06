@@ -5,7 +5,6 @@ import io.temporal.activity.ActivityOptions
 import io.temporal.common.RetryOptions
 import io.temporal.workflow.Workflow
 import java.time.Duration
-import java.time.Instant
 
 @ActivityInterface(namePrefix = "ActuatorActivities-")
 interface ActuatorActivities {
@@ -15,17 +14,13 @@ interface ActuatorActivities {
   fun monitorResource(request: MonitorResourceRequest)
 
   data class CheckResourceRequest(
-    val resourceId: String,
-    val lastChecked: Instant? = null
+    val resourceId: String
   )
 
   data class MonitorResourceRequest(
     val resourceId: String,
     val resourceKind: String
   ) {
-    fun toCheckResourceRequest(lastChecked: Instant): CheckResourceRequest =
-      CheckResourceRequest(resourceId, lastChecked)
-
     fun toCheckResourceRequest(): CheckResourceRequest =
       CheckResourceRequest(resourceId)
   }
@@ -38,7 +33,6 @@ interface ActuatorActivities {
           .setTaskQueue(Workflow.getInfo().taskQueue)
           .setStartToCloseTimeout(Duration.ofMinutes(5))
           .setRetryOptions(
-            // TODO(rz): What are the exceptions that we'll need to make non-retryable? Any?
             RetryOptions.newBuilder()
               .setBackoffCoefficient(1.1)
               .setInitialInterval(Duration.ofSeconds(2))
