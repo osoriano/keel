@@ -21,7 +21,7 @@ data class CanaryConstraint(
     val warmupInMinutes: Int? = null,
     val numberOfInstances: Int? = null,
     val baselinePropertyOverrides: Map<String, String>? = null,
-    val configProperties: Map<String, String>? = null
+    val canaryPropertyOverrides: Map<String, String>? = null
 ) : StatefulConstraint("canary")
 
 data class ClusterWithRegions(

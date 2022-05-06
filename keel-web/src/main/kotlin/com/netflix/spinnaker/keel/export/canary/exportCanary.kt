@@ -42,7 +42,7 @@ fun extractCanaryConstraints(pipeline: Pipeline): List<CanaryConstraint> {
       warmupInMinutes = getNumericValue(parameters.warmupInMinutes, pipeline, 0),
       numberOfInstances = getNumericValue(parameters.numberOfInstances, pipeline, null),
       baselinePropertyOverrides = parameters.baselinePropertyOverrides,
-      configProperties = parameters.configProperties
+      canaryPropertyOverrides = parameters.configProperties
     )
   }
 }
