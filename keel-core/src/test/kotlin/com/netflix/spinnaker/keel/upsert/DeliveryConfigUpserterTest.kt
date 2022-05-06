@@ -117,8 +117,8 @@ internal class DeliveryConfigUpserterTest {
     } just Runs
 
     every {
-      resourceSchedulerService.isScheduling(any<String>())
-    } returns false
+      resourceSchedulerService.startScheduling(any<Resource<*>>())
+    } just Runs
   }
 
   @Test
@@ -212,7 +212,6 @@ internal class DeliveryConfigUpserterTest {
     ).second.isTrue()
   }
 
-
   @Test
   fun `do not allow upserting if overwriting existing resources for a new app`() {
     every {
@@ -243,8 +242,7 @@ internal class DeliveryConfigUpserterTest {
   }
 
   @Test
-  fun `schedule resources with Temporal when enabled`() {
-    every { resourceSchedulerService.isScheduling(any<String>()) } returns true
+  fun `schedule resources on upsert`() {
     every { resourceSchedulerService.isScheduling(any<Resource<*>>()) } returns false
     every { resourceSchedulerService.startScheduling(any<Resource<*>>()) } just Runs
     every { resourceSchedulerService.startScheduling(any<ResourceHeader>()) } just Runs

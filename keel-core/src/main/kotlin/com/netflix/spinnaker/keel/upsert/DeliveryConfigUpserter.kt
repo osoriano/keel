@@ -126,11 +126,8 @@ class DeliveryConfigUpserter(
   }
 
   private fun scheduleResources(deliveryConfig: DeliveryConfig) {
-    if (resourceSchedulerService.isScheduling(deliveryConfig.application)) {
-      deliveryConfig.environments.flatMap { it.resources }
-        .filterNot { resourceSchedulerService.isScheduling(it) }
-        .forEach { resourceSchedulerService.startScheduling(it) }
-    }
+    deliveryConfig.environments.flatMap { it.resources }
+      .forEach { resourceSchedulerService.startScheduling(it) }
   }
 
   private fun getGitMetadata(deliveryConfig: SubmittedDeliveryConfig): GitMetadata? {
