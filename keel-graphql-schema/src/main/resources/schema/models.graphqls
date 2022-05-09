@@ -62,18 +62,11 @@ type MD_Pipeline {
   artifacts: [MD_ArtifactSpec!]# will hold exported artifact for the pipeline
 }
 
-enum MD_PipelineStatus{
-  PROCESSED
-  EXPORTED
-  NOT_SUPPORTED
-}
-
 type MD_ArtifactSpec {
   id: ID!
   type: String
   spec: JSON
 }
-
 
 type MD_ConstraintSpec {
   id: ID!
@@ -86,6 +79,13 @@ type MD_ResourceSpec{
   kind: String
   spec: JSON
 }
+
+enum MD_PipelineStatus{
+  PROCESSED
+  EXPORTED
+  NOT_SUPPORTED
+}
+
 
 enum MD_ConstraintType {
   VERIFICATIONS

@@ -348,7 +348,7 @@ class ExportService(
           emptySet()
         }
 
-        val allowedTimes = createAllowedTimeConstraint(deploy.restrictedExecutionWindow)
+        val allowedTimes = extractAllowedTimeConstraint(deploy.restrictedExecutionWindow)
 
         // 5. infer from the cluster all dependent resources, including artifacts
         val resourcesAndArtifacts = try {
@@ -416,7 +416,8 @@ class ExportService(
           // 8a. look at the pipeline triggers and dependencies between pipelines to find any additional constraints
           val additionalConstraints = exportConstraintsFromTriggers(applicationName, deployPipeline, environment, deployPipelinesToEnvironments)
 
-          val canaryConstraints = extractCanaryConstraints(deployPipeline)
+          //TODO[gyardeni]: re-enable it when we'll add support for the canary stages shapes
+        //  val canaryConstraints = extractCanaryConstraints(deployPipeline)
 
           // 8b. look at test pipelines independent of the deployment pipeline to find any additional verifications
           val additionalVerifications = if (includeVerifications) {
@@ -431,7 +432,7 @@ class ExportService(
 
           pipelineNotifications = pipelineNotifications + deployPipeline.notifications
           environment.copy(
-            constraints = environment.constraints + additionalConstraints + canaryConstraints,
+            constraints = environment.constraints + additionalConstraints,
             notifications = notifications(environment.name, application.slackChannel?.name, deployPipeline.notifications),
             verifyWith = environment.verifyWith + additionalVerifications.values
           ).addMetadata(
@@ -477,7 +478,7 @@ class ExportService(
     return result
   }
 
-  private fun createAllowedTimeConstraint(executionWindow: RestrictedExecutionWindow?) =
+  private fun extractAllowedTimeConstraint(executionWindow: RestrictedExecutionWindow?) =
     if (executionWindow != null) {
       val timeWindow = executionWindow.whitelist?.joinToString(",") { time ->
         "${time.startHour}-${time.endHour}"
@@ -549,10 +550,9 @@ class ExportService(
       log.debug("Checking pipeline [${pipeline.name}], last execution: ${lastExecution?.buildTime}")
       val exportPipeline = listOf(pipeline).toDeploysAndClusters(serviceAccount)
       exportPipeline.mapValues { (pipeline, deploysAndClusters) ->
-        //TODO: add more pipeline constraints here, like canaries
-        deploysAndClusters.map { (deploy, cluster) ->
-          val allowedTimes = createAllowedTimeConstraint(deploy.restrictedExecutionWindow)
-          pipeline.constraints?.addAll(allowedTimes)
+        pipeline.constraints?.addAll(extractCanaryConstraints(pipeline))
+        deploysAndClusters.map { (deployStage, cluster) ->
+          pipeline.constraints?.addAll(extractAllowedTimeConstraint(deployStage.restrictedExecutionWindow))
           try {
             runBlocking {
               val resourcesAndArtifact = createResourcesBasedOnCluster(cluster, emptySet(), applicationName)

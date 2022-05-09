@@ -190,9 +190,9 @@ data class ChapCanaryParameters(
 )
 
 data class ChapCanaryRegionMetadata(
-  val imageId: String?,
+  val imageId: String? = null,
   val region: String,
-  val startDelayInMinutes: Int?,
+  val startDelayInMinutes: Int? = null,
 )
 
 data class ChapCanaryConstraints(

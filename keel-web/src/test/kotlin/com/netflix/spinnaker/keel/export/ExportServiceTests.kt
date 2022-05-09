@@ -38,6 +38,7 @@ import com.netflix.spinnaker.keel.ec2.resource.ClassicLoadBalancerHandler
 import com.netflix.spinnaker.keel.ec2.resource.ClusterHandler
 import com.netflix.spinnaker.keel.ec2.resource.SecurityGroupHandler
 import com.netflix.spinnaker.keel.export.ExportService.Companion.EXPORTABLE_PIPELINE_SHAPES
+import com.netflix.spinnaker.keel.export.canary.CanaryConstraint
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.model.Cluster
 import com.netflix.spinnaker.keel.front50.model.DeployStage
@@ -283,6 +284,13 @@ internal class ExportServiceTests {
         restrictedExecutionWindow = restrictedExecutionWindow
       ),
       deployStageForTitus
+    )
+  )
+
+  private val pipelineWithCanary = pipelineWithNotifications.copy(
+    _stages = listOf(
+      deployStage,
+      canaryStage
     )
   )
 
@@ -876,6 +884,31 @@ internal class ExportServiceTests {
               get { resources }
                 .isA<Set<SubmittedResource<*>>>()
                 .hasSize(5)
+            }
+        }
+    }
+  }
+
+  @Test
+  fun `application unsupported pipeline, with a canary stage` () {
+    every {
+      front50Cache.pipelinesByApplication(appName)
+    } returns listOf(pipelineWithCanary)
+
+    val result = runBlocking {
+      subject.exportFromPipelines(appName)
+    }
+    expectThat(result) {
+      isA<PipelineExportResult>()
+        .and {
+          get { skipped }
+            .hasSize(1)
+            .get { keys }
+            .first()
+            .and {
+              get { constraints }
+                .isA<Set<CanaryConstraint>>()
+                .hasSize(1)
             }
         }
     }
