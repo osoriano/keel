@@ -189,7 +189,7 @@ class DeliveryConfigCodeEventListener(
   private fun onboardNewApplication(application: Application, user: String, event: CodeEvent) {
     runBlocking {
       if (isMigrationPr(event, application)) {
-        front50Cache.disableAllPipelines(application.name)
+        front50Cache.disableDeployPipelines(application.name)
         pausedRepository.resumeApplication(application.name)
       }
     }

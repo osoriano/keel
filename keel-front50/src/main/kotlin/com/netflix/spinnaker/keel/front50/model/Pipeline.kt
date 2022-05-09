@@ -92,6 +92,9 @@ data class Pipeline(
     return stages.slice(i until stages.size).filterIsInstance<JenkinsStage>()
   }
 
+  fun findDeployStages() =
+    stages.filterIsInstance<DeployStage>()
+
   fun hasManualJudgment(deployStage: DeployStage) =
     try {
       stages[stages.indexOf(deployStage) - 1] is ManualJudgmentStage

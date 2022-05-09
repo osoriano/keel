@@ -6,6 +6,10 @@ import com.netflix.spinnaker.keel.exceptions.ApplicationNotFound
 import com.netflix.spinnaker.keel.api.Application
 import com.netflix.spinnaker.keel.api.GitRepository
 import com.netflix.spinnaker.keel.api.ManagedDeliveryConfig
+import com.netflix.spinnaker.keel.front50.model.BakeStage
+import com.netflix.spinnaker.keel.front50.model.Cluster
+import com.netflix.spinnaker.keel.front50.model.DeployStage
+import com.netflix.spinnaker.keel.front50.model.Pipeline
 import com.netflix.spinnaker.keel.retrofit.RETROFIT_NOT_FOUND
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import io.mockk.mockk
@@ -36,6 +40,35 @@ class Front50CacheTests {
   private val front50Service: Front50Service = mockk()
   private val subject = Front50Cache(front50Service, cacheFactory)
 
+  private val bakeStage = BakeStage(
+    refId = "1",
+    name = "bake",
+    baseOs = "os",
+    `package` = "package",
+    regions = setOf()
+  )
+
+  private val deployStage = DeployStage(
+    refId = "2",
+    name = "deploy",
+    clusters = setOf(Cluster(account = "prod", application = "app-1", provider = "aws", strategy = "red-black"))
+  )
+
+  private val pipelineWithDeploy = Pipeline(
+    name = "pipeline1",
+    id = "1",
+    application = "app-1",
+    _stages = listOf(bakeStage, deployStage)
+  )
+
+  private val pipelineWithoutDeploy = Pipeline(
+    name = "pipeline2",
+    id = "2",
+    application = "app-1",
+    _stages = listOf(bakeStage)
+  )
+
+
   @BeforeEach
   fun setupMocks() {
     every {
@@ -61,6 +94,14 @@ class Front50CacheTests {
       val updatedApp = arg<Application>(2)
       appsByName[arg(0)]?.copy(managedDelivery = updatedApp.managedDelivery) ?: throw RETROFIT_NOT_FOUND
     }
+
+    every {
+      front50Service.pipelinesByApplication(any())
+    } returns listOf(pipelineWithDeploy, pipelineWithoutDeploy)
+
+    every {
+      front50Service.disablePipeline(any(), any())
+    } returns Pipeline(name = "disabled pipeline", id = "0", application = "app-1")
   }
 
   @Test
@@ -158,6 +199,18 @@ class Front50CacheTests {
     }
     verify(exactly = 2) {
       front50Service.searchApplications(any())
+    }
+  }
+
+  @Test
+  fun `only disable pipelines with a deploy stage`() {
+    val app = appsByName.values.first()
+    runBlocking {
+      subject.disableDeployPipelines(app.name)
+    }
+
+    verify(exactly = 1) {
+      front50Service.disablePipeline(pipelineWithDeploy.id, any())
     }
   }
 }

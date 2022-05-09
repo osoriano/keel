@@ -766,8 +766,7 @@ class ExportService(
   private fun List<Pipeline>.toDeploysAndClusters(serviceAccount: String) =
     associateWith { pipeline ->
       pipeline
-        .stages
-        .filterIsInstance<DeployStage>()
+        .findDeployStages()
         .flatMap { deploy ->
           deploy
             .clusters

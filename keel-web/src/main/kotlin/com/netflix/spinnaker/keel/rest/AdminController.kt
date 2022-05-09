@@ -161,13 +161,13 @@ class AdminController(
   }
 
   @PostMapping(
-    path = ["/application/{application}/disableAllPipelines"]
+    path = ["/application/{application}/disableDeploymentPipelines"]
   )
-  fun disableAllPipelines(
+  fun disableDeploymentPipelines(
     @PathVariable("application") app: String
   ) {
     runBlocking {
-      front50Cache.disableAllPipelines(app)
+      front50Cache.disableDeployPipelines(app)
     }
   }
 

@@ -191,7 +191,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
       }
 
       every {
-        front50Cache.disableAllPipelines(any())
+        front50Cache.disableDeployPipelines(any())
       } just runs
 
       every {
@@ -275,7 +275,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
 
           test("we are not onboarding existing apps") {
             verify(exactly = 0) {
-              front50Cache.disableAllPipelines(any())
+              front50Cache.disableDeployPipelines(any())
             }
 
             verify(exactly = 0) {
@@ -337,7 +337,7 @@ class DeliveryConfigCodeEventListenerTests : JUnit5Minutests {
           }
 
           verify {
-            front50Cache.disableAllPipelines(front50MigratingApp.name)
+            front50Cache.disableDeployPipelines(front50MigratingApp.name)
           }
 
           verify {

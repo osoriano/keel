@@ -115,11 +115,13 @@ class Front50Cache(
     }
   }
 
-  suspend fun disableAllPipelines(rawApplication: String) {
+  suspend fun disableDeployPipelines(rawApplication: String) {
     val application = rawApplication.lowercase()
-    val pipelines = front50Service.pipelinesByApplication(application)
-    log.info("Disabling all pipelines (total of ${pipelines.size}) of application $application")
-    pipelines.forEach {
+    val deploymentPipelines = front50Service.pipelinesByApplication(application).filter {
+      it.findDeployStages().isNotEmpty()
+    }
+    log.info("Disabling pipelines with a deploy stage (${deploymentPipelines.map { it.name }}) of application $application")
+    deploymentPipelines.forEach {
       try {
         front50Service.disablePipeline(it.id, DisablePipeline(application = application, disabled = true))
         log.debug("Successfully disabled pipeline ${it.id} for application $application")
