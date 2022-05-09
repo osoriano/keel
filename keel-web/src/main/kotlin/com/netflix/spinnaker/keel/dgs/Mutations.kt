@@ -1,7 +1,6 @@
 package com.netflix.spinnaker.keel.dgs
 
 import com.netflix.graphql.dgs.DgsComponent
-import com.netflix.graphql.dgs.DgsData
 import com.netflix.graphql.dgs.DgsMutation
 import com.netflix.graphql.dgs.InputArgument
 import com.netflix.graphql.dgs.exceptions.DgsEntityNotFoundException
@@ -294,7 +293,7 @@ class Mutations(
     @InputArgument payload: MD_DeliveryConfigValidationPayload,
   ): MD_ValidateResult {
     try {
-      applicationService.validateDeliveryConfig(payload.deliveryConfig)
+      applicationService.parseAndValidateDeliveryConfig(payload.deliveryConfig)
     } catch (e: Exception) {
       return MD_ValidateResult(success = false, errors = e.message?.let { listOf(it) })
     }

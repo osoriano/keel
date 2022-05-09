@@ -82,7 +82,6 @@ import strikt.assertions.isNotNull
 import strikt.assertions.isNull
 import strikt.assertions.isSuccess
 import strikt.assertions.isTrue
-import strikt.mockk.isCaptured
 import java.time.Instant
 
 @SpringBootTest(
@@ -256,7 +255,7 @@ class QueryTests {
     } just Runs
 
     every {
-      applicationService.validateDeliveryConfig(any())
+      applicationService.parseAndValidateDeliveryConfig(any())
     } returns submittedDeliveryConfig
 
     every {
@@ -278,7 +277,7 @@ class QueryTests {
     )
 
     coEvery {
-      applicationService.storePausedMigrationConfig(any(), any())
+      applicationService.storePausedMigrationConfig(any(), any(), any())
     } returns deliveryConfig
 
     coEvery {
@@ -426,7 +425,7 @@ class QueryTests {
   }
 
   @Test
-  fun initiateMigration() {
+  fun `initiate migration - stored config`() {
     coEvery {
       artifactRepository.getCurrentlyDeployedArtifactVersionId(any(), any(), any())
     } returns null
@@ -435,7 +434,7 @@ class QueryTests {
       dgsQueryExecutor.executeAndExtractJsonPathAsObject(
         getQuery("/dgs/initiateMigration.graphql"),
         "data.md_initiateApplicationMigration",
-        mapOf("payload" to mapOf("application" to deliveryConfig.application, "deliveryConfig" to mapper.convertValue(deliveryConfig, Map::class.java))),
+        mapOf("payload" to mapOf("application" to deliveryConfig.application)),
         MD_Migration::class.java,
         getHeaders()
       )
@@ -446,7 +445,44 @@ class QueryTests {
     }
 
     coVerify { applicationService.openMigrationPr(deliveryConfig.application, user, any()) }
-    coVerify { applicationService.storePausedMigrationConfig(deliveryConfig.application, user) }
+    coVerify {
+      applicationService.storePausedMigrationConfig(
+        deliveryConfig.application,
+        user,
+        submittedDeliveryConfig
+      )
+    }
+  }
+
+  @Test
+  fun `initiate migration - submit a delivery config`() {
+    coEvery {
+      artifactRepository.getCurrentlyDeployedArtifactVersionId(any(), any(), any())
+    } returns null
+
+    val configAsMap = mapper.convertValue(deliveryConfig, Map::class.java)
+
+    expectCatching {
+      dgsQueryExecutor.executeAndExtractJsonPathAsObject(
+        getQuery("/dgs/initiateMigration.graphql"),
+        "data.md_initiateApplicationMigration",
+        mapOf(
+          "payload" to mapOf(
+            "application" to deliveryConfig.application,
+            "deliveryConfig" to configAsMap
+          )
+        ),
+        MD_Migration::class.java,
+        getHeaders()
+      )
+    }.isSuccess().and {
+      get { status }.isEqualTo(MD_MigrationStatus.PR_CREATED)
+      get { actuationPlan }.isNotNull()
+        .get { status }.isEqualTo(MD_ActuationPlanStatus.PENDING)
+    }
+
+    coVerify { applicationService.openMigrationPr(deliveryConfig.application, user, configAsMap) }
+    coVerify { applicationService.storePausedMigrationConfig(deliveryConfig.application, user, submittedDeliveryConfig) }
   }
 
   @Test
@@ -470,7 +506,7 @@ class QueryTests {
   @Test
   fun `invalid delivery config`() {
     every {
-      applicationService.validateDeliveryConfig(any())
+      applicationService.parseAndValidateDeliveryConfig(any())
     } throws InvalidAppNameException("App name is missing")
 
     val configAsMap = mapper.convertValue(deliveryConfig, Map::class.java).toMutableMap().remove("application")

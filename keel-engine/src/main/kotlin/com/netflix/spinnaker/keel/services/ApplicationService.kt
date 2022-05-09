@@ -3,7 +3,6 @@ package com.netflix.spinnaker.keel.services
 import com.fasterxml.jackson.module.kotlin.convertValue
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
-import com.fasterxml.jackson.module.kotlin.convertValue
 import com.netflix.spectator.api.BasicTag
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.config.ArtifactConfig
@@ -291,7 +290,7 @@ class ApplicationService(
     }
   }
 
-  fun validateDeliveryConfig(rawDeliveryConfig: Any): SubmittedDeliveryConfig {
+  fun parseAndValidateDeliveryConfig(rawDeliveryConfig: Any): SubmittedDeliveryConfig {
     return objectMapper.convertValue<SubmittedDeliveryConfig>(rawDeliveryConfig).also {
       validator.validate(it)
     }
@@ -309,7 +308,7 @@ class ApplicationService(
     val deliveryConfig = if (rawDeliveryConfig == null) {
       applicationPrData.deliveryConfig
     } else {
-      validateDeliveryConfig(rawDeliveryConfig)
+      parseAndValidateDeliveryConfig(rawDeliveryConfig)
     }
 
     //sending the exported config in a yml format, as string
@@ -354,7 +353,7 @@ class ApplicationService(
         ?: ex)
     }
 
-    return Pair(applicationPrData, prLink)
+    return Pair(applicationPrData.copy(deliveryConfig = deliveryConfig), prLink)
   }
 
   suspend fun addCommentToJira(application: String, issue: String) {
@@ -378,11 +377,10 @@ class ApplicationService(
    * diffing resources against current state) in support of the migration wizard.
    */
   @Transactional(propagation = REQUIRED)
-  fun storePausedMigrationConfig(application: String, user: String): DeliveryConfig {
-    val applicationPrData = repository.getMigratableApplicationData(application)
+  fun storePausedMigrationConfig(application: String, user: String, deliveryConfig: SubmittedDeliveryConfig): DeliveryConfig {
     pausedRepository.pauseApplication(application, user, "Automatically paused while upgrading to Managed Delivery.")
     return deliveryConfigUpserter.upsertConfig(
-      applicationPrData.deliveryConfig,
+      deliveryConfig,
       allowResourceOverwriting = true,
       user = user
     ).first

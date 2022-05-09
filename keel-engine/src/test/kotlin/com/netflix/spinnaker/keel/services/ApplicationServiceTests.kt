@@ -508,7 +508,7 @@ class ApplicationServiceTests : JUnit5Minutests {
 
       test("application is paused and delivery config is stored") {
         expectCatching {
-          applicationService.storePausedMigrationConfig(application1, "keel")
+          applicationService.storePausedMigrationConfig(application1, "keel", submittedDeliveryConfig)
         }.isSuccess()
 
         verify {

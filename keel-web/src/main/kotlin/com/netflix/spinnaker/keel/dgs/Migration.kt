@@ -106,7 +106,7 @@ class Migration(
 
     // store the delivery config (but paused) so that we can do things with it like diffing resources
     // even before the app is officially onboarded
-    applicationService.storePausedMigrationConfig(payload.application, user)
+    applicationService.storePausedMigrationConfig(payload.application, user, prData.deliveryConfig)
 
     val warning = if (prData.deliveryConfig.artifactWithStatuses) {
       listOf(
