@@ -1184,10 +1184,12 @@ private fun jsonStringify(arguments: Map<String, Any>?) =
       dependencies = dependencies,
       entryPoint = entryPoint,
       env = env.filterNot { EXPORT_IGNORED_ENV.contains(it.key) },
-      containerAttributes = containerAttributes.apply {
+      containerAttributes = containerAttributes.let {
         // We should ignore [EXPORT_IGNORED_CONTAINER_ATTRIBUTES] keys in the prod and test envs
         if ((EXPORT_IGNORED_CONTAINER_ATTRIBUTES_ACCOUNTS.contains(location.account))) {
-          filterNot { EXPORT_IGNORED_CONTAINER_ATTRIBUTES.contains(it.key) }
+          it.filterNot { attr -> EXPORT_IGNORED_CONTAINER_ATTRIBUTES.contains(attr.key) }
+        } else {
+          it
         }
       },
       migrationPolicy = migrationPolicy,
