@@ -36,7 +36,7 @@ data class AllArtifactsSyncEvent(
 data class ArtifactSyncEvent(
   val application: String,
   val artifactReference: String,
-  val limit: Int,
+  val limit: Int
 )
 
 /**

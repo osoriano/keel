@@ -167,7 +167,7 @@ internal class DockerArtifactSupplierTests : JUnit5Minutests {
       val versionSlot = slot<String>()
       before {
         every {
-          titusRegistryService.findImages(image = dockerArtifact.name)
+          titusRegistryService.findImages(image = dockerArtifact.name, limit = any())
         } returns listOf(latestDockerImage)
       }
 
@@ -183,7 +183,7 @@ internal class DockerArtifactSupplierTests : JUnit5Minutests {
         }
         expectThat(result).isEqualTo(latestArtifact)
         verify(exactly = 1) {
-          titusRegistryService.findImages(image = latestArtifact.name)
+          titusRegistryService.findImages(image = latestArtifact.name, limit = any())
         }
       }
 
@@ -201,7 +201,7 @@ internal class DockerArtifactSupplierTests : JUnit5Minutests {
     context("DockerArtifactSupplier with metadata") {
       before {
         every {
-          titusRegistryService.findImages(image = dockerArtifact.name)
+          titusRegistryService.findImages(image = dockerArtifact.name, limit = any())
         } returns listOf(dockerImageWithMetaData)
       }
 

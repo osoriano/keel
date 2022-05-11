@@ -13,6 +13,7 @@ import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
 import com.netflix.spinnaker.keel.titus.registry.TitusRegistryService
+import com.netflix.spinnaker.keel.titus.registry.TitusRegistryService.Companion.DEFAULT_MAX_RESULTS
 import org.springframework.stereotype.Component
 
 /**
@@ -27,6 +28,7 @@ class DockerArtifactSupplier(
 ) : BaseArtifactSupplier<DockerArtifact, DockerVersionSortingStrategy>(artifactMetadataService) {
   override val supportedArtifact = SupportedArtifact("docker", DockerArtifact::class.java)
 
+<<<<<<< 439103ceaa79b7c2c86da1b1662268565dd6b8dc
 <<<<<<< 8da4e9e1496f2149a55545e0df04ef9c32073681
 <<<<<<< 9ac83e61819e44a21ac7b7d1e2c5b00e4250a8b0
 <<<<<<< 4c76b4ad2323773a3a73e2741e3695005f0c66c0
@@ -106,6 +108,15 @@ class DockerArtifactSupplier(
     //  we could use the info about clusters using the artifacts to narrow down.
 >>>>>>> c449b3aefa1ace8696be7eab7682911f67e3ad94
     val images = titusRegistryService.findImages(artifact.name)
+=======
+  private suspend fun findArtifactVersions(artifact: DeliveryArtifact, limit: Int?): List<PublishedArtifact> {
+    // TODO: We currently search by image name only, i.e. we look in all accounts/registries and regions, but
+    //  we could use the info about clusters using the artifacts to narrow down.
+    // must multiply the limit by 6 because we get multiple copies of each image (3 regions, 2 accounts)
+    // and we want to fetch the desired number of distinct image versions
+    val adjustedLimit = limit?.let { it * 6 } ?: DEFAULT_MAX_RESULTS
+    val images = titusRegistryService.findImages(image = artifact.name, limit = adjustedLimit)
+>>>>>>> b2f553c39fb4320db83e03cf214e869c04e1cf8b
     return images.map { dockerImage ->
       PublishedArtifact(
         name = dockerImage.repository,
@@ -142,7 +153,7 @@ class DockerArtifactSupplier(
       throw IllegalArgumentException("Only Docker artifacts are supported by this implementation.")
     }
 
-    return findArtifactVersions(artifact)
+    return findArtifactVersions(artifact, limit)
       .filter { shouldProcessArtifact(it) }
       .sortedWith(artifact.sortingStrategy.comparator)
       .take(limit) // unfortunately we can only limit here because we need to sort with the comparator above
