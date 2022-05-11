@@ -15,7 +15,6 @@ import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 class ConfigFetcher(
   private val applicationFetcherSupport: ApplicationFetcherSupport,
   private val yamlMapper: YAMLMapper,
-  private val deliveryConfigImporter: DeliveryConfigImporter
 ) {
 
   @DgsData(parentType = DgsConstants.MD_APPLICATION.TYPE_NAME, field = DgsConstants.MD_APPLICATION.Config)
@@ -34,18 +33,5 @@ class ConfigFetcher(
   fun processedConfig(dfe: DgsDataFetchingEnvironment): String? {
     val config = applicationFetcherSupport.getDeliveryConfigFromContext(dfe)
     return yamlMapper.writeValueAsString(config.copy(rawConfig = null))
-  }
-
-  @DgsData(parentType = DgsConstants.MD_CONFIG.TYPE_NAME, field = DgsConstants.MD_CONFIG.RawConfig)
-  fun rawConfig(dfe: DgsDataFetchingEnvironment): String? {
-    val rawConfig = dfe.getSource<MD_Config>().rawConfig
-    val config = applicationFetcherSupport.getDeliveryConfigFromContext(dfe)
-    // If the raw config is empty or if it was imported via orca (orca adds the gitMetadata to the metadata) we fetch it again from stash
-    // TODO: remove this once we removed the import pipeline completely
-    return if (rawConfig.isNullOrBlank() || config.metadata.containsKey("gitMetadata")) {
-      deliveryConfigImporter.import(config.application, addMetadata = false).rawConfig
-    } else {
-      rawConfig
-    }
   }
 }
