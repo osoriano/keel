@@ -14,6 +14,13 @@ class DefaultSchedulingConfigActivities(
   override fun getResourceKindCheckInterval(request: CheckResourceKindRequest): Duration =
     configOrDefault("check-interval", sanitizeKindForFP(request.resourceKind), Duration.ofMinutes(1))
 
+  override fun getEnvironmentCheckInterval(): Duration =
+    environment.getProperty(
+      "keel.environment-scheduler.check-interval",
+      Duration::class.java,
+      Duration.ofMinutes(1)
+    )
+
   override fun getContinueAsNewInterval(request: CheckResourceKindRequest): Duration =
     configOrDefault("continue-as-new-interval", sanitizeKindForFP(request.resourceKind), Duration.ofHours(24))
 

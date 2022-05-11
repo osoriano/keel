@@ -6,6 +6,8 @@ import com.netflix.spinnaker.config.DefaultWorkhorseCoroutineContext
 import com.netflix.spinnaker.config.EnvironmentCheckConfig
 import com.netflix.spinnaker.config.EnvironmentDeletionConfig
 import com.netflix.spinnaker.config.EnvironmentVerificationConfig
+import com.netflix.spinnaker.config.FeatureToggles
+import com.netflix.spinnaker.config.FeatureToggles.Companion.TEMPORAL_ENV_CHECKING
 import com.netflix.spinnaker.config.PostDeployActionsConfig
 import com.netflix.spinnaker.config.ResourceCheckConfig
 import com.netflix.spinnaker.keel.api.Environment
@@ -65,10 +67,7 @@ internal class CheckSchedulerTests : JUnit5Minutests {
   }
 
   private val springEnv: SpringEnvironment = mockk(relaxed = true) {
-    every {
-      getProperty("keel.check.min-age-duration", Duration::class.java, any())
-    } returns checkMinAge
-
+    every { getProperty("keel.check.min-age-duration", Duration::class.java, any()) } returns checkMinAge
     every { getProperty("keel.resource-check.batch-size", Int::class.java, any()) } returns resourceCheckConfig.batchSize
     every { getProperty("keel.environment-check.batch-size", Int::class.java, any()) } returns environmentCheckConfig.batchSize
     every { getProperty("keel.artifact-check.batch-size", Int::class.java, any()) } returns artifactCheckConfig.batchSize
@@ -78,6 +77,7 @@ internal class CheckSchedulerTests : JUnit5Minutests {
     every { getProperty("keel.artifact.wait-for-batch.enabled", Boolean::class.java, any()) } returns false
     every { getProperty("keel.verification.wait-for-batch.enabled", Boolean::class.java, any()) } returns false
     every { getProperty("keel.post-deploy.wait-for-batch.enabled", Boolean::class.java, any()) } returns false
+    every { getProperty(TEMPORAL_ENV_CHECKING, Boolean::class.java, any()) } returns false
   }
 
 
@@ -188,7 +188,7 @@ internal class CheckSchedulerTests : JUnit5Minutests {
         test("a telemetry event is published for each delivery config check") {
           deliveryConfigs.forEach {
             verify {
-              publisher.publishEvent(EnvironmentCheckStarted(it))
+              publisher.publishEvent(EnvironmentCheckStarted(it.application))
             }
           }
         }

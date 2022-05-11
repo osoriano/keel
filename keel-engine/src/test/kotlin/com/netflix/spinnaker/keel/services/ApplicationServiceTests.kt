@@ -38,7 +38,7 @@ import com.netflix.spinnaker.keel.pause.PauseScope.RESOURCE
 import com.netflix.spinnaker.keel.persistence.ApplicationPullRequestDataIsMissing
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.PausedRepository
-import com.netflix.spinnaker.keel.scheduling.ResourceSchedulerService
+import com.netflix.spinnaker.keel.scheduling.TemporalSchedulerService
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
 import com.netflix.spinnaker.keel.serialization.configuredYamlMapper
 import com.netflix.spinnaker.keel.test.DummyArtifact
@@ -202,7 +202,7 @@ class ApplicationServiceTests : JUnit5Minutests {
     val resourceHandler = spyk(DummyResourceHandlerV1)
     val diffFactory = DefaultResourceDiffFactory()
     val actuationPauser: ActuationPauser = mockk()
-    val resourceSchedulerService: ResourceSchedulerService = mockk()
+    val temporalSchedulerService: TemporalSchedulerService = mockk()
     val validator: DeliveryConfigValidator = mockk()
 
     // subject
@@ -223,7 +223,7 @@ class ApplicationServiceTests : JUnit5Minutests {
       diffFactory,
       deliveryConfigUpserter,
       actuationPauser,
-      resourceSchedulerService,
+      temporalSchedulerService,
       validator
     )
 
@@ -308,7 +308,7 @@ class ApplicationServiceTests : JUnit5Minutests {
           repository.pinEnvironment(singleArtifactDeliveryConfig, pin)
         } just Runs
         every {
-          repository.triggerDeliveryConfigRecheck(singleArtifactDeliveryConfig)
+          temporalSchedulerService.checkEnvironmentNow(singleArtifactDeliveryConfig.application, any())
         } just Runs
 
         applicationService.pin("keel@keel.io", application1, pin)
@@ -333,7 +333,7 @@ class ApplicationServiceTests : JUnit5Minutests {
         } just Runs
 
         every {
-          repository.triggerDeliveryConfigRecheck(singleArtifactDeliveryConfig)
+          temporalSchedulerService.checkEnvironmentNow(singleArtifactDeliveryConfig.application, any())
         } just Runs
 
         every {
@@ -361,7 +361,7 @@ class ApplicationServiceTests : JUnit5Minutests {
         } just Runs
 
         every {
-          repository.triggerDeliveryConfigRecheck(singleArtifactDeliveryConfig)
+          temporalSchedulerService.checkEnvironmentNow(singleArtifactDeliveryConfig.application, any())
         } just Runs
 
         every {
@@ -599,18 +599,20 @@ class ApplicationServiceTests : JUnit5Minutests {
         every { repository.getDeliveryConfig(singleArtifactDeliveryConfig.name) } returns singleArtifactDeliveryConfig
         every { repository.deleteDeliveryConfigByName(singleArtifactDeliveryConfig.name) } just Runs
         every { repository.deleteDeliveryConfigByApplication(application1) } just Runs
-        every { resourceSchedulerService.stopScheduling(any()) } just Runs
+        every { temporalSchedulerService.stopScheduling(any()) } just Runs
+        every { temporalSchedulerService.stopScheduling(any(), any()) } just Runs
       }
 
       test("deleting the config by app also calls stop scheduling of all resources") {
         applicationService.deleteConfigByApp(application1)
         Thread.sleep(100)
-        verify(exactly = 6) { resourceSchedulerService.stopScheduling(any()) }
+        verify(exactly = 6) { temporalSchedulerService.stopScheduling(any()) }
       }
 
-      test("deleting the config by name also calls stop scheduling of all resources") {
+      test("deleting the config by name also calls stop scheduling of all resources and envs") {
         applicationService.deleteDeliveryConfig(singleArtifactDeliveryConfig.name)
-        verify(exactly = 6) { resourceSchedulerService.stopScheduling(any()) }
+        verify(exactly = 6) { temporalSchedulerService.stopScheduling(any()) }
+        verify(exactly = 3) { temporalSchedulerService.stopScheduling(any(), any()) }
       }
     }
   }

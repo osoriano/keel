@@ -13,6 +13,8 @@ interface SchedulingConfigActivities {
 
   fun getContinueAsNewInterval(request: CheckResourceKindRequest): Duration
 
+  fun getEnvironmentCheckInterval(): Duration
+
   data class CheckResourceKindRequest(
     val resourceKind: String
   )

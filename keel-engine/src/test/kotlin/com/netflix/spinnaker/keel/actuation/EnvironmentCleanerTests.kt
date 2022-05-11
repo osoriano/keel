@@ -22,7 +22,7 @@ import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
 import com.netflix.spinnaker.keel.persistence.ResourceRepository
 import com.netflix.spinnaker.keel.api.ResourceStatus.DELETING
 import com.netflix.spinnaker.keel.api.ResourceStatus.HAPPY
-import com.netflix.spinnaker.keel.scheduling.ResourceSchedulerService
+import com.netflix.spinnaker.keel.scheduling.TemporalSchedulerService
 import com.netflix.spinnaker.keel.services.ResourceStatusService
 import com.netflix.spinnaker.keel.test.DummyDependentResourceHandler
 import com.netflix.spinnaker.keel.test.DummyLocatableResourceHandler
@@ -58,7 +58,7 @@ class EnvironmentCleanerTests {
   private val resourceHandlers = listOf(locatableResourceHandler, dependentResourceHandler)
   private val resourceStatusService: ResourceStatusService = mockk()
   private val taskLauncher: TaskLauncher = mockk()
-  private val resourceSchedulerService: ResourceSchedulerService = mockk(relaxed = true)
+  private val temporalSchedulerService: TemporalSchedulerService = mockk(relaxed = true)
   private val subject = EnvironmentCleaner(
     deliveryConfigRepository = deliveryConfigRepository,
     resourceRepository = resourceRepository,
@@ -69,7 +69,7 @@ class EnvironmentCleanerTests {
     eventPublisher = eventPublisher,
     resourceStatusService = resourceStatusService,
     taskLauncher = taskLauncher,
-    resourceSchedulerService = resourceSchedulerService
+    temporalSchedulerService = temporalSchedulerService
   )
 
   private val deliveryConfig = deliveryConfig(locatableResource()).copy(
@@ -340,7 +340,7 @@ class EnvironmentCleanerTests {
     println("Checking deletion for status $status")
     verify(exactly = if (status == SUCCEEDED) 1 else 0) {
       resourceRepository.delete(resource.id)
-      resourceSchedulerService.stopScheduling(resource)
+      temporalSchedulerService.stopScheduling(resource)
     }
   }
 }

@@ -14,8 +14,13 @@ interface SchedulerSupervisor {
   fun supervise(request: SuperviseRequest)
 
   data class SuperviseRequest(
-    val scheduler: String = "resource"
+    val scheduler: SupervisorType
   )
+
+  enum class SupervisorType(val type: String) {
+    RESOURCE("resource"),
+    ENVIRONMENT("environment")
+  }
 }
 
 class DefaultSchedulerSupervisor : SchedulerSupervisor {
@@ -23,6 +28,6 @@ class DefaultSchedulerSupervisor : SchedulerSupervisor {
   private val supervisorActivities = SupervisorActivities.get()
 
   override fun supervise(request: SchedulerSupervisor.SuperviseRequest) {
-    supervisorActivities.reconcileSchedulers(SupervisorActivities.ReconcileSchedulersRequest())
+    supervisorActivities.reconcileSchedulers(SupervisorActivities.ReconcileSchedulersRequest(request.scheduler))
   }
 }
