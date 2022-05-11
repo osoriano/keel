@@ -303,12 +303,12 @@ class AdminController(
   }
 
   @PostMapping(
-    path = ["/sync/{application}/{artifactReference}"]
+    path = ["/sync/{application}"]
   )
   @ResponseStatus(HttpStatus.ACCEPTED)
   fun syncArtifact(
     @PathVariable application: String,
-    @PathVariable artifactReference: String,
+    @RequestParam artifactReference: String,
     @RequestParam limit: Int,
   ) {
     eventPublisher.publishEvent(
