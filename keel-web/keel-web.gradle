@@ -55,6 +55,9 @@ dependencies {
   implementation("com.fasterxml.jackson.datatype:jackson-datatype-joda")
   implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310")
   implementation("com.graphql-java:graphql-java-extended-scalars:16.0.1")
+  implementation("com.netflix.graphql.dgs:graphql-dgs-netflix-mfa-autoconfigure") {
+    exclude(group: "org.jetbrains.kotlinx")
+  }
 
   runtimeOnly("com.netflix.spinnaker.kork.internal:kork-runtime")
   // Admin UI
