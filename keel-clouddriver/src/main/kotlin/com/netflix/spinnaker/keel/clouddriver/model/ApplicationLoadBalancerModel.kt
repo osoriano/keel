@@ -106,10 +106,10 @@ data class ApplicationLoadBalancerModel(
     val deregistrationDelay: Int = 300,
 
     @JsonAlias("stickiness.type")
-    val stickinessType: String? = if (stickinessEnabled) "lb_cookie" else null,
+    val stickinessType: String = "lb_cookie",
 
     @JsonAlias("stickiness.lb_cookie.duration_seconds")
-    val stickinessDuration: Int? = if (stickinessEnabled) 86400 else null,
+    val stickinessDuration: Int = 86400,
 
     @JsonAlias("slow_start.duration_seconds")
     val slowStartDurationSeconds: Int = 0,
