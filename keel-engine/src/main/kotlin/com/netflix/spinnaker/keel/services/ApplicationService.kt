@@ -303,7 +303,9 @@ class ApplicationService(
    * Otherwise, we take the config that is stored in the DB
    */
   suspend fun openMigrationPr(application: String, user: String, userEditedDeliveryConfig: Any? = null): Pair<ApplicationPrData, String> {
+    log.debug("Creating a new migration PR for $application by $user")
     if (userEditedDeliveryConfig != null) {
+      log.debug("Storing user generated config for $application")
       val tempConfig = objectMapper.convertValue<SubmittedDeliveryConfig>(userEditedDeliveryConfig)
       validator.validate(tempConfig)
       repository.storeUserGeneratedConfigForMigratedApplication(application, tempConfig.copy(
@@ -311,10 +313,12 @@ class ApplicationService(
           DeliveryConfig.MIGRATING_KEY to true
         )
       ))
+      log.debug("Stored user generated config for $application successfully")
     }
 
     val applicationPrData = repository.getMigratableApplicationData(application)
 
+    log.debug("Creating a config using for $application from source ${applicationPrData.deliverConfigSource()}")
     //sending the exported config in a yml format, as string
     val configAsString = yamlMapper.writeValueAsString(applicationPrData.deliveryConfig)
 
@@ -327,6 +331,7 @@ class ApplicationService(
     //if we already have a PR link, add a new commit
     val prLink = if (applicationPrData.prLink != null) {
       try {
+        log.debug("Adding a commit to existing PR for $application")
         stashBridge.addCommitForExistingPR(migrationCommitData)
         applicationPrData.prLink
       } catch (ex: Exception) {
@@ -335,6 +340,7 @@ class ApplicationService(
       }
     } else {
       try {
+        log.debug("Creating a new PR for $application")
         stashBridge.createCommitAndPrFromConfig(migrationCommitData)
       } catch (ex: Exception) {
         log.debug("failed to created pull request for application $application.", ex)

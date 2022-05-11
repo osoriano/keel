@@ -92,18 +92,15 @@ class Migration(
     """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
     and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
   )
-  fun md_initiateApplicationMigration(
+  suspend fun md_initiateApplicationMigration(
     @InputArgument payload: MD_InitiateApplicationMigrationPayload,
     @RequestHeader("X-SPINNAKER-USER") user: String
   ): DataFetcherResult<MD_Migration?> {
-    val (prData, prLink) = runBlocking {
-      applicationService.openMigrationPr(
-        application = payload.application,
-        user = user,
-        userEditedDeliveryConfig = payload.deliveryConfig
-      )
-    }
-
+    val (prData, prLink) = applicationService.openMigrationPr(
+      application = payload.application,
+      user = user,
+      userEditedDeliveryConfig = payload.deliveryConfig
+    )
     // store the delivery config (but paused) so that we can do things with it like diffing resources
     // even before the app is officially onboarded
     applicationService.storePausedMigrationConfig(payload.application, user, prData.deliveryConfig)
