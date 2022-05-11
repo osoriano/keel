@@ -1,0 +1,29 @@
+databaseChangeLog:
+  - changeSet:
+      id: migration-config
+      author: gyardeni
+      changes:
+        - addColumn:
+            tableName: migration_status
+            columns:
+              - column:
+                  name: user_generated_config
+                  type: json
+                  constraints:
+                    nullable: true
+              - column:
+                  name: last_updated_by
+                  type: json
+                  constraints:
+                    nullable: true
+        - dropColumn:
+            tableName: migration_status
+            columnName: scm_enabled
+        - dropColumn:
+            tableName: migration_status
+            columnName: issue_details
+        - renameColumn:
+            tableName: migration_status
+            oldColumnName: delivery_config
+            newColumnName: auto_generated_config
+            columnDataType: json

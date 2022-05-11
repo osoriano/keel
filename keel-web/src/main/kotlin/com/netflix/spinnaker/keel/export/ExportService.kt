@@ -7,6 +7,7 @@ import com.netflix.spinnaker.config.WorkhorseCoroutineContext
 import com.netflix.spinnaker.keel.activation.DiscoveryActivated
 import com.netflix.spinnaker.keel.api.AccountAwareLocations
 import com.netflix.spinnaker.keel.api.Constraint
+import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Dependency
 import com.netflix.spinnaker.keel.api.DependencyType
 import com.netflix.spinnaker.keel.api.Dependent
@@ -451,7 +452,7 @@ class ExportService(
         artifacts = finalArtifacts,
         environments = finalEnvironments.sensibleOrder(),
         metadata = mapOf(
-          "migrating" to true
+          DeliveryConfig.MIGRATING_KEY to true
         )
       )
 

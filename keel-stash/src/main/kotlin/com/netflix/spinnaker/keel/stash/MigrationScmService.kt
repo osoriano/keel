@@ -5,6 +5,7 @@ import com.netflix.spinnaker.keel.api.migration.MigrationCommitData
 import com.netflix.spinnaker.keel.api.stash.BranchResponse
 import com.netflix.spinnaker.keel.api.stash.BuildResult
 import com.netflix.spinnaker.keel.api.stash.BuildState
+import com.netflix.spinnaker.keel.api.stash.Commit
 import com.netflix.spinnaker.keel.api.stash.ConfigCommitData
 import com.netflix.spinnaker.keel.api.stash.Project
 import com.netflix.spinnaker.keel.api.stash.PullRequest
@@ -32,6 +33,19 @@ class MigrationScmService(
     const val PR_TITLE = "Upgrade to Managed Delivery"
     const val BRANCH_NAME = "md-migration"
     const val CONFIG_PATH = ".netflix/spinnaker.yml"
+    const val BRANCH_ID = "refs/heads/$BRANCH_NAME"
+  }
+
+  override suspend fun addCommitForExistingPR(migrationCommitData: MigrationCommitData){
+    try {
+      //in order to add a commit for an existing branch, we need to set the branch id to stash
+      val commit = migrationCommitData.addCommit(sourceCommitId = BRANCH_ID)
+      migrationCommitData.storeSuccessfulBuildStatus(commit.id)
+    } catch (ex: Exception) {
+      log.debug(
+        "Caught an exception from stash adding a commit for existing PR for repo ${migrationCommitData.repoSlug}", ex)
+      throw StashException("fCaught an exception from stash adding a commit for existing PR for repo ${migrationCommitData.repoSlug}")
+    }
   }
 
   override suspend fun createCommitAndPrFromConfig(
@@ -92,7 +106,7 @@ class MigrationScmService(
     val customerProject = Project(projectKey)
     val customerRepo = Repo(repoSlug, customerProject)
     val mdRepo = Repo(repoSlug, mdProject)
-    val fromRef = Ref("refs/heads/$BRANCH_NAME", mdRepo)
+    val fromRef = Ref(BRANCH_ID, mdRepo)
     val toRef = Ref(defaultBranch.id, customerRepo)
     val stashReviewers: Set<Reviewer> = reviewers(user)
     var prDescription = getPrDescription(user)
@@ -136,18 +150,7 @@ class MigrationScmService(
     defaultBranch: BranchResponse
   ): ConfigCommitData {
     return try {
-      val commit = runBlocking {
-        stashService.addCommit(
-          projectKey = MD_PROJECT_KEY,
-          repositorySlug = repoSlug,
-          path = CONFIG_PATH,
-          content = fileContents,
-          branch = BRANCH_NAME,
-          message = COMMIT_MESSAGE,
-          sourceBranch = defaultBranch.displayId,
-          sourceCommitId = null
-        )
-      }
+      val commit = addCommit(defaultBranch)
       ConfigCommitData(commitId = commit.id, isExists = false)
     } catch (ex: Exception) {
       abortUnlessConflictError(ex)
@@ -155,18 +158,7 @@ class MigrationScmService(
       //try again to add the commit after updating the latest commit id
       return try {
         log.debug("Retrying to create a commit for: $repoSlug with an addition of sourceCommitId")
-        val commit = runBlocking {
-          stashService.addCommit(
-            projectKey = MD_PROJECT_KEY,
-            repositorySlug = repoSlug,
-            path = CONFIG_PATH,
-            content = fileContents,
-            branch = BRANCH_NAME,
-            message = COMMIT_MESSAGE,
-            sourceBranch = defaultBranch.displayId,
-            sourceCommitId = defaultBranch.id
-          )
-        }
+        val commit = addCommit(defaultBranch, defaultBranch.id)
         ConfigCommitData(commitId = commit.id, isExists = true)
       } catch (ex: Exception) {
         abortUnlessConflictError(ex)
@@ -174,6 +166,24 @@ class MigrationScmService(
         log.debug("Retrying to create a commit for repo $repoSlug failed. Is it possible that a branch named $BRANCH_NAME exists in the original repo or in the forked repo?")
         throw StashException("branch $BRANCH_NAME already exists in repo $repoSlug")
       }
+    }
+  }
+
+  private fun MigrationCommitData.addCommit(defaultBranch: BranchResponse? = null,
+                                            sourceCommitId: String? = null): Commit {
+    log.debug("adding commit to repo $repoSlug, and branch $BRANCH_NAME")
+    return runBlocking {
+      stashService.addCommit(
+        projectKey = MD_PROJECT_KEY,
+        repositorySlug = repoSlug,
+        path = CONFIG_PATH,
+        content = fileContents,
+        branch = BRANCH_NAME,
+        message = COMMIT_MESSAGE,
+        sourceBranch = defaultBranch?.displayId,
+        //source commit id should not be null if the file already exists
+        sourceCommitId = sourceCommitId
+      )
     }
   }
 

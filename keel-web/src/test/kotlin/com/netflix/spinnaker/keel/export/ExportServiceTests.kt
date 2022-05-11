@@ -71,14 +71,13 @@ import com.netflix.spinnaker.keel.titus.TitusClusterHandler
 import com.netflix.spinnaker.keel.validators.DeliveryConfigValidator
 import com.netflix.spinnaker.keel.verification.jenkins.JenkinsJobVerification
 import com.netflix.spinnaker.keel.veto.unhealthy.UnsupportedResourceTypeException
-import io.mockk.just
 import io.mockk.mockk
-import io.mockk.runs
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import strikt.api.expectThat
 import strikt.api.expectThrows
+import strikt.assertions.contains
 import strikt.assertions.first
 import strikt.assertions.hasSize
 import strikt.assertions.isA
@@ -200,20 +199,24 @@ internal class ExportServiceTests {
     application = appName,
   )
 
+  private val region1 = "us-east-1"
+  private val region2 = "us-west-2"
+  private val region3 = "us-west-3"
+
+  private val cluster = Cluster(
+    account = "test",
+    application = appName,
+    provider = "aws",
+    strategy = "highlander",
+    availabilityZones = mapOf("us-east-1" to listOf("us-east-1c", "us-east-1d", "us-east-1e")),
+    _region = region1
+  )
+
   private val deployStage = DeployStage(
     name = "Deploy",
     refId = "2",
     requisiteStageRefIds = listOf("1"),
-    clusters = setOf(
-      Cluster(
-        account = "test",
-        application = appName,
-        provider = "aws",
-        strategy = "highlander",
-        availabilityZones = mapOf("us-east-1" to listOf("us-east-1c", "us-east-1d", "us-east-1e")),
-        _region = null
-      )
-    )
+    clusters = setOf(cluster)
   )
 
   private val deployStageForTitus = DeployStage(
@@ -226,8 +229,8 @@ internal class ExportServiceTests {
         application = appName,
         provider = "titus",
         strategy = "redblack",
-        availabilityZones = mapOf("us-east-1" to listOf("us-east-1c", "us-east-1d", "us-east-1e")),
-        _region = null
+        availabilityZones = mapOf("us-west-2" to listOf("us-east-1c", "us-east-1d", "us-east-1e")),
+        _region = region2
       )
     )
   )
@@ -278,12 +281,29 @@ internal class ExportServiceTests {
     days = listOf(2, 3, 4, 5, 6)
   )
 
-  private val pipelineWithTwoDeploy = pipelineWithNotifications.copy(
+  private val pipelineWithTwoDeployDifferentResources = pipelineWithNotifications.copy(
     _stages = listOf(
       deployStage.copy(
-        restrictedExecutionWindow = restrictedExecutionWindow
+        restrictedExecutionWindow = restrictedExecutionWindow,
       ),
       deployStageForTitus
+    )
+  )
+
+  private val pipelineWithTwoDeployDifferentRegions = pipelineWithNotifications.copy(
+    _stages = listOf(
+      deployStage.copy(
+        restrictedExecutionWindow = restrictedExecutionWindow,
+      ),
+      deployStage.copy(
+        clusters = setOf(cluster.copy(
+          _region = region2
+        ),
+          cluster.copy(
+          _region = region3
+        )
+        )
+      )
     )
   )
 
@@ -385,10 +405,6 @@ internal class ExportServiceTests {
     every {
       front50Cache.applicationByName(appName)
     } returns Application(name = appName, repoType = "stash", repoProjectKey = "spkr", repoSlug = appName)
-
-    every {
-      deliveryConfigRepository.updateMigratingAppScmStatus(appName, any())
-    } just runs
 
     every {
       applicationLbHandler.supportedKind
@@ -816,7 +832,7 @@ internal class ExportServiceTests {
   fun `application with one unsupported pipeline shape producing floating artifacts, resources and constraints`() {
     every {
       front50Cache.pipelinesByApplication(appName)
-    } returns listOf(pipelineWithTwoDeploy)
+    } returns listOf(pipelineWithTwoDeployDifferentResources)
     every { titusClusterHandler.exportArtifact(any()) } returns dockerArtifact
 
     val result = runBlocking {
@@ -854,10 +870,10 @@ internal class ExportServiceTests {
   }
 
   @Test
-  fun `application with two pipelines, one supported and one not, return correct both supported and unsupported pipeline` () {
+  fun `application with two pipelines, one supported and one not, return correct both supported and unsupported pipeline`() {
     every {
       front50Cache.pipelinesByApplication(appName)
-    } returns listOf(pipelineWithTwoDeploy, pipelineWithTitus)
+    } returns listOf(pipelineWithTwoDeployDifferentResources, pipelineWithTitus)
     every { titusClusterHandler.exportArtifact(any()) } returns dockerArtifact
 
     val result = runBlocking {
@@ -873,7 +889,7 @@ internal class ExportServiceTests {
             get { resources }
               .isA<Set<SubmittedResource<*>>>()
               .hasSize(4)
-            }
+          }
       }
         .and {
           get { skipped }
@@ -890,7 +906,7 @@ internal class ExportServiceTests {
   }
 
   @Test
-  fun `application unsupported pipeline, with a canary stage` () {
+  fun `application with an unsupported pipeline, with a canary stage`() {
     every {
       front50Cache.pipelinesByApplication(appName)
     } returns listOf(pipelineWithCanary)
@@ -911,6 +927,34 @@ internal class ExportServiceTests {
                 .hasSize(1)
             }
         }
+    }
+  }
+
+  @Test
+  fun `application with a pipeline containting two deploy stages with different regions, exports the right regions`() {
+    every {
+      front50Cache.pipelinesByApplication(appName)
+    } returns listOf(pipelineWithTwoDeployDifferentRegions)
+
+    val result = runBlocking {
+      subject.exportFromPipelines(appName)
+    }
+
+    expectThat(result) {
+      isA<PipelineExportResult>().and {
+        get {
+          skipped.keys.first().resources?.first {
+            it.kind == ec2Cluster.kind
+          }
+        }.isA<SubmittedResource<ClusterSpec>>()
+          .get { spec }
+          .get {
+            locations.regions
+              .map { it.name }
+              .toSet()
+          }.contains(setOf(region1, region2))
+
+      }
     }
   }
 }

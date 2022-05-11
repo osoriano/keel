@@ -35,10 +35,10 @@ interface StashService {
     @Path("repositorySlug") repositorySlug: String,
     @Path(value = "path", encoded = true) path: String,
     @Part("branch") branch: String,
-    @Part("sourceBranch", encoding = "8-bit") sourceBranch: String,
+    @Part("sourceBranch", encoding = "8-bit") sourceBranch: String? = null,
     @Part("message") message: String,
     @Part("content") content: String,
-    @Part("sourceCommitId") sourceCommitId: String?
+    @Part("sourceCommitId") sourceCommitId: String? = null
   ): Commit
 
 

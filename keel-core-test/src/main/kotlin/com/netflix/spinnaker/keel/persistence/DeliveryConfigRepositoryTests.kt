@@ -1119,7 +1119,6 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
       test("App can be migrated") {
         repository.storeAppForPotentialMigration(deliveryConfig.application, true)
         repository.storePipelinesExportResult(submittedConfig, emptyList(), true, isInactive = false)
-        repository.updateMigratingAppScmStatus(deliveryConfig.application, true)
         expectCatching {
           repository.getApplicationMigrationStatus(deliveryConfig.application)
         }
@@ -1127,14 +1126,12 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
           .and {
             get { isMigratable }.isTrue()
             get { deliveryConfig }.isNotNull()
-            get { isScmPowered }.isTrue()
           }
 
       }
 
       test("App cannot be migrated - not in allowed list") {
         repository.storePipelinesExportResult(submittedConfig, emptyList(), true, isInactive = false)
-        repository.updateMigratingAppScmStatus(deliveryConfig.application, true)
         expectCatching {
           repository.getApplicationMigrationStatus(deliveryConfig.application)
         }
@@ -1145,7 +1142,6 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
       test("App cannot be migrated - failed export") {
         repository.storeAppForPotentialMigration(deliveryConfig.application, true)
         repository.storePipelinesExportResult(submittedConfig, emptyList(), false, isInactive = false)
-        repository.updateMigratingAppScmStatus(deliveryConfig.application, true)
         expectCatching {
           repository.getApplicationMigrationStatus(deliveryConfig.application)
         }
@@ -1153,16 +1149,6 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
           .get { isMigratable }.isFalse()
       }
 
-      test("App can be migrated even if not scm powered") {
-        repository.storeAppForPotentialMigration(deliveryConfig.application, true)
-        repository.storePipelinesExportResult(submittedConfig, emptyList(), true, isInactive = false)
-        repository.updateMigratingAppScmStatus(deliveryConfig.application, false)
-        expectCatching {
-          repository.getApplicationMigrationStatus(deliveryConfig.application)
-        }
-          .isSuccess()
-          .get { isMigratable }.isTrue()
-      }
 
       test("App is not in the migration list") {
         expectCatching {

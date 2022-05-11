@@ -799,6 +799,12 @@ class KeelRepository(
     deliveryConfigRepository.storePrLinkForMigratedApplication(application, prLink)
 
   /**
+   * Storing the user genereted config for an application
+   */
+  fun storeUserGeneratedConfigForMigratedApplication(application: String, deliveryConfig: SubmittedDeliveryConfig) =
+    deliveryConfigRepository.storeUserGeneratedConfigForMigratedApplication(application, deliveryConfig)
+
+  /**
    * Clean the created pr link for an application in case of an error
    */
   fun cleanPrLink(application: String) =

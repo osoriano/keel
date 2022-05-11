@@ -387,6 +387,7 @@ class ApplicationServiceTests : JUnit5Minutests {
       before {
         every { repository.getMigratableApplicationData(application1) } returns ApplicationPrData(
           submittedDeliveryConfig,
+          null,
           "repo",
           "project"
         )
@@ -398,6 +399,10 @@ class ApplicationServiceTests : JUnit5Minutests {
         every {
           stashBridge.createCommitAndPrFromConfig(any())
         } returns expectedPrResponse.link
+
+        every {
+          repository.storeUserGeneratedConfigForMigratedApplication(application1, any())
+        } just Runs
       }
 
       test("successfully created a PR in stash with the config; not failed when jira integration is returning error") {
@@ -451,10 +456,10 @@ class ApplicationServiceTests : JUnit5Minutests {
 
     }
 
-    context("errors when creating PR from Igor") {
+    context("errors when creating from stash") {
       val retrofitError = RetrofitError.httpError(
-        "http://igor",
-        Response("http://igor", 409, "duplicate", emptyList(), null),
+        "http://stash",
+        Response("http://stash", 409, "duplicate", emptyList(), null),
         null, null
       )
 
@@ -465,6 +470,7 @@ class ApplicationServiceTests : JUnit5Minutests {
 
         every { repository.getMigratableApplicationData(application1) } returns ApplicationPrData(
           submittedDeliveryConfig,
+          null,
           "repo",
           "project"
         )
@@ -497,7 +503,7 @@ class ApplicationServiceTests : JUnit5Minutests {
       before {
         every {
           repository.getMigratableApplicationData(application1)
-        } returns ApplicationPrData(submittedDeliveryConfig, "repo", "project")
+        } returns ApplicationPrData(submittedDeliveryConfig, null, "repo", "project")
 
         every {
           deliveryConfigUpserter.upsertConfig(any(), any(), any(), any())

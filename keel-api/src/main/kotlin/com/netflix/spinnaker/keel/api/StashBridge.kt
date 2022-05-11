@@ -11,5 +11,10 @@ interface StashBridge {
     migrationCommitData: MigrationCommitData
   ): String?
 
+  suspend fun addCommitForExistingPR(
+    migrationCommitData: MigrationCommitData
+  )
+
+
   suspend fun deleteFork(repoSlug: String)
 }

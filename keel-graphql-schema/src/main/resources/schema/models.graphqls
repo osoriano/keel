@@ -44,6 +44,7 @@ type MD_Migration {
   id: ID!
   status: MD_MigrationStatus
   deliveryConfig: JSON
+  userGeneratedDeliveryConfig: JSON
   prLink: String
   actuationPlan: MD_ActuationPlan
   warnings: [MD_Warning!]
@@ -80,18 +81,18 @@ type MD_ResourceSpec{
   spec: JSON
 }
 
-enum MD_PipelineStatus{
-  PROCESSED
-  EXPORTED
-  NOT_SUPPORTED
-}
-
 
 enum MD_ConstraintType {
   VERIFICATIONS
   DEPENDS_ON
   MANUAL_JUDGMENT
   JENKINS
+}
+
+enum MD_PipelineStatus{
+  PROCESSED
+  EXPORTED
+  NOT_SUPPORTED
 }
 
 enum MD_Warning_type{

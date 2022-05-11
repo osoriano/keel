@@ -302,6 +302,12 @@ interface DeliveryConfigRepository : PeriodicallyCheckedRepository<DeliveryConfi
   fun storePrLinkForMigratedApplication(application: String, prLink: String)
 
   /**
+   * Storing the created pr link for an application
+   */
+
+  fun storeUserGeneratedConfigForMigratedApplication(application: String, deliveryConfig: SubmittedDeliveryConfig)
+
+  /**
    * Clean the created pr link for an application in case of an error
    */
   fun cleanPrLink(application: String)
@@ -340,12 +346,7 @@ interface DeliveryConfigRepository : PeriodicallyCheckedRepository<DeliveryConfi
    * Mark the application migration status as blocked
    */
   fun markApplicationMigrationAsBlocked(application: String, reason: String, user: String): Boolean
-
-  /**
-   * Mark if the application is scm powered
-   */
-  fun updateMigratingAppScmStatus(application: String, isScmPowered: Boolean)
-}
+ }
 
 abstract class NoSuchDeliveryConfigException(message: String) :
   NoSuchEntityException(message)
