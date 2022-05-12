@@ -4,6 +4,7 @@ import com.netflix.spinnaker.keel.api.schema.SchemaIgnore
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactOriginFilter
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
+import com.netflix.spinnaker.keel.api.artifacts.FROM_ANY_BRANCH
 import com.netflix.spinnaker.keel.api.artifacts.NPM
 import com.netflix.spinnaker.keel.api.artifacts.SortingStrategy
 
@@ -14,7 +15,7 @@ data class NpmArtifact(
   override val name: String,
   override val deliveryConfigName: String? = null,
   override val reference: String = name,
-  override val from: ArtifactOriginFilter,
+  override val from: ArtifactOriginFilter = FROM_ANY_BRANCH,
   @SchemaIgnore
   override val metadata: Map<String, Any?> = emptyMap()
 ) : DeliveryArtifact() {
