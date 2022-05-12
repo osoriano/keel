@@ -2,10 +2,8 @@ package com.netflix.spinnaker.keel.scheduling.activities
 
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.config.FeatureToggles
-import com.netflix.spinnaker.config.FeatureToggles.Companion.TEMPORAL_ENV_CHECKING
 import com.netflix.spinnaker.keel.persistence.KeelRepository
-import com.netflix.spinnaker.keel.scheduling.TemporalSchedulerService
-import com.netflix.spinnaker.keel.scheduling.SchedulerSupervisor
+import com.netflix.spinnaker.keel.scheduling.ResourceSchedulerService
 import com.netflix.spinnaker.keel.scheduling.SchedulingConsts.TEMPORAL_NAMESPACE
 import com.netflix.spinnaker.keel.scheduling.TemporalClient
 import com.netflix.spinnaker.keel.scheduling.WorkerEnvironment
@@ -37,7 +35,7 @@ interface SupervisorActivities {
   fun reconcileSchedulers(request: ReconcileSchedulersRequest)
 
   data class ReconcileSchedulersRequest(
-    val type: SchedulerSupervisor.SupervisorType = SchedulerSupervisor.SupervisorType.RESOURCE
+    val type: String = "resource"
   )
 
   companion object {
@@ -63,7 +61,7 @@ interface SupervisorActivities {
 @Component
 class DefaultSupervisorActivities(
   private val keelRepository: KeelRepository,
-  private val temporalSchedulerService: TemporalSchedulerService,
+  private val resourceSchedulerService: ResourceSchedulerService,
   private val temporalClient: TemporalClient,
   private val workerEnvironment: WorkerEnvironment,
   private val registry: Registry,
@@ -73,17 +71,15 @@ class DefaultSupervisorActivities(
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
   override fun reconcileSchedulers(request: SupervisorActivities.ReconcileSchedulersRequest) {
-    when (request.type) {
-      SchedulerSupervisor.SupervisorType.RESOURCE -> reconcileResourceSchedulers()
-      SchedulerSupervisor.SupervisorType.ENVIRONMENT -> reconcileEnvironmentSchedulers()
+    if (!featureToggles.isEnabled(FeatureToggles.SUPERVISOR_SCHEDULING_CONFIG, false)) {
+      log.debug("Supervising via temporal is disabled, skipping.")
+      throw ApplicationFailure.newFailure("continuing activity", "continuation")
     }
-  }
 
-  private fun reconcileResourceSchedulers() {
     val knownResourceUids = mutableListOf<String>()
     var i = 0
     keelRepository.allResources().forEachRemaining {
-      temporalSchedulerService.startScheduling(it)
+      resourceSchedulerService.startScheduling(it)
       knownResourceUids.add("resource:${it.uid}")
       maybeHeartbeat(i++)
     }
@@ -106,47 +102,6 @@ class DefaultSupervisorActivities(
           } catch (e: StatusRuntimeException) {
             if (e.status.code != Status.Code.NOT_FOUND) {
               log.error("Failed to terminate scheduler for unknown resource '$workflowId'", e)
-            }
-          }
-        }
-        maybeHeartbeat(i++)
-      }
-
-    throw ApplicationFailure.newFailure("continuation", "expected")
-  }
-
-  private fun reconcileEnvironmentSchedulers() {
-    if (!featureToggles.isEnabled(TEMPORAL_ENV_CHECKING, false)) {
-      log.debug("Supervising environments via temporal is disabled, skipping.")
-      throw ApplicationFailure.newFailure("continuing activity", "continuation")
-    }
-
-    val knownEnvironmentIds = mutableListOf<String>()
-    var i = 0
-    keelRepository.allEnvironments().forEachRemaining {
-      temporalSchedulerService.startSchedulingEnvironment(it.application, it.name)
-      knownEnvironmentIds.add(temporalSchedulerService.workflowId(it.application, it.name))
-      maybeHeartbeat(i++)
-    }
-    log.debug("Found and scheduled ${knownEnvironmentIds.size} environments with ${this.javaClass.simpleName}")
-
-    val listRequest = ListWorkflowExecutionsRequest.newBuilder()
-      .setNamespace(TEMPORAL_NAMESPACE)
-      .setQuery("WorkflowType = 'EnvironmentScheduler' AND ExecutionStatus = 'Running' AND WorkerEnv = '${workerEnvironment.get()}'")
-      .build()
-
-    i = 0
-    temporalClient.iterateWorkflows(listRequest)
-      .forEachRemaining {
-        val workflowId = it.execution.workflowId
-        if (!knownEnvironmentIds.contains(workflowId)) {
-          try {
-            log.info("Terminating scheduler for unknown environment '$workflowId'")
-            temporalClient.terminateWorkflow(TEMPORAL_NAMESPACE, it.execution)
-            registry.counter("keel.environment-scheduler.supervisor.terminations").increment()
-          } catch (e: StatusRuntimeException) {
-            if (e.status.code != Status.Code.NOT_FOUND) {
-              log.error("Failed to terminate scheduler for unknown environment '$workflowId'", e)
             }
           }
         }

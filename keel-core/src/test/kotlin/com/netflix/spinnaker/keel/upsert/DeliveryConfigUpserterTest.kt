@@ -21,7 +21,7 @@ import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.persistence.OverwritingExistingResourcesDisallowed
 import com.netflix.spinnaker.keel.persistence.PersistenceRetry
 import com.netflix.spinnaker.keel.persistence.ResourceHeader
-import com.netflix.spinnaker.keel.scheduling.TemporalSchedulerService
+import com.netflix.spinnaker.keel.scheduling.ResourceSchedulerService
 import com.netflix.spinnaker.keel.test.DummyResourceHandlerV1
 import com.netflix.spinnaker.keel.test.DummyResourceSpec
 import com.netflix.spinnaker.keel.test.TEST_API_V2
@@ -72,7 +72,7 @@ internal class DeliveryConfigUpserterTest {
   private val dummyResourceHandlerV2 = spyk(DummyResourceHandlerV2NoCurrent)
   private val resourceHandlers = listOf(dummyResourceHandler, dummyResourceHandlerV2)
   private val applicationRepository: ApplicationRepository = mockk()
-  private val temporalSchedulerService: TemporalSchedulerService = mockk()
+  private val resourceSchedulerService: ResourceSchedulerService = mockk()
 
   private val subject = DeliveryConfigUpserter(
     repository = repository,
@@ -84,7 +84,7 @@ internal class DeliveryConfigUpserterTest {
     diffFactory = DefaultResourceDiffFactory(),
     resourceHandlers = resourceHandlers,
     applicationRepository = applicationRepository,
-    temporalSchedulerService = temporalSchedulerService,
+    resourceSchedulerService = resourceSchedulerService,
   )
 
   private val submittedDeliveryConfig = submittedDeliveryConfig()
@@ -117,11 +117,7 @@ internal class DeliveryConfigUpserterTest {
     } just Runs
 
     every {
-      temporalSchedulerService.startScheduling(any<Resource<*>>())
-    } just Runs
-
-    every {
-      temporalSchedulerService.startSchedulingEnvironment(any(), any())
+      resourceSchedulerService.startScheduling(any<Resource<*>>())
     } just Runs
   }
 
@@ -246,16 +242,14 @@ internal class DeliveryConfigUpserterTest {
   }
 
   @Test
-  fun `schedule resources and environments on upsert`() {
-    every { temporalSchedulerService.isScheduling(any<Resource<*>>()) } returns false
-    every { temporalSchedulerService.isScheduling(any(), any()) } returns false
-    every { temporalSchedulerService.startScheduling(any<Resource<*>>()) } just Runs
-    every { temporalSchedulerService.startScheduling(any<ResourceHeader>()) } just Runs
+  fun `schedule resources on upsert`() {
+    every { resourceSchedulerService.isScheduling(any<Resource<*>>()) } returns false
+    every { resourceSchedulerService.startScheduling(any<Resource<*>>()) } just Runs
+    every { resourceSchedulerService.startScheduling(any<ResourceHeader>()) } just Runs
     every { repository.getDeliveryConfigForApplication(any()) } returns deliveryConfig
 
     subject.upsertConfig(submittedDeliveryConfig, allowResourceOverwriting = true)
 
-    verify { temporalSchedulerService.startScheduling(any<Resource<*>>()) }
-    verify { temporalSchedulerService.startSchedulingEnvironment(any(), any()) }
+    verify { resourceSchedulerService.startScheduling(any<Resource<*>>()) }
   }
 }

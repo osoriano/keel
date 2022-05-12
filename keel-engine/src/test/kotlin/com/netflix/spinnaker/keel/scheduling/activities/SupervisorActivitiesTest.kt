@@ -3,12 +3,9 @@ package com.netflix.spinnaker.keel.scheduling.activities
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.keel.api.ResourceKind
-import com.netflix.spinnaker.keel.persistence.EnvironmentHeader
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.ResourceHeader
-import com.netflix.spinnaker.keel.scheduling.SchedulerSupervisor.SupervisorType.ENVIRONMENT
-import com.netflix.spinnaker.keel.scheduling.SchedulerSupervisor.SupervisorType.RESOURCE
-import com.netflix.spinnaker.keel.scheduling.TemporalSchedulerService
+import com.netflix.spinnaker.keel.scheduling.ResourceSchedulerService
 import com.netflix.spinnaker.keel.scheduling.SchedulingConsts.TEMPORAL_NAMESPACE
 import com.netflix.spinnaker.keel.scheduling.TemporalClient
 import com.netflix.spinnaker.keel.scheduling.WorkerEnvironment
@@ -36,17 +33,13 @@ class SupervisorActivitiesTest {
     every { allResources() } returns listOf(
       ResourceHeader("1", ResourceKind("group", "kind", "1"), "1", "foo")
     ).iterator()
-
-    every { allEnvironments() } returns listOf(
-      EnvironmentHeader("application", "environmentname")
-    ).iterator()
   }
 
   private val featureToggles: FeatureToggles = mockk(relaxed = true) {
-    every {isEnabled(FeatureToggles.TEMPORAL_ENV_CHECKING, any()) } returns true
+    every { isEnabled(FeatureToggles.SUPERVISOR_SCHEDULING_CONFIG, any()) } returns true
   }
 
-  private val temporalSchedulerService: TemporalSchedulerService = mockk(relaxed = true)
+  private val resourceSchedulerService: ResourceSchedulerService = mockk(relaxed = true)
 
   private val temporalClient: TemporalClient = mockk(relaxed = true)
 
@@ -61,7 +54,7 @@ class SupervisorActivitiesTest {
   fun before() {
     testActivityEnvironment = TestActivityEnvironment.newInstance()
     testActivityEnvironment.registerActivitiesImplementations(
-      DefaultSupervisorActivities(keelRepository, temporalSchedulerService, temporalClient, workerEnvironment, registry, featureToggles)
+      DefaultSupervisorActivities(keelRepository, resourceSchedulerService, temporalClient, workerEnvironment, registry, featureToggles)
     )
     subject = testActivityEnvironment.newActivityStub(SupervisorActivities::class.java)
   }
@@ -86,7 +79,7 @@ class SupervisorActivitiesTest {
     every { temporalClient.iterateWorkflows(any()) } answers { listOf(exec1, exec2).iterator() }
     every { temporalClient.terminateWorkflow(any(), any()) } just Runs
 
-    expectThrows<ActivityFailure> { subject.reconcileSchedulers(SupervisorActivities.ReconcileSchedulersRequest(RESOURCE)) }
+    expectThrows<ActivityFailure> { subject.reconcileSchedulers(SupervisorActivities.ReconcileSchedulersRequest()) }
       .get { cause }.isA<ApplicationFailure>().get { isNonRetryable }.isFalse()
 
     verify(exactly = 1) { temporalClient.terminateWorkflow(TEMPORAL_NAMESPACE, exec2.execution) }
@@ -94,47 +87,15 @@ class SupervisorActivitiesTest {
 
   @Test
   fun `should start managed resource schedulers`() {
-    expectThrows<ActivityFailure> { subject.reconcileSchedulers(SupervisorActivities.ReconcileSchedulersRequest(RESOURCE)) }
-    verify(exactly = 1) { temporalSchedulerService.startScheduling(any<ResourceHeader>()) }
+    expectThrows<ActivityFailure> { subject.reconcileSchedulers(SupervisorActivities.ReconcileSchedulersRequest()) }
+    verify(exactly = 1) { resourceSchedulerService.startScheduling(any<ResourceHeader>()) }
   }
 
   @Test
-  fun `should do nothing if env supervising is not enabled`() {
-    every { featureToggles.isEnabled(FeatureToggles.TEMPORAL_ENV_CHECKING, any()) } returns false
+  fun `should do nothing if supervising is not enabled`() {
+    every { featureToggles.isEnabled(FeatureToggles.SUPERVISOR_SCHEDULING_CONFIG, any()) } returns false
 
-    expectThrows<ActivityFailure> { subject.reconcileSchedulers(SupervisorActivities.ReconcileSchedulersRequest(ENVIRONMENT)) }
-    verify(exactly = 0) { temporalSchedulerService.startSchedulingEnvironment(any(), any()) }
-  }
-
-  @Test
-  fun `should start managed environment schedulers`() {
-    expectThrows<ActivityFailure> { subject.reconcileSchedulers(SupervisorActivities.ReconcileSchedulersRequest(ENVIRONMENT)) }
-    verify(exactly = 1) { temporalSchedulerService.startSchedulingEnvironment(any(), any()) }
-  }
-
-  @Test
-  fun `should terminate unmanaged environment schedulers`() {
-    val exec1 = WorkflowExecutionInfo.newBuilder()
-      .setExecution(
-        WorkflowExecution.newBuilder()
-          .setWorkflowId("application:environmentname")
-          .build()
-      )
-      .build()
-    val exec2 = WorkflowExecutionInfo.newBuilder()
-      .setExecution(
-        WorkflowExecution.newBuilder()
-          .setWorkflowId("app2:env2")
-          .build()
-      )
-      .build()
-
-    every { temporalClient.iterateWorkflows(any()) } answers { listOf(exec1, exec2).iterator() }
-    every { temporalClient.terminateWorkflow(any(), any()) } just Runs
-
-    expectThrows<ActivityFailure> { subject.reconcileSchedulers(SupervisorActivities.ReconcileSchedulersRequest(ENVIRONMENT)) }
-      .get { cause }.isA<ApplicationFailure>().get { isNonRetryable }.isFalse()
-
-    verify(exactly = 1) { temporalClient.terminateWorkflow(TEMPORAL_NAMESPACE, exec2.execution) }
+    expectThrows<ActivityFailure> { subject.reconcileSchedulers(SupervisorActivities.ReconcileSchedulersRequest()) }
+    verify(exactly = 0) { resourceSchedulerService.startScheduling(any<ResourceHeader>()) }
   }
 }

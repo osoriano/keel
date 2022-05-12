@@ -121,6 +121,12 @@ class ResourceActuator(
           return@withTracingContext
         }
 
+        if (deliveryConfig.isPromotionCheckStale()) {
+          log.debug("Artifact promotion check for application {} is stale, skipping resource checks", deliveryConfig.application)
+          publisher.publishEvent(ResourceCheckSkipped(resource.kind, id, "PromotionCheckStale"))
+          return@withTracingContext
+        }
+
         if (environmentDeletionRepository.isMarkedForDeletion(environment)) {
           log.debug("Skipping resource ${resource.id} as the parent environment is marked for deletion")
           return@withTracingContext
@@ -226,6 +232,14 @@ class ResourceActuator(
       is Collection<*> -> this.isEmpty()
       else -> false
     }
+
+  private fun DeliveryConfig.isPromotionCheckStale(): Boolean {
+    val age = Duration.between(
+      deliveryConfigRepository.deliveryConfigLastChecked(this),
+      clock.instant()
+    )
+    return age > Duration.ofMinutes(5)
+  }
 
   private fun Exception.toSpinnakerException(): SpinnakerException =
     when (this) {

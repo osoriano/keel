@@ -3,6 +3,7 @@ package com.netflix.spinnaker.keel.scheduling
 import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.keel.api.ResourceKind
 import com.netflix.spinnaker.keel.scheduling.SchedulingConsts.TEMPORAL_NAMESPACE
+import com.netflix.spinnaker.keel.telemetry.ResourceAboutToBeChecked
 import com.netflix.spinnaker.keel.test.resource
 import com.netflix.temporal.core.convention.TaskQueueNamer
 import com.netflix.temporal.spring.WorkflowClientProvider
@@ -18,7 +19,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.core.env.StandardEnvironment
 
-class TemporalSchedulerServiceTest {
+class ResourceSchedulerServiceTest {
 
   private val workflowClientProvider: WorkflowClientProvider = mockk()
   private val workflowServiceStubsProvider: WorkflowServiceStubsProvider = mockk()
@@ -29,7 +30,7 @@ class TemporalSchedulerServiceTest {
   private lateinit var workflowClient: WorkflowClient
 
   private val featureToggles: FeatureToggles = mockk(relaxed = true) {
-    every { isEnabled(FeatureToggles.TEMPORAL_ENV_CHECKING, any()) } returns true
+    every { isEnabled(FeatureToggles.SUPERVISOR_SCHEDULING_CONFIG, any()) } returns true
   }
 
   private val res = resource(
@@ -38,7 +39,7 @@ class TemporalSchedulerServiceTest {
     application = "keel"
   )
 
-  private lateinit var subject: TemporalSchedulerService
+  private lateinit var subject: ResourceSchedulerService
 
   @BeforeEach
   fun setup() {
@@ -50,7 +51,7 @@ class TemporalSchedulerServiceTest {
     workflowClient = mockk()
     every { workflowClientProvider.get(TEMPORAL_NAMESPACE) } returns workflowClient
 
-    subject = TemporalSchedulerService(workflowClientProvider, workflowServiceStubsProvider, taskQueueNamer, WorkerEnvironment(StandardEnvironment()), featureToggles)
+    subject = ResourceSchedulerService(workflowClientProvider, workflowServiceStubsProvider, taskQueueNamer, WorkerEnvironment(StandardEnvironment()))
   }
 
   @Test

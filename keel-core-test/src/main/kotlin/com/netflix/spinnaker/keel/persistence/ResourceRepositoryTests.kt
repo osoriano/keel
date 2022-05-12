@@ -125,6 +125,10 @@ abstract class ResourceRepositoryTests<T : ResourceRepository> : JUnit5Minutests
           subject.delete("whatever")
         }
       }
+
+      test("recheck does not throw an exception") {
+        expectCatching { subject.triggerResourceRecheck("oh", "my") }.isSuccess()
+      }
     }
 
     context("a resource exists") {
