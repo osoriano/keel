@@ -1233,6 +1233,19 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
           get { projectKey }.isEqualTo("myProject")
         })
       }
+
+      test("Getting the user generated config if exists") {
+        val submittedConfig = SubmittedDeliveryConfig(name = deliveryConfig.name, application = deliveryConfig.application, serviceAccount = deliveryConfig.serviceAccount)
+        repository.storeAppForPotentialMigration(deliveryConfig.application, true)
+        repository.storePipelinesExportResult(submittedConfig, emptyList(), true, "myRepo", "myProject", isInactive = false)
+        repository.storeUserGeneratedConfigForMigratedApplication(deliveryConfig.application, submittedConfig.copy(serviceAccount = "somethingElse"))
+        val result = expectCatching {
+          repository.getMigratableApplicationData(deliveryConfig.application)
+        }
+        expectThat(result.isSuccess().and {
+          get { deliveryConfig.serviceAccount }.isEqualTo("somethingElse")
+        })
+      }
     }
 
   }

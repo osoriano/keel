@@ -99,7 +99,7 @@ class Migration(
     val (prData, prLink) = applicationService.openMigrationPr(
       application = payload.application,
       user = user,
-      userEditedDeliveryConfig = payload.deliveryConfig
+      rawUserGeneratedConfig = payload.deliveryConfig
     )
     // store the delivery config (but paused) so that we can do things with it like diffing resources
     // even before the app is officially onboarded
