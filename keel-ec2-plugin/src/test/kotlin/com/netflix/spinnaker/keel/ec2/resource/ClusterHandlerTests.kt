@@ -29,7 +29,6 @@ import com.netflix.spinnaker.keel.api.ec2.byRegion
 import com.netflix.spinnaker.keel.api.ec2.hasScalingPolicies
 import com.netflix.spinnaker.keel.api.ec2.resolve
 import com.netflix.spinnaker.keel.api.ec2.resolveCapacity
-import com.netflix.spinnaker.keel.api.ec2.resolveScaling
 import com.netflix.spinnaker.keel.api.events.ArtifactVersionDeployed
 import com.netflix.spinnaker.keel.api.events.ArtifactVersionDeploying
 import com.netflix.spinnaker.keel.api.plugins.Resolver
@@ -227,14 +226,16 @@ internal class ClusterHandlerTests : JUnit5Minutests {
         every { defaultKeyPairForAccount("test") } returns "nf-keypair-test-{{region}}"
 
         every { networkBy(vpcWest.id) } returns vpcWest
+        every { networkBy(any(), any(), any()) } returns vpcWest
+
         every { subnetBy(subnet1West.id) } returns subnet1West
         every { subnetBy(subnet2West.id) } returns subnet2West
         every { subnetBy(subnet3West.id) } returns subnet3West
         every { subnetBy(vpcWest.account, vpcWest.region, subnet1West.purpose!!) } returns subnet1West
-        every { securityGroupById(vpcWest.account, vpcWest.region, sg1West.id) } returns sg1West
-        every { securityGroupById(vpcWest.account, vpcWest.region, sg2West.id) } returns sg2West
-        every { securityGroupByName(vpcWest.account, vpcWest.region, sg1West.name) } returns sg1West
-        every { securityGroupByName(vpcWest.account, vpcWest.region, sg2West.name) } returns sg2West
+        every { securityGroupById(vpcWest.account, vpcWest.region, sg1West.id, any()) } returns sg1West
+        every { securityGroupById(vpcWest.account, vpcWest.region, sg2West.id, any()) } returns sg2West
+        every { securityGroupByName(vpcWest.account, vpcWest.region, sg1West.name, any()) } returns sg1West
+        every { securityGroupByName(vpcWest.account, vpcWest.region, sg2West.name, any()) } returns sg2West
         every { availabilityZonesBy(vpcWest.account, vpcWest.id, subnet1West.purpose!!, vpcWest.region) } returns
           setOf(subnet1West.availabilityZone)
 
@@ -243,10 +244,10 @@ internal class ClusterHandlerTests : JUnit5Minutests {
         every { subnetBy(subnet2East.id) } returns subnet2East
         every { subnetBy(subnet3East.id) } returns subnet3East
         every { subnetBy(vpcEast.account, vpcEast.region, subnet1East.purpose!!) } returns subnet1East
-        every { securityGroupById(vpcEast.account, vpcEast.region, sg1East.id) } returns sg1East
-        every { securityGroupById(vpcEast.account, vpcEast.region, sg2East.id) } returns sg2East
-        every { securityGroupByName(vpcEast.account, vpcEast.region, sg1East.name) } returns sg1East
-        every { securityGroupByName(vpcEast.account, vpcEast.region, sg2East.name) } returns sg2East
+        every { securityGroupById(vpcEast.account, vpcEast.region, sg1East.id, any()) } returns sg1East
+        every { securityGroupById(vpcEast.account, vpcEast.region, sg2East.id, any()) } returns sg2East
+        every { securityGroupByName(vpcEast.account, vpcEast.region, sg1East.name, any()) } returns sg1East
+        every { securityGroupByName(vpcEast.account, vpcEast.region, sg2East.name, any()) } returns sg2East
         every { availabilityZonesBy(vpcEast.account, vpcEast.id, subnet1East.purpose!!, vpcEast.region) } returns
           setOf(subnet1East.availabilityZone)
       }

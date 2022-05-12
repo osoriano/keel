@@ -64,6 +64,7 @@ interface CloudDriverService {
     @Path("provider") provider: String,
     @Path("region") region: String,
     @Path("name") name: String,
+    @Query("vpcId") vpcId: String,
     @Header("X-SPINNAKER-USER") user: String = DEFAULT_SERVICE_ACCOUNT
   ): SecurityGroupSummary
 

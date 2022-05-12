@@ -238,9 +238,10 @@ open class SecurityGroupHandler(
     val summaries = exportable.regions.associateWith { region ->
       try {
         cloudDriverCache.securityGroupByName(
-          account = exportable.account,
-          region = region,
-          name = exportable.moniker.toString()
+            account = exportable.account,
+            region = region,
+            name = exportable.moniker.toString(),
+            vpcId = "*" // We don't know the VPC, so we ask clouddriver for default behavior by passing "*"
         )
       } catch (e: ResourceNotFound) {
         null

@@ -180,12 +180,12 @@ internal class ClassicLoadBalancerHandlerTests : JUnit5Minutests {
         every { subnetBy(any(), any(), any()) } returns sub1
         every { subnetBy(sub1.id) } returns sub1
         every { subnetBy(sub2.id) } returns sub2
-        every { securityGroupById(vpc.account, vpc.region, sg1.id) } returns sg1
-        every { securityGroupById(vpc.account, vpc.region, sg2.id) } returns sg2
-        every { securityGroupById(vpc.account, vpc.region, sg3.id) } returns sg3
-        every { securityGroupByName(vpc.account, vpc.region, sg1.name) } returns sg1
-        every { securityGroupByName(vpc.account, vpc.region, sg2.name) } returns sg2
-        every { securityGroupByName(vpc.account, vpc.region, sg3.name) } returns sg3
+        every { securityGroupById(vpc.account, vpc.region, sg1.id, any()) } returns sg1
+        every { securityGroupById(vpc.account, vpc.region, sg2.id, any()) } returns sg2
+        every { securityGroupById(vpc.account, vpc.region, sg3.id, any()) } returns sg3
+        every { securityGroupByName(vpc.account, vpc.region, sg1.name, any()) } returns sg1
+        every { securityGroupByName(vpc.account, vpc.region, sg2.name, any()) } returns sg2
+        every { securityGroupByName(vpc.account, vpc.region, sg3.name, any()) } returns sg3
 
         every {
           springEnv.getProperty("keel.notifications.slack", Boolean::class.java, true)

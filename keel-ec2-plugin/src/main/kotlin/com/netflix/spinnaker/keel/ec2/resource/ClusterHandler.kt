@@ -1271,19 +1271,22 @@ class ClusterHandler(
       // no need to specify these as Orca will auto-assign them
       .filter { it !in setOf("nf-datacenter") }
       .map {
-        cloudDriverCache.securityGroupByName(location.account, location.region, it).id
+        cloudDriverCache.securityGroupByName(location.account, location.region, it, vpcId).id
       }
+
+  private val ServerGroup.vpcId : String
+  get() = cloudDriverCache.networkBy(name=location.vpc, account=location.account, region=location.region).id
 
   private val ServerGroup.securityGroupIdsForClone: Collection<String>
     get() = dependencies
       .securityGroupNames
       .map {
-        cloudDriverCache.securityGroupByName(location.account, location.region, it).id
+        cloudDriverCache.securityGroupByName(location.account, location.region, it, vpcId).id
       }
 
   private val ActiveServerGroup.securityGroupNames: Set<String>
     get() = securityGroups.map {
-      cloudDriverCache.securityGroupById(accountName, region, it).name
+      cloudDriverCache.securityGroupById(accountName, region, it, vpcId).name
     }
       .toSet()
 

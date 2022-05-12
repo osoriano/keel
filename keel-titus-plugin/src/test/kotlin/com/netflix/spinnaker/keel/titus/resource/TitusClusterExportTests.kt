@@ -201,15 +201,15 @@ internal class TitusClusterExportTests : JUnit5Minutests {
 
     before {
       with(cloudDriverCache) {
-        every { securityGroupById(awsAccount, "us-west-2", sg1West.id) } returns sg1West
-        every { securityGroupById(awsAccount, "us-west-2", sg2West.id) } returns sg2West
-        every { securityGroupByName(awsAccount, "us-west-2", sg1West.name) } returns sg1West
-        every { securityGroupByName(awsAccount, "us-west-2", sg2West.name) } returns sg2West
+        every { securityGroupById(awsAccount, "us-west-2", sg1West.id, any()) } returns sg1West
+        every { securityGroupById(awsAccount, "us-west-2", sg2West.id, any()) } returns sg2West
+        every { securityGroupByName(awsAccount, "us-west-2", sg1West.name, any()) } returns sg1West
+        every { securityGroupByName(awsAccount, "us-west-2", sg2West.name, any()) } returns sg2West
 
-        every { securityGroupById(awsAccount, "us-east-1", sg1East.id) } returns sg1East
-        every { securityGroupById(awsAccount, "us-east-1", sg2East.id) } returns sg2East
-        every { securityGroupByName(awsAccount, "us-east-1", sg1East.name) } returns sg1East
-        every { securityGroupByName(awsAccount, "us-east-1", sg2East.name) } returns sg2East
+        every { securityGroupById(awsAccount, "us-east-1", sg1East.id, any()) } returns sg1East
+        every { securityGroupById(awsAccount, "us-east-1", sg2East.id, any()) } returns sg2East
+        every { securityGroupByName(awsAccount, "us-east-1", sg1East.name, any()) } returns sg1East
+        every { securityGroupByName(awsAccount, "us-east-1", sg2East.name, any()) } returns sg2East
 
         every { cloudDriverCache.credentialBy(titusAccount) } returns titusAccountCredential
         every { cloudDriverCache.getRegistryForTitusAccount(any()) } returns "testregistry"

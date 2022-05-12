@@ -1132,6 +1132,14 @@ private fun jsonStringify(arguments: Map<String, Any>?) =
       networkMode = networkMode?.runCatching(NetworkMode::valueOf)?.getOrNull()
     )
 
+  /**
+   * Note: TitusServerGroup and TitusActiveServerGroup do not encode the VPC id. Instead, they encode subnets,
+   * which are associated with a VPC.
+   *
+   * For now, instead of looking up the VPC id, we simply pass "*" as the vpcId to clouddriver to indicate
+   * default behavior.
+   */
+  private fun getVpcId(): String = "*"
   private fun TitusServerGroup.securityGroupIds(): Collection<String> =
     runBlocking {
       val awsAccount = cloudDriverCache.getAwsAccountNameForTitusAccount(location.account)
@@ -1140,7 +1148,7 @@ private fun jsonStringify(arguments: Map<String, Any>?) =
         // no need to specify these as Orca will auto-assign them, also the application security group
         // gets auto-created so may not exist yet
         .filter { it !in setOf("nf-infrastructure", "nf-datacenter", moniker.app) }
-        .map { cloudDriverCache.securityGroupByName(awsAccount, location.region, it).id }
+        .map { cloudDriverCache.securityGroupByName(awsAccount, location.region, it, getVpcId()).id }
     }
 
   private fun TitusServerGroup.securityGroupIdsForClone(): Collection<String> =
@@ -1148,12 +1156,12 @@ private fun jsonStringify(arguments: Map<String, Any>?) =
       val awsAccount = cloudDriverCache.getAwsAccountNameForTitusAccount(location.account)
       dependencies
         .securityGroupNames
-        .map { cloudDriverCache.securityGroupByName(awsAccount, location.region, it).id }
+        .map { cloudDriverCache.securityGroupByName(awsAccount, location.region, it, getVpcId()).id }
     }
 
   private val TitusActiveServerGroup.securityGroupNames: Set<String>
     get() = securityGroups.map {
-      cloudDriverCache.securityGroupById(awsAccount, region, it).name
+      cloudDriverCache.securityGroupById(awsAccount, region, it, getVpcId()).name
     }
       .toSet()
 

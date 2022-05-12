@@ -213,7 +213,7 @@ class ApplicationLoadBalancerHandler(
               .firstOrNull()
               ?.let { lb ->
                 val securityGroupNames = lb.securityGroups.map {
-                  cloudDriverCache.securityGroupById(account, region, it).name
+                  cloudDriverCache.securityGroupById(account, region, it, lb.vpcId).name
                 }.toMutableSet()
 
                 ApplicationLoadBalancer(

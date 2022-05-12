@@ -72,7 +72,7 @@ internal class MemoryCloudDriverCacheTest {
       cloudDriver.getCredential("prod")
     } returns Credential("prod", "aws", "prod")
 
-    subject.securityGroupById("prod", "us-east-1", "sg-2").also { securityGroupSummary ->
+    subject.securityGroupById("prod", "us-east-1", "sg-2", vpcId="vpc-4de2b628").also { securityGroupSummary ->
       expectThat(securityGroupSummary) {
         get { name }.isEqualTo("bar")
         get { id }.isEqualTo("sg-2")
@@ -83,13 +83,13 @@ internal class MemoryCloudDriverCacheTest {
   @Test
   fun `security groups are looked up from CloudDriver when accessed by name`() {
     every {
-      cloudDriver.getSecurityGroupSummaryByName("prod", "aws", "us-east-1", "foo")
+      cloudDriver.getSecurityGroupSummaryByName("prod", "aws", "us-east-1", "foo", any())
     } returns sg1
     every {
       cloudDriver.getCredential("prod")
     } returns Credential("prod", "aws", "prod")
 
-    subject.securityGroupByName("prod", "us-east-1", "foo").also { securityGroupSummary ->
+    subject.securityGroupByName("prod", "us-east-1", "foo", vpcId="vpc-4de2b628").also { securityGroupSummary ->
       expectThat(securityGroupSummary) {
         get { name }.isEqualTo("foo")
         get { id }.isEqualTo("sg-1")
@@ -103,14 +103,14 @@ internal class MemoryCloudDriverCacheTest {
       cloudDriver.getCredential("prod")
     } returns Credential("prod", "aws", "prod")
     every {
-      cloudDriver.getSecurityGroupSummaryByName("prod", "aws", "us-east-1", "foo")
+      cloudDriver.getSecurityGroupSummaryByName("prod", "aws", "us-east-1", "foo", vpcId="vpc-4de2b628")
     } returns sg1
 
-    subject.securityGroupByName("prod", "us-east-1", "foo")
-    subject.securityGroupByName("prod", "us-east-1", "foo")
+    subject.securityGroupByName("prod", "us-east-1", "foo", vpcId="vpc-4de2b628")
+    subject.securityGroupByName("prod", "us-east-1", "foo", vpcId="vpc-4de2b628")
 
     verify(exactly = 1) {
-      cloudDriver.getSecurityGroupSummaryByName(any(), any(), any(), any())
+      cloudDriver.getSecurityGroupSummaryByName(any(), any(), any(), any(), any())
     }
     verify(exactly = 1) {
       cloudDriver.getCredential(any())
@@ -127,7 +127,7 @@ internal class MemoryCloudDriverCacheTest {
     } throws RETROFIT_NOT_FOUND
 
     expectThrows<ResourceNotFound> {
-      subject.securityGroupById("prod", "us-east-1", "sg-4")
+      subject.securityGroupById("prod", "us-east-1", "sg-4", vpcId="vpc-4de2b628")
     }
   }
 
@@ -138,7 +138,7 @@ internal class MemoryCloudDriverCacheTest {
     } throws RETROFIT_SERVICE_UNAVAILABLE
 
     expectThrows<CacheLoadingException> {
-      subject.securityGroupById("prod", "us-east-1", "sg-1")
+      subject.securityGroupById("prod", "us-east-1", "sg-1", vpcId="vpc-4de2b628")
     }
   }
 

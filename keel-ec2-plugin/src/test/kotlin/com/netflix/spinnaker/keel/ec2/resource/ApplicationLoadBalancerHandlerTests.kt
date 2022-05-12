@@ -207,8 +207,8 @@ internal class ApplicationLoadBalancerHandlerTests : JUnit5Minutests {
         every { subnetBy(any(), any(), any()) } returns sub1
         every { subnetBy(sub1.id) } returns sub1
         every { subnetBy(sub2.id) } returns sub2
-        every { securityGroupById(vpc.account, vpc.region, sg1.id) } returns sg1
-        every { securityGroupByName(vpc.account, vpc.region, sg1.name) } returns sg1
+        every { securityGroupById(vpc.account, vpc.region, sg1.id, any()) } returns sg1
+        every { securityGroupByName(vpc.account, vpc.region, sg1.name, any()) } returns sg1
         every { certificateByAccountAndName(vpc.account, cert.serverCertificateName) } returns cert
         every { certificateByArn(cert.arn) } returns cert
 

@@ -47,33 +47,45 @@ class MemoryCloudDriverCache(
   cacheFactory: CacheFactory
 ) : CloudDriverCache {
 
-  private val securityGroupsById: AsyncLoadingCache<Triple<String, String, String>, SecurityGroupSummary> = cacheFactory
+  private val securityGroupsById: AsyncLoadingCache<SecurityGroupKey, SecurityGroupSummary> = cacheFactory
     .asyncLoadingCache(
       cacheName = "securityGroupsById",
       defaultExpireAfterWrite = Duration.ofMinutes(10)
-    ) { key ->
-      val (account, region, id) = key
+    ) { key: SecurityGroupKey ->
+      val account = key.account
+      val region = key.region
+      val id = key.nameOrId
+      val vpcId = key.vpcId
       runCatching {
-        val credential = credentialBy(account)
+        val credential = credentialBy(key.account)
         cloudDriver.getSecurityGroupSummaryById(account, credential.type, region, id, DEFAULT_SERVICE_ACCOUNT)
           .also {
-            securityGroupsByName.put(Triple(account, region, it.name), completedFuture(it))
+            securityGroupsByName.put(SecurityGroupKey(account=account, region=region, nameOrId=it.name, vpcId=vpcId), completedFuture(it))
           }
       }
         .handleNotFound("securityGroupsById", key)
     }
 
-  private val securityGroupsByName: AsyncLoadingCache<Triple<String, String, String>, SecurityGroupSummary> = cacheFactory
+  private val securityGroupsByName: AsyncLoadingCache<SecurityGroupKey, SecurityGroupSummary> = cacheFactory
     .asyncLoadingCache(
       cacheName = "securityGroupsByName",
       defaultExpireAfterWrite = Duration.ofMinutes(10)
     ) { key ->
-      val (account, region, name) = key
+      val account = key.account
+      val region = key.region
+      val name = key.nameOrId
+      val vpcId = key.vpcId
       runCatching {
         val credential = credentialBy(account)
-        cloudDriver.getSecurityGroupSummaryByName(account, credential.type, region, name, DEFAULT_SERVICE_ACCOUNT)
+        cloudDriver.getSecurityGroupSummaryByName(
+          account=account,
+          provider=credential.type,
+          region=region,
+          name=name,
+          vpcId=vpcId,
+          user=DEFAULT_SERVICE_ACCOUNT)
           .also {
-            securityGroupsById.put(Triple(account, region, it.id), completedFuture(it))
+            securityGroupsById.put(SecurityGroupKey(account, region, it.id, vpcId), completedFuture(it))
           }
       }
         .handleNotFound("securityGroupsByName", key)
@@ -104,6 +116,12 @@ class MemoryCloudDriverCache(
         }
     }
 
+  private data class SecurityGroupKey(
+    val account: String,
+    val region: String,
+    val nameOrId: String,
+    val vpcId: String
+  )
   private data class AvailabilityZoneKey(
     val account: String,
     val region: String,
@@ -192,14 +210,14 @@ class MemoryCloudDriverCache(
       credentials.get(name).await() ?: notFound("Credential with name $name not found")
     }
 
-  override fun securityGroupById(account: String, region: String, id: String): SecurityGroupSummary =
+  override fun securityGroupById(account: String, region: String, id: String, vpcId: String): SecurityGroupSummary =
     runBlocking {
-      securityGroupsById.get(Triple(account, region, id)).await()?: notFound("Security group with id $id not found in $account:$region")
+      securityGroupsById.get(SecurityGroupKey(account=account, region=region, nameOrId=id, vpcId=vpcId)).await()?: notFound("Security group with id $id not found in $account:$region")
     }
 
-  override fun securityGroupByName(account: String, region: String, name: String): SecurityGroupSummary =
+  override fun securityGroupByName(account: String, region: String, name: String, vpcId: String): SecurityGroupSummary =
     runBlocking {
-      securityGroupsByName.get(Triple(account, region, name)).await()?: notFound("Security group with name $name not found in $account:$region")
+      securityGroupsByName.get(SecurityGroupKey(account=account, region=region, name, vpcId)).await()?: notFound("Security group with name $name not found in $account:$region")
     }
 
   override fun networkBy(id: String): Network =

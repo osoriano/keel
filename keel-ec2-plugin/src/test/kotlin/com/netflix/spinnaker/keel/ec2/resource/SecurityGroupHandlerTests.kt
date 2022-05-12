@@ -77,7 +77,6 @@ import strikt.assertions.containsExactlyInAnyOrder
 import strikt.assertions.first
 import strikt.assertions.get
 import strikt.assertions.getValue
-import strikt.assertions.hasEntry
 import strikt.assertions.hasSize
 import strikt.assertions.isA
 import strikt.assertions.isEmpty
@@ -1187,12 +1186,12 @@ internal class SecurityGroupHandlerTests : JUnit5Minutests {
 
     with(cloudDriverSummaryResponseWest) {
       every {
-        cloudDriverCache.securityGroupByName("prod", "us-west-3", name)
+        cloudDriverCache.securityGroupByName("prod", "us-west-3", name, any())
       } returns this
     }
     with(cloudDriverSummaryResponseEast) {
       every {
-        cloudDriverCache.securityGroupByName("prod", "us-east-17", name)
+        cloudDriverCache.securityGroupByName("prod", "us-east-17", name, any())
       } returns this
     }
   }

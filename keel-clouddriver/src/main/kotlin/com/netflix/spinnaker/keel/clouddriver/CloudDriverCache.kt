@@ -26,8 +26,8 @@ import com.netflix.spinnaker.keel.exceptions.TitusAccountConfigurationException
 import com.netflix.spinnaker.kork.exceptions.IntegrationException
 
 interface CloudDriverCache {
-  fun securityGroupById(account: String, region: String, id: String): SecurityGroupSummary
-  fun securityGroupByName(account: String, region: String, name: String): SecurityGroupSummary
+  fun securityGroupById(account: String, region: String, id: String, vpcId: String): SecurityGroupSummary
+  fun securityGroupByName(account: String, region: String, name: String, vpcId: String): SecurityGroupSummary
   fun networkBy(id: String): Network
   fun networkBy(name: String?, account: String, region: String): Network
   fun availabilityZonesBy(account: String, vpcId: String, purpose: String, region: String): Collection<String>

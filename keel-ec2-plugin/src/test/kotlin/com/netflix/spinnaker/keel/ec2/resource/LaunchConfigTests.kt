@@ -218,8 +218,8 @@ internal class LaunchConfigTests {
     with(cloudDriverCache) {
       every { networkBy(vpc.id) } returns vpc
       every { subnetBy(subnet.id) } returns subnet
-      every { securityGroupById(vpc.account, vpc.region, sg1.id) } returns sg1
-      every { securityGroupById(vpc.account, vpc.region, sg2.id) } returns sg2
+      every { securityGroupById(vpc.account, vpc.region, sg1.id, any()) } returns sg1
+      every { securityGroupById(vpc.account, vpc.region, sg2.id, any()) } returns sg2
     }
 
     every { cloudDriverService.activeServerGroup(any(), any()) } returns activeServerGroupResponse
