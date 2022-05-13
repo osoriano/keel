@@ -317,10 +317,11 @@ class ExportService(
    * Supports only a sub-set of well-known pipeline patterns (see [EXPORTABLE_PIPELINE_SHAPES]).
    */
   suspend fun exportFromPipelines(
-    applicationName: String,
+    rawApplicationName: String,
     maxAgeDays: Long = 6L * 30L,
     includeVerifications: Boolean = false
   ): ExportResult {
+    val applicationName = rawApplicationName.lowercase()
     log.info("Exporting delivery config from pipelines for application $applicationName (max age: $maxAgeDays days)")
 
     val pipelines = front50Cache.pipelinesByApplication(applicationName)
