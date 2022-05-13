@@ -62,6 +62,7 @@ import com.netflix.spinnaker.keel.exceptions.TagToReleaseArtifactException
 import com.netflix.spinnaker.keel.export.canary.extractCanaryConstraints
 import com.netflix.spinnaker.keel.filterNotNullValues
 import com.netflix.spinnaker.keel.front50.Front50Cache
+import com.netflix.spinnaker.keel.front50.model.Cluster
 import com.netflix.spinnaker.keel.front50.model.DeployStage
 import com.netflix.spinnaker.keel.front50.model.JenkinsStage
 import com.netflix.spinnaker.keel.front50.model.Pipeline
@@ -350,17 +351,17 @@ class ExportService(
     // 3. iterate over the deploy pipelines, and map resources to the environments they represent
     val deployPipelinesToEnvironments = pipelinesToDeploysAndClusters.mapValues { (pipeline, deploysAndClusters) ->
       // 4. iterate over the clusters, export their resources, create constraints and environment
-      deploysAndClusters.map { (deploy, cluster) ->
+      deploysAndClusters.map { (cluster, deploys) ->
         log.debug("Attempting to build environment for cluster ${cluster.moniker}")
         val environmentName = inferEnvironmentName(cluster)
-        val manualJudgement = if (pipeline.hasManualJudgment(deploy)) {
+        val manualJudgement = if (deploys.any { pipeline.hasManualJudgment(it) }) {
           log.debug("Adding manual judgment constraint for environment $environmentName based on manual judgment stage in pipeline ${pipeline.name}")
           setOf(ManualJudgementConstraint())
         } else {
           emptySet()
         }
 
-        val allowedTimes = extractAllowedTimeConstraint(deploy.restrictedExecutionWindow)
+        val allowedTimes = deploys.flatMap { extractAllowedTimeConstraint(it.restrictedExecutionWindow) }.toSet()
 
         // 5. infer from the cluster all dependent resources, including artifacts
         val resourcesAndArtifacts = try {
@@ -384,11 +385,13 @@ class ExportService(
 
         // 6. export verifications from this pipeline
         val verifications = if (includeVerifications) {
-          try {
-            pipeline.exportVerifications(deploy)
-          } catch (e: UnsupportedJenkinsStage) {
-            log.debug("Failed to export verifications due to unsupported Jenkins stage: $e")
-            return@mapValues emptyList()
+          deploys.flatMap {
+            try {
+              pipeline.exportVerifications(it)
+            } catch (e: UnsupportedJenkinsStage) {
+              log.debug("Failed to export verifications due to unsupported Jenkins stage: $e")
+              return@mapValues emptyList()
+            }
           }
         } else {
           emptyList()
@@ -568,8 +571,9 @@ class ExportService(
       val exportPipeline = listOf(pipeline).toDeploysAndClusters(serviceAccount)
       exportPipeline.mapValues { (pipeline, deploysAndClusters) ->
         pipeline.constraints?.addAll(extractCanaryConstraints(pipeline))
-        deploysAndClusters.map { (deployStage, cluster) ->
-          pipeline.constraints?.addAll(extractAllowedTimeConstraint(deployStage.restrictedExecutionWindow))
+        deploysAndClusters.map { (cluster, deployStages) ->
+          pipeline.constraints?.addAll(deployStages.flatMap { extractAllowedTimeConstraint(it.restrictedExecutionWindow) }
+                                         .toSet())
           try {
             runBlocking {
               val resourcesAndArtifact = createResourcesBasedOnCluster(cluster, emptySet(), applicationName)
@@ -776,6 +780,11 @@ class ExportService(
     return false
   }
 
+  internal data class DeployStageCluster(
+    val cluster: Cluster,
+    val stage: DeployStage
+  )
+
   /**
    * Extracts cluster information from deploy stages in the list of pipelines, and returns the pipelines
    * mapped to those deploy stages and respective clusters represented as [Exportable] objects.
@@ -784,22 +793,19 @@ class ExportService(
     associateWith { pipeline ->
       pipeline
         .findDeployStages()
-        .flatMap { deploy ->
-          deploy
-            .clusters
-            .groupBy { "${it.provider}/${it.account}/${it.name}" }
-            .map { (key, clusters) ->
-              val regions = clusters.mapNotNull { it.region }.toSet()
-              val (provider, account, name) = key.split("/")
-              deploy to Exportable(
-                cloudProvider = provider,
-                account = account,
-                moniker = parseMoniker(name.replace(SPEL_REGEX, "REDACTED_SPEL")),
-                regions = regions,
-                kind = PROVIDERS_TO_CLUSTER_KINDS[provider]!!,
-                user = serviceAccount
-              )
-            }
+        .flatMap { deploy -> deploy.clusters.map { DeployStageCluster(it, deploy) } } // flatMap of pairs<cluster, deploy stage>
+        .groupBy { "${it.cluster.provider}/${it.cluster.account}/${it.cluster.name}" }
+        .map {(key, deploysAndClusters) ->
+          val regions = deploysAndClusters.mapNotNull { it.cluster.region }.toSet()
+          val (provider, account, name) = key.split("/")
+          Exportable(
+            cloudProvider = provider,
+            account = account,
+            moniker = parseMoniker(name.replace(SPEL_REGEX, "REDACTED_SPEL")),
+            regions = regions,
+            kind = PROVIDERS_TO_CLUSTER_KINDS[provider]!!,
+            user = serviceAccount
+          ) to deploysAndClusters.map { it.stage }
         }
     }
 

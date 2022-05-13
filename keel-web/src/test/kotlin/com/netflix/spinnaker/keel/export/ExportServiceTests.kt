@@ -6,11 +6,12 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import com.fasterxml.jackson.module.kotlin.convertValue
 import com.netflix.spinnaker.config.BaseUrlConfig
 import com.netflix.spinnaker.keel.api.Application
+import com.netflix.spinnaker.keel.api.Exportable
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.SlackChannel
+import com.netflix.spinnaker.keel.api.SubnetAwareRegionSpec
 import com.netflix.spinnaker.keel.api.TaskStatus.SUCCEEDED
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactOriginFilter
-import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
 import com.netflix.spinnaker.keel.api.artifacts.branchName
 import com.netflix.spinnaker.keel.api.ec2.ApplicationLoadBalancerSpec
 import com.netflix.spinnaker.keel.api.ec2.ClusterDependencies
@@ -25,7 +26,6 @@ import com.netflix.spinnaker.keel.api.migration.SkipReason
 import com.netflix.spinnaker.keel.api.titus.TITUS_CLUSTER_V1
 import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
 import com.netflix.spinnaker.keel.api.titus.TitusServerGroupSpec
-import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
@@ -40,7 +40,6 @@ import com.netflix.spinnaker.keel.ec2.resource.SecurityGroupHandler
 import com.netflix.spinnaker.keel.export.ExportService.Companion.EXPORTABLE_PIPELINE_SHAPES
 import com.netflix.spinnaker.keel.export.canary.CanaryConstraint
 import com.netflix.spinnaker.keel.front50.Front50Cache
-import com.netflix.spinnaker.keel.api.artifacts.fromBranch
 import com.netflix.spinnaker.keel.front50.model.Cluster
 import com.netflix.spinnaker.keel.front50.model.DeployStage
 import com.netflix.spinnaker.keel.front50.model.GenericStage
@@ -74,12 +73,14 @@ import com.netflix.spinnaker.keel.validators.DeliveryConfigValidator
 import com.netflix.spinnaker.keel.verification.jenkins.JenkinsJobVerification
 import com.netflix.spinnaker.keel.veto.unhealthy.UnsupportedResourceTypeException
 import io.mockk.mockk
+import io.mockk.slot
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import strikt.api.expectThat
 import strikt.api.expectThrows
 import strikt.assertions.contains
+import strikt.assertions.containsExactlyInAnyOrder
 import strikt.assertions.first
 import strikt.assertions.hasSize
 import strikt.assertions.isA
@@ -87,6 +88,7 @@ import strikt.assertions.isEmpty
 import strikt.assertions.isEqualTo
 import strikt.assertions.isFalse
 import strikt.assertions.isTrue
+import strikt.mockk.captured
 import java.time.Instant
 import io.mockk.coEvery as every
 import io.mockk.coVerify as verify
@@ -299,10 +301,12 @@ internal class ExportServiceTests {
       ),
       deployStage.copy(
         clusters = setOf(cluster.copy(
-          _region = region2
+          _region = region2,
+          availabilityZones = emptyMap()
         ),
           cluster.copy(
-          _region = region3
+          _region = region3,
+          availabilityZones = emptyMap()
         )
         )
       )
@@ -426,7 +430,13 @@ internal class ExportServiceTests {
 
     every {
       ec2ClusterHandler.export(any())
-    } returns ec2Cluster.spec
+    } answers {
+      ec2Cluster.spec.copy(locations = ec2Cluster.spec.locations.copy(regions = firstArg<Exportable>().regions.map {
+        SubnetAwareRegionSpec(
+          name = it
+        )
+      }.toSet()))
+    }
 
     every {
       securityGroupHandler.export(any())
@@ -929,13 +939,20 @@ internal class ExportServiceTests {
   }
 
   @Test
-  fun `application with a pipeline containting two deploy stages with different regions, exports the right regions`() {
+  fun `application with a pipeline containing two deploy stages with different regions, exports the right regions`() {
     every {
       front50Cache.pipelinesByApplication(appName)
     } returns listOf(pipelineWithTwoDeployDifferentRegions)
 
     val result = runBlocking {
       subject.exportFromPipelines(appName)
+    }
+
+
+    val exportable = slot<Exportable>()
+
+    verify(exactly = 1) {
+      ec2ClusterHandler.export(capture(exportable))
     }
 
     expectThat(result) {
@@ -950,9 +967,10 @@ internal class ExportServiceTests {
             locations.regions
               .map { it.name }
               .toSet()
-          }.contains(setOf(region1, region2))
+          }.contains(setOf(region1, region2, region3))
 
       }
     }
+    expectThat(exportable).captured.get { regions }.hasSize(3).containsExactlyInAnyOrder(region1, region2, region3)
   }
 }
