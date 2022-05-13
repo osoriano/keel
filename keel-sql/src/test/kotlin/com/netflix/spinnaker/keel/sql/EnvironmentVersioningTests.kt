@@ -72,7 +72,7 @@ class EnvironmentVersioningTests {
       sqlRetry,
       defaultArtifactSuppliers(),
       publisher = mockk(relaxed = true),
-      featureToggles = featureToggles
+      featureToggles = featureToggles,
   )
 
   private val artifactRepository = SqlArtifactRepository(

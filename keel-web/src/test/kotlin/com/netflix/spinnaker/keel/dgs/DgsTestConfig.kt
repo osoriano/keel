@@ -2,9 +2,7 @@ package com.netflix.spinnaker.keel.dgs
 
 import com.netflix.spinnaker.keel.bakery.BakeryMetadataService
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
-import com.netflix.spinnaker.keel.constraints.ConstraintEvaluators
 import com.netflix.springboot.scheduling.DefaultExecutor
-import com.ninjasquad.springmockk.MockkBean
 import io.mockk.mockk
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.ComponentScan
@@ -25,8 +23,4 @@ class DgsTestConfig {
   @Bean
   @DefaultExecutor
   fun executor(): Executor = Executors.newSingleThreadExecutor()
-
-  @Bean
-  fun constraintEvaluators() = ConstraintEvaluators(emptyList())
-
 }

@@ -21,7 +21,6 @@ import com.netflix.spinnaker.keel.api.plugins.kind
 import com.netflix.spinnaker.keel.api.support.ConstraintRepositoryBridge
 import com.netflix.spinnaker.keel.api.support.SpringEventPublisherBridge
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
-import com.netflix.spinnaker.keel.constraints.ConstraintEvaluators
 import com.netflix.spinnaker.keel.constraints.ManualJudgementConstraintEvaluator
 import com.netflix.spinnaker.keel.core.api.DependsOnConstraint
 import com.netflix.spinnaker.keel.core.api.ManualJudgementConstraint
@@ -102,7 +101,7 @@ abstract class ApproveOldVersionTests<T : KeelRepository> : JUnit5Minutests {
     }
     val environmentConstraintRunner = EnvironmentConstraintRunner(
       repository,
-      ConstraintEvaluators(listOf(statelessEvaluator, statefulEvaluator, implicitStatelessEvaluator))
+      listOf(statelessEvaluator, statefulEvaluator, implicitStatelessEvaluator)
     )
 
     val subject = EnvironmentPromotionChecker(
@@ -166,10 +165,6 @@ abstract class ApproveOldVersionTests<T : KeelRepository> : JUnit5Minutests {
       Fixture(
         repositoryProvider = this@ApproveOldVersionTests::createKeelRepository
       )
-    }
-
-    before {
-      environmentConstraintRunner.onReady()
     }
 
     after {

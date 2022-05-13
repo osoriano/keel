@@ -1,18 +1,15 @@
 package com.netflix.spinnaker.keel.scheduling.activities
 
 import com.netflix.spectator.api.NoopRegistry
-import com.netflix.spinnaker.keel.actuation.EnvironmentPromotionChecker
 import com.netflix.spinnaker.keel.actuation.ResourceActuator
 import com.netflix.spinnaker.keel.api.ResourceKind
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.NoSuchResourceId
 import com.netflix.spinnaker.keel.scheduling.SchedulingConsts.TEMPORAL_CHECKER
-import com.netflix.spinnaker.keel.telemetry.EnvironmentCheckStarted
 import com.netflix.spinnaker.keel.telemetry.ResourceCheckStarted
 import com.netflix.spinnaker.keel.telemetry.ResourceLoadFailed
 import com.netflix.spinnaker.keel.test.resource
 import io.mockk.Runs
-import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.just
@@ -31,11 +28,8 @@ class DefaultActuatorActivitiesTest {
   private val publisher: ApplicationEventPublisher = mockk(relaxed = true)
   private val clock = Clock.fixed(Instant.EPOCH, ZoneId.systemDefault())
   private val spectator = NoopRegistry()
-  private val environmentPromotionChecker: EnvironmentPromotionChecker = mockk() {
-    coEvery { checkEnvironment(any(), any()) } just Runs
-  }
 
-  private val subject = DefaultActuatorActivities(keelRepository, resourceActuator, publisher, clock, spectator, environmentPromotionChecker)
+  private val subject = DefaultActuatorActivities(keelRepository, resourceActuator, publisher, clock, spectator)
 
   @Test
   fun `should check known resource`() {
@@ -69,22 +63,6 @@ class DefaultActuatorActivitiesTest {
     }
     verify (exactly = 0) {
       keelRepository.setLastCheckedTime(any())
-    }
-  }
-
-  @Test
-  fun `should check environment`() {
-    val app = "myapp"
-    val env = "myenv"
-    every { keelRepository.getEnvLastCheckedTime(any(), any()) } returns clock.instant().minusSeconds(60)
-    every { keelRepository.setEnvLastCheckedTime(any(), any()) } just Runs
-
-    subject.checkEnvironment(ActuatorActivities.CheckEnvironmentRequest(application = app, environment = env))
-
-    coVerify(timeout = 500) {
-      publisher.publishEvent(EnvironmentCheckStarted(application = app, checker = TEMPORAL_CHECKER))
-      environmentPromotionChecker.checkEnvironment(app, env)
-      keelRepository.setEnvLastCheckedTime(any(), any())
     }
   }
 }

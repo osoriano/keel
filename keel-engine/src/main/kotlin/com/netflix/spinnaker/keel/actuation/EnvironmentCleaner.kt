@@ -15,7 +15,7 @@ import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
 import com.netflix.spinnaker.keel.persistence.ResourceRepository
 import com.netflix.spinnaker.keel.api.ResourceStatus
 import com.netflix.spinnaker.keel.api.ResourceStatus.DELETING
-import com.netflix.spinnaker.keel.scheduling.TemporalSchedulerService
+import com.netflix.spinnaker.keel.scheduling.ResourceSchedulerService
 import com.netflix.spinnaker.keel.services.ResourceStatusService
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
@@ -41,7 +41,7 @@ class EnvironmentCleaner(
   private val eventPublisher: ApplicationEventPublisher,
   private val resourceStatusService: ResourceStatusService,
   private val taskLauncher: TaskLauncher,
-  private val temporalSchedulerService: TemporalSchedulerService
+  private val resourceSchedulerService: ResourceSchedulerService
 ) {
   companion object {
     private val log by lazy { LoggerFactory.getLogger(EnvironmentCleaner::class.java) }
@@ -70,11 +70,6 @@ class EnvironmentCleaner(
           deliveryConfigName = environment.deliveryConfigName
             ?: error("Missing delivery config name for environment ${environment.name}"),
           environmentName = environment.name
-        )
-
-        temporalSchedulerService.stopScheduling(
-          application = environment.application ?: error("Missing application for environment ${environment.name}"),
-          environment = environment.name
         )
         log.debug("Successfully deleted $environmentDetails")
       } catch (e: Exception) {
@@ -118,7 +113,7 @@ class EnvironmentCleaner(
       if (allDone) {
         // This will cascade-delete the record in the environment_resource table
         resourceRepository.delete(resource.id)
-        temporalSchedulerService.stopScheduling(resource)
+        resourceSchedulerService.stopScheduling(resource)
         log.debug("Successfully deleted resource ${resource.name} of kind ${resource.kind}")
       } else {
         log.debug("Skipping deletion of resource ${resource.id} as it's currently being deleted or failed to delete.")

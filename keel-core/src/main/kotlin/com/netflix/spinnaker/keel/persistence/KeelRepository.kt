@@ -44,7 +44,7 @@ import com.netflix.spinnaker.keel.events.ResourceUpdated
 import com.netflix.spinnaker.keel.exceptions.DuplicateManagedResourceException
 import com.netflix.spinnaker.keel.notifications.NotificationScope
 import com.netflix.spinnaker.keel.notifications.NotificationType
-import com.netflix.spinnaker.keel.scheduling.TemporalSchedulerService
+import com.netflix.spinnaker.keel.scheduling.ResourceSchedulerService
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
@@ -76,7 +76,7 @@ class KeelRepository(
   private val diffFactory: ResourceDiffFactory,
   private val persistenceRetry: PersistenceRetry,
   private val notificationRepository: NotificationRepository,
-  private val temporalSchedulerService: TemporalSchedulerService
+  private val resourceSchedulerService: ResourceSchedulerService
 ) : KeelReadOnlyRepository {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
@@ -151,7 +151,7 @@ class KeelRepository(
 
     previewEnvironment.resources.forEach { resource ->
       upsertResource(resource, deliveryConfig.name)
-      temporalSchedulerService.startScheduling(resource)
+      resourceSchedulerService.startScheduling(resource)
     }
 
     previewArtifacts.forEach { artifact ->
@@ -192,11 +192,10 @@ class KeelRepository(
               // only delete the resource if it's not somewhere else in the delivery config -- e.g.
               // it's been moved from one environment to another or the environment has been renamed
               resourceRepository.delete(it.id)
-              temporalSchedulerService.stopScheduling(it)
+              resourceSchedulerService.stopScheduling(it)
             }
           }
           deliveryConfigRepository.deleteEnvironment(new.name, environment.name)
-          temporalSchedulerService.stopScheduling(new.application, environment.name)
         }
       }
 
@@ -310,9 +309,6 @@ class KeelRepository(
     }
   }
 
-  fun allEnvironments(): Iterator<EnvironmentHeader> =
-    deliveryConfigRepository.allEnvironments()
-
   /**
    * Deletes a config and everything in it and about it
    */
@@ -419,11 +415,10 @@ class KeelRepository(
   fun getApplicationSummaries(): Collection<ApplicationSummary> =
     deliveryConfigRepository.getApplicationSummaries()
 
-  fun getEnvLastCheckedTime(application: String, environmentName: String): Instant? =
-    deliveryConfigRepository.getEnvLastCheckedTime(application, environmentName)
-
-  fun setEnvLastCheckedTime(application: String, environmentName: String) =
-    deliveryConfigRepository.setEnvLastCheckedTime(application, environmentName)
+  fun triggerDeliveryConfigRecheck(config: DeliveryConfig) {
+    deliveryConfigRepository.triggerRecheck(config.application)
+    resourceSchedulerService.checkNow(config)
+  }
 
   // END DeliveryConfigRepository methods
 
@@ -483,7 +478,7 @@ class KeelRepository(
     resourceRepository.itemsDueForCheck(minTimeSinceLastCheck, limit)
 
   fun triggerResourceRecheck(environmentName: String, deliveryConfig: DeliveryConfig) {
-    temporalSchedulerService.checkResourcesInEnvironmentNow(deliveryConfig, environmentName)
+    resourceSchedulerService.checkNow(deliveryConfig, environmentName)
   }
 
   fun getLastCheckedTime(resource: Resource<*>): Instant? =

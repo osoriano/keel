@@ -221,14 +221,13 @@ class TelemetryListener(
     spectator.counter(
       ENVIRONMENT_CHECK_STARTED_COUNTER_ID,
       listOf(
-        BasicTag("application", event.application),
-        BasicTag("checker", event.checker)
+        BasicTag("application", event.deliveryConfig.application)
       )
     ).safeIncrement()
   }
 
   @EventListener(ResourceCheckCompleted::class)
-  fun onResourceCheckComplete(event: ResourceCheckCompleted) {
+  fun onEnvironmentCheckComplete(event: ResourceCheckCompleted) {
     spectator.timer(
       RESOURCE_CHECK_DURATION_ID,
       listOf(
@@ -277,10 +276,7 @@ class TelemetryListener(
   fun onEnvironmentCheckComplete(event: EnvironmentCheckComplete) {
     spectator.timer(
       ENVIRONMENT_CHECK_DURATION_ID,
-      listOf(
-        BasicTag("application", event.application),
-        BasicTag("checker", event.checker)
-      )
+      listOf(BasicTag("application", event.application))
     ).record(event.duration)
   }
 

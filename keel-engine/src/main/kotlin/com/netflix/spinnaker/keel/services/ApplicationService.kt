@@ -54,7 +54,7 @@ import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.persistence.NoSuchDeliveryConfigException
 import com.netflix.spinnaker.keel.persistence.PausedRepository
-import com.netflix.spinnaker.keel.scheduling.TemporalSchedulerService
+import com.netflix.spinnaker.keel.scheduling.ResourceSchedulerService
 import com.netflix.spinnaker.keel.upsert.DeliveryConfigUpserter
 import com.netflix.spinnaker.keel.validators.DeliveryConfigValidator
 import kotlinx.coroutines.CoroutineScope
@@ -100,7 +100,7 @@ class ApplicationService(
   private val diffFactory: ResourceDiffFactory,
   private val deliveryConfigUpserter: DeliveryConfigUpserter,
   private val actuationPauser: ActuationPauser,
-  private val temporalSchedulerService: TemporalSchedulerService,
+  private val resourceSchedulerService: ResourceSchedulerService,
   private val validator: DeliveryConfigValidator,
 ) : CoroutineScope {
   override val coroutineContext: CoroutineContext = Dispatchers.Default
@@ -125,7 +125,7 @@ class ApplicationService(
   fun deleteDeliveryConfig(name: String) {
     val config = repository.getDeliveryConfig(name)
     repository.deleteDeliveryConfigByName(name)
-    stopTemporalScheduling(config)
+    stopSchedulingAllResources(config)
   }
 
   fun deleteConfigByApp(application: String) {
@@ -134,7 +134,7 @@ class ApplicationService(
         log.debug("Deleting delivery config for application $application")
         val config = getDeliveryConfig(application)
         repository.deleteDeliveryConfigByApplication(application)
-        stopTemporalScheduling(config)
+        stopSchedulingAllResources(config)
       } catch (ex: NoDeliveryConfigForApplication) {
         log.info("attempted to delete delivery config for app that doesn't have a config: $application")
       }
@@ -144,15 +144,10 @@ class ApplicationService(
   /**
    * Makes sure that temporal is no longer scheduling checks on the deleted resources
    */
-  private fun stopTemporalScheduling(config: DeliveryConfig) {
+  private fun stopSchedulingAllResources(config: DeliveryConfig) {
     log.debug("Stopping scheduling of resources ${config.resources.map { it.id }} due to config deletion for application ${config.application}")
     config.resources.forEach { resource ->
-      temporalSchedulerService.stopScheduling(resource)
-    }
-
-    log.debug("Stopping scheduling of environments ${config.environments.map { it.name }} due to config deletion for application ${config.application}")
-    config.environments.forEach { env ->
-      temporalSchedulerService.stopScheduling(config.application, env.name)
+      resourceSchedulerService.stopScheduling(resource)
     }
   }
 
@@ -176,7 +171,7 @@ class ApplicationService(
       )
 
       repository.storeConstraintState(newState)
-      temporalSchedulerService.checkEnvironmentNow(config.application, environment) // recheck environment to fast track a deployment
+      repository.triggerDeliveryConfigRecheck(config) // recheck environments to fast track a deployment
 
       currentState.status != newState.status
     }
@@ -187,7 +182,7 @@ class ApplicationService(
     val config = repository.getDeliveryConfigForApplication(application)
     repository.pinEnvironment(config, pin.copy(pinnedBy = user))
     environmentTaskCanceler.cancelTasksForPin(application, pin, user)
-    temporalSchedulerService.checkEnvironmentNow(config.application, pin.targetEnvironment) // recheck environment to reflect pin immediately
+    repository.triggerDeliveryConfigRecheck(config) // recheck environments to reflect pin immediately
     publisher.publishEvent(PinnedNotification(config, pin.copy(pinnedBy = user)))
   }
 
@@ -196,7 +191,7 @@ class ApplicationService(
     val config = repository.getDeliveryConfigForApplication(application)
     val pinnedEnvironment = repository.pinnedEnvironments(config).find { it.targetEnvironment == targetEnvironment }
     repository.deletePin(config, targetEnvironment, reference)
-    temporalSchedulerService.checkEnvironmentNow(config.application, targetEnvironment) // recheck environment to reflect pin removal immediately
+    repository.triggerDeliveryConfigRecheck(config) // recheck environments to reflect pin removal immediately
 
     publisher.publishEvent(UnpinnedNotification(config,
       pinnedEnvironment,
@@ -217,7 +212,7 @@ class ApplicationService(
     }
     log.info("Successfully marked artifact version ${veto.reference}: ${veto.version} of application $application as bad")
     environmentTaskCanceler.cancelTasksForVeto(application, veto, user)
-    temporalSchedulerService.checkEnvironmentNow(config.application, veto.targetEnvironment) // recheck environment to reflect veto immediately
+    repository.triggerDeliveryConfigRecheck(config) // recheck environments to reflect veto immediately
     publisher.publishEvent(MarkAsBadNotification(
       config = config,
       user = user,
@@ -236,7 +231,7 @@ class ApplicationService(
       version = version,
       targetEnvironment = targetEnvironment
     )
-    temporalSchedulerService.checkEnvironmentNow(config.application, targetEnvironment) // recheck environment to reflect removed veto immediately
+    repository.triggerDeliveryConfigRecheck(config) // recheck environments to reflect removed veto immediately
   }
 
   /**

@@ -9,8 +9,9 @@ import com.netflix.spinnaker.keel.api.action.EnvironmentArtifactAndVersion
 import com.netflix.spinnaker.keel.api.constraints.ConstraintState
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
 import com.netflix.spinnaker.keel.api.plugins.ApprovalConstraintEvaluator
+import com.netflix.spinnaker.keel.api.plugins.ConstraintEvaluator
+import com.netflix.spinnaker.keel.api.plugins.ConstraintType.APPROVAL
 import com.netflix.spinnaker.keel.constraints.AllowedTimesConstraintAttributes
-import com.netflix.spinnaker.keel.constraints.ConstraintEvaluators
 import com.netflix.spinnaker.keel.constraints.DependsOnConstraintAttributes
 import com.netflix.spinnaker.keel.core.api.DependsOnConstraint
 import com.netflix.spinnaker.keel.core.api.MANUAL_JUDGEMENT_CONSTRAINT_TYPE
@@ -33,14 +34,14 @@ import java.util.concurrent.Executor
 @DgsDataLoader(name = ConstraintsDataLoader.Descriptor.name)
 class ConstraintsDataLoader(
   private val keelRepository: KeelRepository,
-  constraintEvaluators: ConstraintEvaluators,
+  constraintEvaluators: List<ConstraintEvaluator<*>>,
   @DefaultExecutor private val executor: Executor
 ) : MappedBatchLoaderWithContext<EnvironmentArtifactAndVersion, List<MD_Constraint>> {
 
   object Descriptor {
     const val name = "artifact-version-constraints"
   }
-  private val approvalConstraintEvaluators = constraintEvaluators.approvalEvaluators()
+  private val approvalConstraintEvaluators = constraintEvaluators.filter { it.constraintType() == APPROVAL } as List<ApprovalConstraintEvaluator<*>>
 
   private val statelessEvaluators: List<ApprovalConstraintEvaluator<*>> =
     approvalConstraintEvaluators
