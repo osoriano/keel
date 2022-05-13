@@ -17,7 +17,7 @@ import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.persistence.OverwritingExistingResourcesDisallowed
 import com.netflix.spinnaker.keel.persistence.PersistenceRetry
 import com.netflix.spinnaker.keel.persistence.RetryCategory
-import com.netflix.spinnaker.keel.scheduling.ResourceSchedulerService
+import com.netflix.spinnaker.keel.scheduling.TemporalSchedulerService
 import com.netflix.spinnaker.keel.validators.DeliveryConfigValidator
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
@@ -42,7 +42,7 @@ class DeliveryConfigUpserter(
   private val diffFactory: ResourceDiffFactory,
   private val resourceHandlers: List<ResourceHandler<*, *>>,
   private val applicationRepository: ApplicationRepository,
-  private val resourceSchedulerService: ResourceSchedulerService
+  private val temporalSchedulerService: TemporalSchedulerService
 ) {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
@@ -77,6 +77,7 @@ class DeliveryConfigUpserter(
       }.withoutPreview()
 
     scheduleResources(config)
+    scheduleEnvironments(config)
 
     if (shouldNotifyOfConfigChange(existing, config)) {
       log.debug("Publish deliveryConfigChange event for app ${deliveryConfig.application}")
@@ -127,7 +128,13 @@ class DeliveryConfigUpserter(
 
   private fun scheduleResources(deliveryConfig: DeliveryConfig) {
     deliveryConfig.environments.flatMap { it.resources }
-      .forEach { resourceSchedulerService.startScheduling(it) }
+      .forEach { temporalSchedulerService.startScheduling(it) }
+  }
+
+  private fun scheduleEnvironments(deliveryConfig: DeliveryConfig) {
+    deliveryConfig.environments.forEach {
+      temporalSchedulerService.startSchedulingEnvironment(deliveryConfig.application, it.name)
+    }
   }
 
   private fun getGitMetadata(deliveryConfig: SubmittedDeliveryConfig): GitMetadata? {

@@ -12,6 +12,7 @@ import com.netflix.spinnaker.keel.api.constraints.SupportedConstraintType
 import com.netflix.spinnaker.keel.api.plugins.ApprovalConstraintEvaluator
 import com.netflix.spinnaker.keel.api.plugins.ConstraintType.APPROVAL
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
+import com.netflix.spinnaker.keel.constraints.ConstraintEvaluators
 import com.netflix.spinnaker.keel.core.api.DependsOnConstraint
 import com.netflix.spinnaker.keel.core.api.ManualJudgementConstraint
 import com.netflix.spinnaker.keel.core.api.AllowedTimesConstraint
@@ -61,9 +62,11 @@ internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
       every { isStateful() } returns false
       every { constraintType() } returns APPROVAL
     }
+
+    val constraintEvaluators = ConstraintEvaluators(listOf(statelessEvaluator, mjEvaluator, implicitStatelessEvaluator, allowedTimesEvaluator))
     val subject = EnvironmentConstraintRunner(
       repository,
-      listOf(statelessEvaluator, mjEvaluator, implicitStatelessEvaluator, allowedTimesEvaluator)
+      constraintEvaluators
     )
 
     val artifact = DockerArtifact(
@@ -108,6 +111,10 @@ internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
   fun tests() = rootContext<Fixture> {
     fixture {
       Fixture()
+    }
+
+    before {
+      subject.onReady()
     }
 
     context("no versions of an artifact exist") {
@@ -215,6 +222,7 @@ internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
           every {
             repository.latestVersionApprovedIn(deliveryConfig, artifact, environment.name)
           } returns "1.1"
+          subject.onReady()
         }
 
         context("a version is vetoed") {
@@ -321,6 +329,7 @@ internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
           every {
             repository.latestVersionApprovedIn(deliveryConfig, artifact, environment.name)
           } returns "1.1"
+          subject.onReady()
         }
 
         context("no versions are vetoed") {
@@ -384,6 +393,8 @@ internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
             repository.latestVersionApprovedIn(deliveryConfig, artifact, environment.name)
           } returns "1.1"
 
+          subject.onReady()
+
           runBlocking {
             subject.checkEnvironment(generateContext(versions = listOf("1.2")))
           }
@@ -410,6 +421,7 @@ internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
         before {
           // TODO: sucks that this is necessary but when using deriveFixture you get a different mockk
           every { statelessEvaluator.constraintPasses(artifact, "1.0", deliveryConfig, environment) } returns false
+          subject.onReady()
         }
 
         test("no exception is thrown") {
@@ -451,6 +463,8 @@ internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
           } returns listOf(pendingManualJudgement)
 
           every { repository.latestVersionApprovedIn(any(), any(), any()) } returns null
+
+          subject.onReady()
 
           runBlocking { subject.checkEnvironment(generateContext(versions = listOf("2.0", "1.2", "1.1"))) }
         }
@@ -517,6 +531,8 @@ internal class EnvironmentConstraintRunnerTests : JUnit5Minutests {
           every {
             repository.constraintStateFor("my-manifest", "staging", "2.0", artifact.reference)
           } returns listOf(pendingManualJudgement)
+
+          subject.onReady()
 
           runBlocking { subject.checkEnvironment(generateContext(versions = listOf("2.0", "1.2", "1.1", "1.0", "0.9"))) }
         }

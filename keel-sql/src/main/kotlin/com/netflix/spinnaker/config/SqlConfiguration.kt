@@ -127,17 +127,17 @@ class SqlConfiguration
     objectMapper: ObjectMapper,
     artifactSuppliers: List<ArtifactSupplier<*, *>>,
     publisher: ApplicationEventPublisher,
-    featureToggles: FeatureToggles
+    featureToggles: FeatureToggles,
   ) =
     SqlDeliveryConfigRepository(
-        jooq = jooq,
-        clock = clock,
-        objectMapper = objectMapper,
-        resourceFactory = resourceFactory,
-        sqlRetry = SqlRetry(sqlRetryProperties, featureToggles),
-        artifactSuppliers = artifactSuppliers,
-        publisher = publisher,
-        featureToggles = featureToggles
+      jooq = jooq,
+      clock = clock,
+      objectMapper = objectMapper,
+      resourceFactory = resourceFactory,
+      sqlRetry = SqlRetry(sqlRetryProperties, featureToggles),
+      artifactSuppliers = artifactSuppliers,
+      publisher = publisher,
+      featureToggles = featureToggles,
     )
 
   @Bean

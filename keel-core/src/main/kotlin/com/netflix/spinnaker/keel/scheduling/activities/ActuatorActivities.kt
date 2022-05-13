@@ -13,6 +13,10 @@ interface ActuatorActivities {
 
   fun monitorResource(request: MonitorResourceRequest)
 
+  fun checkEnvironment(request: CheckEnvironmentRequest)
+
+  fun monitorEnvironment(request: MonitorEnvironmentRequest)
+
   data class CheckResourceRequest(
     val resourceId: String
   )
@@ -25,13 +29,26 @@ interface ActuatorActivities {
       CheckResourceRequest(resourceId)
   }
 
+  data class CheckEnvironmentRequest(
+    val application: String,
+    val environment: String
+  )
+
+  data class MonitorEnvironmentRequest(
+    val application: String,
+    val environment: String
+  ) {
+    fun toCheckEnvironmentRequest(): CheckEnvironmentRequest =
+      CheckEnvironmentRequest(application, environment)
+  }
+
   companion object {
-    fun get(): ActuatorActivities =
+    fun get(startToClose: Duration): ActuatorActivities =
       Workflow.newActivityStub(
         ActuatorActivities::class.java,
         ActivityOptions.newBuilder()
           .setTaskQueue(Workflow.getInfo().taskQueue)
-          .setStartToCloseTimeout(Duration.ofMinutes(5))
+          .setStartToCloseTimeout(startToClose)
           .setRetryOptions(
             RetryOptions.newBuilder()
               .setBackoffCoefficient(1.1)

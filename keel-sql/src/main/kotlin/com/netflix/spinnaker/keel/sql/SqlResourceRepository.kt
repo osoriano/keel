@@ -23,11 +23,8 @@ import com.netflix.spinnaker.keel.pause.PauseScope
 import com.netflix.spinnaker.keel.persistence.NoSuchResourceId
 import com.netflix.spinnaker.keel.persistence.ResourceHeader
 import com.netflix.spinnaker.keel.persistence.ResourceRepository
-import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ACTIVE_ENVIRONMENT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ACTIVE_RESOURCE
-import com.netflix.spinnaker.keel.persistence.metamodel.Tables.DELIVERY_CONFIG
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.DIFF_FINGERPRINT
-import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_RESOURCE
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.EVENT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.PAUSED
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.RESOURCE
@@ -43,7 +40,6 @@ import de.huxhorn.sulky.ulid.ULID
 import org.jooq.DSLContext
 import org.jooq.Record1
 import org.jooq.Select
-import org.jooq.impl.DSL
 import org.jooq.impl.DSL.coalesce
 import org.jooq.impl.DSL.max
 import org.jooq.impl.DSL.select
@@ -55,7 +51,6 @@ import org.springframework.core.env.Environment
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
-import java.time.Instant.EPOCH
 
 @OpenClass
 class SqlResourceRepository(
@@ -628,32 +623,6 @@ class SqlResourceRepository(
   @EventListener(ResourceCheckResult::class)
   fun onResourceChecked(event: ResourceCheckResult) {
     markCheckComplete(get(event.id), event.state)
-  }
-
-  override fun triggerResourceRecheck(environmentName: String, application: String) {
-    log.debug("Triggering recheck for environment $environmentName in application $application")
-    sqlRetry.withRetry(WRITE) {
-      jooq.transaction { config ->
-        val txn = DSL.using(config)
-        val resourceUids =
-          txn.select(ENVIRONMENT_RESOURCE.RESOURCE_UID)
-            .from(ENVIRONMENT_RESOURCE)
-            .innerJoin(ACTIVE_ENVIRONMENT)
-            .on(ACTIVE_ENVIRONMENT.UID.eq(ENVIRONMENT_RESOURCE.ENVIRONMENT_UID))
-            .innerJoin(DELIVERY_CONFIG)
-            .on(ACTIVE_ENVIRONMENT.DELIVERY_CONFIG_UID.eq(DELIVERY_CONFIG.UID))
-            .where(ACTIVE_ENVIRONMENT.NAME.eq(environmentName))
-            .and(DELIVERY_CONFIG.APPLICATION.eq(application))
-            .fetch()
-
-        log.debug("Triggering recheck for resources $resourceUids in environment $environmentName in application $application")
-
-        txn.update(RESOURCE_LAST_CHECKED)
-          .set(RESOURCE_LAST_CHECKED.AT, EPOCH.plusSeconds(1))
-          .where(RESOURCE_LAST_CHECKED.RESOURCE_UID.`in`(resourceUids))
-          .execute()
-      }
-    }
   }
 
   override fun incrementDeletionAttempts(resource: Resource<*>) {

@@ -1,9 +1,12 @@
 package com.netflix.spinnaker.keel.scheduling
 
+import com.netflix.spinnaker.config.FeatureToggles
+import com.netflix.spinnaker.config.FeatureToggles.Companion.TEMPORAL_ENV_CHECKING
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.persistence.ResourceHeader
 import com.netflix.spinnaker.keel.scheduling.ResourceScheduler.* // ktlint-disable no-wildcard-imports
+import com.netflix.spinnaker.keel.scheduling.SchedulingConsts.ENVIRONMENT_SCHEDULER_TASK_QUEUE
 import com.netflix.spinnaker.keel.scheduling.SchedulingConsts.RESOURCE_SCHEDULER_TASK_QUEUE
 import com.netflix.spinnaker.keel.scheduling.SchedulingConsts.TEMPORAL_NAMESPACE
 import com.netflix.spinnaker.keel.scheduling.SchedulingConsts.WORKER_ENV_SEARCH_ATTRIBUTE
@@ -21,17 +24,105 @@ import io.temporal.api.workflowservice.v1.TerminateWorkflowExecutionRequest
 import io.temporal.client.WorkflowClient
 import io.temporal.client.WorkflowOptions
 import org.slf4j.LoggerFactory
+import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 
 @Service
-class ResourceSchedulerService(
+class TemporalSchedulerService(
   private val workflowClientProvider: WorkflowClientProvider,
   private val workflowServiceStubsProvider: WorkflowServiceStubsProvider,
   private val taskQueueNamer: TaskQueueNamer,
-  private val workerEnvironment: WorkerEnvironment
+  private val workerEnvironment: WorkerEnvironment,
+  private val featureToggles: FeatureToggles
 ) {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
+
+  fun environmentSchedulingEnabled(): Boolean =
+    featureToggles.isEnabled(TEMPORAL_ENV_CHECKING, default = false)
+
+  /**
+   * Checks for a running workflow for the environment
+   */
+  fun isScheduling(application: String, environment: String): Boolean {
+    val client = workflowServiceStubsProvider.forNamespace(TEMPORAL_NAMESPACE)
+
+    val wf = try {
+      client.blockingStub()
+        .describeWorkflowExecution(
+          DescribeWorkflowExecutionRequest.newBuilder()
+            .setNamespace(TEMPORAL_NAMESPACE)
+            .setExecution(getWorkflowExecution(application, environment))
+            .build()
+        )
+    } catch (e: StatusRuntimeException) {
+      if (e.status.code != Status.Code.NOT_FOUND) {
+        log.error("Failed to describe workflow execution", e)
+      }
+      return false
+    }
+
+    return EXECUTION_RUNNING_STATUSES.contains(wf.workflowExecutionInfo.status)
+  }
+
+  fun startSchedulingEnvironment(application: String, environment: String) {
+    if (isScheduling(application, environment) && environmentSchedulingEnabled()) {
+      // environment is already scheduled
+      return
+    }
+
+    log.debug("Temporal scheduling environment $environment in application $application")
+    val client = workflowClientProvider.get(TEMPORAL_NAMESPACE)
+
+    val stub = client.newWorkflowStub(
+      EnvironmentScheduler::class.java,
+      WorkflowOptions.newBuilder()
+        .setTaskQueue(taskQueueNamer.name(ENVIRONMENT_SCHEDULER_TASK_QUEUE))
+        .setWorkflowId(workflowId(application, environment))
+        .setWorkflowIdReusePolicy(WorkflowIdReusePolicy.WORKFLOW_ID_REUSE_POLICY_ALLOW_DUPLICATE_FAILED_ONLY)
+        .setSearchAttributes(
+          mapOf(
+            WORKER_ENV_SEARCH_ATTRIBUTE to workerEnvironment.get()
+          )
+        )
+        .build()
+    )
+
+    WorkflowClient.execute {
+      stub.schedule(
+        EnvironmentScheduler.ScheduleEnvironmentRequest(
+          application = application,
+          environment = environment
+        )
+      )
+    }
+  }
+
+  fun stopScheduling(application: String, environment: String) {
+    log.debug("Removing Temporal scheduling of environment $environment in application $application")
+
+    val stub = workflowServiceStubsProvider.forNamespace(TEMPORAL_NAMESPACE)
+
+    try {
+      stub.blockingStub()
+        .terminateWorkflowExecution(
+          TerminateWorkflowExecutionRequest.newBuilder()
+            .setNamespace(TEMPORAL_NAMESPACE)
+            .setWorkflowExecution(getWorkflowExecution(application, environment))
+            .build()
+        )
+    } catch (e: StatusRuntimeException) {
+      if (e.status.code != Status.Code.NOT_FOUND) {
+        throw e
+      }
+    }
+  }
+
+  @EventListener(StopSchedulingEnvironmentEvent::class)
+  fun onStopSchedulingEnvEvent(event: StopSchedulingEnvironmentEvent) {
+    log.debug("Removing Temporal scheduling of environment ${event.environment} in application ${event.application} because of a fp switch")
+    stopScheduling(event.application, event.environment)
+  }
 
   /**
    * Checks for a running workflow for the resource
@@ -121,18 +212,38 @@ class ResourceSchedulerService(
     }
   }
 
-  fun checkNow(deliveryConfig: DeliveryConfig, environmentName: String? = null) {
-    log.debug("Rechecking resources in application ${deliveryConfig.application} and environment ${environmentName ?: "all"}")
+  fun checkEnvironmentNow(application: String, environment: String) {
+    log.debug("Rechecking environment $environment in application $application")
+    val stub = workflowServiceStubsProvider.forNamespace(TEMPORAL_NAMESPACE)
+    try {
+      stub.blockingStub()
+        .signalWorkflowExecution(
+          SignalWorkflowExecutionRequest.newBuilder()
+            .setNamespace(TEMPORAL_NAMESPACE)
+            .setWorkflowExecution(getWorkflowExecution(application, environment))
+            .setSignalName("checkNow")
+            .build()
+        )
+    } catch (e: StatusRuntimeException) {
+      if (e.status.code != Status.Code.NOT_FOUND) {
+        log.error("Failed to describe workflow execution, starting scheduling", e)
+        startSchedulingEnvironment(application, environment)
+      }
+    }
+  }
+
+  fun checkResourcesInEnvironmentNow(deliveryConfig: DeliveryConfig, environmentName: String) {
+    log.debug("Rechecking resources in application ${deliveryConfig.application} and environment $environmentName")
     deliveryConfig
-      .environments.filter { environmentName == null || it.name == environmentName }
+      .environments.filter { it.name == environmentName }
       .forEach { environment ->
         environment.resources.forEach { resource ->
-          checkNow(resource)
+          checkResourceNow(resource)
         }
       }
   }
 
-  fun checkNow(resource: Resource<*>) {
+  fun checkResourceNow(resource: Resource<*>) {
     val stub = workflowServiceStubsProvider.forNamespace(TEMPORAL_NAMESPACE)
     log.debug("Rechecking resource ${resource.id} with workflow id ${resource.workflowId} in application ${resource.application}")
     try {
@@ -167,6 +278,14 @@ class ResourceSchedulerService(
       .setWorkflowId(workflowId(uid))
       .build()
 
+  private fun getWorkflowExecution(application: String, environment: String) =
+    WorkflowExecution.newBuilder()
+      .setWorkflowId(workflowId(application, environment))
+      .build()
+
+  fun workflowId(application: String, environment: String) =
+    "environment:$application:$environment"
+
   private fun workflowId(uid: String): String = "resource:$uid"
 
   private val Resource<*>.workflowId
@@ -179,3 +298,9 @@ class ResourceSchedulerService(
     )
   }
 }
+
+// todo eb: remove once scheduling is switched over
+data class StopSchedulingEnvironmentEvent(
+  val application: String,
+  val environment: String
+)

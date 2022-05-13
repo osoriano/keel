@@ -14,11 +14,13 @@ import com.netflix.spinnaker.keel.core.api.PromotionStatus.CURRENT
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.DEPLOYING
 import com.netflix.spinnaker.keel.logging.withCoroutineTracingContext
 import com.netflix.spinnaker.keel.persistence.KeelRepository
+import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
 import com.netflix.spinnaker.keel.telemetry.ArtifactVersionApproved
 import com.netflix.spinnaker.keel.telemetry.EnvironmentCheckComplete
 import com.newrelic.api.agent.Trace
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.cloud.sleuth.annotation.NewSpan
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import java.time.Clock
@@ -39,6 +41,7 @@ class EnvironmentPromotionChecker(
 ) {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
+  // todo eb: remove this bulk function once we've switch completely to temporal checking
   suspend fun checkEnvironments(deliveryConfig: DeliveryConfig) {
     val startTime = clock.instant()
     try {
@@ -66,10 +69,49 @@ class EnvironmentPromotionChecker(
       publisher.publishEvent(
         EnvironmentCheckComplete(
           application = deliveryConfig.application,
-          deliveryConfigName = deliveryConfig.name,
           duration = Duration.between(startTime, clock.instant())
         )
       )
+    }
+  }
+
+  /**
+   * Check all the artifacts used in a single environment in a delivery config.
+   *
+   * This is used for the temporal path, where we're checking environments individually
+   * instead of checking every environment in a delivery config at once.
+   */
+  @NewSpan
+  suspend fun checkEnvironment(application: String, environmentName: String) {
+    val startTime = clock.instant()
+    try {
+      val deliveryConfig = repository.getDeliveryConfigForApplication(application)
+      val pinnedEnvs: Map<String, PinnedEnvironment> = repository
+        .pinnedEnvironments(deliveryConfig)
+        .associateBy { envPinKey(it.targetEnvironment, it.artifact) }
+
+      val vetoedArtifacts: Map<String, EnvironmentArtifactVetoes> = repository
+        .vetoedEnvironmentVersions(deliveryConfig)
+        .associateBy { envPinKey(it.targetEnvironment, it.artifact) }
+
+      deliveryConfig
+        .artifacts
+        .associateWith { repository.artifactVersions(it, artifactConfig.defaultMaxConsideredVersions) }
+        .forEach { (artifact, versions) ->
+          if (versions.isEmpty()) {
+            log.warn("No versions for ${artifact.type} artifact name ${artifact.name} and reference ${artifact.reference} are known")
+          } else {
+            deliveryConfig
+              .environments
+              .firstOrNull {it.name == environmentName}
+              ?.also { environment ->
+                checkEnvironment(deliveryConfig, environment, artifact, versions, vetoedArtifacts, pinnedEnvs)
+              }
+
+          }
+        }
+    } catch (e: NoDeliveryConfigForApplication) {
+      log.error("Trying to check environment $environmentName of application $application, but there is no delivery config for this application. Is this an orphaned temporal workflow?")
     }
   }
 
