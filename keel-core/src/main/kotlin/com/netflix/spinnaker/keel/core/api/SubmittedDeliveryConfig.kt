@@ -8,12 +8,12 @@ import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.NotificationConfig
 import com.netflix.spinnaker.keel.api.PreviewEnvironmentSpec
-import com.netflix.spinnaker.keel.api.schema.SchemaIgnore
 import com.netflix.spinnaker.keel.api.SubnetAwareLocations
 import com.netflix.spinnaker.keel.api.Verification
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.postdeploy.PostDeployAction
 import com.netflix.spinnaker.keel.api.schema.Description
+import com.netflix.spinnaker.keel.api.schema.SchemaIgnore
 import com.netflix.spinnaker.keel.api.schema.Title
 import com.netflix.spinnaker.keel.serialization.SubmittedEnvironmentDeserializer
 

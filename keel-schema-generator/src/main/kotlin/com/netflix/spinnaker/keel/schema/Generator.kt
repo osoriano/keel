@@ -1,12 +1,13 @@
 package com.netflix.spinnaker.keel.schema
 
 import com.fasterxml.jackson.annotation.JsonCreator
-import com.netflix.spinnaker.keel.api.schema.SchemaIgnore
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.netflix.spinnaker.keel.api.schema.Description
 import com.netflix.spinnaker.keel.api.schema.Discriminator
 import com.netflix.spinnaker.keel.api.schema.Factory
 import com.netflix.spinnaker.keel.api.schema.Literal
 import com.netflix.spinnaker.keel.api.schema.Optional
+import com.netflix.spinnaker.keel.api.schema.SchemaIgnore
 import com.netflix.spinnaker.keel.api.schema.Title
 import com.netflix.spinnaker.keel.api.support.ExtensionRegistry
 import java.time.Duration
@@ -30,6 +31,7 @@ import kotlin.reflect.full.memberProperties
 import kotlin.reflect.full.primaryConstructor
 import kotlin.reflect.full.starProjectedType
 import kotlin.reflect.full.withNullability
+import kotlin.reflect.jvm.javaField
 import kotlin.reflect.jvm.javaType
 import kotlin.reflect.jvm.jvmErasure
 
@@ -221,6 +223,11 @@ class Generator(
       emptyMap()
     }
 
+  private fun KClass<*>.hasJsonIgnoreAnnotation(property: KParameter) =
+    backingPropertyFor(property)?.let {
+      it.javaField?.isAnnotationPresent(JsonIgnore::class.java) == true || it.getter.hasAnnotation<JsonIgnore>()
+    } ?: false
+
   /**
    * The properties of as type that we will want to document in it's schema. Unless otherwise
    * specified this means the parameters of its primary constructor.
@@ -229,8 +236,11 @@ class Generator(
     get() = when {
       isAbstract -> emptyList()
       isSingleton -> emptyList()
-      else -> preferredConstructor.parameters.filterNot { it.hasAnnotation<SchemaIgnore>() }
+      else -> preferredConstructor.parameters.filterNot {
+        it.hasAnnotation<SchemaIgnore>() || hasJsonIgnoreAnnotation(it)
+      }
     }
+
 
   private val KClass<*>.title: String
     get() = checkNotNull(this.findAnnotation<Title>()?.value ?: this.simpleName)

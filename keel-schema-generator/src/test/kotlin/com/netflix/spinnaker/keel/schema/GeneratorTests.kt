@@ -3,6 +3,7 @@
 package com.netflix.spinnaker.keel.schema
 
 import com.fasterxml.jackson.annotation.JsonCreator
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL
 import com.fasterxml.jackson.databind.SerializationFeature.INDENT_OUTPUT
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
@@ -30,7 +31,6 @@ import strikt.assertions.containsKey
 import strikt.assertions.containsKeys
 import strikt.assertions.doesNotContain
 import strikt.assertions.get
-import strikt.assertions.hasEntry
 import strikt.assertions.hasSize
 import strikt.assertions.isA
 import strikt.assertions.isEqualTo
@@ -836,7 +836,7 @@ internal class GeneratorTests {
 
   @Nested
   @DisplayName("@SchemaIgnore annotated elements")
-  class IgnoreAnnotations : GeneratorTestBase() {
+  class SchemaIgnoreAnnotations : GeneratorTestBase() {
     data class Foo(
       val string: String,
       @SchemaIgnore
@@ -846,6 +846,35 @@ internal class GeneratorTests {
     ) {
       @SchemaIgnore
       val metadata: MutableMap<String, Any?> = mutableMapOf()
+    }
+
+    data class Bar(
+      val string: String
+    )
+
+    val schema by lazy { generateSchema<Foo>() }
+
+    @Test
+    fun `Ignored fields are removed from the schema`() {
+      expectThat(schema.properties).hasSize(1).not().containsKeys(Foo::nullableString.name, Foo::bar.name)
+    }
+  }
+
+  @Nested
+  @DisplayName("@JsonIgnore annotated elements")
+  class JsonIgnoreAnnotations : GeneratorTestBase() {
+    data class Foo(
+      val string: String,
+      @JsonIgnore val nullableString: String?,
+      @JsonIgnore val bar: Bar,
+      @get:JsonIgnore val ignoreThisProps: String,
+    ) {
+      @JsonIgnore
+      val metadata: MutableMap<String, Any?> = mutableMapOf()
+
+      val ignoreMe: String
+        @JsonIgnore get() = "Hello"
+
     }
 
     data class Bar(

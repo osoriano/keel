@@ -1,6 +1,6 @@
 package com.netflix.spinnaker.keel.artifacts
 
-import com.netflix.spinnaker.keel.api.schema.SchemaIgnore
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactOriginFilter
 import com.netflix.spinnaker.keel.api.artifacts.BranchFilter
 import com.netflix.spinnaker.keel.api.artifacts.DEBIAN
@@ -19,7 +19,7 @@ data class DebianArtifact(
   override val reference: String = name,
   val vmOptions: VirtualMachineOptions,
   override val from: ArtifactOriginFilter = FROM_ANY_BRANCH,
-  @SchemaIgnore
+  @JsonIgnore
   override val metadata: Map<String, Any?> = emptyMap()
 ) : DeliveryArtifact() {
   override val type = DEBIAN
