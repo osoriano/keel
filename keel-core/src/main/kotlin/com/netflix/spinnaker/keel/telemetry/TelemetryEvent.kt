@@ -81,7 +81,8 @@ data class ArtifactCheckComplete(
 ) : TelemetryEvent()
 
 data class EnvironmentCheckStarted(
-  val deliveryConfig: DeliveryConfig
+  val application: String,
+  val checker: String = "on-instance"
 ) : TelemetryEvent()
 
 data class EnvironmentsCheckTimedOut(
@@ -91,8 +92,8 @@ data class EnvironmentsCheckTimedOut(
 
 data class EnvironmentCheckComplete(
   val application: String,
-  val deliveryConfigName: String,
-  val duration: Duration
+  val duration: Duration,
+  val checker: String = "on-instance"
 )
 
 data class ArtifactCheckSkipped(

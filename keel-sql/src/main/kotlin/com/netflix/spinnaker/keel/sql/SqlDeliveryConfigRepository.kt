@@ -35,7 +35,9 @@ import com.netflix.spinnaker.keel.persistence.ApplicationPullRequestDataIsMissin
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
 import com.netflix.spinnaker.keel.persistence.DependentAttachFilter
 import com.netflix.spinnaker.keel.persistence.DependentAttachFilter.ATTACH_NONE
+import com.netflix.spinnaker.keel.persistence.EnvironmentHeader
 import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
+import com.netflix.spinnaker.keel.persistence.NoEnvironmentNamedException
 import com.netflix.spinnaker.keel.persistence.NoSuchDeliveryConfigName
 import com.netflix.spinnaker.keel.persistence.OrphanedResourceException
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ACTIVE_ENVIRONMENT
@@ -93,6 +95,8 @@ import java.time.Duration
 import java.time.Instant
 import java.time.Instant.EPOCH
 
+import org.springframework.core.env.Environment as SpringEnv
+
 @OpenClass
 class SqlDeliveryConfigRepository(
   jooq: DSLContext,
@@ -113,7 +117,27 @@ class SqlDeliveryConfigRepository(
 ), DeliveryConfigRepository {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
+  private val environmentFetchSize: Int = 100
+
   private val RECHECK_LEASE_NAME = "recheck"
+
+  override fun allEnvironments(): Iterator<EnvironmentHeader> {
+    return PagedIterator(
+      sqlRetry,
+      sqlRetry.withRetry(READ) {
+        jooq
+          .select(ENVIRONMENT.NAME, DELIVERY_CONFIG.APPLICATION)
+          .from(ENVIRONMENT)
+          .join(DELIVERY_CONFIG)
+          .on(ENVIRONMENT.DELIVERY_CONFIG_UID.eq(DELIVERY_CONFIG.UID))
+          .fetchSize(environmentFetchSize)
+          .fetchLazy()
+      },
+      environmentFetchSize
+    ) { (name, application) ->
+      EnvironmentHeader(application, name)
+    }
+  }
 
   override fun isApplicationConfigured(application: String): Boolean =
     sqlRetry.withRetry(READ) {
@@ -558,6 +582,18 @@ class SqlDeliveryConfigRepository(
           makeEnvironment(record, objectMapper)
         }
     } ?: throw OrphanedResourceException(resourceId)
+
+  fun environmentId(application: String, environmentName: String): String =
+    sqlRetry.withRetry(READ) {
+      jooq
+        .select(ACTIVE_ENVIRONMENT.UID)
+        .from(ACTIVE_ENVIRONMENT)
+        .join(DELIVERY_CONFIG)
+        .on(ACTIVE_ENVIRONMENT.DELIVERY_CONFIG_UID.eq(DELIVERY_CONFIG.UID))
+        .where(ACTIVE_ENVIRONMENT.NAME.eq(environmentName))
+        .and(DELIVERY_CONFIG.APPLICATION.eq(application))
+        .fetchOne(ACTIVE_ENVIRONMENT.UID)
+    } ?: throw NoEnvironmentNamedException(environmentName, application)
 
   override fun environmentNotifications(deliveryConfigName: String, environmentName: String): Set<NotificationConfig> =
     sqlRetry.withRetry(READ) {

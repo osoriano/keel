@@ -166,13 +166,6 @@ interface ResourceRepository : PeriodicallyCheckedRepository<Resource<ResourceSp
   fun setLastCheckedTime(resource: Resource<*>)
 
   /**
-   * Resets the last checked time for all resources in the environmet to the initial value
-   * (EPOCH + 1s) so that the resources will immediately be rechecked.
-   * This is done in response to something new happening, like a new artifact version approved.
-   */
-  fun triggerResourceRecheck(environmentName: String, application: String)
-
-  /**
    * Increments the number of attempted deletions of the [resource].
    */
   fun incrementDeletionAttempts(resource: Resource<*>)

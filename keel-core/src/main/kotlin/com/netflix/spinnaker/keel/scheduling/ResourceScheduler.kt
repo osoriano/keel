@@ -1,24 +1,20 @@
 package com.netflix.spinnaker.keel.scheduling
 
+import com.netflix.spinnaker.keel.scheduling.ResourceScheduler.ScheduleResourceRequest
 import com.netflix.spinnaker.keel.scheduling.activities.ActuatorActivities
 import com.netflix.spinnaker.keel.scheduling.activities.ActuatorActivities.CheckResourceRequest
-import com.netflix.spinnaker.keel.scheduling.activities.SchedulingConfigActivities
 import com.netflix.spinnaker.keel.scheduling.activities.SchedulingConfigActivities.CheckResourceKindRequest
 import io.temporal.activity.ActivityOptions
 import io.temporal.common.RetryOptions
-import io.temporal.failure.ActivityFailure
-import io.temporal.failure.CanceledFailure
-import io.temporal.workflow.Async
-import io.temporal.workflow.Promise
 import io.temporal.workflow.SignalMethod
 import io.temporal.workflow.Workflow
 import io.temporal.workflow.WorkflowInterface
 import io.temporal.workflow.WorkflowMethod
 import java.time.Duration
-import java.time.Instant
 
 @WorkflowInterface
 interface ResourceScheduler {
+
   @WorkflowMethod
   fun schedule(request: ScheduleResourceRequest)
 
@@ -31,28 +27,18 @@ interface ResourceScheduler {
   )
 }
 
-class ResourceSchedulerImpl : ResourceScheduler {
+class ResourceSchedulerImpl : AbstractScheduler<ScheduleResourceRequest>(Duration.ofMinutes(5)), ResourceScheduler {
 
-  private val configActivites = SchedulingConfigActivities.get()
-  private val actuatorActivities = ActuatorActivities.get()
+  override fun getCheckInterval(request: ScheduleResourceRequest): Duration =
+    configActivites.getResourceKindCheckInterval(CheckResourceKindRequest(request.resourceKind))
 
-  /**
-   * When set to true, the scheduler will short-circuit its timer to initiate a check immediately.
-   * Once checked, this value is set back to its default.
-   */
-  private var checkNow = false
+  override fun getScheduledType(request: ScheduleResourceRequest): String =
+    request.resourceKind
 
-  override fun schedule(request: ResourceScheduler.ScheduleResourceRequest) {
-    var interval = configActivites.getResourceKindCheckInterval(CheckResourceKindRequest(request.resourceKind))
+  override fun getScheduledName(request: ScheduleResourceRequest): String =
+    "${request.resourceKind}/${request.resourceId}"
 
-    val minInterval = Duration.ofSeconds(30)
-    if (minInterval > interval) {
-      Workflow.getLogger(javaClass).warn(
-        "Configured interval for ${request.resourceKind} ($interval) is less than minimum $minInterval: Using minimum"
-      )
-      interval = minInterval
-    }
-
+  override fun monitorActivity(interval: Duration, request: ScheduleResourceRequest) {
     val pollerActivity = Workflow.newActivityStub(
       ActuatorActivities::class.java,
       ActivityOptions.newBuilder()
@@ -68,43 +54,15 @@ class ResourceSchedulerImpl : ResourceScheduler {
         .build()
     )
 
-    // Start the resource monitor in a cancellation scope. This will allow us to efficiently poll for reconciliation
-    // checks on a normal schedule while also supporting checkNow. When checkNow is signaled, the workflow will stop
-    // waiting, cancel the montiorResource activity, and immediately trigger a short-lived checkResource call. Once
-    // the checkResource is done, we'll CAN to reset state and start all over again.
-    lateinit var promise: Promise<Void>
-    val scope = Workflow.newCancellationScope(
-      Runnable {
-        promise = Async.procedure {
-          pollerActivity.monitorResource(
-            ActuatorActivities.MonitorResourceRequest(
-              request.resourceId,
-              request.resourceKind
-            )
-          )
-        }
-      }
+    pollerActivity.monitorResource(
+      ActuatorActivities.MonitorResourceRequest(
+        request.resourceId,
+        request.resourceKind
+      )
     )
-    scope.run()
-
-    Workflow.await { checkNow }
-    scope.cancel()
-
-    try {
-      promise.get()
-    } catch (e: ActivityFailure) {
-      if (e.cause is CanceledFailure && checkNow) {
-        Workflow.getLogger(javaClass.simpleName).info(
-          "Received checkNow signal for ${request.resourceKind}/${request.resourceId}: " +
-            "Aborted poller and will continueAsNew after immediate check"
-        )
-        actuatorActivities.checkResource(CheckResourceRequest(request.resourceId))
-        Workflow.continueAsNew(request)
-      }
-    }
   }
 
-  override fun checkNow() {
-    checkNow = true
+  override fun checkNowActivity(request: ScheduleResourceRequest) {
+    actuatorActivities.checkResource(CheckResourceRequest(request.resourceId))
   }
 }

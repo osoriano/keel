@@ -6,6 +6,8 @@ import com.netflix.spinnaker.config.ArtifactCheckConfig
 import com.netflix.spinnaker.config.EnvironmentCheckConfig
 import com.netflix.spinnaker.config.EnvironmentDeletionConfig
 import com.netflix.spinnaker.config.EnvironmentVerificationConfig
+import com.netflix.spinnaker.config.FeatureToggles
+import com.netflix.spinnaker.config.FeatureToggles.Companion.TEMPORAL_ENV_CHECKING
 import com.netflix.spinnaker.config.PostDeployActionsConfig
 import com.netflix.spinnaker.config.ResourceCheckConfig
 import com.netflix.spinnaker.keel.activation.DiscoveryActivated
@@ -15,7 +17,7 @@ import com.netflix.spinnaker.keel.persistence.AgentLockRepository
 import com.netflix.spinnaker.keel.persistence.EnvironmentDeletionRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.postdeploy.PostDeployActionRunner
-import com.netflix.spinnaker.keel.scheduling.ResourceSchedulerService
+import com.netflix.spinnaker.keel.scheduling.StopSchedulingEnvironmentEvent
 import com.netflix.spinnaker.keel.telemetry.AgentInvocationComplete
 import com.netflix.spinnaker.keel.telemetry.ArtifactCheckComplete
 import com.netflix.spinnaker.keel.telemetry.ArtifactCheckTimedOut
@@ -23,10 +25,6 @@ import com.netflix.spinnaker.keel.telemetry.EnvironmentCheckStarted
 import com.netflix.spinnaker.keel.telemetry.EnvironmentsCheckTimedOut
 import com.netflix.spinnaker.keel.telemetry.PostDeployActionCheckComplete
 import com.netflix.spinnaker.keel.telemetry.PostDeployActionTimedOut
-import com.netflix.spinnaker.keel.telemetry.ResourceCheckCompleted
-import com.netflix.spinnaker.keel.telemetry.ResourceCheckStarted
-import com.netflix.spinnaker.keel.telemetry.ResourceCheckTimedOut
-import com.netflix.spinnaker.keel.telemetry.ResourceLoadFailed
 import com.netflix.spinnaker.keel.telemetry.VerificationCheckComplete
 import com.netflix.spinnaker.keel.telemetry.VerificationTimedOut
 import com.netflix.spinnaker.keel.telemetry.recordDurationPercentile
@@ -114,10 +112,13 @@ class CheckScheduler(
   private val postDeployWaitForBatchToComplete: Boolean
     get() = springEnv.getProperty("keel.post-deploy.wait-for-batch.enabled", Boolean::class.java, true)
 
+  private val temporalEnvCheckingEnabled: Boolean
+    get() = springEnv.getProperty(TEMPORAL_ENV_CHECKING, Boolean::class.java, false)
+
   @Scheduled(fixedDelayString = "\${keel.environment-check.frequency:PT1S}")
   @NewSpan
   fun checkEnvironments() {
-    if (enabled.get()) {
+    if (enabled.get() && !temporalEnvCheckingEnabled) {
       val startTime = clock.instant()
       publisher.publishEvent(ScheduledEnvironmentCheckStarting)
 
@@ -125,7 +126,7 @@ class CheckScheduler(
         supervisorScope {
           repository
             .deliveryConfigsDueForCheck(checkMinAge, environmentBatchSize)
-            .forEach {
+            .forEach { config ->
               try {
                 /**
                  * Sets the timeout to (checkTimeout * environmentCount), since a delivery-config's
@@ -134,17 +135,22 @@ class CheckScheduler(
                  * TODO: consider refactoring environmentPromotionChecker so that it can be called for
                  *  individual environments, allowing fairer timeouts.
                  */
-                withTimeout(environmentCheckConfig.timeoutDuration.toMillis() * max(it.environments.size, 1)) {
+                withTimeout(environmentCheckConfig.timeoutDuration.toMillis() * max(config.environments.size, 1)) {
                   launch {
-                    publisher.publishEvent(EnvironmentCheckStarted(it))
-                    environmentPromotionChecker.checkEnvironments(it)
+                    if (!temporalEnvCheckingEnabled) {
+                      config.environments.forEach { env ->
+                        publisher.publishEvent(StopSchedulingEnvironmentEvent(config.application, env.name))
+                      }
+                    }
+                    publisher.publishEvent(EnvironmentCheckStarted(config.application))
+                    environmentPromotionChecker.checkEnvironments(config)
                   }
                 }
               } catch (e: TimeoutCancellationException) {
-                log.error("Timed out checking environments for ${it.application}/${it.name}", e)
-                publisher.publishEvent(EnvironmentsCheckTimedOut(it.application, it.name))
+                log.error("Timed out checking environments for ${config.application}/${config.name}", e)
+                publisher.publishEvent(EnvironmentsCheckTimedOut(config.application, config.name))
               } finally {
-                repository.markDeliveryConfigCheckComplete(it)
+                repository.markDeliveryConfigCheckComplete(config)
               }
             }
         }

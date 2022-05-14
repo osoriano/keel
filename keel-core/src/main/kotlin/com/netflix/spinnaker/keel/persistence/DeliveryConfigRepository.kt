@@ -3,6 +3,7 @@ package com.netflix.spinnaker.keel.persistence
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.NotificationConfig
+import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
@@ -20,7 +21,17 @@ import com.netflix.spinnaker.kork.exceptions.SystemException
 import java.time.Duration
 import java.time.Instant
 
+data class EnvironmentHeader(
+  val application: String,
+  val name: String,
+)
+
 interface DeliveryConfigRepository : PeriodicallyCheckedRepository<DeliveryConfig> {
+
+  /**
+   * Iterates all registered environments
+   */
+  fun allEnvironments(): Iterator<EnvironmentHeader>
 
   /**
    * Persists a [DeliveryConfig].
@@ -371,6 +382,9 @@ class ConflictingDeliveryConfigsException(application: String) :
 
 class OrphanedResourceException(id: String) :
   SystemException("Resource $id exists without being a part of a delivery config")
+
+class NoEnvironmentNamedException(environmentName: String, application: String) :
+  SystemException("No environment named $environmentName exists in the database for application $application")
 
 class OverwritingExistingResourcesDisallowed(application: String, resource: String) :
   ConfigurationException("Cannot manage application $application. At least one resource already exists and would be overwritten: $resource")

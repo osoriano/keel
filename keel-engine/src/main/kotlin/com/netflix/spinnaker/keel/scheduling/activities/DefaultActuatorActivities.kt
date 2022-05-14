@@ -2,11 +2,13 @@ package com.netflix.spinnaker.keel.scheduling.activities
 
 import com.netflix.spectator.api.BasicTag
 import com.netflix.spectator.api.Registry
+import com.netflix.spinnaker.keel.actuation.EnvironmentPromotionChecker
 import com.netflix.spinnaker.keel.actuation.ResourceActuator
-import com.netflix.spinnaker.keel.events.ResourceState
-import com.netflix.spinnaker.keel.events.ResourceState.Ok
+import com.netflix.spinnaker.keel.actuation.ScheduledEnvironmentCheckStarting
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.scheduling.SchedulingConsts.TEMPORAL_CHECKER
+import com.netflix.spinnaker.keel.telemetry.EnvironmentCheckComplete
+import com.netflix.spinnaker.keel.telemetry.EnvironmentCheckStarted
 import com.netflix.spinnaker.keel.telemetry.ResourceCheckCompleted
 import com.netflix.spinnaker.keel.telemetry.ResourceCheckStarted
 import com.netflix.spinnaker.keel.telemetry.ResourceLoadFailed
@@ -14,7 +16,7 @@ import com.netflix.spinnaker.keel.telemetry.recordDurationPercentile
 import io.temporal.failure.ApplicationFailure
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 import java.time.Clock
@@ -27,7 +29,8 @@ class DefaultActuatorActivities(
   private val resourceActuator: ResourceActuator,
   private val publisher: ApplicationEventPublisher,
   private val clock: Clock,
-  private val spectator: Registry
+  private val spectator: Registry,
+  private val environmentPromotionChecker: EnvironmentPromotionChecker
 ) : ActuatorActivities {
 
   override fun checkResource(request: ActuatorActivities.CheckResourceRequest) {
@@ -42,7 +45,7 @@ class DefaultActuatorActivities(
             publisher.publishEvent(ResourceCheckCompleted(Duration.between(startTime, clock.instant()), it.id, TEMPORAL_CHECKER))
 
             keelRepository.getLastCheckedTime(it)?.let { lastCheckTime ->
-              recordCheckAge(lastCheckTime)
+              recordCheckAge(lastCheckTime, "resource")
             }
             keelRepository.setLastCheckedTime(it)
           }
@@ -56,9 +59,32 @@ class DefaultActuatorActivities(
     throw ApplicationFailure.newFailure("continuation", "expected")
   }
 
+  override fun checkEnvironment(request: ActuatorActivities.CheckEnvironmentRequest) {
+    val startTime = clock.instant()
+    publisher.publishEvent(ScheduledEnvironmentCheckStarting)
+    publisher.publishEvent(EnvironmentCheckStarted(request.application, TEMPORAL_CHECKER))
+
+    runBlocking {
+      environmentPromotionChecker.checkEnvironment(request.application, request.environment)
+      publisher.publishEvent(
+        EnvironmentCheckComplete(
+          application = request.application,
+          duration = Duration.between(startTime, clock.instant()),
+          checker = TEMPORAL_CHECKER
+        )
+      )
+    }
+    recordDuration(startTime, "environment")
+  }
+
+  override fun monitorEnvironment(request: ActuatorActivities.MonitorEnvironmentRequest) {
+    checkEnvironment(request.toCheckEnvironmentRequest())
+    throw ApplicationFailure.newFailure("continuation", "expected")
+  }
+
   private fun recordDuration(startTime: Instant, type: String) =
     spectator.recordDurationPercentile("keel.scheduled.method.duration", startTime, clock.instant(), setOf(BasicTag("type", type), BasicTag("checker", TEMPORAL_CHECKER)))
 
-  private fun recordCheckAge(lastCheck: Instant) =
-    spectator.recordDurationPercentile("keel.periodically.checked.age", lastCheck, clock.instant(), setOf(BasicTag("type", "resource"), BasicTag("scheduler", "temporal")))
+  private fun recordCheckAge(lastCheck: Instant, type: String) =
+    spectator.recordDurationPercentile("keel.periodically.checked.age", lastCheck, clock.instant(), setOf(BasicTag("type", type), BasicTag("scheduler", "temporal")))
 }
