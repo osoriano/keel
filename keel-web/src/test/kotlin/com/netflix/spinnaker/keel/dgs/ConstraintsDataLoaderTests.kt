@@ -15,6 +15,7 @@ import com.netflix.spinnaker.keel.api.plugins.ConstraintEvaluator
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.constraints.AllowedTimesConstraintAttributes
 import com.netflix.spinnaker.keel.constraints.AllowedTimesDeploymentConstraintEvaluator
+import com.netflix.spinnaker.keel.constraints.ConstraintEvaluators
 import com.netflix.spinnaker.keel.constraints.ManualJudgementConstraintAttributes
 import com.netflix.spinnaker.keel.constraints.ManualJudgementConstraintEvaluator
 import com.netflix.spinnaker.keel.constraints.OriginalSlackMessageDetail
@@ -63,10 +64,10 @@ class ConstraintsDataLoaderTests: JUnit5Minutests {
       mockk(relaxed = true)
     )
 
-    val constraintEvaluators: List<ConstraintEvaluator<*>> = listOf(
+    val constraintEvaluators = ConstraintEvaluators(listOf(
       twEvaluator,
       mjEvaluator
-    )
+    ))
 
     val twConstraint = AllowedTimesConstraint(
       windows = listOf(
