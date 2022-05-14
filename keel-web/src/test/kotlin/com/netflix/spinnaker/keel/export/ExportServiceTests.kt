@@ -837,6 +837,37 @@ internal class ExportServiceTests {
   }
 
   @Test
+  fun `export security group which is matching the app name`() {
+      every {
+        securityGroupHandler.export(Exportable(
+          cloudProvider = "aws",
+          account = "test",
+          user = "keel@spinnaker.io",
+          moniker = Moniker(app = appName),
+          regions = setOf("us-east-1"),
+          kind = EC2_SECURITY_GROUP_V1.kind
+        ))
+      } returns securityGroup().spec.copy(
+        Moniker(
+          app = appName
+        )
+      )
+
+    val result = runBlocking {
+      subject.exportFromPipelines(appName)
+    }
+    expectThat(result) {
+      isA<PipelineExportResult>().and {
+        get {
+          deliveryConfig.environments.first().resources.first { it.kind == EC2_SECURITY_GROUP_V1.kind }.spec
+        }.isA<SecurityGroupSpec>()
+          .get { moniker.toName() }
+          .isEqualTo(appName)
+      }
+    }
+  }
+
+  @Test
   fun `application with one unsupported pipeline shape producing floating artifacts, resources and constraints`() {
     every {
       front50Cache.pipelinesByApplication(appName)

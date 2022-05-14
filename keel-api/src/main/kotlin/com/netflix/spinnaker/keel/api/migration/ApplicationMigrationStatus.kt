@@ -6,8 +6,8 @@ data class ApplicationMigrationStatus(
   val inAllowList: Boolean = false,
   val assistanceNeeded: Boolean = false,
   val alreadyManaged: Boolean = false,
-  val isScmPowered: Boolean = false,
   val deliveryConfig: Map<String, Any?>? = null,
+  val userGeneratedConfig: Map<String, Any?>? = null,
   val prLink: String? = null,
   val jiraLink: String? = null,
   val pipelines: List<MigrationPipeline>? = null

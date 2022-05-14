@@ -90,6 +90,27 @@ class Migration(
     """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
     and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
   )
+  suspend fun md_autoSaveMigrationConfig(
+    @InputArgument payload: MD_InitiateApplicationMigrationPayload,
+    @RequestHeader("X-SPINNAKER-USER") user: String
+  ): Boolean {
+    if (payload.deliveryConfig == null) {
+      return false
+    }
+    return try {
+      applicationService.storeAndGetUserGeneratedConfig(payload.application, payload.deliveryConfig!!)
+      true
+    } catch (ex: Exception) {
+      log.debug("caught an exception while auto-saving the delivery config", ex)
+      false
+    }
+  }
+
+  @DgsMutation
+  @PreAuthorize(
+    """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
+    and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
+  )
   suspend fun md_initiateApplicationMigration(
     @InputArgument payload: MD_InitiateApplicationMigrationPayload,
     @RequestHeader("X-SPINNAKER-USER") user: String

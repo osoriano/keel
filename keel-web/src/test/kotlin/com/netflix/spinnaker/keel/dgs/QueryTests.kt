@@ -79,6 +79,7 @@ import strikt.api.expectCatching
 import strikt.api.expectThat
 import strikt.assertions.contains
 import strikt.assertions.isEqualTo
+import strikt.assertions.isFailure
 import strikt.assertions.isFalse
 import strikt.assertions.isNotNull
 import strikt.assertions.isNull
@@ -533,7 +534,6 @@ class QueryTests {
     } returns ApplicationMigrationStatus(
       exportSucceeded = true,
       inAllowList = true,
-      isScmPowered = true,
       deliveryConfig = mapper.convertValue(deliveryConfig, Map::class.java) as Map<String, Any?>,
       prLink = "https://link-to-pr"
     )
@@ -551,5 +551,52 @@ class QueryTests {
       get { actuationPlan }.isNotNull()
         .get { status }.isEqualTo(MD_ActuationPlanStatus.COMPLETED)
     }
+  }
+
+  @Test
+  fun checkAutoSaveWithNoConfig() {
+    expectCatching {
+      dgsQueryExecutor.executeAndExtractJsonPathAsObject(
+        getQuery("/dgs/autoSaveUserGeneratedConfig.graphql"),
+        "data.md_autoSaveMigrationConfig",
+        mapOf(
+          "payload" to mapOf(
+            "application" to deliveryConfig.application
+          ),
+        ),
+        Boolean::class.java,
+        getHeaders()
+      )
+    }.isSuccess().get {
+     this
+    }.isFalse()
+  }
+
+  @Test
+  fun checkAutoSaveWithValidConfig() {
+    every {
+        applicationService.storeAndGetUserGeneratedConfig(any(), any())
+    } returns submittedDeliveryConfig
+
+    val configAsMap = mapper.convertValue(deliveryConfig, Map::class.java)
+
+    expectCatching {
+      dgsQueryExecutor.executeAndExtractJsonPathAsObject(
+        getQuery("/dgs/autoSaveUserGeneratedConfig.graphql"),
+        "data.md_autoSaveMigrationConfig",
+        mapOf(
+          "payload" to mapOf(
+            "application" to deliveryConfig.application,
+            "deliveryConfig" to configAsMap
+          ),
+        ),
+        Boolean::class.java,
+        getHeaders()
+      )
+    }.isSuccess()
+      .get {
+        this
+      }.isTrue()
+
   }
 }

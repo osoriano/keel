@@ -1,0 +1,3 @@
+mutation autoSave($payload: MD_InitiateApplicationMigrationPayload!) {
+  md_autoSaveMigrationConfig(payload: $payload)
+}
