@@ -156,8 +156,8 @@ class Migration(
 
   @DgsMutation
   @PreAuthorize(
-    """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
-    and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
+    """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #application)
+    and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #application)"""
   )
   suspend fun md_analyzePipelines(
     @InputArgument application: String,
