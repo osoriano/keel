@@ -51,14 +51,19 @@ import com.netflix.spinnaker.keel.orca.TaskRefResponse
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.retrofit.RETROFIT_NOT_FOUND
 import com.netflix.spinnaker.keel.test.resource
-import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import io.mockk.clearAllMocks
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.Test
 import strikt.api.expect
 import strikt.api.expectThat
 import strikt.api.expectThrows
+import strikt.assertions.containsKey
 import strikt.assertions.hasSize
 import strikt.assertions.isA
 import strikt.assertions.isEqualTo
@@ -66,12 +71,12 @@ import strikt.assertions.isNotEmpty
 import strikt.assertions.isNotNull
 import strikt.assertions.isNull
 import java.time.Clock
-import java.util.UUID
+import java.util.*
 import com.netflix.spinnaker.keel.clouddriver.model.Capacity as ClouddriverCapacity
 import io.mockk.coEvery as every
 import org.springframework.core.env.Environment as SpringEnv
 
-internal class ClusterExportTests : JUnit5Minutests {
+internal class ClusterExportTests {
 
   val cloudDriverService = mockk<CloudDriverService>()
   val cloudDriverCache = mockk<CloudDriverCache>()
@@ -98,12 +103,18 @@ internal class ClusterExportTests : JUnit5Minutests {
   val sg2West = SecurityGroupSummary("keel-elb", "sg-235425234", "vpc-1")
   val sg1East = SecurityGroupSummary("keel", "sg-279585936", "vpc-1")
   val sg2East = SecurityGroupSummary("keel-elb", "sg-610264122", "vpc-1")
-  val subnet1West = Subnet("subnet-1", vpcWest.id, vpcWest.account, vpcWest.region, "${vpcWest.region}a", "internal (vpc0)")
-  val subnet2West = Subnet("subnet-2", vpcWest.id, vpcWest.account, vpcWest.region, "${vpcWest.region}b", "internal (vpc0)")
-  val subnet3West = Subnet("subnet-3", vpcWest.id, vpcWest.account, vpcWest.region, "${vpcWest.region}c", "internal (vpc0)")
-  val subnet1East = Subnet("subnet-1", vpcEast.id, vpcEast.account, vpcEast.region, "${vpcEast.region}c", "internal (vpc0)")
-  val subnet2East = Subnet("subnet-2", vpcEast.id, vpcEast.account, vpcEast.region, "${vpcEast.region}d", "internal (vpc0)")
-  val subnet3East = Subnet("subnet-3", vpcEast.id, vpcEast.account, vpcEast.region, "${vpcEast.region}e", "internal (vpc0)")
+  val subnet1West =
+    Subnet("subnet-1", vpcWest.id, vpcWest.account, vpcWest.region, "${vpcWest.region}a", "internal (vpc0)")
+  val subnet2West =
+    Subnet("subnet-2", vpcWest.id, vpcWest.account, vpcWest.region, "${vpcWest.region}b", "internal (vpc0)")
+  val subnet3West =
+    Subnet("subnet-3", vpcWest.id, vpcWest.account, vpcWest.region, "${vpcWest.region}c", "internal (vpc0)")
+  val subnet1East =
+    Subnet("subnet-1", vpcEast.id, vpcEast.account, vpcEast.region, "${vpcEast.region}c", "internal (vpc0)")
+  val subnet2East =
+    Subnet("subnet-2", vpcEast.id, vpcEast.account, vpcEast.region, "${vpcEast.region}d", "internal (vpc0)")
+  val subnet3East =
+    Subnet("subnet-3", vpcEast.id, vpcEast.account, vpcEast.region, "${vpcEast.region}e", "internal (vpc0)")
 
   val targetTrackingPolicyName = "keel-test-target-tracking-policy"
 
@@ -174,8 +185,18 @@ internal class ClusterExportTests : JUnit5Minutests {
     spec = spec
   )
 
-  val activeServerGroupResponseEast = serverGroupEast.toCloudDriverResponse(vpcEast, listOf(subnet1East, subnet2East, subnet3East), listOf(sg1East, sg2East), image)
-  val activeServerGroupResponseWest = serverGroupWest.toCloudDriverResponse(vpcWest, listOf(subnet1West, subnet2West, subnet3West), listOf(sg1West, sg2West), image)
+  val activeServerGroupResponseEast = serverGroupEast.toCloudDriverResponse(
+    vpcEast,
+    listOf(subnet1East, subnet2East, subnet3East),
+    listOf(sg1East, sg2East),
+    image
+  )
+  val activeServerGroupResponseWest = serverGroupWest.toCloudDriverResponse(
+    vpcWest,
+    listOf(subnet1West, subnet2West, subnet3West),
+    listOf(sg1West, sg2West),
+    image
+  )
 
   val exportable = Exportable(
     cloudProvider = "aws",
@@ -186,242 +207,309 @@ internal class ClusterExportTests : JUnit5Minutests {
     kind = EC2_CLUSTER_V1_1.kind
   )
 
-  fun tests() = rootContext<ClusterHandler> {
-    fixture {
-      ClusterHandler(
-        cloudDriverService,
-        cloudDriverCache,
-        orcaService,
-        taskLauncher,
-        clock,
-        publisher,
-        normalizers,
-        clusterExportHelper,
-        blockDeviceConfig,
-        artifactService,
-        jenkinsService,
-        DefaultResourceDiffFactory()
+  val subject = ClusterHandler(
+    cloudDriverService,
+    cloudDriverCache,
+    orcaService,
+    taskLauncher,
+    clock,
+    publisher,
+    normalizers,
+    clusterExportHelper,
+    blockDeviceConfig,
+    artifactService,
+    jenkinsService,
+    DefaultResourceDiffFactory()
+  )
+
+  @BeforeEach
+  fun setup() {
+    with(cloudDriverCache) {
+      every { defaultKeyPairForAccount("test") } returns "nf-keypair-test-{{region}}"
+
+	    every { networkBy(vpcWest.id) } returns vpcWest
+	    every { subnetBy(subnet1West.id) } returns subnet1West
+	    every { subnetBy(subnet2West.id) } returns subnet2West
+	    every { subnetBy(subnet3West.id) } returns subnet3West
+	    every { subnetBy(vpcWest.account, vpcWest.region, subnet1West.purpose!!) } returns subnet1West
+	    every { securityGroupById(vpcWest.account, vpcWest.region, sg1West.id, any()) } returns sg1West
+	    every { securityGroupById(vpcWest.account, vpcWest.region, sg2West.id, any()) } returns sg2West
+	    every { securityGroupByName(vpcWest.account, vpcWest.region, sg1West.name, any()) } returns sg1West
+	    every { securityGroupByName(vpcWest.account, vpcWest.region, sg2West.name, any()) } returns sg2West
+	    every { availabilityZonesBy(vpcWest.account, vpcWest.id, subnet1West.purpose!!, vpcWest.region) } returns
+	      setOf(subnet1West.availabilityZone)
+
+	    every { networkBy(vpcEast.id) } returns vpcEast
+	    every { subnetBy(subnet1East.id) } returns subnet1East
+	    every { subnetBy(subnet2East.id) } returns subnet2East
+	    every { subnetBy(subnet3East.id) } returns subnet3East
+	    every { subnetBy(vpcEast.account, vpcEast.region, subnet1East.purpose!!) } returns subnet1East
+	    every { securityGroupById(vpcEast.account, vpcEast.region, sg1East.id, any()) } returns sg1East
+	    every { securityGroupById(vpcEast.account, vpcEast.region, sg2East.id, any()) } returns sg2East
+	    every { securityGroupByName(vpcEast.account, vpcEast.region, sg1East.name, any()) } returns sg1East
+	    every { securityGroupByName(vpcEast.account, vpcEast.region, sg2East.name, any()) } returns sg2East
+	    every { availabilityZonesBy(vpcEast.account, vpcEast.id, subnet1East.purpose!!, vpcEast.region) } returns
+	      setOf(subnet1East.availabilityZone)
+    }
+
+    every {
+      orcaService.orchestrate(
+        resource.serviceAccount,
+        any(),
+        any()
+      )
+    } returns TaskRefResponse("/tasks/${UUID.randomUUID()}")
+    every { repository.environmentFor(any()) } returns Environment("test")
+    every {
+      clusterExportHelper.discoverDeploymentStrategy("aws", "test", "keel", any())
+    } returns RedBlack()
+
+    every {
+      springEnv.getProperty("keel.notifications.slack", Boolean::class.java, true)
+    } returns false
+  }
+
+  @AfterEach
+  fun cleanup() {
+    clearAllMocks()
+  }
+
+  @Nested
+  @DisplayName("exporting an artifact from a cluster")
+  inner class ExportArtifact {
+
+    @BeforeEach
+    fun setup() {
+      every { cloudDriverService.activeServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast
+      every {
+        artifactService.getArtifact("keel", any(), DEBIAN)
+      } returns PublishedArtifact(
+        name = "keel",
+        reference = "keel",
+        type = DEBIAN,
+        version = "0.0.1",
+        metadata = mapOf(
+          "branch" to "main",
+          "commitId" to "f80cfcfdec37df59604b2ef93dfb29bade340791",
+          "buildNumber" to "41"
+        ),
+        provenance = "https://blablabla.net/job/users-my-app-build/"
       )
     }
 
-    before {
-      with(cloudDriverCache) {
-        every { defaultKeyPairForAccount("test") } returns "nf-keypair-test-{{region}}"
-
-        every { networkBy(vpcWest.id) } returns vpcWest
-        every { subnetBy(subnet1West.id) } returns subnet1West
-        every { subnetBy(subnet2West.id) } returns subnet2West
-        every { subnetBy(subnet3West.id) } returns subnet3West
-        every { subnetBy(vpcWest.account, vpcWest.region, subnet1West.purpose!!) } returns subnet1West
-        every { securityGroupById(vpcWest.account, vpcWest.region, sg1West.id, any()) } returns sg1West
-        every { securityGroupById(vpcWest.account, vpcWest.region, sg2West.id, any()) } returns sg2West
-        every { securityGroupByName(vpcWest.account, vpcWest.region, sg1West.name, any()) } returns sg1West
-        every { securityGroupByName(vpcWest.account, vpcWest.region, sg2West.name, any()) } returns sg2West
-        every { availabilityZonesBy(vpcWest.account, vpcWest.id, subnet1West.purpose!!, vpcWest.region) } returns
-          setOf(subnet1West.availabilityZone)
-
-        every { networkBy(vpcEast.id) } returns vpcEast
-        every { subnetBy(subnet1East.id) } returns subnet1East
-        every { subnetBy(subnet2East.id) } returns subnet2East
-        every { subnetBy(subnet3East.id) } returns subnet3East
-        every { subnetBy(vpcEast.account, vpcEast.region, subnet1East.purpose!!) } returns subnet1East
-        every { securityGroupById(vpcEast.account, vpcEast.region, sg1East.id, any()) } returns sg1East
-        every { securityGroupById(vpcEast.account, vpcEast.region, sg2East.id, any()) } returns sg2East
-        every { securityGroupByName(vpcEast.account, vpcEast.region, sg1East.name, any()) } returns sg1East
-        every { securityGroupByName(vpcEast.account, vpcEast.region, sg2East.name, any()) } returns sg2East
-        every { availabilityZonesBy(vpcEast.account, vpcEast.id, subnet1East.purpose!!, vpcEast.region) } returns
-          setOf(subnet1East.availabilityZone)
+    @Test
+    fun `deb is exported correctly and includes from spec with branch`() {
+      val artifact = runBlocking {
+        subject.exportArtifact(exportable.copy(regions = setOf("us-east-1")))
       }
 
-      every { orcaService.orchestrate(resource.serviceAccount, any(), any()) } returns TaskRefResponse("/tasks/${UUID.randomUUID()}")
-      every { repository.environmentFor(any()) } returns Environment("test")
+      expectThat(artifact) {
+        get { name }.isEqualTo("keel")
+        isA<DebianArtifact>()
+          .and {
+            get { vmOptions }.isEqualTo(
+              VirtualMachineOptions(
+                regions = setOf("us-east-1"),
+                baseOs = "bionic-classic"
+              )
+            )
+          }
+          .and {
+            get { from }.isEqualTo(ArtifactOriginFilter(branch = BranchFilter(name = "main")))
+          }
+      }
+    }
+  }
+
+  @Nested
+  @DisplayName("with invalid branch metadata - branch name is set to be commit hash")
+  inner class InvalidMetadata {
+    @BeforeEach
+    fun setup() {
+      every { cloudDriverService.activeServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast
       every {
-        clusterExportHelper.discoverDeploymentStrategy("aws", "test", "keel", any())
-      } returns RedBlack()
+        artifactService.getArtifact("keel", any(), DEBIAN)
+      } returns PublishedArtifact(
+        name = "keel",
+        reference = "keel",
+        type = DEBIAN,
+        version = "0.0.1",
+        metadata = mapOf("branch" to "main"),
+        provenance = "https://blablabla.net/job/users-my-app-build/",
+        // the branch has a commit hash instead of a branch name, which is not allowed in the export
+        gitMetadata = GitMetadata(commit = "b84af827736", branch = "b84af827736")
+      )
+    }
 
+    @Test
+    fun `artifact is not exported and exception is thrown`() {
+      expectThrows<TagToReleaseArtifactException> {
+        subject.exportArtifact(exportable.copy(regions = setOf("us-east-1")))
+      }
+    }
+  }
+
+  @Nested
+  @DisplayName("with artifact that is not on rocket")
+  inner class NotOnRocket {
+
+    @BeforeEach
+    fun setup() {
+      every { cloudDriverService.activeServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast
       every {
-        springEnv.getProperty("keel.notifications.slack", Boolean::class.java, true)
-      } returns false
+        artifactService.getArtifact("keel", any(), DEBIAN)
+      } throws RETROFIT_NOT_FOUND
     }
 
-    after {
-      clearAllMocks()
+    @Test
+    fun `artifact is not exported and exception is thrown`() {
+      expectThrows<ArtifactMetadataUnavailableException> {
+        subject.exportArtifact(exportable.copy(regions = setOf("us-east-1")))
+      }
+    }
+  }
+
+  @Nested
+  @DisplayName("basic export behavior")
+  inner class BasicExport {
+    @BeforeEach
+    fun setup() {
+      every { cloudDriverService.activeServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast
     }
 
-    context("exporting an artifact from a cluster") {
-      context("with branch metadata available") {
-        before {
-          every { cloudDriverService.activeServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast
-          every {
-            artifactService.getArtifact("keel", any(), DEBIAN)
-          } returns PublishedArtifact(
-            name = "keel",
-            reference = "keel",
-            type = DEBIAN,
-            version = "0.0.1",
-            metadata = mapOf("branch" to "main", "commitId" to "f80cfcfdec37df59604b2ef93dfb29bade340791", "buildNumber" to "41"),
-            provenance = "https://blablabla.net/job/users-my-app-build/"
-          )
-        }
-
-        test("deb is exported correctly and includes `from` spec with branch") {
-          val artifact = runBlocking {
-            exportArtifact(exportable.copy(regions = setOf("us-east-1")))
-          }
-
-          expectThat(artifact) {
-            get { name }.isEqualTo("keel")
-            isA<DebianArtifact>()
-              .and {
-                get { vmOptions }.isEqualTo(
-                  VirtualMachineOptions(
-                    regions = setOf("us-east-1"),
-                    baseOs = "bionic-classic"
-                  )
-                )
-              }
-              .and {
-                get { from }.isEqualTo(ArtifactOriginFilter(branch = BranchFilter(name = "main")))
-              }
-          }
-        }
+    @Test
+    fun `deployment strategy defaults are omitted`() {
+      val cluster = runBlocking {
+        subject.export(exportable.copy(regions = setOf("us-east-1")))
       }
 
-      context("with invalid branch metadata - branch name is set to be commit hash") {
-        before {
-          every { cloudDriverService.activeServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast
-          every {
-            artifactService.getArtifact("keel", any(), DEBIAN)
-          } returns PublishedArtifact(
-            name = "keel",
-            reference = "keel",
-            type = DEBIAN,
-            version = "0.0.1",
-            metadata = mapOf("branch" to "main"),
-            provenance = "https://blablabla.net/job/users-my-app-build/",
-            // the branch has a commit hash instead of a branch name, which is not allowed in the export
-            gitMetadata = GitMetadata(commit = "b84af827736", branch = "b84af827736")
-          )
-        }
-
-        test("artifact is not exported and exception is thrown") {
-          expectThrows<TagToReleaseArtifactException> {
-            exportArtifact(exportable.copy(regions = setOf("us-east-1")))
-          }
-        }
-      }
-
-      context("with artifact that is not on rocket") {
-        before {
-          every { cloudDriverService.activeServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast
-          every {
-            artifactService.getArtifact("keel", any(), DEBIAN)
-          } throws RETROFIT_NOT_FOUND
-        }
-
-        test("artifact is not exported and exception is thrown") {
-          expectThrows<ArtifactMetadataUnavailableException> {
-            exportArtifact(exportable.copy(regions = setOf("us-east-1")))
-          }
+      expectThat(cluster.deployWith) {
+        isA<RedBlack>().and {
+          get { maxServerGroups }.isNull()
+          get { delayBeforeDisable }.isNull()
+          get { resizePreviousToZero }.isNull()
+          get { delayBeforeScaleDown }.isNull()
         }
       }
     }
+  }
 
-    context("basic export behavior") {
-      before {
-        every { cloudDriverService.activeServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast
-      }
-
-      test("deployment strategy defaults are omitted") {
-        val cluster = runBlocking {
-          export(exportable.copy(regions = setOf("us-east-1")))
-        }
-
-        expectThat(cluster.deployWith) {
-          isA<RedBlack>().and {
-            get { maxServerGroups }.isNull()
-            get { delayBeforeDisable }.isNull()
-            get { resizePreviousToZero }.isNull()
-            get { delayBeforeScaleDown }.isNull()
-          }
-        }
-      }
+  @Nested
+  @DisplayName("exporting same clusters different regions")
+  inner class ExportDifferentRegions {
+    @BeforeEach
+    fun setup() {
+      every { cloudDriverService.activeServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast
+      every { cloudDriverService.activeServerGroup(any(), "us-west-2") } returns activeServerGroupResponseWest
     }
 
-    context("exporting same clusters different regions") {
-      before {
-        every { cloudDriverService.activeServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast
-        every { cloudDriverService.activeServerGroup(any(), "us-west-2") } returns activeServerGroupResponseWest
+    @Test
+    fun `no overrides`() {
+      val cluster = runBlocking {
+        subject.export(exportable)
       }
-
-      test("no overrides") {
-        val cluster = runBlocking {
-          export(exportable)
-        }
-        expectThat(cluster) {
-          get { locations.regions }.hasSize(2)
-          get { overrides }.hasSize(0)
-          get { defaults.scaling }.isA<EC2ScalingSpec>().get { targetTrackingPolicies }.hasSize(1)
-          get { defaults.health }.isNull()
-          get { deployWith }.isA<RedBlack>()
-          get { artifactReference }.isNotNull()
-        }
+      expectThat(cluster) {
+        get { locations.regions }.hasSize(2)
+        get { overrides }.hasSize(0)
+        get { defaults.scaling }.isA<EC2ScalingSpec>().get { targetTrackingPolicies }.hasSize(1)
+        get { defaults.health }.isNull()
+        get { deployWith }.isA<RedBlack>()
+        get { artifactReference }.isNotNull()
       }
     }
+  }
 
-    context("exporting clusters with capacity difference between regions") {
-      before {
-        every { cloudDriverService.activeServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast
-        every { cloudDriverService.activeServerGroup(any(), "us-west-2") } returns activeServerGroupResponseWest
-          .withDifferentSize()
-      }
-
-      test("override only in capacity") {
-        val cluster = runBlocking {
-          export(exportable)
-        }
-        expectThat(cluster) {
-          get { locations.regions }.hasSize(2)
-          get { overrides }.hasSize(1)
-          get { overrides }.get { "us-east-1" }.get { "capacity" }.isNotEmpty()
-          get { defaults.scaling }.isA<EC2ScalingSpec>().get { targetTrackingPolicies }.hasSize(1)
-          get { spec.defaults.health }.isNull()
-        }
-      }
+  @Nested
+  @DisplayName("exporting clusters with capacity difference between regions")
+  inner class DifferentCapacity {
+    @BeforeEach
+    fun setup() {
+      every { cloudDriverService.activeServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast
+      every { cloudDriverService.activeServerGroup(any(), "us-west-2") } returns activeServerGroupResponseWest
+        .withDifferentSize()
     }
 
-    context("exporting clusters that are significantly different between regions") {
-      before {
-        every { cloudDriverService.activeServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast
-        every { cloudDriverService.activeServerGroup(any(), "us-west-2") } returns activeServerGroupResponseWest
-          .withNonDefaultHealthProps()
-          .withNonDefaultLaunchConfigProps()
+    @Test
+    fun `override only in capacity`() {
+      val cluster = runBlocking {
+        subject.export(exportable)
       }
-      test("export omits properties with default values from complex fields") {
-        val exported = runBlocking {
-          export(exportable)
-        }
+      expectThat(cluster) {
+        get { locations.regions }.hasSize(2)
+        get { overrides }.hasSize(1)
+        get { overrides }.get { "us-east-1" }.get { "capacity" }.isNotEmpty()
+        get { defaults.scaling }.isA<EC2ScalingSpec>().get { targetTrackingPolicies }.hasSize(1)
+        get { spec.defaults.health }.isNull()
+      }
+    }
+  }
+
+  @Nested
+  @DisplayName("exporting clusters with capacity difference between regions")
+  inner class DefaultCapacity {
+    @BeforeEach
+    fun setup() {
+      every { cloudDriverService.activeServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast.copy(
+        capacity = ClouddriverCapacity(1, 1, 1)
+      )
+      every { cloudDriverService.activeServerGroup(any(), "us-west-2") } returns activeServerGroupResponseWest.copy(
+        capacity = ClouddriverCapacity(3, 3, 3)
+      )
+    }
+
+    @Test
+    fun `override only in capacity`() {
+      val cluster = runBlocking {
+        subject.export(exportable)
+      }
+      with(cluster) {
         expect {
-          that(exported.locations.vpc).isNull()
-          that(exported.locations.subnet).isNull()
-          that(exported.defaults.health).isNotNull()
+          that(overrides).hasSize(1)
+          that(overrides).containsKey("us-east-1")
+          val override = overrides["us-east-1"]
+          that(override).isNotNull().get { capacity }.isEqualTo(CapacitySpec(1,1,null))
+        }
+      }
+    }
+  }
 
-          that(exported.defaults.health!!) {
-            get { cooldown }.isNull()
-            get { warmup }.isNull()
-            get { healthCheckType }.isNull()
-            get { enabledMetrics }.isNull()
-            get { terminationPolicies }.isEqualTo(setOf(TerminationPolicy.NewestInstance))
-          }
-          that(exported.defaults.launchConfiguration).isNotNull()
-          that(exported.defaults.launchConfiguration!!) {
-            get { ebsOptimized }.isNull()
-            get { instanceMonitoring }.isNull()
-            get { ramdiskId }.isNull()
-            get { instanceType }.isNotNull()
-            get { iamRole }.isNotNull()
-            get { keyPair }.isNotNull()
-          }
+
+  @Nested
+  @DisplayName("exporting clusters that are significantly different between regions")
+  inner class DifferenceBetweenRegions {
+    @BeforeEach
+    fun setup() {
+      every { cloudDriverService.activeServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast
+      every { cloudDriverService.activeServerGroup(any(), "us-west-2") } returns activeServerGroupResponseWest
+        .withNonDefaultHealthProps()
+        .withNonDefaultLaunchConfigProps()
+    }
+
+    @Test
+    fun `export omits properties with default values from complex fields`() {
+      val exported = runBlocking {
+        subject.export(exportable)
+      }
+      expect {
+        that(exported.locations.vpc).isNull()
+        that(exported.locations.subnet).isNull()
+        that(exported.defaults.health).isNotNull()
+
+        that(exported.defaults.health!!) {
+          get { cooldown }.isNull()
+          get { warmup }.isNull()
+          get { healthCheckType }.isNull()
+          get { enabledMetrics }.isNull()
+          get { terminationPolicies }.isEqualTo(setOf(TerminationPolicy.NewestInstance))
+        }
+        that(exported.defaults.launchConfiguration).isNotNull()
+        that(exported.defaults.launchConfiguration!!) {
+          get { ebsOptimized }.isNull()
+          get { instanceMonitoring }.isNull()
+          get { ramdiskId }.isNull()
+          get { instanceType }.isNotNull()
+          get { iamRole }.isNotNull()
+          get { keyPair }.isNotNull()
         }
       }
     }
@@ -446,7 +534,10 @@ private fun ActiveServerGroup.withNonDefaultHealthProps(): ActiveServerGroup =
 
 private fun ActiveServerGroup.withNonDefaultLaunchConfigProps(): ActiveServerGroup =
   copy(
-    launchConfig = launchConfig?.copy(iamInstanceProfile = "NotTheDefaultInstanceProfile", keyName = "not-the-default-key")
+    launchConfig = launchConfig?.copy(
+      iamInstanceProfile = "NotTheDefaultInstanceProfile",
+      keyName = "not-the-default-key"
+    )
   )
 
 private fun ActiveServerGroup.withDifferentSize(): ActiveServerGroup =

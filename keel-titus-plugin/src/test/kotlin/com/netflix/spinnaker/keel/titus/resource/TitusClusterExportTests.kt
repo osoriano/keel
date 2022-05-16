@@ -29,6 +29,7 @@ import com.netflix.spinnaker.keel.api.titus.TitusServerGroupSpec
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
+import com.netflix.spinnaker.keel.clouddriver.model.Capacity
 import com.netflix.spinnaker.keel.clouddriver.model.Credential
 import com.netflix.spinnaker.keel.clouddriver.model.CustomizedMetricSpecificationModel
 import com.netflix.spinnaker.keel.clouddriver.model.MetricDimensionModel
@@ -50,12 +51,14 @@ import com.netflix.spinnaker.keel.titus.NETFLIX_CONTAINER_ENV_VARS
 import com.netflix.spinnaker.keel.titus.TitusClusterHandler
 import com.netflix.spinnaker.keel.titus.registry.TitusRegistryService
 import com.netflix.spinnaker.keel.titus.resolve
-import dev.minutest.junit.JUnit5Minutests
-import dev.minutest.rootContext
 import io.mockk.clearAllMocks
 import io.mockk.confirmVerified
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Nested
+import org.junit.jupiter.api.Test
 import org.springframework.core.env.ConfigurableEnvironment
 import strikt.api.expect
 import strikt.api.expectThat
@@ -72,7 +75,7 @@ import java.time.Clock
 import java.util.UUID
 import io.mockk.coEvery as every
 
-internal class TitusClusterExportTests : JUnit5Minutests {
+internal class TitusClusterExportTests {
   val titusAccount = "titustest"
   val awsAccount = "test"
 
@@ -182,59 +185,60 @@ internal class TitusClusterExportTests : JUnit5Minutests {
   val imagesWithArtifactInfo = branchJobShaImages
     .map { it.copy(branch = "main", commitId = "commit123", buildNumber = "10") }
 
-  fun tests() = rootContext<TitusClusterHandler> {
-    fixture {
-      TitusClusterHandler(
-        cloudDriverService,
-        cloudDriverCache,
-        orcaService,
-        clock,
-        taskLauncher,
-        publisher,
-        resolvers,
-        clusterExportHelper,
-        DefaultResourceDiffFactory(),
-        titusRegistryService,
-        artifactBridge
-      )
+  val subject = TitusClusterHandler(
+    cloudDriverService,
+    cloudDriverCache,
+    orcaService,
+    clock,
+    taskLauncher,
+    publisher,
+    resolvers,
+    clusterExportHelper,
+    DefaultResourceDiffFactory(),
+    titusRegistryService,
+    artifactBridge
+  )
+
+  @BeforeEach
+  fun setup() {
+    with(cloudDriverCache) {
+      every { securityGroupById(awsAccount, "us-west-2", sg1West.id, any()) } returns sg1West
+      every { securityGroupById(awsAccount, "us-west-2", sg2West.id, any()) } returns sg2West
+      every { securityGroupByName(awsAccount, "us-west-2", sg1West.name, any()) } returns sg1West
+      every { securityGroupByName(awsAccount, "us-west-2", sg2West.name, any()) } returns sg2West
+
+      every { securityGroupById(awsAccount, "us-east-1", sg1East.id, any()) } returns sg1East
+      every { securityGroupById(awsAccount, "us-east-1", sg2East.id, any()) } returns sg2East
+      every { securityGroupByName(awsAccount, "us-east-1", sg1East.name, any()) } returns sg1East
+      every { securityGroupByName(awsAccount, "us-east-1", sg2East.name, any()) } returns sg2East
+
+      every { cloudDriverCache.credentialBy(titusAccount) } returns titusAccountCredential
+      every { cloudDriverCache.getRegistryForTitusAccount(any()) } returns "testregistry"
     }
+    every { orcaService.orchestrate(resource.serviceAccount, any(), any()) } returns TaskRefResponse("/tasks/${UUID.randomUUID()}")
+    every { repository.environmentFor(any()) } returns Environment("test")
+    every {
+      clusterExportHelper.discoverDeploymentStrategy("titus", "titustest", "keel", any())
+    } returns RedBlack()
 
-    before {
-      with(cloudDriverCache) {
-        every { securityGroupById(awsAccount, "us-west-2", sg1West.id, any()) } returns sg1West
-        every { securityGroupById(awsAccount, "us-west-2", sg2West.id, any()) } returns sg2West
-        every { securityGroupByName(awsAccount, "us-west-2", sg1West.name, any()) } returns sg1West
-        every { securityGroupByName(awsAccount, "us-west-2", sg2West.name, any()) } returns sg2West
+    every {
+      springEnv.getProperty("keel.notifications.slack", Boolean::class.java, true)
+    } returns false
+  }
 
-        every { securityGroupById(awsAccount, "us-east-1", sg1East.id, any()) } returns sg1East
-        every { securityGroupById(awsAccount, "us-east-1", sg2East.id, any()) } returns sg2East
-        every { securityGroupByName(awsAccount, "us-east-1", sg1East.name, any()) } returns sg1East
-        every { securityGroupByName(awsAccount, "us-east-1", sg2East.name, any()) } returns sg2East
+  @AfterEach
+  fun cleanup() {
+    confirmVerified(orcaService)
+    clearAllMocks()
+  }
 
-        every { cloudDriverCache.credentialBy(titusAccount) } returns titusAccountCredential
-        every { cloudDriverCache.getRegistryForTitusAccount(any()) } returns "testregistry"
-      }
-      every { orcaService.orchestrate(resource.serviceAccount, any(), any()) } returns TaskRefResponse("/tasks/${UUID.randomUUID()}")
-      every { repository.environmentFor(any()) } returns Environment("test")
-      every {
-        clusterExportHelper.discoverDeploymentStrategy("titus", "titustest", "keel", any())
-      } returns RedBlack()
-
-      every {
-        springEnv.getProperty("keel.notifications.slack", Boolean::class.java, true)
-      } returns false
-    }
-
-    after {
-      confirmVerified(orcaService)
-      clearAllMocks()
-    }
-
-    context("scaling policies are exported") {
-      before {
-        every { cloudDriverService.titusActiveServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast.copy(
-          scalingPolicies = listOf(
-            TitusScaling(
+  @Nested
+  inner class ScalingPolicies {
+    @BeforeEach
+    fun setup() {
+      every { cloudDriverService.titusActiveServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast.copy(
+        scalingPolicies = listOf(
+          TitusScaling(
             id = "123-445",
             policy = TitusScaling.Policy.TargetPolicy(
               targetPolicyDescriptor = TargetPolicyDescriptor(
@@ -254,203 +258,217 @@ internal class TitusClusterExportTests : JUnit5Minutests {
               )
             )
           )
-          )
         )
-        every { cloudDriverService.titusActiveServerGroup(any(), "us-west-2") } returns activeServerGroupResponseWest.copy(
-          scalingPolicies = listOf(
-            TitusScaling(
-              id = "123-445",
-              policy = TitusScaling.Policy.TargetPolicy(
-                targetPolicyDescriptor = TargetPolicyDescriptor(
-                  targetValue = 50.0,
-                  scaleOutCooldownSec = 300,
-                  scaleInCooldownSec = 300,
-                  disableScaleIn = true,
-                  customizedMetricSpecification = CustomizedMetricSpecificationModel(
-                    metricName = "AverageCPUUtilization",
-                    namespace = "bunbun",
-                    statistic = "Average",
-                    dimensions = listOf(MetricDimensionModel(
-                      name = "AutoScalingGroupName",
-                      value = "emburnstest-bunbun-v008"
-                    ))
-                  )
+      )
+      every { cloudDriverService.titusActiveServerGroup(any(), "us-west-2") } returns activeServerGroupResponseWest.copy(
+        scalingPolicies = listOf(
+          TitusScaling(
+            id = "123-445",
+            policy = TitusScaling.Policy.TargetPolicy(
+              targetPolicyDescriptor = TargetPolicyDescriptor(
+                targetValue = 50.0,
+                scaleOutCooldownSec = 300,
+                scaleInCooldownSec = 300,
+                disableScaleIn = true,
+                customizedMetricSpecification = CustomizedMetricSpecificationModel(
+                  metricName = "AverageCPUUtilization",
+                  namespace = "bunbun",
+                  statistic = "Average",
+                  dimensions = listOf(MetricDimensionModel(
+                    name = "AutoScalingGroupName",
+                    value = "emburnstest-bunbun-v008"
+                  ))
                 )
               )
             )
           )
         )
-        every { cloudDriverService.findDockerImages("testregistry", (spec.container as DigestProvider).repository()) } returns images
-        every { cloudDriverCache.credentialBy(titusAccount) } returns titusAccountCredential
-      }
-
-      test("has scaling policies defined") {
-        val cluster = runBlocking {
-          export(exportable)
-        }
-        expectThat(cluster.defaults.scaling).isA<TitusScalingSpec>().get { targetTrackingPolicies }.isNotEmpty()
-      }
+      )
+      every { cloudDriverService.findDockerImages("testregistry", (spec.container as DigestProvider).repository()) } returns images
+      every { cloudDriverCache.credentialBy(titusAccount) } returns titusAccountCredential
     }
 
-    context("export without overrides") {
-      before {
-        every { cloudDriverService.titusActiveServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast
-        every { cloudDriverService.titusActiveServerGroup(any(), "us-west-2") } returns activeServerGroupResponseWest
-        every { cloudDriverService.findDockerImages("testregistry", (spec.container as DigestProvider).repository()) } returns images
-        every { cloudDriverCache.credentialBy(titusAccount) } returns titusAccountCredential
+    fun `has scaling policies defined`() {
+      val cluster = runBlocking {
+        subject.export(exportable)
       }
+      expectThat(cluster.defaults.scaling).isA<TitusScalingSpec>().get { targetTrackingPolicies }.isNotEmpty()
+    }
+  }
 
-      context("exported titus cluster spec") {
-        test("has the expected basic properties with default values omitted") {
-          val cluster = runBlocking {
-            export(exportable)
-          }
-          with(cluster) {
-            expect {
-              that(locations.regions).hasSize(2)
-              that(overrides.values).all {
-                // the only overrides added by default are Netflix env vars
-                get { env!!.keys }.containsExactly(*NETFLIX_CONTAINER_ENV_VARS)
-              }
-              that(defaults.constraints).isNull()
-              that(defaults.entryPoint).isNull()
-              that(defaults.migrationPolicy).isNull()
-              that(defaults.resources).isNull()
-              that(defaults.iamProfile).isNull()
-              that(defaults.capacityGroup).isNull()
-              that(defaults.containerAttributes).isNull()
-              that(defaults.tags).isNull()
-              that(defaults.networkMode) isEqualTo spec.defaults.networkMode
-              that(container).isA<ReferenceProvider>()
-            }
-          }
-        }
+  @Nested
+  inner class WithoutOverrides {
+
+    @BeforeEach
+    fun setup() {
+      every { cloudDriverService.titusActiveServerGroup(any(), "us-east-1") } returns activeServerGroupResponseEast
+      every { cloudDriverService.titusActiveServerGroup(any(), "us-west-2") } returns activeServerGroupResponseWest
+      every { cloudDriverService.findDockerImages("testregistry", (spec.container as DigestProvider).repository()) } returns images
+      every { cloudDriverCache.credentialBy(titusAccount) } returns titusAccountCredential
+    }
+
+    @Test
+    fun `exported titus cluster spec`() {
+      val cluster = runBlocking {
+        subject.export(exportable)
       }
-
-      context("exported artifact") {
-        context("tags are just increasing numbers") {
-          before {
-            every { titusRegistryService.findImages(any(), any(), any(), any(), any()) } returns images
-
-            every {
-              artifactBridge.getArtifactMetadata(any(), any(), any())
-            } returns ArtifactMetadata(BuildMetadata(id = 10), GitMetadata(commit = " commit"))
+      with(cluster) {
+        expect {
+          that(locations.regions).hasSize(2)
+          that(overrides.values).all {
+            // the only overrides added by default are Netflix env vars
+            get { env!!.keys }.containsExactly(*NETFLIX_CONTAINER_ENV_VARS)
           }
-          test("tag strategy is chosen as INCREASING_TAG") {
-            val artifact = runBlocking {
-              exportArtifact(exportable)
-            }
-            expectThat(artifact)
-              .isA<DockerArtifact>()
-              .get { tagVersionStrategy }.isEqualTo(TagVersionStrategy.INCREASING_TAG)
-          }
-        }
-
-        context("tags are branch-job.sha") {
-          before {
-            every {
-              titusRegistryService.findImages(any(), any(), any(), any(), any())
-            } returns branchJobShaImages
-
-            every {
-              artifactBridge.getArtifactMetadata(any(), any(), any())
-            } returns ArtifactMetadata(BuildMetadata(id = 10), GitMetadata(commit = " commit"))
-          }
-
-          test("tag strategy is chosen as BRANCH_JOB_COMMIT_BY_JOB") {
-            val artifact = runBlocking {
-              exportArtifact(exportable)
-            }
-            expectThat(artifact)
-              .isA<DockerArtifact>()
-              .get { tagVersionStrategy }.isEqualTo(BRANCH_JOB_COMMIT_BY_JOB)
-          }
-        }
-
-        context("images have branch information") {
-          before {
-            every {
-              titusRegistryService.findImages(any(), any(), any(), any(), any())
-            } returns imagesWithArtifactInfo
-
-            every {
-              artifactBridge.getArtifactMetadata(any(), any(), any())
-            } returns ArtifactMetadata(BuildMetadata(id = 10), GitMetadata(commit = " commit"))
-          }
-
-          test("artifact includes `from` spec with corresponding branch") {
-            val artifact = runBlocking {
-              exportArtifact(exportable)
-            }
-            expectThat(artifact)
-              .isA<DockerArtifact>()
-              .get { from }.isEqualTo(ArtifactOriginFilter(branch = BranchFilter(name = "main")))
-          }
+          that(defaults.constraints).isNull()
+          that(defaults.entryPoint).isNull()
+          that(defaults.migrationPolicy).isNull()
+          that(defaults.resources).isNull()
+          that(defaults.iamProfile).isNull()
+          that(defaults.capacityGroup).isNull()
+          that(defaults.containerAttributes).isNull()
+          that(defaults.tags).isNull()
+          that(defaults.networkMode) isEqualTo spec.defaults.networkMode
+          that(container).isA<ReferenceProvider>()
         }
       }
     }
 
-    context("export with overrides") {
-      before {
-        every { cloudDriverService.titusActiveServerGroup(any(), "us-east-1") } returns
-          activeServerGroupResponseEast
-            .withDifferentEnv()
-            .withDifferentEntryPoint()
-            .withDifferentResources()
-        every { cloudDriverService.titusActiveServerGroup(any(), "us-west-2") } returns
-          activeServerGroupResponseWest
-            .withDoubleCapacity()
+    @Test
+    fun `tags are just increasing numbers - tag strategy is chosen as INCREASING_TAG`() {
+      every { titusRegistryService.findImages(any(), any(), any(), any(), any()) } returns images
 
-        every {  titusRegistryService.findImages("testregistry", container.repository()) } returns images
-        every { cloudDriverCache.credentialBy(titusAccount) } returns titusAccountCredential
+      every {
+        artifactBridge.getArtifactMetadata(any(), any(), any())
+      } returns ArtifactMetadata(BuildMetadata(id = 10), GitMetadata(commit = " commit"))
+
+      val artifact = runBlocking {
+        subject.exportArtifact(exportable)
       }
+      expectThat(artifact)
+        .isA<DockerArtifact>()
+        .get { tagVersionStrategy }.isEqualTo(TagVersionStrategy.INCREASING_TAG)
+    }
 
-      context("exported titus cluster spec") {
+    @Test
+    fun `tags are branch-job sha - tag strategy is chosen as BRANCH_JOB_COMMIT_BY_JOB`() {
+      every {
+        titusRegistryService.findImages(any(), any(), any(), any(), any())
+      } returns branchJobShaImages
 
-        test("has overrides matching differences in the server groups") {
-          val cluster = runBlocking {
-            export(exportable)
-          }
-          with(cluster) {
-            expect {
-              that(overrides).hasSize(1)
-              that(overrides).containsKey("us-east-1")
-              val override = overrides["us-east-1"]
-              that(override).isNotNull().get { entryPoint }.isNotNull()
-              that(override).isNotNull().get { capacity }.isNotNull()
-              that(override).isNotNull().get { env }.isNotNull()
-              that(override).isNotNull().get { resources }.isEqualTo(
-                ResourcesSpec(
-                  cpu = 4,
-                  disk = 81920,
-                  gpu = 0,
-                  memory = 16384,
-                  networkMbps = 700
-                )
-              )
+      every {
+        artifactBridge.getArtifactMetadata(any(), any(), any())
+      } returns ArtifactMetadata(BuildMetadata(id = 10), GitMetadata(commit = " commit"))
 
-              that(locations.regions).hasSize(2)
-            }
-          }
+      val artifact = runBlocking {
+        subject.exportArtifact(exportable)
+      }
+      expectThat(artifact)
+        .isA<DockerArtifact>()
+        .get { tagVersionStrategy }.isEqualTo(BRANCH_JOB_COMMIT_BY_JOB)
+    }
+
+    @Test
+    fun `images have branch information - artifact includes from spec with corresponding branch`() {
+      every {
+        titusRegistryService.findImages(any(), any(), any(), any(), any())
+      } returns imagesWithArtifactInfo
+
+      every {
+        artifactBridge.getArtifactMetadata(any(), any(), any())
+      } returns ArtifactMetadata(BuildMetadata(id = 10), GitMetadata(commit = " commit"))
+
+      val artifact = runBlocking {
+        subject.exportArtifact(exportable)
+      }
+      expectThat(artifact)
+        .isA<DockerArtifact>()
+        .get { from }.isEqualTo(ArtifactOriginFilter(branch = BranchFilter(name = "main")))
+    }
+  }
+
+  @Nested
+  inner class WithOverrides {
+    @BeforeEach
+    fun setup() {
+      every { cloudDriverService.titusActiveServerGroup(any(), "us-east-1") } returns
+        activeServerGroupResponseEast
+          .withDifferentEnv()
+          .withDifferentEntryPoint()
+          .withDifferentResources()
+      every { cloudDriverService.titusActiveServerGroup(any(), "us-west-2") } returns
+        activeServerGroupResponseWest
+          .withDoubleCapacity()
+
+      every {  titusRegistryService.findImages("testregistry", container.repository()) } returns images
+      every { cloudDriverCache.credentialBy(titusAccount) } returns titusAccountCredential
+    }
+
+    @Test
+    fun `we do not omit the default capacity`() {
+      every { cloudDriverService.titusActiveServerGroup(any(), "us-east-1") } returns
+        activeServerGroupResponseEast.copy(capacity = Capacity(1, 1, 1))
+
+      every { cloudDriverService.titusActiveServerGroup(any(), "us-west-2") } returns
+        activeServerGroupResponseWest.copy(capacity = Capacity(3, 3, 3))
+
+      val cluster = runBlocking {
+        subject.export(exportable)
+      }
+      with(cluster) {
+        expect {
+          that(overrides).hasSize(1)
+          that(overrides).containsKey("us-east-1")
+          val override = overrides["us-east-1"]
+          that(override).isNotNull().get { capacity }.isEqualTo(CapacitySpec(1,1,1))
+
         }
+      }
+    }
 
-        test("has default values in overrides omitted") {
-          val cluster = runBlocking {
-            export(exportable)
-          }
-          with(cluster) {
-            expectThat(overrides).containsKey("us-east-1")
-            expectThat(overrides["us-east-1"]).isNotNull()
-            val override = overrides["us-east-1"]!!
-            expectThat(override) {
-              get { constraints }.isNull()
-              get { migrationPolicy }.isNull()
-              get { iamProfile }.isNull()
-              get { capacityGroup }.isNull()
-              get { containerAttributes }.isNull()
-              get { tags }.isNull()
-            }
-          }
+    @Test
+    fun `has overrides matching differences in the server groups`() {
+      val cluster = runBlocking {
+        subject.export(exportable)
+      }
+      with(cluster) {
+        expect {
+          that(overrides).hasSize(1)
+          that(overrides).containsKey("us-east-1")
+          val override = overrides["us-east-1"]
+          that(override).isNotNull().get { entryPoint }.isNotNull()
+          that(override).isNotNull().get { capacity }.isNotNull()
+          that(override).isNotNull().get { env }.isNotNull()
+          that(override).isNotNull().get { resources }.isEqualTo(
+            ResourcesSpec(
+              cpu = 4,
+              disk = 81920,
+              gpu = 0,
+              memory = 16384,
+              networkMbps = 700
+            )
+          )
+
+          that(locations.regions).hasSize(2)
+        }
+      }
+    }
+
+    @Test
+    fun `has default values in overrides omitted`() {
+      val cluster = runBlocking {
+        subject.export(exportable)
+      }
+      with(cluster) {
+        expectThat(overrides).containsKey("us-east-1")
+        expectThat(overrides["us-east-1"]).isNotNull()
+        val override = overrides["us-east-1"]!!
+        expectThat(override) {
+          get { constraints }.isNull()
+          get { migrationPolicy }.isNull()
+          get { iamProfile }.isNull()
+          get { capacityGroup }.isNull()
+          get { containerAttributes }.isNull()
+          get { tags }.isNull()
         }
       }
     }
@@ -467,7 +485,7 @@ internal class TitusClusterExportTests : JUnit5Minutests {
 
   private fun TitusActiveServerGroup.withDoubleCapacity(): TitusActiveServerGroup =
     copy(
-      capacity = com.netflix.spinnaker.keel.clouddriver.model.Capacity(
+      capacity = Capacity(
         min = capacity.min * 2,
         max = capacity.max * 2,
         desired = capacity.desired?.let { it * 2 }

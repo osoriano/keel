@@ -1170,7 +1170,6 @@ private fun jsonStringify(arguments: Map<String, Any>?) =
 
   private fun TitusServerGroup.exportSpec(application: String): TitusServerGroupSpec {
     val defaults = TitusServerGroupSpec(
-      capacity = CapacitySpec(1, 1, 1),
       iamProfile = application + "InstanceProfile",
       resources = mapper.convertValue(Resources()),
       entryPoint = "",

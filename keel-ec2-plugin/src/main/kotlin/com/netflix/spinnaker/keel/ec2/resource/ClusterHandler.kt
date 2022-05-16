@@ -1298,7 +1298,6 @@ class ClusterHandler(
    */
   private fun ServerGroup.exportSpec(account: String, application: String): ServerGroupSpec {
     val defaults = ServerGroupSpec(
-      capacity = CapacitySpec(1, 1, 1),
       dependencies = ClusterDependencies(),
       health = Health().toSpecWithoutDefaults(),
       scaling = EC2ScalingSpec(),
