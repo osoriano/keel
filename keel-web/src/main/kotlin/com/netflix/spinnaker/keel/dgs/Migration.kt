@@ -7,6 +7,7 @@ import com.netflix.graphql.dgs.DgsMutation
 import com.netflix.graphql.dgs.DgsQuery
 import com.netflix.graphql.dgs.InputArgument
 import com.netflix.spinnaker.keel.api.DeliveryConfig
+import com.netflix.spinnaker.keel.export.ExportService
 import com.netflix.spinnaker.keel.graphql.DgsConstants
 import com.netflix.spinnaker.keel.graphql.types.MD_ActuationPlan
 import com.netflix.spinnaker.keel.graphql.types.MD_ActuationPlanStatus
@@ -29,7 +30,8 @@ class Migration(
   private val deliveryConfigRepository: DeliveryConfigRepository,
   private val applicationService: ApplicationService,
   private val mapper: ObjectMapper,
-  private val artifactRepository: ArtifactRepository
+  private val artifactRepository: ArtifactRepository,
+  private val exportService: ExportService,
 ) {
 
   private val log by lazy { LoggerFactory.getLogger(Migration::class.java) }
@@ -37,6 +39,10 @@ class Migration(
   @DgsQuery
   @PreAuthorize("""@authorizationSupport.hasApplicationPermission('READ', 'APPLICATION', #appName)""")
   fun md_migration(dfe: DataFetchingEnvironment, @InputArgument("appName") appName: String): DataFetcherResult<MD_Migration> {
+    return getMigrationStatus(appName)
+  }
+
+  private fun getMigrationStatus(appName: String): DataFetcherResult<MD_Migration> {
     val status = deliveryConfigRepository.getApplicationMigrationStatus(appName)
     return DataFetcherResult.newResult<MD_Migration>().data(status.toDgs(appName)).localContext(appName).build()
   }
@@ -147,5 +153,21 @@ class Migration(
       }
     }
   }
+
+  @DgsMutation
+  @PreAuthorize(
+    """@authorizationSupport.hasApplicationPermission('WRITE', 'APPLICATION', #payload.application)
+    and @authorizationSupport.hasServiceAccountAccess('APPLICATION', #payload.application)"""
+  )
+  suspend fun md_analyzePipelines(
+    @InputArgument application: String,
+    @RequestHeader("X-SPINNAKER-USER") user: String
+  ): DataFetcherResult<MD_Migration> {
+    log.debug("migration pipelines analysis initiated by $user for application $application")
+    deliveryConfigRepository.storeAppForPotentialMigration(application)
+    exportService.exportFromPipelinesAndStore(application)
+    return getMigrationStatus(application)
+  }
+
 }
 

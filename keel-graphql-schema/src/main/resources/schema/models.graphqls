@@ -481,6 +481,7 @@ type Mutation @extends {
   md_migrationReportIssue(payload: MD_MigrationReportIssuePayload!): Boolean
   md_recheckResource(payload: MD_RecheckResourcePayload!): Boolean
   md_validateDeliveryConfig(payload: MD_DeliveryConfigValidationPayload!): MD_ValidateResult
+  md_analyzePipelines(application: String!): MD_Migration
 }
 
 input MD_DeliveryConfigValidationPayload {

@@ -277,6 +277,21 @@ class ExportService(
     return handler.exportArtifact(exportable)
   }
 
+  suspend fun exportFromPipelinesAndStore(app: String) {
+    val result = exportFromPipelines(app, includeVerifications = shouldExportVerifications)
+    (result as? PipelineExportResult)?.let {
+      deliveryConfigRepository.storePipelinesExportResult(
+        deliveryConfig = it.deliveryConfig,
+        allPipelines = it.toMigratblePipelines(),
+        exportSucceeded = it.exportSucceeded,
+        repoSlug = it.repoSlug,
+        projectKey = it.projectKey,
+        isInactive = it.isInactive
+      )
+    }
+
+  }
+
   /**
    * Run [exportFromPipelines] on all available apps and store their results
    */
@@ -288,20 +303,9 @@ class ExportService(
       val jobs = apps.map { app ->
         launch {
           try {
-            when (val result = exportFromPipelines(app, includeVerifications = shouldExportVerifications)) {
-              is ExportErrorResult -> deliveryConfigRepository.storeFailedPipelinesExportResult(app, result.error)
-              is ExportSkippedResult -> log.info("Skipping export of $app - it is already on MD")
-              is PipelineExportResult -> deliveryConfigRepository.storePipelinesExportResult(
-                deliveryConfig = result.deliveryConfig,
-                allPipelines = result.toMigratblePipelines(),
-                exportSucceeded = result.exportSucceeded,
-                repoSlug = result.repoSlug,
-                projectKey = result.projectKey,
-                isInactive = result.isInactive
-              )
-            }
+            exportFromPipelinesAndStore(app)
           } catch (e: Exception) {
-            log.error("Failed to export application $app")
+            log.error("Failed to export application $app: $e")
           }
         }
       }

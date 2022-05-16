@@ -31,6 +31,7 @@ import com.netflix.spinnaker.keel.core.api.PromotionStatus
 import com.netflix.spinnaker.keel.core.api.PublishedArtifactInEnvironment
 import com.netflix.spinnaker.keel.core.api.normalize
 import com.netflix.spinnaker.keel.exceptions.InvalidAppNameException
+import com.netflix.spinnaker.keel.export.ExportService
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.Front50Service
 import com.netflix.spinnaker.keel.front50.model.ServiceAccount
@@ -132,6 +133,9 @@ class QueryTests {
 
   @MockkBean
   lateinit var front50Service: Front50Service
+
+  @MockkBean
+  lateinit var exportService: ExportService
 
   @MockkBean
   lateinit var front50Cache: Front50Cache
