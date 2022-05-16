@@ -77,11 +77,17 @@ class DefaultActuatorActivitiesTest {
     val app = "myapp"
     val env = "myenv"
 
+    every {
+      keelRepository.getEnvLastCheckedTime(any(), any())
+    } returns clock.instant().minusSeconds(30)
+    every { keelRepository.setEnvLastCheckedTime(any(), any()) } just Runs
+
     subject.checkEnvironment(ActuatorActivities.CheckEnvironmentRequest(application = app, environment = env))
 
     coVerify(timeout = 500) {
       publisher.publishEvent(EnvironmentCheckStarted(application = app, checker = TEMPORAL_CHECKER))
       environmentPromotionChecker.checkEnvironment(app, env)
+      keelRepository.setEnvLastCheckedTime(any(), any())
     }
   }
 }

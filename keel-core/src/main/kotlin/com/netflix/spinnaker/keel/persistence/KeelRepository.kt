@@ -423,6 +423,14 @@ class KeelRepository(
     deliveryConfigRepository.triggerRecheck(config.application)
     temporalSchedulerService.checkEnvironmentNow(config.application, environmentName)
   }
+  fun getEnvLastCheckedTime(application: String, environmentName: String): Instant? =
+    deliveryConfigRepository.getEnvLastCheckedTime(application, environmentName)
+
+  fun setEnvLastCheckedTime(application: String, environmentName: String) =
+    deliveryConfigRepository.setEnvLastCheckedTime(application, environmentName)
+
+  fun clearEnvLastCheckedTime(application: String, environmentName: String) =
+    deliveryConfigRepository.clearEnvLastCheckedTime(application, environmentName)
 
   // END DeliveryConfigRepository methods
 

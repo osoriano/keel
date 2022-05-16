@@ -483,6 +483,17 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
           }
         }
 
+        test("env last checked time can be recorded") {
+          repository.setEnvLastCheckedTime(deliveryConfig.application, deliveryConfig.environments.first().name)
+          expectThat(repository.getEnvLastCheckedTime(deliveryConfig.application, deliveryConfig.environments.first().name)).isNotNull()
+        }
+
+        test("env last checked time can be deleted") {
+          repository.setEnvLastCheckedTime(deliveryConfig.application, deliveryConfig.environments.first().name)
+          repository.clearEnvLastCheckedTime(deliveryConfig.application, deliveryConfig.environments.first().name)
+          expectThat(repository.getEnvLastCheckedTime(deliveryConfig.application, deliveryConfig.environments.first().name)).isNull()
+        }
+
         context("artifact constraint flows") {
           test("constraints can be deleted") {
             storeArtifactVersionsAndJudgements(artifact, 2, 4)

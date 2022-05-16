@@ -1,0 +1,21 @@
+databaseChangeLog:
+  - changeSet:
+      id: env-last-checked-no-fk
+      author: emjburns
+      changes:
+        - sql:
+            sql: drop table if exists environment_last_checked;
+        - createTable:
+            tableName: environment_last_checked
+            columns:
+              - column:
+                  name: environment_uid
+                  type: char(26)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: at
+                  type: timestamp(3)
+                  constraints:
+                    nullable: false

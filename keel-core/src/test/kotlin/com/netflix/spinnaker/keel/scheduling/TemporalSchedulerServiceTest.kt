@@ -17,6 +17,8 @@ import io.temporal.serviceclient.WorkflowServiceStubs
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.core.env.StandardEnvironment
+import strikt.api.expectThat
+import strikt.assertions.isEqualTo
 
 class TemporalSchedulerServiceTest {
 
@@ -70,5 +72,13 @@ class TemporalSchedulerServiceTest {
     verify {
       blockingWorkflowServiceStubs.terminateWorkflowExecution(any())
     }
+  }
+
+  @Test
+  fun `workflow id`() {
+    // this is a pattern we rely upon, it can't be changed w/o coordinating
+    val app = "app"
+    val env = "env"
+    expectThat(subject.workflowId(app, env)).isEqualTo("environment:$app:$env")
   }
 }

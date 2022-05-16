@@ -138,11 +138,12 @@ class DefaultSupervisorActivities(
     i = 0
     temporalClient.iterateWorkflows(listRequest)
       .forEachRemaining {
-        val workflowId = it.execution.workflowId
+        val workflowId: String = it.execution.workflowId
         if (!knownEnvironmentIds.contains(workflowId)) {
           try {
             log.info("Terminating scheduler for unknown environment '$workflowId'")
             temporalClient.terminateWorkflow(TEMPORAL_NAMESPACE, it.execution)
+            keelRepository.clearEnvLastCheckedTime(workflowId.getApplication(), workflowId.getEnvironment())
             registry.counter("keel.environment-scheduler.supervisor.terminations").increment()
           } catch (e: StatusRuntimeException) {
             if (e.status.code != Status.Code.NOT_FOUND) {
@@ -155,6 +156,12 @@ class DefaultSupervisorActivities(
 
     throw ApplicationFailure.newFailure("continuation", "expected")
   }
+
+  fun String.getApplication() =
+    split(":")[2]
+
+  fun String.getEnvironment() =
+    split(":")[1]
 
   private fun maybeHeartbeat(i: Int) {
     if (i % 10 == 0) {

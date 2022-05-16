@@ -52,6 +52,7 @@ import com.netflix.spinnaker.keel.persistence.metamodel.Tables.DELIVERY_CONFIG_L
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_ARTIFACT_CONSTRAINT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_ARTIFACT_QUEUED_APPROVAL
+import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_LAST_CHECKED
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_RESOURCE
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_VERSION
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_VERSION_ARTIFACT_VERSION
@@ -203,6 +204,10 @@ class SqlDeliveryConfigRepository(
               .where(ENVIRONMENT.UID.eq(envUid))
               .and(ENVIRONMENT.DELIVERY_CONFIG_UID.eq(deliveryConfigUid))
               .execute()
+
+            txn.deleteFrom(ENVIRONMENT_LAST_CHECKED)
+              .where(ENVIRONMENT_LAST_CHECKED.ENVIRONMENT_UID.eq(envUid))
+              .execute()
           }
         }
       }
@@ -235,6 +240,7 @@ class SqlDeliveryConfigRepository(
 
   override fun deleteByApplication(application: String) {
     val configUid = getUIDByApplication(application)
+    val environmentUids = getEnvironmentUIDs(configUid)
     val resourceUids = getResourceUIDs(application)
     val resourceIds = getResourceIDs(application)
     val artifactUids = getArtifactUIDs(configUid)
@@ -266,6 +272,10 @@ class SqlDeliveryConfigRepository(
         // delete delivery config
         txn.deleteFrom(DELIVERY_CONFIG)
           .where(DELIVERY_CONFIG.UID.eq(configUid))
+          .execute()
+
+        txn.deleteFrom(ENVIRONMENT_LAST_CHECKED)
+          .where(ENVIRONMENT_LAST_CHECKED.ENVIRONMENT_UID.`in`(environmentUids))
           .execute()
       }
     }
@@ -310,6 +320,16 @@ class SqlDeliveryConfigRepository(
       .select(DELIVERY_CONFIG_ARTIFACT.ARTIFACT_UID)
       .from(DELIVERY_CONFIG_ARTIFACT)
       .where(DELIVERY_CONFIG_ARTIFACT.DELIVERY_CONFIG_UID.eq(deliveryConfigUid))
+
+  /**
+   * This deliberately returns _all_ environment UIDs not just the latest versions as it is used when
+   * deleting the environments associated with a delivery config.
+   */
+  private fun getEnvironmentUIDs(deliveryConfigUid: String): Select<Record1<String>> =
+    jooq
+      .select(ENVIRONMENT.UID)
+      .from(ENVIRONMENT)
+      .where(ENVIRONMENT.DELIVERY_CONFIG_UID.eq(deliveryConfigUid))
 
   // todo: queries in this function aren't inherently retryable because of the cross-repository interactions
   // from where this is called: https://github.com/spinnaker/keel/issues/740
@@ -588,10 +608,13 @@ class SqlDeliveryConfigRepository(
       jooq
         .select(ACTIVE_ENVIRONMENT.UID)
         .from(ACTIVE_ENVIRONMENT)
-        .join(DELIVERY_CONFIG)
-        .on(ACTIVE_ENVIRONMENT.DELIVERY_CONFIG_UID.eq(DELIVERY_CONFIG.UID))
-        .where(ACTIVE_ENVIRONMENT.NAME.eq(environmentName))
-        .and(DELIVERY_CONFIG.APPLICATION.eq(application))
+        .where(ACTIVE_ENVIRONMENT.NAME.eq(environmentName)
+            .and(ACTIVE_ENVIRONMENT.DELIVERY_CONFIG_UID.eq(
+              select(DELIVERY_CONFIG.UID)
+                .from(DELIVERY_CONFIG)
+                .where(DELIVERY_CONFIG.APPLICATION.eq(application))
+            ))
+        )
         .fetchOne(ACTIVE_ENVIRONMENT.UID)
     } ?: throw NoEnvironmentNamedException(environmentName, application)
 
@@ -1423,6 +1446,43 @@ class SqlDeliveryConfigRepository(
         .and(DELIVERY_CONFIG.NAME.eq(deliveryConfig.name))
         .fetchSingle(DELIVERY_CONFIG_LAST_CHECKED.AT) ?: EPOCH
     }
+
+  override fun getEnvLastCheckedTime(application: String, environmentName: String): Instant? {
+    val envUid = environmentId(application, environmentName)
+    return sqlRetry.withRetry(READ) {
+      jooq
+        .select(ENVIRONMENT_LAST_CHECKED.AT)
+        .from(ENVIRONMENT_LAST_CHECKED)
+        .where(ENVIRONMENT_LAST_CHECKED.ENVIRONMENT_UID.eq(envUid))
+        .fetchOne(RESOURCE_LAST_CHECKED.AT)
+    }
+  }
+
+  override fun setEnvLastCheckedTime(application: String, environmentName: String) {
+    val envUid = environmentId(application, environmentName)
+
+    sqlRetry.withRetry(WRITE) {
+      val now = clock.instant()
+      jooq
+        .insertInto(ENVIRONMENT_LAST_CHECKED)
+        .set(ENVIRONMENT_LAST_CHECKED.ENVIRONMENT_UID, envUid)
+        .set(ENVIRONMENT_LAST_CHECKED.AT, now)
+        .onDuplicateKeyUpdate()
+        .set(ENVIRONMENT_LAST_CHECKED.AT, now)
+        .execute()
+    }
+  }
+
+  override fun clearEnvLastCheckedTime(application: String, environmentName: String) {
+    val envUid = environmentId(application, environmentName)
+
+    sqlRetry.withRetry(WRITE) {
+      jooq
+        .deleteFrom(ENVIRONMENT_LAST_CHECKED)
+        .where(ENVIRONMENT_LAST_CHECKED.ENVIRONMENT_UID.eq(envUid))
+        .execute()
+    }
+  }
 
   override fun addArtifactVersionToEnvironment(
     deliveryConfig: DeliveryConfig,

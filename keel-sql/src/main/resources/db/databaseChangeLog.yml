@@ -464,3 +464,6 @@ databaseChangeLog:
 - include:
     file: changelog/20220509-migration-config.yml
     relativeToChangelogFile: true
+- include:
+      file: changelog/20220515-env-last-checked-no-fk.yml
+      relativeToChangelogFile: true

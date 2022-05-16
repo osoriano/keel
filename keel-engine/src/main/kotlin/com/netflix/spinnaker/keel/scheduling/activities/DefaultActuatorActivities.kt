@@ -73,6 +73,11 @@ class DefaultActuatorActivities(
           checker = TEMPORAL_CHECKER
         )
       )
+
+      keelRepository.getEnvLastCheckedTime(request.application, request.environment)?.let { lastCheckTime ->
+        recordCheckAge(lastCheckTime, "environment")
+      }
+      keelRepository.setEnvLastCheckedTime(request.application, request.environment)
     }
     recordDuration(startTime, "environment")
   }

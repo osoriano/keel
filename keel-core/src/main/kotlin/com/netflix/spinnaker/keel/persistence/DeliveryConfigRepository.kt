@@ -262,6 +262,12 @@ interface DeliveryConfigRepository : PeriodicallyCheckedRepository<DeliveryConfi
 
   fun deliveryConfigLastChecked(deliveryConfig: DeliveryConfig): Instant
 
+  fun getEnvLastCheckedTime(application: String, environmentName: String): Instant?
+
+  fun setEnvLastCheckedTime(application: String, environmentName: String)
+
+  fun clearEnvLastCheckedTime(application: String, environmentName: String)
+
   /**
    * Resets the last checked time for the delivery config to the initial value
    * (EPOCH + 1s) so that the environments will immediately be rechecked.

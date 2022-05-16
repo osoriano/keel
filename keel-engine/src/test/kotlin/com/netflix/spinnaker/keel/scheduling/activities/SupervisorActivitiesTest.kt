@@ -117,20 +117,21 @@ class SupervisorActivitiesTest {
     val exec1 = WorkflowExecutionInfo.newBuilder()
       .setExecution(
         WorkflowExecution.newBuilder()
-          .setWorkflowId("application:environmentname")
+          .setWorkflowId("environment:application:environmentname")
           .build()
       )
       .build()
     val exec2 = WorkflowExecutionInfo.newBuilder()
       .setExecution(
         WorkflowExecution.newBuilder()
-          .setWorkflowId("app2:env2")
+          .setWorkflowId("environment:app2:env2")
           .build()
       )
       .build()
 
     every { temporalClient.iterateWorkflows(any()) } answers { listOf(exec1, exec2).iterator() }
     every { temporalClient.terminateWorkflow(any(), any()) } just Runs
+    every { keelRepository.clearEnvLastCheckedTime("app2", "env2") } just Runs
 
     expectThrows<ActivityFailure> { subject.reconcileSchedulers(SupervisorActivities.ReconcileSchedulersRequest(ENVIRONMENT)) }
       .get { cause }.isA<ApplicationFailure>().get { isNonRetryable }.isFalse()
