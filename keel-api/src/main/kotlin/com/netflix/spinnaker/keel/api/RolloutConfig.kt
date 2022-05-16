@@ -5,7 +5,9 @@ import com.fasterxml.jackson.annotation.JsonSubTypes.Type
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.annotation.JsonTypeInfo.As
 import com.fasterxml.jackson.annotation.JsonTypeInfo.Id
+import com.netflix.spinnaker.keel.api.schema.Description
 import com.netflix.spinnaker.keel.api.schema.Discriminator
+import com.netflix.spinnaker.keel.api.schema.Title
 import java.time.Duration
 
 /**
@@ -28,6 +30,7 @@ import java.time.Duration
  *      us-east-1:
  *        postDeployWait: PT1M
  */
+@Title("Rollout strategy")
 data class RolloutConfig(
   val strategy: RolloutStrategy
 )
@@ -65,6 +68,7 @@ class OffStreamingPeak : RolloutStrategy() {
 
 data class Staggered(
   val order: List<String>, //required for now
+  @Description("The wait duration after each deployment")
   val postDeployWait: Duration? = Duration.ofMinutes(30),
   val overrides: Map<String, Map<String, Any>> = emptyMap() // can override postDeployWait
 ) : RolloutStrategy() {

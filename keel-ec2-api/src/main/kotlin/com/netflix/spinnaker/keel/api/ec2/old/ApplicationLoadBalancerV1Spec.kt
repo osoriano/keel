@@ -11,8 +11,10 @@ import com.netflix.spinnaker.keel.api.ec2.TargetGroupAttributes
 import com.netflix.spinnaker.keel.api.ec2.old.ApplicationLoadBalancerV1_1Spec.ApplicationLoadBalancerOverrideV1_1
 import com.netflix.spinnaker.keel.api.ec2.old.ApplicationLoadBalancerV1_1Spec.ListenerV1_1
 import com.netflix.spinnaker.keel.api.schema.Optional
+import com.netflix.spinnaker.keel.api.schema.Title
 import java.time.Duration
 
+@Title("Application load balancer v1 (deprecated)")
 data class ApplicationLoadBalancerV1Spec(
   override val moniker: Moniker,
   @Optional override val locations: SubnetAwareLocations,

@@ -44,6 +44,7 @@ import com.netflix.spinnaker.keel.api.ec2.StepScalingPolicy
 import com.netflix.spinnaker.keel.api.ec2.TargetTrackingPolicy
 import com.netflix.spinnaker.keel.api.schema.Factory
 import com.netflix.spinnaker.keel.api.schema.Optional
+import com.netflix.spinnaker.keel.api.schema.Title
 import com.netflix.spinnaker.keel.docker.ContainerProvider
 import com.netflix.spinnaker.keel.docker.DigestProvider
 import com.netflix.spinnaker.keel.docker.ReferenceProvider
@@ -52,6 +53,7 @@ import com.netflix.spinnaker.keel.docker.ReferenceProvider
  * "Simplified" representation of
  * https://github.com/Netflix/titus-api-definitions/blob/master/src/main/proto/netflix/titus/titus_job_api.proto
  */
+@Title("Titus cluster")
 data class TitusClusterSpec(
   override val moniker: Moniker,
   val deployWith: ClusterDeployStrategy = RedBlack(),
@@ -82,7 +84,7 @@ data class TitusClusterSpec(
     efs: ElasticFileSystem? = null,
     platformSidecars: List<TitusServerGroup.PlatformSidecar> = emptyList(),
     capacityGroup: String? = null,
-    migrationPolicy: TitusServerGroup.MigrationPolicy? = null,
+    migrationPolicy: TitusServerGroup.MigrationPolicy? = null, // Should this appear in the schema?
     dependencies: ClusterDependencies? = null,
     tags: Map<String, String> = emptyMap(),
     @JsonTypeInfo(use = DEDUCTION, defaultImpl = TitusScalingSpec::class)
@@ -190,6 +192,7 @@ data class TitusServerGroupSpec(
   val networkMode: TitusServerGroup.NetworkMode? = null
 )
 
+@Title("Container spec")
 data class ResourcesSpec(
   val cpu: Int? = null,
   val disk: Int? = null,

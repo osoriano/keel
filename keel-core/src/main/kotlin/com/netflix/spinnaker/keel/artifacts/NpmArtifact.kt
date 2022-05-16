@@ -7,12 +7,15 @@ import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.FROM_ANY_BRANCH
 import com.netflix.spinnaker.keel.api.artifacts.NPM
 import com.netflix.spinnaker.keel.api.artifacts.SortingStrategy
+import com.netflix.spinnaker.keel.api.schema.Description
 
 /**
  * A [DeliveryArtifact] that describes NPM packages.
  */
 data class NpmArtifact(
+  @Description("The name of the artifact in the Artifactory. See go/artifactory")
   override val name: String,
+  @get:JsonIgnore
   override val deliveryConfigName: String? = null,
   override val reference: String = name,
   override val from: ArtifactOriginFilter = FROM_ANY_BRANCH,

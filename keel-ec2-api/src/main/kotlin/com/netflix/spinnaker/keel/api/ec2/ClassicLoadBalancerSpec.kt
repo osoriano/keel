@@ -9,8 +9,10 @@ import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.SubnetAwareLocations
 import com.netflix.spinnaker.keel.api.ec2.LoadBalancerType.CLASSIC
 import com.netflix.spinnaker.keel.api.schema.Optional
+import com.netflix.spinnaker.keel.api.schema.Title
 import java.time.Duration
 
+@Title("Classic load balancer")
 data class ClassicLoadBalancerSpec(
   override val moniker: Moniker,
   @Optional override val locations: SubnetAwareLocations,

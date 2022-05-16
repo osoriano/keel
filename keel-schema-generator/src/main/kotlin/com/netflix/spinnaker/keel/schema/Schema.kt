@@ -6,6 +6,7 @@ import java.util.SortedSet
 
 interface Schema {
   val description: String?
+  val title: String?
 }
 
 sealed class TypedProperty(
@@ -28,7 +29,7 @@ data class RootSchema(
 }
 
 data class ObjectSchema(
-  val title: String?,
+  override val title: String?,
   override val description: String?,
   val properties: Map<String, Schema>,
   val required: SortedSet<String>,
@@ -38,29 +39,32 @@ data class ObjectSchema(
 
 object NullSchema : TypedProperty("null") {
   override val description: String? = null
+  override val title: String? = null
 }
 
-data class BooleanSchema(override val description: String?) : TypedProperty("boolean")
+data class BooleanSchema(override val description: String?, override val title: String? = null) : TypedProperty("boolean")
 
-data class IntegerSchema(override val description: String?) : TypedProperty("integer")
+data class IntegerSchema(override val description: String?, override val title: String? = null) : TypedProperty("integer")
 
-data class NumberSchema(override val description: String?) : TypedProperty("number")
+data class NumberSchema(override val description: String?, override val title: String? = null) : TypedProperty("number")
 
 object DurationSchema : TypedProperty("string") {
   override val description = "ISO 8601 duration"
+  override val title: String? = null
 
   @Suppress("MayBeConstant", "unused") // doesn't serialize if declared as const
   // see https://rgxdb.com/r/MD2234J
   val pattern: String = """^(-?)P(?=\d|T\d)(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)([DW]))?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?)?$"""
 }
 
-data class AnySchema(override val description: String?) : TypedProperty("object") {
+data class AnySchema(override val description: String?, override val title: String? = null) : TypedProperty("object") {
   @Suppress("MayBeConstant") // doesn't serialize if declared as const
   val additionalProperties: Boolean = true
 }
 
 data class ArraySchema(
   override val description: String?,
+  override val title: String? = null,
   val items: Schema,
   val uniqueItems: Boolean? = null,
   val minItems: Int? = null
@@ -68,22 +72,26 @@ data class ArraySchema(
 
 data class MapSchema(
   override val description: String?,
+  override val title: String? = null,
   val additionalProperties: Either<Schema, Boolean>
 ) : TypedProperty("object")
 
 data class StringSchema(
   override val description: String?,
+  override val title: String? = null,
   val format: String? = null,
   val pattern: String? = null
 ) : TypedProperty("string")
 
 data class EnumSchema(
   override val description: String?,
+  override val title: String? = null,
   val enum: List<String>
 ) : Schema
 
 data class ConstSchema(
   override val description: String?,
+  override val title: String? = null,
   val const: String,
   val default: String
 ) : Schema
@@ -92,10 +100,12 @@ data class Reference(
   val `$ref`: String
 ) : Schema {
   override val description: String? = null
+  override val title: String? = null
 }
 
 data class OneOf(
   override val description: String?,
+  override val title: String? = null,
   val oneOf: Set<Schema>
 ) : Schema
 

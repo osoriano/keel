@@ -22,7 +22,9 @@ import com.netflix.spinnaker.keel.api.ec2.OverrideableClusterDependencyContainer
 import com.netflix.spinnaker.keel.api.ec2.ScalingSpec
 import com.netflix.spinnaker.keel.api.schema.Factory
 import com.netflix.spinnaker.keel.api.schema.Optional
+import com.netflix.spinnaker.keel.api.schema.Title
 
+@Title("Cluster v1 (deprecated)")
 data class ClusterV1Spec (
   override val moniker: Moniker,
   val imageProvider: ImageProvider? = null,

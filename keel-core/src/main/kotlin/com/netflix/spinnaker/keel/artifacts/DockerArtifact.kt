@@ -8,17 +8,23 @@ import com.netflix.spinnaker.keel.api.artifacts.DOCKER
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.SortingStrategy
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy
+import com.netflix.spinnaker.keel.api.schema.Description
+import com.netflix.spinnaker.keel.api.schema.SchemaIgnore
 import com.netflix.spinnaker.kork.web.exceptions.ValidationException
 
 /**
  * A [DeliveryArtifact] that describes Docker images.
  */
 data class DockerArtifact(
+  @Description("The name of the artifact in the Titus registry. See go/registry")
   override val name: String,
+  @get:JsonIgnore
   override val deliveryConfigName: String? = null,
   override val reference: String = name,
+  @SchemaIgnore
   override val isPreview: Boolean = false,
   val tagVersionStrategy: TagVersionStrategy? = null,
+  @SchemaIgnore
   val captureGroupRegex: String? = null,
   @JsonIgnore val branch: String? = null,
   override val from: ArtifactOriginFilter? = branch?.let { ArtifactOriginFilter(BranchFilter(name = branch)) },

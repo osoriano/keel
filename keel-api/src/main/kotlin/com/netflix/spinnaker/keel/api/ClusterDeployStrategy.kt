@@ -7,6 +7,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo.As
 import com.fasterxml.jackson.annotation.JsonTypeInfo.Id
 import com.netflix.spinnaker.keel.api.DeployHealth.AUTO
 import com.netflix.spinnaker.keel.api.schema.Discriminator
+import com.netflix.spinnaker.keel.api.schema.Title
 import java.time.Duration
 import java.time.Duration.ZERO
 
@@ -34,6 +35,7 @@ abstract class ClusterDeployStrategy {
   }
 }
 
+@Title("Red-black")
 data class RedBlack(
   override val health: DeployHealth = AUTO,
   val resizePreviousToZero: Boolean? = false,
@@ -51,12 +53,14 @@ data class Highlander(
   override val strategy = HIGHLANDER_STRATEGY
 }
 
+@Title("None")
 data class NoStrategy(
   override val health: DeployHealth = AUTO
 ): ClusterDeployStrategy() {
   override val strategy = NONE_STRATEGY
 }
 
+@Title("Rolling push")
 data class RollingPush(
   override val health: DeployHealth = AUTO,
   val relaunchAllInstances: Boolean = true,

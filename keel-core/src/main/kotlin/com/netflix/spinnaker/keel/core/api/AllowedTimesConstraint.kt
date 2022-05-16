@@ -3,6 +3,7 @@ package com.netflix.spinnaker.keel.core.api
 import com.netflix.spinnaker.keel.api.Constraint
 import com.netflix.spinnaker.keel.api.DeploymentConstraint
 import com.netflix.spinnaker.keel.api.StatefulConstraint
+import com.netflix.spinnaker.keel.api.schema.Title
 import com.netflix.spinnaker.keel.exceptions.InvalidConstraintException
 import java.text.ParsePosition
 import java.time.DateTimeException
@@ -20,9 +21,11 @@ const val ALLOWED_TIMES_CONSTRAINT_TYPE = "allowed-times"
 /**
  * A constraint that requires the current time to fall within an allowed window
  */
+@Title("Allowed times")
 data class AllowedTimesConstraint(
   val windows: List<TimeWindow>,
   val tz: String? = null,
+  @Title("Max deploys per window")
   val maxDeploysPerWindow: Int? = null
 ) : DeploymentConstraint(ALLOWED_TIMES_CONSTRAINT_TYPE) {
   init {

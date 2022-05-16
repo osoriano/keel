@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JacksonInject
 import com.netflix.spinnaker.keel.api.LocationConstants.DEFAULT_SUBNET_PURPOSE
 import com.netflix.spinnaker.keel.api.LocationConstants.DEFAULT_VPC_NAME
 import com.netflix.spinnaker.keel.api.LocationConstants.defaultVPC
+import com.netflix.spinnaker.keel.api.schema.Title
 
 /**
  * A resource spec which is located in an account and one or more regions.
@@ -28,6 +29,7 @@ interface AccountAwareLocations<T : RegionSpec> : Locations<T> {
 }
 
 /** A [Locations] type for resources where the VPC and subnet matter. */
+@Title("Locations")
 data class SubnetAwareLocations(
   override val account: String,
   /**
@@ -55,6 +57,7 @@ data class SubnetAwareLocations(
 }
 
 /** A [Locations] type for resources where the VPC matters. */
+@Title("Locations")
 data class SimpleLocations(
   override val account: String,
   // TODO: this is not ideal as we'd like this default to be configurable

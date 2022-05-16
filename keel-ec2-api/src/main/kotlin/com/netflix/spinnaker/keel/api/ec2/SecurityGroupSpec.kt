@@ -21,7 +21,9 @@ import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.SimpleLocations
 import com.netflix.spinnaker.keel.api.SpinnakerResourceSpec
 import com.netflix.spinnaker.keel.api.schema.Optional
+import com.netflix.spinnaker.keel.api.schema.Title
 
+@Title("Security group")
 data class SecurityGroupSpec(
   override val moniker: Moniker,
   @Optional override val locations: SimpleLocations,

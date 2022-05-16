@@ -24,8 +24,10 @@ import com.netflix.spinnaker.keel.api.artifacts.DEBIAN
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec.ServerGroupSpec
 import com.netflix.spinnaker.keel.api.ec2.ServerGroup.Health
 import com.netflix.spinnaker.keel.api.ec2.ServerGroup.LaunchConfiguration
+import com.netflix.spinnaker.keel.api.schema.Description
 import com.netflix.spinnaker.keel.api.schema.Factory
 import com.netflix.spinnaker.keel.api.schema.Optional
+import com.netflix.spinnaker.keel.api.schema.Title
 import java.time.Duration
 
 /**
@@ -161,6 +163,7 @@ fun ClusterSpec.resolveHealth(region: String? = null): Health {
   )
 }
 
+@Title("Cluster")
 data class ClusterSpec(
   override val moniker: Moniker,
   override val artifactReference: String? = null,
@@ -275,12 +278,15 @@ data class ClusterSpec(
   /**
    * Capacity definition with an optional [desired] which _must_ be `null` if the server group has scaling policies.
    */
+  @Title("Capacity")
   data class CapacitySpec(
     val min: Int,
     val max: Int,
+    @Description("The desired number of instances. Must be omitted or null if the server group has scaling policies")
     val desired: Int? = null
   )
 
+  @Title("Health")
   @JsonInclude(NON_EMPTY)
   data class HealthSpec(
     val cooldown: Duration? = null,
@@ -293,6 +299,7 @@ data class ClusterSpec(
 
 interface ScalingSpec
 
+@Title("EC2 Scaling")
 data class EC2ScalingSpec(
   val suspendedProcesses: Set<ScalingProcess> = emptySet(),
   val targetTrackingPolicies: Set<TargetTrackingPolicy> = emptySet(),

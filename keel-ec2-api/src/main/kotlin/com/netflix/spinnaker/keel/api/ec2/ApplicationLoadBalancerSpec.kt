@@ -18,10 +18,12 @@ import com.netflix.spinnaker.keel.api.ec2.ApplicationLoadBalancerSpec.Action.Red
 import com.netflix.spinnaker.keel.api.ec2.LoadBalancerType.APPLICATION
 import com.netflix.spinnaker.keel.api.schema.Discriminator
 import com.netflix.spinnaker.keel.api.schema.Optional
+import com.netflix.spinnaker.keel.api.schema.Title
 import java.time.Duration
 import java.util.Collections.emptySortedSet
 import java.util.SortedSet
 
+@Title("Application load balancer")
 data class ApplicationLoadBalancerSpec(
   override val moniker: Moniker,
   @Optional override val locations: SubnetAwareLocations,

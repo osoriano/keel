@@ -894,8 +894,13 @@ internal class GeneratorTests {
   class TitleAnnotation : GeneratorTestBase() {
     @Title("Root Object")
     data class Foo(
+      @Title("String Title")
       val string: String,
-      val bar: Bar,
+      @Title("Boolean Title")
+      val bool: Boolean,
+      @Title("Bar Array")
+      val barArray: List<Bar>,
+      val bar: Bar
     )
 
     @Title("Some object")
@@ -903,11 +908,10 @@ internal class GeneratorTests {
       val string: String
     )
 
-
     val schema by lazy { generateSchema<Foo>() }
 
     @Test
-    fun `Set title based on the annotation value`() {
+    fun `Set title of object`() {
       expectThat(schema.title).isEqualTo("Root Object")
       expectThat(schema.`$defs`)
         .hasSize(1)
@@ -915,6 +919,27 @@ internal class GeneratorTests {
         .isA<ObjectSchema>()
         .get { title }
         .isEqualTo("Some object")
+    }
+
+    @Test
+    fun `Set title of property`() {
+      expectThat(schema.properties)
+        .get(Foo::string.name)
+        .isA<StringSchema>()
+        .get { title }
+        .isEqualTo("String Title")
+
+      expectThat(schema.properties)
+        .get(Foo::bool.name)
+        .isA<BooleanSchema>()
+        .get { title }
+        .isEqualTo("Boolean Title")
+
+      expectThat(schema.properties)
+        .get(Foo::barArray.name)
+        .isA<ArraySchema>()
+        .get { title }
+        .isEqualTo("Bar Array")
     }
   }
 

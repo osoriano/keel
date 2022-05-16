@@ -24,10 +24,12 @@ const val DEFAULT_SERVICE_ACCOUNT = "keel@spinnaker.io"
 data class SubmittedDeliveryConfig(
   val application: String,
   val name: String?,
+  @Title("Service account")
   @Description("The service account Spinnaker will authenticate with when making changes.")
   val serviceAccount: String?,
   val artifacts: Set<DeliveryArtifact> = emptySet(),
   val environments: Set<SubmittedEnvironment> = emptySet(),
+  @Title("Preview environment templates")
   @get:JsonInclude(JsonInclude.Include.NON_EMPTY)
   val previewEnvironments: Set<PreviewEnvironmentSpec> = emptySet(),
   @get:JsonInclude(JsonInclude.Include.NON_EMPTY)
@@ -64,10 +66,12 @@ data class SubmittedEnvironment(
   val resources: Set<SubmittedResource<*>>,
   @get:JsonInclude(JsonInclude.Include.NON_EMPTY)
   val constraints: Set<Constraint> = emptySet(),
+  @Title("Verifications")
   @get:JsonInclude(JsonInclude.Include.NON_EMPTY)
   val verifyWith: List<Verification> = emptyList(),
   @get:JsonInclude(JsonInclude.Include.NON_EMPTY)
   val notifications: Set<NotificationConfig> = emptySet(),
+  @Title("Post deploy actions")
   @get:JsonInclude(JsonInclude.Include.NON_EMPTY)
   val postDeploy: List<PostDeployAction> = emptyList(),
   @get:JsonInclude(JsonInclude.Include.NON_EMPTY)

@@ -11,7 +11,10 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo.Id
 import com.netflix.spinnaker.keel.api.ArtifactReferenceProvider
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.ExcludedFromDiff
+import com.netflix.spinnaker.keel.api.schema.Description
 import com.netflix.spinnaker.keel.api.schema.Discriminator
+import com.netflix.spinnaker.keel.api.schema.SchemaIgnore
+import com.netflix.spinnaker.keel.api.schema.Title
 import java.time.Instant
 
 typealias ArtifactType = String
@@ -83,8 +86,10 @@ val FROM_ANY_BRANCH = from(branchRegex(".*"))
  * @param branch A [BranchFilter] with branch filters.
  * @param pullRequestOnly Whether to include only artifacts built from pull requests.
  */
+@Title("Source")
 data class ArtifactOriginFilter(
   val branch: BranchFilter? = null,
+  @Description("Whether to include only artifacts built from pull requests")
   val pullRequestOnly: Boolean? = false
 )
 

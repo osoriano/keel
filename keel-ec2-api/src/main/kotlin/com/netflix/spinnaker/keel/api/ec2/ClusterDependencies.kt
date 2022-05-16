@@ -19,7 +19,9 @@ package com.netflix.spinnaker.keel.api.ec2
 
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY
+import com.netflix.spinnaker.keel.api.schema.Title
 
+@Title("Dependencies")
 @JsonInclude(NON_EMPTY)
 data class ClusterDependencies(
   val loadBalancerNames: Set<String> = emptySet(),

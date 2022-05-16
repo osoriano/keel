@@ -282,15 +282,18 @@ class Generator(
     owner: KType, parameter: KParameter, type: KType = parameter.type
   ): Schema = buildProperty(
     type,
-    owner.jvmErasure.backingPropertyFor(parameter)?.description
-      ?: parameter.findAnnotation<Description>()?.value
+    description = owner.jvmErasure.backingPropertyFor(parameter)?.description
+      ?: parameter.findAnnotation<Description>()?.value,
+    title = owner.jvmErasure.backingPropertyFor(parameter)?.title
+      ?: parameter.findAnnotation<Title>()?.value
   )
 
-  private fun Context.buildProperty(type: KType, description: String? = null): Schema {
+  private fun Context.buildProperty(type: KType, description: String? = null, title: String? = null): Schema {
     return when {
       type.isMarkedNullable -> if (options.nullableAsOneOf) {
         OneOf(
           description = description,
+          title = title,
           oneOf = setOf(NullSchema, buildProperty(
             type = type.withNullability(false),
           ))
@@ -298,7 +301,8 @@ class Generator(
       } else {
         buildProperty(
           type = type.withNullability(false),
-          description = description
+          description = description,
+          title = title
         )
       }
       type.representInline && type.hasCustomizer -> schemaCustomizers
@@ -307,12 +311,13 @@ class Generator(
       type.isSingleton -> buildSchema(type.jvmErasure)
       type.isEnum -> EnumSchema(
         description = description,
+        title = title,
         enum = type.enumNames
       )
-      type.isString -> StringSchema(description = description, format = type.stringFormat)
-      type.isBoolean -> BooleanSchema(description = description)
-      type.isInteger -> IntegerSchema(description = description)
-      type.isNumber -> NumberSchema(description = description)
+      type.isString -> StringSchema(title = title, description = description, format = type.stringFormat)
+      type.isBoolean -> BooleanSchema(title = title, description = description)
+      type.isInteger -> IntegerSchema(title = title, description = description)
+      type.isNumber -> NumberSchema(title = title, description = description)
       type.jvmErasure == Duration::class -> Duration::class.buildRef()
         .also {
           if (!definitions.containsKey(Duration::class.java.simpleName)) {
@@ -321,6 +326,7 @@ class Generator(
         }
       type.isArray -> {
         ArraySchema(
+          title = title,
           description = description,
           items = buildProperty(type.elementType),
           uniqueItems = if (type.isUniqueItems) true else null
@@ -328,6 +334,7 @@ class Generator(
       }
       type.isMap -> {
         MapSchema(
+          title = title,
           description = description,
           additionalProperties = buildProperty(type.valueType).let {
             if (it is AnySchema) {
@@ -338,7 +345,7 @@ class Generator(
           }
         )
       }
-      type.jvmErasure == Any::class -> AnySchema(description = description)
+      type.jvmErasure == Any::class -> AnySchema(title = title, description = description)
       else -> define(type)
     }
   }
@@ -469,6 +476,12 @@ class Generator(
    */
   private val KAnnotatedElement.description: String?
     get() = findAnnotation<Description>()?.value
+
+  /**
+   * The description for this element if it has a [Title] annotation.
+   */
+  private val KAnnotatedElement.title: String?
+    get() = findAnnotation<Title>()?.value
 
   /**
    * Is this type a singleton object?

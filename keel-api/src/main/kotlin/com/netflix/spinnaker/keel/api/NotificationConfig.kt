@@ -17,13 +17,19 @@
  */
 package com.netflix.spinnaker.keel.api
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.netflix.spinnaker.keel.api.NotificationDisplay.NORMAL
+import com.netflix.spinnaker.keel.api.schema.Description
+import com.netflix.spinnaker.keel.api.schema.Title
 
 // todo eb: this does not allow you to customize the notification message, but we can add that later.
 data class NotificationConfig(
   val type: NotificationType,
   val address: String, // either slack channel or email address
+  @Title("Level (frequency)")
+  @Description("quiet - only for failures; normal - event completions and failures; verbose - all events. Recommendation: use normal for production environments and quiet for dev")
   val frequency: NotificationFrequency,
+  @get:JsonIgnore
   val display: NotificationDisplay = NORMAL
 )
 

@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.verification.jenkins
 
 import com.netflix.spinnaker.keel.api.Verification
+import com.netflix.spinnaker.keel.api.schema.Title
 import com.netflix.spinnaker.keel.verification.StandardTestParameter
 import org.apache.commons.codec.digest.DigestUtils
 
@@ -10,7 +11,9 @@ import org.apache.commons.codec.digest.DigestUtils
 data class JenkinsJobVerification(
   val controller: String,
   val job: String,
+  @Title("Static parameters")
   val staticParameters: Map<String, Any> = emptyMap(),
+  @Title("Dynamic parameters")
   val dynamicParameters: Map<String, StandardTestParameter> = emptyMap()
 ) : Verification {
   companion object {

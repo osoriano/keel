@@ -1,9 +1,11 @@
 package com.netflix.spinnaker.keel.api
 
 import com.netflix.spinnaker.kork.exceptions.SystemException
+import jdk.jfr.Description
 
 
 data class Moniker(
+  @Description("The application name")
   val app: String,
   val stack: String? = null,
   val detail: String? = null,

@@ -1,12 +1,14 @@
 package com.netflix.spinnaker.keel.export.canary
 
 import com.netflix.spinnaker.keel.api.StatefulConstraint
+import com.netflix.spinnaker.keel.api.schema.Title
 
 // NOTE: This class is copied from
 // https://stash.corp.netflix.com/projects/TRAFFIC/repos/chap-spinnaker/browse/chap-keel/src/main/kotlin/io/spinnaker/managed/CanaryConstraint.kt
 // Make sure to keep these files in sync (though they should rarely change)
 const val CURATED_CONFIG_ID: String = "12077d8c-8e4a-46ca-9e72-4b36f25d3287"
 
+@Title("Canary")
 data class CanaryConstraint(
     val clusters: List<ClusterWithRegions>? = null,
     val configId: String = CURATED_CONFIG_ID,
