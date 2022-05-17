@@ -15,6 +15,6 @@ class ExtensionsController(private val extensionRegistry: ExtensionRegistry) {
     extensionRegistry.baseTypes().associate { baseType ->
       baseType.simpleName to extensionRegistry
         .extensionsOf(baseType)
-        .mapValues { it.value.toString() }
+        .mapValues { it.value.simpleName }
     }
 }
