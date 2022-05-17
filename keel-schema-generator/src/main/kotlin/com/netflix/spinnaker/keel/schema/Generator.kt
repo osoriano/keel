@@ -2,6 +2,7 @@ package com.netflix.spinnaker.keel.schema
 
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonIgnore
+import com.fasterxml.jackson.databind.JsonNode
 import com.netflix.spinnaker.keel.api.schema.Description
 import com.netflix.spinnaker.keel.api.schema.Discriminator
 import com.netflix.spinnaker.keel.api.schema.Factory
@@ -10,6 +11,13 @@ import com.netflix.spinnaker.keel.api.schema.Optional
 import com.netflix.spinnaker.keel.api.schema.SchemaIgnore
 import com.netflix.spinnaker.keel.api.schema.Title
 import com.netflix.spinnaker.keel.api.support.ExtensionRegistry
+import com.netflix.spinnaker.keel.api.support.ExtensionType
+import com.netflix.spinnaker.keel.api.support.JvmExtensionType
+import com.netflix.spinnaker.keel.k8s.KubernetesExtensionType
+import com.netflix.spinnaker.keel.k8s.KubernetesSchemaCache
+import com.netflix.spinnaker.keel.k8s.specSchema
+import io.fabric8.kubernetes.api.model.apiextensions.v1.CustomResourceDefinition
+import io.fabric8.kubernetes.api.model.apiextensions.v1.JSONSchemaProps
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -38,7 +46,8 @@ import kotlin.reflect.jvm.jvmErasure
 class Generator(
   private val extensionRegistry: ExtensionRegistry,
   private val options: Options = Options(),
-  private val schemaCustomizers: Collection<SchemaCustomizer> = emptyList()
+  private val schemaCustomizers: Collection<SchemaCustomizer> = emptyList(),
+  private val kubernetesSchemaCache: KubernetesSchemaCache
 ) {
   data class Options(
     /**
@@ -101,6 +110,20 @@ class Generator(
       else -> buildSchemaForRegularClass(type, discriminator)
     }
 
+  private fun Context.buildSchema(
+    definition: CustomResourceDefinition,
+    discriminator: Pair<KProperty<String>, String>? = null
+  ): Schema =
+    with(checkNotNull(definition.specSchema)) {
+      ObjectSchema(
+        title = title,
+        description = description,
+        properties = properties.mapValues { (_, schema) -> buildProperty(schema) } + discriminator.toDiscriminatorConst(),
+        required = required.toSortedSet(),
+        additionalProperties = additionalProperties?.allows,
+      )
+    }
+
   /**
    * A regular class is just represented as an [ObjectSchema].
    *
@@ -136,7 +159,7 @@ class Generator(
       oneOf = extensionRegistry
         .extensionsOf(type.java)
         .map { (discriminator, subType) ->
-          define(subType.kotlin, type.discriminatorProperty?.let { it to discriminator })
+          define(subType, type.discriminatorProperty?.let { it to discriminator })
         }
         .toSet()
     )
@@ -181,7 +204,7 @@ class Generator(
           ),
           then = Subschema(
             properties = genericProperties.associate {
-              checkNotNull(it.name) to define(subType.kotlin)
+              checkNotNull(it.name) to define(subType)
             },
             required = genericProperties.toRequiredPropertyNames()
           )
@@ -351,12 +374,66 @@ class Generator(
   }
 
   /**
+   * Converts a property from a [JSONSchemaProps] schema definition to Keel's schema format.
+   */
+  private fun Context.buildProperty(property: JSONSchemaProps): Schema =
+    when {
+      property.enum?.isNotEmpty() ?: false -> EnumSchema(
+        description = property.description,
+        title = property.title,
+        enum = property.enum.map(JsonNode::asText)
+      )
+      property.type == "string" -> StringSchema(
+        description = property.description,
+        title = property.title,
+        format = property.format,
+        pattern = property.pattern
+      )
+      property.type == "boolean" -> BooleanSchema(description = property.description, title = property.title)
+      property.type == "integer" -> IntegerSchema(description = property.description, title = property.title)
+      property.type == "number" -> NumberSchema(description = property.description, title = property.title)
+      property.type == "array" -> ArraySchema(
+        description = property.description,
+        title = property.title,
+        items = buildProperty(property.items.schema),
+        uniqueItems = property.uniqueItems,
+        minItems = property.minItems?.toInt()
+      )
+      else -> ObjectSchema(
+        title = property.title,
+        description = property.description,
+        properties = property.properties.map { (name, prop) -> name to buildProperty(prop) }
+          .associate { it.first to it.second },
+        required = property.required.toSortedSet(),
+        allOf = null, // TODO: probably need to handle this, huh?
+        additionalProperties = property.additionalProperties?.allows
+      )
+    }
+
+  private fun Context.define(type: ExtensionType): Schema =
+    when (type) {
+      is JvmExtensionType -> define(type.type.kotlin)
+      is KubernetesExtensionType -> define(type.crd)
+      else -> error("${type.javaClass.simpleName} not supported")
+    }
+
+  /**
    * If a schema for [type] is not yet defined, define it now.
    *
    * @return a [Reference] to the schema for [type].
    */
   private fun Context.define(type: KType): Schema =
     define(type.jvmErasure)
+
+  private fun Context.define(type: ExtensionType, discriminator: Pair<KProperty<String>, String>? = null): Schema =
+    when (type) {
+      is JvmExtensionType -> define(type.type.kotlin, discriminator)
+      is KubernetesExtensionType -> define(type.crd, discriminator)
+      else -> error("${type.javaClass.simpleName} not supported")
+    }
+
+  private val KubernetesExtensionType.crd: CustomResourceDefinition
+    get() = kubernetesSchemaCache.schemaFor(group, plural)
 
   /**
    * If a schema for [type] is not yet defined, define it now.
@@ -374,11 +451,25 @@ class Generator(
       type.buildRef()
     }
 
+  private fun Context.define(
+    definition: CustomResourceDefinition,
+    discriminator: Pair<KProperty<String>, String>? = null
+  ): Schema {
+    val name = definition.spec.names.kind
+    if (!definitions.containsKey(name)) {
+      definitions[name] = buildSchema(definition)
+    }
+    return definition.buildRef()
+  }
+
   /**
    * Build a `$ref` URL to the schema for this type.
    */
   private fun KClass<*>.buildRef() =
-    Reference("#/${RootSchema::`$defs`.name}/${simpleName}")
+    Reference("#/${RootSchema::`$defs`.name}/$simpleName")
+
+  private fun CustomResourceDefinition.buildRef() =
+    Reference("#/${RootSchema::`$defs`.name}/${spec.names.kind}")
 
   /**
    * Is this something we should represent as an enum?

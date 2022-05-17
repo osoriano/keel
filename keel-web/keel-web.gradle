@@ -21,6 +21,7 @@ dependencies {
   api(project(":keel-orca"))
   api(project(":keel-jira"))
   api(project(":keel-stash"))
+  api(project(":keel-k8s"))
 
   implementation(project(":keel-bakery-plugin"))
   implementation(project(":keel-ec2-plugin"))

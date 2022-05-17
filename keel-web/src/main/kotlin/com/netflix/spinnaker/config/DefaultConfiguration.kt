@@ -8,6 +8,7 @@ import com.netflix.spinnaker.keel.api.plugins.PostDeployActionHandler
 import com.netflix.spinnaker.keel.api.plugins.ResourceHandler
 import com.netflix.spinnaker.keel.api.plugins.VerificationEvaluator
 import com.netflix.spinnaker.keel.api.support.ExtensionRegistry
+import com.netflix.spinnaker.keel.k8s.KubernetesSchemaCache
 import com.netflix.spinnaker.keel.resources.SpecMigrator
 import com.netflix.spinnaker.keel.rest.DeliveryConfigYamlParsingFilter
 import com.netflix.spinnaker.keel.schema.Generator
@@ -118,7 +119,8 @@ class DefaultConfiguration(
   fun schemaGenerator(
     extensionRegistry: ExtensionRegistry,
     resourceHandlers: List<ResourceHandler<*, *>>,
-    migrators: List<SpecMigrator<*, *>>
+    migrators: List<SpecMigrator<*, *>>,
+    kubernetesSchemaCache: KubernetesSchemaCache
   ): Generator {
     val resourceKindSchemaCustomizer = ResourceKindSchemaCustomizer(
       kinds = resourceHandlers.map { it.supportedKind.kind } + migrators.map { it.input.kind }
@@ -129,7 +131,8 @@ class DefaultConfiguration(
         resourceKindSchemaCustomizer,
         TagVersionStrategySchemaCustomizer,
         NamedResourceSchemaCustomizer(resourceKindSchemaCustomizer)
-      )
+      ),
+      kubernetesSchemaCache = kubernetesSchemaCache
     )
   }
 }
