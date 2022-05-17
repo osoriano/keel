@@ -1190,14 +1190,7 @@ private fun jsonStringify(arguments: Map<String, Any>?) =
       dependencies = dependencies,
       entryPoint = entryPoint,
       env = env.filterNot { EXPORT_IGNORED_ENV.contains(it.key) },
-      containerAttributes = containerAttributes.let {
-        // We should ignore [EXPORT_IGNORED_CONTAINER_ATTRIBUTES] keys in the prod and test envs
-        if ((EXPORT_IGNORED_CONTAINER_ATTRIBUTES_ACCOUNTS.contains(location.account))) {
-          it.filterNot { attr -> EXPORT_IGNORED_CONTAINER_ATTRIBUTES.contains(attr.key) }
-        } else {
-          it
-        }
-      },
+      containerAttributes = containerAttributes,
       migrationPolicy = migrationPolicy,
       resources = resources.toSpec(),
       tags = tags,
@@ -1228,7 +1221,5 @@ private fun jsonStringify(arguments: Map<String, Any>?) =
   companion object {
     private val IGNORED_SCALING_DIMENSIONS = listOf("AutoScalingGroupName")
     private val EXPORT_IGNORED_ENV = listOf("EC2_REGION", "NETFLIX_REGION", "SPINNAKER_ACCOUNT", "NETFLIX_HOME_REGION")
-    private val EXPORT_IGNORED_CONTAINER_ATTRIBUTES = listOf("titusParameter.agent.accountId", "titusParameter.agent.subnets")
-    private val EXPORT_IGNORED_CONTAINER_ATTRIBUTES_ACCOUNTS = listOf("titusprodvpc", "titustestvpc")
   }
 }
