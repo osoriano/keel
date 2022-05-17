@@ -391,7 +391,7 @@ class ApplicationServiceTests : JUnit5Minutests {
         } returns expectedPrResponse.link
 
         every {
-          repository.storeUserGeneratedConfigForMigratedApplication(application1, any())
+          repository.storeUserGeneratedConfigForMigratedApplication(application1, any(), any())
         } just Runs
       }
 

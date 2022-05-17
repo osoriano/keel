@@ -44,11 +44,19 @@ type MD_Migration {
   id: ID!
   status: MD_MigrationStatus
   deliveryConfig: JSON
-  userGeneratedDeliveryConfig: JSON
+  userGeneratedDeliveryConfig: JSON @deprecated
+  userGeneratedConfig: MD_UserGeneratedConfig
   prLink: String
   actuationPlan: MD_ActuationPlan
   warnings: [MD_Warning!]
   pipelines: [MD_Pipeline!]
+}
+
+type MD_UserGeneratedConfig {
+  id: ID!
+  deliveryConfig: JSON!
+  updatedAt: InstantTime
+  updatedBy: String
 }
 
 type MD_Pipeline {

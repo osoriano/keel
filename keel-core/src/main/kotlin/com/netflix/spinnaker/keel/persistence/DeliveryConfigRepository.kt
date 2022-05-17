@@ -322,7 +322,11 @@ interface DeliveryConfigRepository : PeriodicallyCheckedRepository<DeliveryConfi
    * Storing the created pr link for an application
    */
 
-  fun storeUserGeneratedConfigForMigratedApplication(application: String, deliveryConfig: SubmittedDeliveryConfig)
+  fun storeUserGeneratedConfigForMigratedApplication(
+    application: String,
+    deliveryConfig: SubmittedDeliveryConfig,
+    user: String
+  )
 
   /**
    * Clean the created pr link for an application in case of an error

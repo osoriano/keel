@@ -456,8 +456,8 @@ databaseChangeLog:
     file: changelog/20220401-drop-diff-fingerprint-index.yml
     relativeToChangelogFile: true
 - include:
-      file: changelog/20220404-verification-index-fix.yml
-      relativeToChangelogFile: true
+    file: changelog/20220404-verification-index-fix.yml
+    relativeToChangelogFile: true
 - include:
     file: changelog/20220420-rename-migration-pipelines.yml
     relativeToChangelogFile: true
@@ -465,5 +465,8 @@ databaseChangeLog:
     file: changelog/20220509-migration-config.yml
     relativeToChangelogFile: true
 - include:
-      file: changelog/20220515-env-last-checked-no-fk.yml
-      relativeToChangelogFile: true
+    file: changelog/20220515-env-last-checked-no-fk.yml
+    relativeToChangelogFile: true
+- include:
+    file: changelog/20220516-migration-last-update.yml
+    relativeToChangelogFile: true

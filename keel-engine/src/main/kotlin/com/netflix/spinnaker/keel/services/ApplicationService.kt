@@ -316,7 +316,7 @@ class ApplicationService(
     var applicationPrData = repository.getMigratableApplicationData(application)
 
     if (rawUserGeneratedConfig != null) {
-      val userGeneratedConfig = storeAndGetUserGeneratedConfig(application, rawUserGeneratedConfig)
+      val userGeneratedConfig = storeAndGetUserGeneratedConfig(application, rawUserGeneratedConfig, user)
       applicationPrData = applicationPrData.copy(userGeneratedConfig = userGeneratedConfig)
       validator.validate(userGeneratedConfig)
     }
@@ -377,11 +377,11 @@ class ApplicationService(
     return Pair(applicationPrData, prLink)
   }
 
-  fun storeAndGetUserGeneratedConfig(application: String, rawUserGeneratedConfig: Any): SubmittedDeliveryConfig {
+  fun storeAndGetUserGeneratedConfig(application: String, rawUserGeneratedConfig: Any, user: String): SubmittedDeliveryConfig {
     log.debug("Storing user generated config for $application")
     val tempConfig = objectMapper.convertValue<SubmittedDeliveryConfig>(rawUserGeneratedConfig)
       .copy(metadata = mapOf(DeliveryConfig.MIGRATING_KEY to true))
-    repository.storeUserGeneratedConfigForMigratedApplication(application, tempConfig)
+    repository.storeUserGeneratedConfigForMigratedApplication(application, tempConfig, user)
     log.debug("Stored user generated config for $application successfully")
     return tempConfig
   }

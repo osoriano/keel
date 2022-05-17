@@ -2,6 +2,12 @@ query fetchMigrationStatus($appName: String!) {
   md_migration(appName: $appName) {
     id
     status
+    userGeneratedConfig {
+      id
+      deliveryConfig
+      updatedAt
+      updatedBy
+    }
     actuationPlan {
       id
       status

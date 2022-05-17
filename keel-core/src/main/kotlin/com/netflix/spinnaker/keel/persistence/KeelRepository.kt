@@ -29,7 +29,6 @@ import com.netflix.spinnaker.keel.core.api.ArtifactSummaryInEnvironment
 import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactPin
 import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactVeto
 import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactVetoes
-import com.netflix.spinnaker.keel.core.api.EnvironmentSummary
 import com.netflix.spinnaker.keel.core.api.PinnedEnvironment
 import com.netflix.spinnaker.keel.core.api.PromotionStatus
 import com.netflix.spinnaker.keel.core.api.PublishedArtifactInEnvironment
@@ -807,8 +806,12 @@ class KeelRepository(
   /**
    * Storing the user genereted config for an application
    */
-  fun storeUserGeneratedConfigForMigratedApplication(application: String, deliveryConfig: SubmittedDeliveryConfig) =
-    deliveryConfigRepository.storeUserGeneratedConfigForMigratedApplication(application, deliveryConfig)
+  fun storeUserGeneratedConfigForMigratedApplication(
+    application: String,
+    deliveryConfig: SubmittedDeliveryConfig,
+    user: String
+  ) =
+    deliveryConfigRepository.storeUserGeneratedConfigForMigratedApplication(application, deliveryConfig, user)
 
   /**
    * Clean the created pr link for an application in case of an error

@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: migration-config
+      author: gyardeni
+      changes:
+        - dropColumn:
+            tableName: migration_status
+            columnName: last_updated_by
+        - addColumn:
+            tableName: migration_status
+            columns:
+              - column:
+                  name: user_generated_at
+                  type: timestamp(3)
+              - column:
+                  name: user_generated_by
+                  type: varchar(255)
+
