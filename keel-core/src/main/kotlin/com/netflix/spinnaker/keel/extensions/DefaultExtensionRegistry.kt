@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.jsontype.NamedType
 import com.netflix.spinnaker.keel.api.support.ExtensionRegistry
 import com.netflix.spinnaker.keel.api.support.ExtensionType
-import com.netflix.spinnaker.keel.api.support.JvmExtensionType
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -22,11 +21,9 @@ class DefaultExtensionRegistry(
     baseToExtensionTypes
       .getOrPut(baseType, ::mutableMapOf)
       .also { it[discriminator] = extensionType }
-    log.info("Registering extension \"$discriminator\" for ${baseType.simpleName} using ${extensionType}")
-    if (extensionType is JvmExtensionType) {
-      mappers.forEach {
-        it.registerSubtypes(NamedType(extensionType.type, discriminator))
-      }
+    log.info("Registering extension \"$discriminator\" for ${baseType.simpleName} using $extensionType")
+    mappers.forEach {
+      it.registerSubtypes(NamedType(extensionType.type, discriminator))
     }
   }
 

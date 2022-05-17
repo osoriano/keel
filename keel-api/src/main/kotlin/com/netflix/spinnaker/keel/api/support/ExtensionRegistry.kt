@@ -38,10 +38,12 @@ inline fun <reified BASE : Any> ExtensionRegistry.register(
   register(BASE::class.java, extensionType, discriminator)
 }
 
-interface ExtensionType
+interface ExtensionType {
+  val type: Class<*>
+}
 
 data class JvmExtensionType(
-  val type: Class<*>
+  override val type: Class<*>
 ) : ExtensionType {
   override fun toString(): String = type.simpleName
 }
