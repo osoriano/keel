@@ -2,7 +2,6 @@ package com.netflix.spinnaker.keel.ec2.resource
 
 import com.fasterxml.jackson.module.kotlin.convertValue
 import com.netflix.buoy.sdk.model.RolloutTarget
-import com.netflix.rocket.api.artifact.internal.debian.DebianArtifactParser
 import com.netflix.spinnaker.keel.api.ClusterDeployStrategy
 import com.netflix.spinnaker.keel.api.Exportable
 import com.netflix.spinnaker.keel.api.Moniker
@@ -146,9 +145,34 @@ class ClusterHandler(
   override suspend fun current(resource: Resource<ClusterSpec>): Map<String, ServerGroup> {
     val activeServerGroups = cloudDriverService.getActiveServerGroups(resource)
     val allHaveSameVersion = activeServerGroups.distinctBy { it.launchConfiguration.appVersion }.size == 1
+    val allHealthy = try {
+      allServerGroupsHealthy(resource, activeServerGroups)
+    } catch(e: Exception) {
+      log.error("Error checking server group health: $e", e)
+      false
+    }
 
+    if (allHaveSameVersion && allHealthy) {
+      // only publish a successfully deployed event if the cluster is healthy
+      val appVersion = activeServerGroups.first().launchConfiguration.appVersion
+      if (appVersion != null) {
+        notifyArtifactDeployed(resource, appVersion)
+      }
+    }
+
+    return activeServerGroups.byRegion()
+  }
+
+  /**
+   * @return True if all [activeServerGroups] are healthy according to the desired capacity of the cluster.
+   */
+  private fun allServerGroupsHealthy(
+    resource: Resource<ClusterSpec>,
+    activeServerGroups: Iterable<ServerGroup>
+  ): Boolean {
     // collect info about unhealthy regions
     val unhealthyRegions = mutableListOf<String>()
+
     activeServerGroups.forEach { serverGroup ->
       val healthy = serverGroup.instanceCounts?.isHealthy(
         health = resource.spec.deployWith.health,
@@ -165,15 +189,7 @@ class ClusterHandler(
       ResourceHealthEvent(resource, allHealthy, unhealthyRegions, resource.spec.locations.regions.size)
     )
 
-    if (allHaveSameVersion && allHealthy) {
-      // only publish a successfully deployed event if the server group is healthy
-      val appVersion = activeServerGroups.first().launchConfiguration.appVersion
-      if (appVersion != null) {
-        notifyArtifactDeployed(resource, appVersion)
-      }
-    }
-
-    return activeServerGroups.byRegion()
+    return allHealthy
   }
 
   override fun getDesiredRegion(diff: ResourceDiff<ServerGroup>): String =

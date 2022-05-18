@@ -110,7 +110,7 @@ fun ClusterSpec.resolveCapacity(region: String? = null): Capacity {
   val regionOverrides = overrides[region]
   val hasScalingPolicies = (regionOverrides?.scaling ?: defaults.scaling).hasScalingPolicies()
 
-  log.debug("Resolving capacity for $moniker:" +
+  log.debug("Resolving capacity for $moniker (region: $region):" +
     " regionOverrides: ${regionOverrides?.let { "not null" } ?: "null"}" +
     " hasScalingPolicies: $hasScalingPolicies"
   )
