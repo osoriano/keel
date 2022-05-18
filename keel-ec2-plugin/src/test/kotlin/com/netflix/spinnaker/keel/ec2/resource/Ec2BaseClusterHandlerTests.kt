@@ -88,7 +88,6 @@ class Ec2BaseClusterHandlerTests : BaseClusterHandlerTests<ClusterSpec, ServerGr
       clusterExportHelper = clusterExportHelper,
       blockDeviceConfig = blockDeviceConfig,
       artifactService = artifactService,
-      jenkinsService = jenkinsService,
       diffFactory = diffFactory
     ))
 

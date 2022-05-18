@@ -15,6 +15,7 @@ import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.core.api.SubmittedEnvironment
 import com.netflix.spinnaker.keel.core.api.SubmittedResource
 import com.netflix.spinnaker.keel.core.api.id
+import com.netflix.spinnaker.keel.exceptions.TagToReleaseArtifactException
 import com.netflix.spinnaker.keel.front50.model.Pipeline
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
 
@@ -42,13 +43,14 @@ data class PipelineExportResult(
   val repoSlug: String?,
   @JsonIgnore
   val projectKey: String?
+
 ) : ExportResult {
   companion object {
     val VALID_SKIP_REASONS = listOf(SkipReason.DISABLED, SkipReason.NOT_EXECUTED_RECENTLY)
     val objectMapper = configuredObjectMapper()
   }
 
-  val pipelines: List<MigrationPipeline> = toMigratblePipelines()
+  val pipelines: List<MigrationPipeline> = toMigratablePipelines()
 
   val exportSucceeded: Boolean
     get() = skipped.filterValues { !(VALID_SKIP_REASONS.contains(it)) }.isEmpty()
@@ -61,7 +63,7 @@ data class PipelineExportResult(
 }
 
 
-fun PipelineExportResult.toMigratblePipelines(): List<MigrationPipeline> =
+fun PipelineExportResult.toMigratablePipelines(): List<MigrationPipeline> =
   skipped.map { (pipeline, reason) ->
     MigrationPipeline(
       id = pipeline.id,
@@ -70,9 +72,9 @@ fun PipelineExportResult.toMigratblePipelines(): List<MigrationPipeline> =
       shape = pipeline.shape.joinToString(" -> "),
       reason = reason,
       status = PipelineStatus.PROCESSED,
-      constraints = pipeline.constraints.toMigratbleConstraints(),
-      resources = pipeline.resources.toMigratbleResouces(),
-      artifacts = pipeline.artifacts.toMigratbleArtifacts()
+      constraints = pipeline.constraints.toMigratableConstraints(),
+      resources = pipeline.resources.toMigratableResouces(),
+      artifacts = pipeline.artifacts.toMigratableArtifacts()
     )
   } +
     (exported.keys - skipped.keys).map { pipeline ->
@@ -83,11 +85,12 @@ fun PipelineExportResult.toMigratblePipelines(): List<MigrationPipeline> =
           shape =  pipeline.shape.joinToString(" -> "),
           environments =  environments?.map { it.name },
           id = pipeline.id,
+          artifacts = pipeline.artifacts.toMigratableArtifacts(),
           status = PipelineStatus.EXPORTED
         )
       }
 
-private fun Set<Constraint>?.toMigratbleConstraints(): Set<PipelineConstraint>? {
+private fun Set<Constraint>?.toMigratableConstraints(): Set<PipelineConstraint>? {
   val objectMapper = configuredObjectMapper()
   return this?.map { constraint ->
     PipelineConstraint (
@@ -97,7 +100,7 @@ private fun Set<Constraint>?.toMigratbleConstraints(): Set<PipelineConstraint>? 
   }?.toSet()
 }
 
-private fun Set<SubmittedResource<ResourceSpec>>?.toMigratbleResouces(): Set<PipelineResource>? {
+private fun Set<SubmittedResource<ResourceSpec>>?.toMigratableResouces(): Set<PipelineResource>? {
   val objectMapper = configuredObjectMapper()
   return this?.map { resource ->
     PipelineResource (
@@ -108,13 +111,17 @@ private fun Set<SubmittedResource<ResourceSpec>>?.toMigratbleResouces(): Set<Pip
   }?.toSet()
 }
 
-private fun Set<DeliveryArtifact>?.toMigratbleArtifacts(): Set<PipelineArtifact>? {
+private fun Set<DeliveryArtifact>?.toMigratableArtifacts(): Set<PipelineArtifact>? {
   val objectMapper = configuredObjectMapper()
   return this?.map { artifact ->
     PipelineArtifact (
       name = artifact.name,
       type = artifact.type,
-      spec = objectMapper.convertValue(artifact)
+      spec = objectMapper.convertValue(artifact),
+      warning = when(artifact.exportWarning) {
+        is TagToReleaseArtifactException -> SkipReason.TAG_TO_RELEASE_ARTIFACT
+        else -> null
+      }
     )
   }?.toSet()
 }

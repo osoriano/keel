@@ -37,6 +37,7 @@ import com.netflix.spinnaker.keel.ec2.resource.ApplicationLoadBalancerHandler
 import com.netflix.spinnaker.keel.ec2.resource.ClassicLoadBalancerHandler
 import com.netflix.spinnaker.keel.ec2.resource.ClusterHandler
 import com.netflix.spinnaker.keel.ec2.resource.SecurityGroupHandler
+import com.netflix.spinnaker.keel.exceptions.TagToReleaseArtifactException
 import com.netflix.spinnaker.keel.export.ExportService.Companion.EXPORTABLE_PIPELINE_SHAPES
 import com.netflix.spinnaker.keel.export.canary.CanaryConstraint
 import com.netflix.spinnaker.keel.front50.Front50Cache
@@ -49,6 +50,7 @@ import com.netflix.spinnaker.keel.front50.model.PipelineNotifications
 import com.netflix.spinnaker.keel.front50.model.RestrictedExecutionWindow
 import com.netflix.spinnaker.keel.front50.model.TimeWindowConfig
 import com.netflix.spinnaker.keel.front50.model.Trigger
+import com.netflix.spinnaker.keel.igor.ScmService
 import com.netflix.spinnaker.keel.jenkins.BasicReport
 import com.netflix.spinnaker.keel.jenkins.JUnitReportConfig
 import com.netflix.spinnaker.keel.jenkins.JenkinsProject
@@ -59,6 +61,7 @@ import com.netflix.spinnaker.keel.orca.ExecutionDetailResponse
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
 import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
+import com.netflix.spinnaker.keel.scm.ScmUtils
 import com.netflix.spinnaker.keel.test.applicationLoadBalancer
 import com.netflix.spinnaker.keel.test.classicLoadBalancer
 import com.netflix.spinnaker.keel.test.configuredTestObjectMapper
@@ -109,6 +112,7 @@ internal class ExportServiceTests {
   private val slackService: SlackService = mockk()
   private val prettyPrinter: ObjectWriter = mockk()
   private val clouddriverService: CloudDriverService = mockk()
+  private val scmUtils: ScmUtils = mockk()
 
 
   private val subject = ExportService(
@@ -124,7 +128,8 @@ internal class ExportServiceTests {
     jenkinsService = jenkinsService,
     slackService = slackService,
     slackNotificationChannel = "team-channel",
-    cloudDriverService = clouddriverService
+    cloudDriverService = clouddriverService,
+    scmUtils = scmUtils
   )
 
   private val submittedDeliveryCofig = submittedDeliveryConfig()
@@ -489,6 +494,10 @@ internal class ExportServiceTests {
     } returns listOf(loadBalancer)
 
     objectMapper.registerSubtypes(NamedType(TitusClusterSpec::class.java, TITUS_CLUSTER_V1.kind.toString()))
+
+    every {
+      scmUtils.getDefaultBranch(any())
+    } returns "main"
   }
 
   @Test
@@ -1004,4 +1013,29 @@ internal class ExportServiceTests {
     }
     expectThat(exportable).captured.get { regions }.hasSize(3).containsExactlyInAnyOrder(region1, region2, region3)
   }
+
+  @Test
+  fun `artifact with an export warning still gets exported`() {
+    every { ec2ClusterHandler.exportArtifact(any()) } returns artifact.copy(
+      exportWarning = TagToReleaseArtifactException(artifact.name)
+    )
+    every {
+      front50Cache.pipelinesByApplication(appName)
+    } returns listOf(pipelineWithProdEnvAndNotifications)
+
+    val result = runBlocking {
+      subject.exportFromPipelines(appName)
+    }
+
+    expectThat(result) {
+      isA<PipelineExportResult>().and {
+        get {
+          exported.keys.first().artifacts?.any {
+            it.exportWarning is TagToReleaseArtifactException
+          }
+        }.isTrue()
+      }
+    }
+  }
+
 }

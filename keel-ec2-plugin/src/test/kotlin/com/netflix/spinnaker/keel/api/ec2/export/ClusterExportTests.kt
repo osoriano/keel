@@ -218,7 +218,6 @@ internal class ClusterExportTests {
     clusterExportHelper,
     blockDeviceConfig,
     artifactService,
-    jenkinsService,
     DefaultResourceDiffFactory()
   )
 
@@ -342,10 +341,18 @@ internal class ClusterExportTests {
     }
 
     @Test
-    fun `artifact is not exported and exception is thrown`() {
-      expectThrows<TagToReleaseArtifactException> {
+    fun `artifact with tag-to-release is exported and the exception is captured`() {
+      val artifact = runBlocking {
         subject.exportArtifact(exportable.copy(regions = setOf("us-east-1")))
       }
+      expectThat(artifact) {
+        get { name }.isEqualTo("keel")
+        isA<DebianArtifact>()
+          .and {
+            get { exportWarning }.isA<TagToReleaseArtifactException>()
+          }
+      }
+
     }
   }
 

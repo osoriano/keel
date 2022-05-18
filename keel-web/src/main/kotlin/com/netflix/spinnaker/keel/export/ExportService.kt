@@ -6,6 +6,7 @@ import com.netflix.spinnaker.config.DefaultWorkhorseCoroutineContext
 import com.netflix.spinnaker.config.WorkhorseCoroutineContext
 import com.netflix.spinnaker.keel.activation.DiscoveryActivated
 import com.netflix.spinnaker.keel.api.AccountAwareLocations
+import com.netflix.spinnaker.keel.api.Application
 import com.netflix.spinnaker.keel.api.Constraint
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Dependency
@@ -21,23 +22,21 @@ import com.netflix.spinnaker.keel.api.ResourceKind
 import com.netflix.spinnaker.keel.api.ResourceSpec
 import com.netflix.spinnaker.keel.api.Verification
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
+import com.netflix.spinnaker.keel.api.artifacts.fromBranch
 import com.netflix.spinnaker.keel.api.ec2.ApplicationLoadBalancerSpec
 import com.netflix.spinnaker.keel.api.ec2.ClassicLoadBalancerSpec
-import com.netflix.spinnaker.keel.api.ec2.ClusterSpec
 import com.netflix.spinnaker.keel.api.ec2.EC2_APPLICATION_LOAD_BALANCER_V1_2
 import com.netflix.spinnaker.keel.api.ec2.EC2_CLASSIC_LOAD_BALANCER_V1
 import com.netflix.spinnaker.keel.api.ec2.EC2_CLUSTER_V1_1
 import com.netflix.spinnaker.keel.api.ec2.EC2_SECURITY_GROUP_V1
 import com.netflix.spinnaker.keel.api.ec2.SecurityGroupSpec
 import com.netflix.spinnaker.keel.api.migration.SkipReason
-import com.netflix.spinnaker.keel.api.migration.SkipReason.ARTIFACT_METADATA_UNAVAILABLE
 import com.netflix.spinnaker.keel.api.migration.SkipReason.DISABLED
 import com.netflix.spinnaker.keel.api.migration.SkipReason.FROM_TEMPLATE
 import com.netflix.spinnaker.keel.api.migration.SkipReason.HAS_PARALLEL_STAGES
 import com.netflix.spinnaker.keel.api.migration.SkipReason.NOT_EXECUTED_RECENTLY
 import com.netflix.spinnaker.keel.api.migration.SkipReason.RESOURCE_NOT_SUPPORTED
 import com.netflix.spinnaker.keel.api.migration.SkipReason.SHAPE_NOT_SUPPORTED
-import com.netflix.spinnaker.keel.api.migration.SkipReason.TAG_TO_RELEASE_ARTIFACT
 import com.netflix.spinnaker.keel.api.migration.SkipReason.UNSPECIFIED_ARTIFACT_EXPORT_ERROR
 import com.netflix.spinnaker.keel.api.plugins.ResourceHandler
 import com.netflix.spinnaker.keel.api.plugins.supporting
@@ -57,8 +56,6 @@ import com.netflix.spinnaker.keel.core.api.TimeWindow
 import com.netflix.spinnaker.keel.core.api.id
 import com.netflix.spinnaker.keel.core.parseMoniker
 import com.netflix.spinnaker.keel.exceptions.ArtifactExportException
-import com.netflix.spinnaker.keel.exceptions.ArtifactMetadataUnavailableException
-import com.netflix.spinnaker.keel.exceptions.TagToReleaseArtifactException
 import com.netflix.spinnaker.keel.export.canary.extractCanaryConstraints
 import com.netflix.spinnaker.keel.filterNotNullValues
 import com.netflix.spinnaker.keel.front50.Front50Cache
@@ -76,6 +73,7 @@ import com.netflix.spinnaker.keel.orca.ExecutionDetailResponse
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
 import com.netflix.spinnaker.keel.persistence.NoDeliveryConfigForApplication
+import com.netflix.spinnaker.keel.scm.ScmUtils
 import com.netflix.spinnaker.keel.validators.DeliveryConfigValidator
 import com.netflix.spinnaker.keel.verification.jenkins.JenkinsJobVerification
 import com.netflix.spinnaker.keel.veto.unhealthy.UnsupportedResourceTypeException
@@ -112,7 +110,8 @@ class ExportService(
   private val slackService: SlackService,
   @Value("\${keel.export.slack-notification-channel}")
   private val slackNotificationChannel: String,
-  override val coroutineContext: WorkhorseCoroutineContext = DefaultWorkhorseCoroutineContext
+  override val coroutineContext: WorkhorseCoroutineContext = DefaultWorkhorseCoroutineContext,
+  private val scmUtils: ScmUtils
 ) : CoroutineScope, DiscoveryActivated() {
   private val prettyPrinter by lazy { yamlMapper.writerWithDefaultPrettyPrinter() }
 
@@ -282,7 +281,7 @@ class ExportService(
     (result as? PipelineExportResult)?.let {
       deliveryConfigRepository.storePipelinesExportResult(
         deliveryConfig = it.deliveryConfig,
-        allPipelines = it.toMigratblePipelines(),
+        allPipelines = it.toMigratablePipelines(),
         exportSucceeded = it.exportSucceeded,
         repoSlug = it.repoSlug,
         projectKey = it.projectKey,
@@ -341,7 +340,7 @@ class ExportService(
     }
 
     // 1. find pipelines which are not matching to the supported patterns above
-    var nonExportablePipelines = pipelines.findNonExportable(maxAgeDays, includeVerifications, serviceAccount, applicationName)
+    var nonExportablePipelines = pipelines.findAndAnalyseNonExportable(maxAgeDays, includeVerifications, serviceAccount, application)
 
     // 2. get the actual supported pipelines
     val exportablePipelines = pipelines - nonExportablePipelines.keys
@@ -370,15 +369,10 @@ class ExportService(
 
         // 5. infer from the cluster all dependent resources, including artifacts
         val resourcesAndArtifacts = try {
-          createResourcesBasedOnCluster(cluster, environments, applicationName)
+          createResourcesBasedOnCluster(cluster, environments, application)
         } catch (e: ArtifactExportException) {
           log.debug("Unable to export artifacts from cluster ${cluster.moniker.toName()}")
-          val skipReason = when (e) {
-            is ArtifactMetadataUnavailableException -> ARTIFACT_METADATA_UNAVAILABLE
-            is TagToReleaseArtifactException -> TAG_TO_RELEASE_ARTIFACT
-            else -> UNSPECIFIED_ARTIFACT_EXPORT_ERROR
-          }
-          nonExportablePipelines = nonExportablePipelines + (pipeline to skipReason)
+          nonExportablePipelines = nonExportablePipelines + (pipeline to UNSPECIFIED_ARTIFACT_EXPORT_ERROR)
           return@mapValues emptyList()
         }
 
@@ -562,7 +556,10 @@ class ExportService(
   /**
    * Finds non-exportable pipelines in the list and associates them with the reason why they're not.
    */
-  private fun List<Pipeline>.findNonExportable(maxAgeDays: Long, includeVerifications: Boolean, serviceAccount: String, applicationName: String): Map<Pipeline, SkipReason> {
+  private fun List<Pipeline>.findAndAnalyseNonExportable(maxAgeDays: Long,
+                                                         includeVerifications: Boolean,
+                                                         serviceAccount: String,
+                                                         application: Application): Map<Pipeline, SkipReason> {
     val lastExecutions = runBlocking {
       associateWith { pipeline ->
         //return a map with the pipeline and its latest execution
@@ -581,12 +578,12 @@ class ExportService(
                                          .toSet())
           try {
             runBlocking {
-              val resourcesAndArtifact = createResourcesBasedOnCluster(cluster, emptySet(), applicationName)
-              resourcesAndArtifact.artifact?.let { pipeline.artifacts?.add(it) }
-              pipeline.resources?.addAll(resourcesAndArtifact.resources)
+              val resourceAndDependents = createResourcesBasedOnCluster(cluster, emptySet(), application)
+              resourceAndDependents.artifact?.let { pipeline.artifacts?.add(it) }
+              pipeline.resources?.addAll(resourceAndDependents.resources)
             }
           } catch (ex: Exception) {
-            log.error("caught an exception while try to export resources for non supported pipeline ${pipeline.name} in application $applicationName", ex)
+            log.error("caught an exception while try to export resources for non supported pipeline ${pipeline.name} in application ${application.name}", ex)
             return@map
           }
         }
@@ -612,30 +609,42 @@ class ExportService(
       }
     }.contains(pipeline.shape)
 
+  // holds resources that are dependencies for a cluster, plus the exported artifact
+  internal data class ArtifactAndDependencies (
+    val resources: Set<SubmittedResource<ResourceSpec>>,
+    val artifact: DeliveryArtifact? = null
+  )
+
   // Take a cluster exportable and return a pair with its dependent resources specs (cluster, security groups, and load balancers, and the artifact).
   private suspend fun createResourcesBasedOnCluster(
     cluster: Exportable,
     environments: Set<SubmittedEnvironment>,
-    applicationName: String
-  ): Pair<Set<SubmittedResource<ResourceSpec>>, DeliveryArtifact?> {
+    application: Application
+  ): ArtifactAndDependencies {
     val spec = try {
       handlers.supporting(cluster.clusterKind).export(cluster)
     } catch (e: Exception) {
-      log.error("Unable to export cluster ${cluster.moniker}: $e. Ignoring.")
-      return Pair(emptySet(), null)
+      log.debug("Unable to export cluster ${cluster.moniker}: $e. Ignoring.")
+      return ArtifactAndDependencies(emptySet())
     }
 
     // Export the artifact matching the cluster while we're at it
-    val artifact = try {
+    var artifact = try {
       handlers.supporting(cluster.clusterKind).exportArtifact(cluster)
     } catch (e: ArtifactExportException) {
-      log.error("Unable to export artifact for cluster ${cluster.moniker.toName()}")
+      log.debug("Unable to export artifact for cluster ${cluster.moniker.toName()} automatically")
       throw e
     }
 
+    // In case of a warning, we will fetch the default branch and use it, and will surface the exception to the UI
+    if (artifact.exportWarning != null) {
+      artifact = artifact.copyWithDefaultBranch(application)
+    }
+
     val loadBalancers =  runBlocking {
-      cloudDriverService.loadBalancersForApplication(DEFAULT_SERVICE_ACCOUNT, applicationName)
-    } as List<ApplicationLoadBalancerModel>
+      cloudDriverService.loadBalancersForApplication(DEFAULT_SERVICE_ACCOUNT, application.name)
+    }.filterIsInstance<ApplicationLoadBalancerModel>()
+      .toList()
 
     log.debug("Exported artifact $artifact from cluster ${cluster.moniker}")
     // get the cluster dependencies
@@ -643,23 +652,16 @@ class ExportService(
 
 
     // Get all the cluster dependencies security groups and alb
-    val securityGroupResources = dependentResources(dependencies, environments, cluster, EC2_SECURITY_GROUP_V1.kind, applicationName)
-    val loadBalancersResources = dependentResources(dependencies, environments, cluster, EC2_CLASSIC_LOAD_BALANCER_V1.kind, applicationName)
-    val targetGroupResources = dependentResources(dependencies, environments, cluster, EC2_APPLICATION_LOAD_BALANCER_V1_2.kind, applicationName, loadBalancers)
+    val securityGroupResources = dependentResources(dependencies, environments, cluster, EC2_SECURITY_GROUP_V1.kind, application.name)
+    val loadBalancersResources = dependentResources(dependencies, environments, cluster, EC2_CLASSIC_LOAD_BALANCER_V1.kind, application.name)
+    val targetGroupResources = dependentResources(dependencies, environments, cluster, EC2_APPLICATION_LOAD_BALANCER_V1_2.kind, application.name, loadBalancers)
 
-    return Pair(
+    return ArtifactAndDependencies(
       // combine dependent resources and cluster resource
       loadBalancersResources + securityGroupResources + targetGroupResources +
         setOf(SubmittedResource(
           kind = cluster.clusterKind,
-          spec = when (spec) {
-            is ClusterSpec -> {
-              spec.copy(
-                artifactReference = artifact.reference
-              )
-            }
-            else -> spec
-          }
+          spec = spec
         )), artifact)
   }
 
@@ -1040,6 +1042,23 @@ class ExportService(
   private fun SlackService.notifyTeam(message: String) {
     val block = SectionBlock().apply { text = MarkdownTextObject(":alert: $message", false) }
     postChatMessage(slackNotificationChannel, listOf(block), message)
+  }
+
+  private fun DeliveryArtifact.copyWithDefaultBranch(application: Application
+    ): DeliveryArtifact {
+    return if (this is DebianArtifact) {
+      try {
+      val defaultBranch = scmUtils.getDefaultBranch(application)
+      this.copy(
+        from = fromBranch(defaultBranch)
+      )
+      } catch (ex: Exception) {
+        log.debug("caught an exception while trying to get default branch for application ${application.name};" +
+          "will continue with filter branch set to *")
+        this
+      }
+    }
+    else this
   }
 }
 

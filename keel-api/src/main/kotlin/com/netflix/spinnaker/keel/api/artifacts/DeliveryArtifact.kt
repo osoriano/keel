@@ -150,6 +150,10 @@ abstract class DeliveryArtifact {
   val filteredBySource: Boolean
     get() = filteredByBranch || filteredByPullRequest
 
+  @get:JsonIgnore
+  @get:ExcludedFromDiff
+  open val exportWarning: Exception? = null
+
   fun hasMatchingSource(gitMetadata: GitMetadata?): Boolean {
     return when {
       this.filteredBySource && gitMetadata == null -> false

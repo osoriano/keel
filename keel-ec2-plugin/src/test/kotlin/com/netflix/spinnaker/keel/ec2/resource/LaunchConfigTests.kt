@@ -192,7 +192,6 @@ internal class LaunchConfigTests {
     clusterExportHelper,
     blockDeviceConfig,
     artifactService,
-    jenkinsService,
     DefaultResourceDiffFactory()
   )
 

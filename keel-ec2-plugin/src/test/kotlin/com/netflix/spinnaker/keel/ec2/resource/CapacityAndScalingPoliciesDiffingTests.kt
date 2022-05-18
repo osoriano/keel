@@ -74,7 +74,6 @@ class CapacityAndScalingPoliciesDiffingTests {
     clusterExportHelper = mockk(),
     blockDeviceConfig = mockk(),
     artifactService = mockk(),
-    jenkinsService = mockk(),
     diffFactory = DefaultResourceDiffFactory()
   )
 

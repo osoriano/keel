@@ -30,7 +30,8 @@ data class PipelineConstraint (
 data class PipelineArtifact (
   val type: String,
   val name: String,
-  val spec: Map<String, Any?> = emptyMap()
+  val spec: Map<String, Any?> = emptyMap(),
+  val warning: SkipReason? = null
 )
 
 

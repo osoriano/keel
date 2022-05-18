@@ -216,7 +216,6 @@ internal class ClusterHandlerTests : JUnit5Minutests {
         clusterExportHelper,
         blockDeviceConfig,
         artifactService,
-        jenkinsService,
         DefaultResourceDiffFactory()
       )
     }

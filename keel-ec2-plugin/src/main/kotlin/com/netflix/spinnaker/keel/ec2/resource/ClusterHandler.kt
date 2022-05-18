@@ -95,7 +95,6 @@ import com.netflix.spinnaker.keel.exceptions.ArtifactExportException
 import com.netflix.spinnaker.keel.exceptions.TagToReleaseArtifactException
 import com.netflix.spinnaker.keel.filterNotNullValues
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactService
-import com.netflix.spinnaker.keel.jenkins.JenkinsService
 import com.netflix.spinnaker.keel.orca.ClusterExportHelper
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.orca.toOrcaJobProperties
@@ -130,11 +129,8 @@ class ClusterHandler(
   private val clusterExportHelper: ClusterExportHelper,
   private val blockDeviceConfig: BlockDeviceConfig,
   private val artifactService: ArtifactService,
-  private val jenkinsService: JenkinsService,
   diffFactory: ResourceDiffFactory
 ) : BaseClusterHandler<ClusterSpec, ServerGroup>(resolvers, taskLauncher, diffFactory) {
-
-  private val debianArtifactParser = DebianArtifactParser()
 
   private val mapper = configuredObjectMapper()
 
@@ -374,25 +370,30 @@ class ClusterHandler(
       }
     }
 
+    val exportedArtifact = DebianArtifact(
+      name = artifactName,
+      vmOptions = VirtualMachineOptions(regions = serverGroups.keys, baseOs = guessBaseOsFrom(base.image)),
+    )
+
     // fail if branch-based artifact spec is not possible
-    if (artifact.branch != null && artifact.branch != artifact.commitHash) {
+    if (artifact.branch != artifact.commitHash) {
       log.debug("Found branch name '{}' for artifact {}:{} from metadata. Returning source-driven artifact.",
         artifact.branch, artifactName, artifactVersion)
 
-      return DebianArtifact(
-        name = artifactName,
-        vmOptions = VirtualMachineOptions(regions = serverGroups.keys, baseOs = guessBaseOsFrom(base.image)),
+      return exportedArtifact.copy(
         from = fromBranch(artifact.branch),
-        // provide a unique reference name
-        reference = "$artifactName:${artifact.branch}"
       )
     } else {
       if (artifact.branch == artifact.commitHash) {
         log.debug("artifact $artifactName branch is set to commit hash. It can happen because it was tag-to-release" +
           "or was build with a non-rocket build plugin")
-        throw TagToReleaseArtifactException(artifact)
+        return exportedArtifact.copy(
+          exportWarning = TagToReleaseArtifactException(artifact.name)
+        )
       } else {
-        throw ArtifactMetadataUnavailableException(DEBIAN, artifactName)
+        return exportedArtifact.copy(
+          exportWarning = ArtifactMetadataUnavailableException(DEBIAN, artifactName)
+        )
       }
     }
   }

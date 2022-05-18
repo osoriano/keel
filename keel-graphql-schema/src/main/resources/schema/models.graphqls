@@ -75,6 +75,7 @@ type MD_ArtifactSpec {
   id: ID!
   type: String
   spec: JSON
+  warning: MD_Warning_type
 }
 
 type MD_ConstraintSpec {

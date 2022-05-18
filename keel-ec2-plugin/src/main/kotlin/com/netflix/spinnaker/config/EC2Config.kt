@@ -71,7 +71,6 @@ class EC2Config {
       clusterExportHelper,
       blockDeviceConfig,
       artifactService,
-      jenkinsService,
       diffFactory
     )
 

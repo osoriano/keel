@@ -19,6 +19,7 @@ import com.netflix.spinnaker.keel.api.migration.PipelineConstraint
 import com.netflix.spinnaker.keel.api.migration.PipelineResource
 import com.netflix.spinnaker.keel.api.migration.MigrationPipeline
 import com.netflix.spinnaker.keel.api.migration.PipelineStatus
+import com.netflix.spinnaker.keel.api.migration.SkipReason.TAG_TO_RELEASE_ARTIFACT
 import com.netflix.spinnaker.keel.bakery.diff.PackageDiff
 import com.netflix.spinnaker.keel.core.api.ActuationPlan
 import com.netflix.spinnaker.keel.core.api.PinType
@@ -66,6 +67,7 @@ import com.netflix.spinnaker.keel.graphql.types.MD_ResourceTask
 import com.netflix.spinnaker.keel.graphql.types.MD_RolloutTargetStatus
 import com.netflix.spinnaker.keel.graphql.types.MD_StageDetail
 import com.netflix.spinnaker.keel.graphql.types.MD_UserGeneratedConfig
+import com.netflix.spinnaker.keel.graphql.types.MD_Warning_type
 import com.netflix.spinnaker.keel.notifications.DismissibleNotification
 import com.netflix.spinnaker.keel.pause.Pause
 import com.netflix.spinnaker.keel.persistence.TaskForResource
@@ -304,7 +306,11 @@ private fun Set<PipelineArtifact>?.toArtifacts(): List<MD_ArtifactSpec>? {
     MD_ArtifactSpec(
       type = artifact.type,
       id = artifact.name,
-      spec = artifact.spec
+      spec = artifact.spec,
+      warning = when(artifact.warning) {
+        TAG_TO_RELEASE_ARTIFACT -> MD_Warning_type.TAG_TO_RELEASE_ARTIFACT
+        else -> null
+      }
     )
   }?.toList()
 }

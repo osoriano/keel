@@ -124,6 +124,7 @@ class Migration(
       user = user,
       rawUserGeneratedConfig = payload.deliveryConfig
     )
+
     // store the delivery config (but paused) so that we can do things with it like diffing resources
     // even before the app is officially onboarded
     applicationService.storePausedMigrationConfig(payload.application, user, prData.deliveryConfig)
