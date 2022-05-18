@@ -33,6 +33,7 @@ import com.netflix.spinnaker.keel.ec2.jackson.registerEc2Subtypes
 import com.netflix.spinnaker.keel.ec2.jackson.registerKeelEc2ApiModule
 import com.netflix.spinnaker.keel.resources.SpecMigrator
 import com.netflix.spinnaker.keel.titus.jackson.registerKeelTitusApiModule
+import com.netflix.spinnaker.keel.titus.jackson.registerTitusSubtypes
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import javax.annotation.PostConstruct
@@ -70,6 +71,7 @@ class KeelConfigurationFinalizer(
     // Registering sub-types with the extension registry is redundant with the call to
     // registerKeelEc2ApiModule below, as far as object mappers go, but needed for the schema generator.
     extensionRegistry.registerEc2Subtypes()
+    extensionRegistry.registerTitusSubtypes()
     objectMappers.forEach {
       it.registerKeelEc2ApiModule()
       it.registerKeelTitusApiModule()

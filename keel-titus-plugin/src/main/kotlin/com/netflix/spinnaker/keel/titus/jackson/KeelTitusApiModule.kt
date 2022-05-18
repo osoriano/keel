@@ -8,6 +8,8 @@ import com.fasterxml.jackson.databind.Module
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.deser.Deserializers
 import com.fasterxml.jackson.databind.module.SimpleModule
+import com.netflix.spinnaker.keel.api.ec2.ScalingSpec
+import com.netflix.spinnaker.keel.api.support.ExtensionRegistry
 import com.netflix.spinnaker.keel.api.titus.TitusScalingSpec
 import com.netflix.spinnaker.keel.clouddriver.model.PlatformSidecar
 
@@ -16,6 +18,10 @@ fun ObjectMapper.registerKeelTitusApiModule(): ObjectMapper =
     .apply {
       registerSubtypes(TitusScalingSpec::class.java)
     }
+
+fun ExtensionRegistry.registerTitusSubtypes() {
+  register(ScalingSpec::class.java, TitusScalingSpec::class.java, "titus")
+}
 
 object KeelTitusApiModule : SimpleModule("Keel Titus API") {
   override fun setupModule(context: SetupContext) {
