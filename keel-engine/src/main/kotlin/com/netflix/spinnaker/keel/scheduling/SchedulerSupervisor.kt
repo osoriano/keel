@@ -1,6 +1,8 @@
 package com.netflix.spinnaker.keel.scheduling
 
 import com.netflix.spinnaker.keel.scheduling.activities.SupervisorActivities
+import com.netflix.spinnaker.keel.scheduling.activities.SupervisorActivities.ReconcileSchedulersRequest
+import io.temporal.workflow.SignalMethod
 import io.temporal.workflow.WorkflowInterface
 import io.temporal.workflow.WorkflowMethod
 
@@ -12,6 +14,9 @@ interface SchedulerSupervisor {
 
   @WorkflowMethod
   fun supervise(request: SuperviseRequest)
+
+  @SignalMethod
+  fun superviseNow(request: SuperviseRequest)
 
   data class SuperviseRequest(
     val scheduler: SupervisorType
@@ -28,6 +33,10 @@ class DefaultSchedulerSupervisor : SchedulerSupervisor {
   private val supervisorActivities = SupervisorActivities.get()
 
   override fun supervise(request: SchedulerSupervisor.SuperviseRequest) {
-    supervisorActivities.reconcileSchedulers(SupervisorActivities.ReconcileSchedulersRequest(request.scheduler))
+    supervisorActivities.reconcileSchedulers(ReconcileSchedulersRequest(request.scheduler))
+  }
+
+  override fun superviseNow(request: SchedulerSupervisor.SuperviseRequest) {
+    supervisorActivities.reconcileSchedulers(ReconcileSchedulersRequest(request.scheduler))
   }
 }

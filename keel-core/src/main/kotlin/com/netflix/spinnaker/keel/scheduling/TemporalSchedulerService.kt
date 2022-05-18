@@ -66,7 +66,7 @@ class TemporalSchedulerService(
   }
 
   fun startSchedulingEnvironment(application: String, environment: String) {
-    if (environmentSchedulingEnabled() && isScheduling(application, environment)) {
+    if (!environmentSchedulingEnabled() && isScheduling(application, environment)) {
       // environment is already scheduled or scheduling is disabled
       return
     }
@@ -247,8 +247,12 @@ class TemporalSchedulerService(
   }
 
   fun checkResourceNow(resource: Resource<*>) {
+    checkResourceNow(resource.header)
+  }
+
+  fun checkResourceNow(resource: ResourceHeader) {
     val stub = workflowServiceStubsProvider.forNamespace(TEMPORAL_NAMESPACE)
-    log.debug("Rechecking resource ${resource.id} with workflow id ${resource.workflowId} in application ${resource.application}")
+    log.debug("Rechecking resource ${resource.id} with workflow id ${workflowId(resource.uid)} in application ${resource.application}")
     try {
       stub.blockingStub()
         .signalWorkflowExecution(
@@ -289,7 +293,7 @@ class TemporalSchedulerService(
   fun workflowId(application: String, environment: String) =
     "environment:$application:$environment"
 
-  private fun workflowId(uid: String): String = "resource:$uid"
+  fun workflowId(uid: String): String = "resource:$uid"
 
   private val Resource<*>.workflowId
     get() = workflowId(header.uid)
