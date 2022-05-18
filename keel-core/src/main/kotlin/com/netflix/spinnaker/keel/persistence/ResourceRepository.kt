@@ -42,7 +42,7 @@ data class ResourceHeader(
   )
 }
 
-interface ResourceRepository : PeriodicallyCheckedRepository<Resource<ResourceSpec>> {
+interface ResourceRepository {
   val clock: Clock
     get() = Clock.systemUTC()
 
@@ -159,7 +159,6 @@ interface ResourceRepository : PeriodicallyCheckedRepository<Resource<ResourceSp
    * This method is _not_ intended to be idempotent, subsequent calls are expected to return
    * different values.
    */
-  override fun itemsDueForCheck(minTimeSinceLastCheck: Duration, limit: Int): Collection<Resource<ResourceSpec>>
 
   fun getLastCheckedTime(resource: Resource<*>): Instant?
 

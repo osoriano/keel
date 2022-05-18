@@ -407,10 +407,6 @@ class KeelRepository(
   fun deliveryConfigsDueForCheck(minTimeSinceLastCheck: Duration, limit: Int): Collection<DeliveryConfig> =
     deliveryConfigRepository.itemsDueForCheck(minTimeSinceLastCheck, limit)
 
-  fun markResourceCheckComplete(resource: Resource<*>, state: ResourceState) {
-    resourceRepository.markCheckComplete(resource, state)
-  }
-
   fun markDeliveryConfigCheckComplete(deliveryConfig: DeliveryConfig) {
     deliveryConfigRepository.markCheckComplete(deliveryConfig, null)
   }
@@ -484,9 +480,6 @@ class KeelRepository(
 
   fun appendApplicationHistory(event: ApplicationEvent) =
     resourceRepository.appendHistory(event)
-
-  fun resourcesDueForCheck(minTimeSinceLastCheck: Duration, limit: Int): Collection<Resource<ResourceSpec>> =
-    resourceRepository.itemsDueForCheck(minTimeSinceLastCheck, limit)
 
   fun triggerResourceRecheck(environmentName: String, deliveryConfig: DeliveryConfig) {
     temporalSchedulerService.checkResourcesInEnvironmentNow(deliveryConfig, environmentName)

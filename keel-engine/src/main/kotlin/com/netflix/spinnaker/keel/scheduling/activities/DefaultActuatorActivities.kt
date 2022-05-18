@@ -91,5 +91,5 @@ class DefaultActuatorActivities(
     spectator.recordDurationPercentile("keel.scheduled.method.duration", startTime, clock.instant(), setOf(BasicTag("type", type), BasicTag("checker", TEMPORAL_CHECKER)))
 
   private fun recordCheckAge(lastCheck: Instant, type: String) =
-    spectator.recordDurationPercentile("keel.periodically.checked.age", lastCheck, clock.instant(), setOf(BasicTag("type", type), BasicTag("scheduler", "temporal")))
+    spectator.recordDurationPercentile("keel.periodically.checked.age", lastCheck, clock.instant(), setOf(BasicTag("type", type), BasicTag("scheduler", TEMPORAL_CHECKER)))
 }

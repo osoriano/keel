@@ -218,10 +218,6 @@ class SqlKeelRepositoryTests : JUnit5Minutests {
       mockk(relaxed = true)
     )
 
-    fun resourcesDueForCheck() =
-      subject.resourcesDueForCheck(Duration.ofMinutes(1), Int.MAX_VALUE)
-        .onEach { subject.markResourceCheckComplete(it, Ok) }
-
     fun KeelRepository.allResourceNames(): List<String> =
       mutableListOf<String>()
         .also { list ->
@@ -475,16 +471,8 @@ class SqlKeelRepositoryTests : JUnit5Minutests {
             }
           }
 
-          test("will check the resource") {
-            expectThat(resourcesDueForCheck())
-              .hasSize(1)
-              .first()
-              .get { id }.isEqualTo(resource.id)
-          }
-
           context("after an update") {
             before {
-              resourcesDueForCheck()
               subject.upsertResource(
                 resource.copy(
                   spec = DummyResourceSpec(
@@ -509,18 +497,10 @@ class SqlKeelRepositoryTests : JUnit5Minutests {
                 resourceRepository.appendHistory(ofType<ResourceUpdated>())
               }
             }
-
-            test("will check the resource again") {
-              expectThat(resourcesDueForCheck())
-                .hasSize(1)
-                .first()
-                .get { id }.isEqualTo(resource.id)
-            }
           }
 
           context("after a no-op update") {
             before {
-              resourcesDueForCheck()
               subject.upsertResource(resource, deliveryConfig.name)
             }
 
@@ -534,11 +514,6 @@ class SqlKeelRepositoryTests : JUnit5Minutests {
               verify(exactly = 0) {
                 publisher.publishEvent(ofType<ResourceUpdated>())
               }
-            }
-
-            test("will not check the resource again") {
-              expectThat(resourcesDueForCheck())
-                .isEmpty()
             }
           }
         }

@@ -33,8 +33,6 @@ import com.netflix.spinnaker.keel.persistence.metamodel.Tables.RESOURCE_VERSION
 import com.netflix.spinnaker.keel.resources.ResourceFactory
 import com.netflix.spinnaker.keel.sql.RetryCategory.READ
 import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
-import com.netflix.spinnaker.keel.telemetry.AboutToBeChecked
-import com.netflix.spinnaker.keel.telemetry.ResourceAboutToBeChecked
 import com.netflix.spinnaker.keel.telemetry.ResourceCheckCompleted
 import de.huxhorn.sulky.ulid.ULID
 import org.jooq.DSLContext
@@ -72,9 +70,6 @@ class SqlResourceRepository(
    * Creating a metric to get insight into affected apps
    */
   private val resourceVersionInsertId = spectator.createId("resource.version.insert")
-
-  private val itemsDueForCheckCheckSingleSelectQuery : Boolean
-    get() = springEnv.getProperty("keel.items.due.for.check.single.select.query", Boolean::class.java, false)
 
   private val resourceFetchSize: Int
     get() = springEnv.getProperty("keel.resource-repository.batch-fetch-size", Int::class.java, 100)
@@ -242,15 +237,6 @@ class SqlResourceRepository(
     }
 
     spectator.counter(resourceVersionInsertId.withTag("success", "true")).increment()
-
-    // todo eb: remove this when the scheduling is entirely on temporal. This is just for metrics.
-    val fiveMinutesAgo = clock.instant().minus(Duration.ofMinutes(5))
-    jooq.insertInto(RESOURCE_LAST_CHECKED)
-      .set(RESOURCE_LAST_CHECKED.RESOURCE_UID, uid)
-      .set(RESOURCE_LAST_CHECKED.AT, fiveMinutesAgo)
-      .onDuplicateKeyUpdate()
-      .set(RESOURCE_LAST_CHECKED.AT, fiveMinutesAgo)
-      .execute()
 
     return resource.copy(
       metadata = resource.metadata + mapOf("uid" to uid, "version" to version + 1)
@@ -434,154 +420,6 @@ class SqlResourceRepository(
     }
   }
 
-  override fun itemsDueForCheck(minTimeSinceLastCheck: Duration, limit: Int): Collection<Resource<ResourceSpec>> =
-    when (itemsDueForCheckCheckSingleSelectQuery) {
-      true -> itemsDueForCheckSingleSelectQuery(minTimeSinceLastCheck, limit)
-      false -> itemsDueForCheckMultipleQueries(minTimeSinceLastCheck, limit)
-    }
-
-  /**
-   * This implementation uses a single select query.
-   *
-   * This is the original implementation, but we often got deadlocks when people would update a delivery config,
-   * on inserting a record into the resource_version table, which is one of the tables that backs the active_resource
-   * view.
-   */
-  private fun itemsDueForCheckSingleSelectQuery(minTimeSinceLastCheck: Duration, limit: Int): Collection<Resource<ResourceSpec>> {
-    val now = clock.instant()
-    val cutoff = now.minus(minTimeSinceLastCheck)
-    return sqlRetry.withRetry(WRITE) {
-      jooq.inTransaction {
-        select(
-          ACTIVE_RESOURCE.UID,
-          ACTIVE_RESOURCE.KIND,
-          ACTIVE_RESOURCE.METADATA,
-          ACTIVE_RESOURCE.SPEC,
-          ACTIVE_RESOURCE.APPLICATION,
-          RESOURCE_LAST_CHECKED.AT
-        )
-          .from(ACTIVE_RESOURCE, RESOURCE_LAST_CHECKED)
-          .where(ACTIVE_RESOURCE.UID.eq(RESOURCE_LAST_CHECKED.RESOURCE_UID))
-          .and(RESOURCE_LAST_CHECKED.AT.lessOrEqual(cutoff))
-          .and(RESOURCE_LAST_CHECKED.IGNORE.notEqual(true))
-          .orderBy(RESOURCE_LAST_CHECKED.AT)
-          .limit(limit)
-          .forUpdate()
-          .fetch()
-          .onEach { (uid, _, _, _, application, lastCheckedAt) ->
-            insertInto(RESOURCE_LAST_CHECKED)
-              .set(RESOURCE_LAST_CHECKED.RESOURCE_UID, uid)
-              .set(RESOURCE_LAST_CHECKED.AT, now)
-              .onDuplicateKeyUpdate()
-              .set(RESOURCE_LAST_CHECKED.AT, now)
-              .execute()
-            publisher.publishEvent(AboutToBeChecked(
-              lastCheckedAt,
-              "resource",
-              "application:$application"
-            ))
-          }
-      }
-        .map { (uid, kind, metadata, spec) ->
-          try {
-            val resource = resourceFactory.create(kind, metadata, spec)
-            publisher.publishEvent(ResourceAboutToBeChecked(resource))
-            resource
-          } catch (e: Exception) {
-            jooq.insertInto(RESOURCE_LAST_CHECKED)
-              .set(RESOURCE_LAST_CHECKED.RESOURCE_UID, uid)
-              .set(RESOURCE_LAST_CHECKED.AT, now)
-              .set(RESOURCE_LAST_CHECKED.STATUS, ResourceState.Error)
-              .set(RESOURCE_LAST_CHECKED.IGNORE, true)
-              .onDuplicateKeyUpdate()
-              .set(RESOURCE_LAST_CHECKED.AT, now)
-              .set(RESOURCE_LAST_CHECKED.STATUS, ResourceState.Error)
-              .set(RESOURCE_LAST_CHECKED.IGNORE, true)
-              .execute()
-            throw e
-          }
-        }
-    }
-  }
-
-  /**
-   * This implementation uses two select queries.
-   *
-   * The first query only runs against the resource_last_checked table. This is to reduce the scope of the FOR UPDATE
-   * lock.
-   *
-   */
-  private fun itemsDueForCheckMultipleQueries(minTimeSinceLastCheck: Duration, limit: Int): Collection<Resource<ResourceSpec>> {
-    val now = clock.instant()
-    val cutoff = now.minus(minTimeSinceLastCheck)
-    return sqlRetry.withRetry(WRITE) {
-
-      /**
-       * Ideally, we would use a single UPDATE ... RETURNING query instead of
-       * separate SELECT/UPDATE queries in a transaction
-       * Unfortunately, MySQL doesn't support RETURNING and jOOQ doesn't emulate it.
-       * see: https://github.com/jOOQ/jOOQ/issues/6865
-       */
-      val resourcesToCheck = jooq.inTransaction {
-        select(RESOURCE_LAST_CHECKED.RESOURCE_UID, RESOURCE_LAST_CHECKED.AT)
-          .from(RESOURCE_LAST_CHECKED)
-          .where(RESOURCE_LAST_CHECKED.AT.lessOrEqual(cutoff))
-          .and(RESOURCE_LAST_CHECKED.IGNORE.notEqual(true))
-          .orderBy(RESOURCE_LAST_CHECKED.AT)
-          .limit(limit)
-          .forUpdate()
-          .fetch()
-          .map {(uid, at) -> uid to at }
-          .toMap()
-          .also { m ->
-            update(RESOURCE_LAST_CHECKED)
-              .set(RESOURCE_LAST_CHECKED.AT, now)
-              .where(RESOURCE_LAST_CHECKED.RESOURCE_UID.`in`(m.keys))
-              .execute()
-          }
-      }
-
-      jooq.select(
-        ACTIVE_RESOURCE.UID,
-        ACTIVE_RESOURCE.KIND,
-        ACTIVE_RESOURCE.METADATA,
-        ACTIVE_RESOURCE.SPEC,
-        ACTIVE_RESOURCE.APPLICATION
-      )
-        .from(ACTIVE_RESOURCE)
-        .where(ACTIVE_RESOURCE.UID.`in`(resourcesToCheck.keys))
-        .fetch()
-        .map { (uid, kind, metadata, spec, application) ->
-          try {
-            publisher.publishEvent(
-              AboutToBeChecked(
-                resourcesToCheck[uid]!!,
-                "resource",
-                "application:$application"
-              )
-            )
-
-            val resource = resourceFactory.create(kind, metadata, spec)
-            publisher.publishEvent(ResourceAboutToBeChecked(resource))
-            resource
-
-          } catch (e: Exception) {
-            jooq.insertInto(RESOURCE_LAST_CHECKED)
-              .set(RESOURCE_LAST_CHECKED.RESOURCE_UID, uid)
-              .set(RESOURCE_LAST_CHECKED.AT, now)
-              .set(RESOURCE_LAST_CHECKED.STATUS, ResourceState.Error)
-              .set(RESOURCE_LAST_CHECKED.IGNORE, true)
-              .onDuplicateKeyUpdate()
-              .set(RESOURCE_LAST_CHECKED.AT, now)
-              .set(RESOURCE_LAST_CHECKED.STATUS, ResourceState.Error)
-              .set(RESOURCE_LAST_CHECKED.IGNORE, true)
-              .execute()
-            throw e
-          }
-        }
-    }
-  }
-
   override fun getLastCheckedTime(resource: Resource<*>): Instant? =
     sqlRetry.withRetry(READ) {
       jooq
@@ -604,7 +442,7 @@ class SqlResourceRepository(
     }
   }
 
-  override fun markCheckComplete(resource: Resource<*>, status: Any?) {
+  fun markCheckComplete(resource: Resource<*>, status: Any?) {
     require(status is ResourceState)
     sqlRetry.withRetry(WRITE) {
       val now = clock.instant()
