@@ -28,7 +28,10 @@ import com.netflix.spinnaker.keel.api.schema.Description
 import com.netflix.spinnaker.keel.api.schema.Factory
 import com.netflix.spinnaker.keel.api.schema.Optional
 import com.netflix.spinnaker.keel.api.schema.Title
+import org.slf4j.LoggerFactory
 import java.time.Duration
+
+private val log by lazy { LoggerFactory.getLogger(ClusterSpec::class.java) }
 
 /**
  * Transforms a [ClusterSpec] into a concrete model of server group desired states.
@@ -106,18 +109,30 @@ private fun ClusterSpec.resolveLaunchConfiguration(region: SubnetAwareRegionSpec
 fun ClusterSpec.resolveCapacity(region: String? = null): Capacity {
   val regionOverrides = overrides[region]
   val hasScalingPolicies = (regionOverrides?.scaling ?: defaults.scaling).hasScalingPolicies()
+
+  log.debug("Resolving capacity for $moniker:" +
+    " regionOverrides: ${regionOverrides?.let { "not null" } ?: "null"}" +
+    " hasScalingPolicies: $hasScalingPolicies"
+  )
+
   return when (region) {
     null -> defaults.resolveCapacity(hasScalingPolicies) ?: Capacity.DefaultCapacity(1, 1, 1)
     else -> regionOverrides?.resolveCapacity(hasScalingPolicies) ?: defaults.resolveCapacity(hasScalingPolicies) ?: Capacity.DefaultCapacity(1, 1, 1)
   }
 }
 
-fun ServerGroupSpec.resolveCapacity(hasScalingPolicies: Boolean): Capacity? =
-  when {
+fun ServerGroupSpec.resolveCapacity(hasScalingPolicies: Boolean): Capacity? {
+  log.debug("Resolving server group spec:" +
+    " capacity: ${capacity?.let { "not null" } ?: "null"}" +
+    " hasScalingPolicies: $hasScalingPolicies"
+  )
+
+  return when {
     capacity == null -> null
     hasScalingPolicies -> Capacity.AutoScalingCapacity(capacity)
     else -> Capacity.DefaultCapacity(capacity)
   }
+}
 
 fun ClusterSpec.resolveScaling(region: String? = null): Scaling {
   val defaultScaling = defaults.scaling as? EC2ScalingSpec
