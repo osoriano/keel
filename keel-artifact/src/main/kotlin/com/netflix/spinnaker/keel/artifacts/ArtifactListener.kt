@@ -83,11 +83,9 @@ class ArtifactListener(
     if (enabled.get()) {
       runBlocking {
         log.debug("Syncing last ${artifactRefreshConfig.scheduledSyncLimit} artifact version(s) for all known artifacts...")
-        supervisorScope {
-          repository.getAllArtifacts().forEach { artifact ->
-            launch {
-              syncLastLimitArtifactVersions(artifact, artifactRefreshConfig.scheduledSyncLimit)
-            }
+        repository.getAllArtifacts().forEach { artifact ->
+          launch {
+            syncLastLimitArtifactVersions(artifact, artifactRefreshConfig.scheduledSyncLimit)
           }
         }
       }
