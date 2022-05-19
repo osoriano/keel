@@ -13,6 +13,8 @@ import com.netflix.spinnaker.keel.spring.test.MockEurekaConfiguration
 import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.keel.test.submittedResource
 import com.netflix.spinnaker.keel.yaml.APPLICATION_YAML
+import com.netflix.springboot.sso.test.EnableSsoTest
+import com.netflix.springboot.sso.test.WithSsoUser
 import com.ninjasquad.springmockk.MockkBean
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
@@ -39,6 +41,8 @@ import strikt.assertions.isNotNull
   webEnvironment = MOCK
 )
 @AutoConfigureMockMvc
+@EnableSsoTest
+@WithSsoUser(name = "alice")
 internal class ResourceControllerTests
 @Autowired constructor(
   val mvc: MockMvc,
@@ -75,7 +79,7 @@ internal class ResourceControllerTests
             .trimMargin()
         )
       mvc
-        .perform(request)
+        .perform(request.secure(true))
         .andExpect(status().isBadRequest)
     }
 
@@ -85,7 +89,7 @@ internal class ResourceControllerTests
       val request = get("/resources/${resource.id}")
         .accept(APPLICATION_YAML)
       val result = mvc
-        .perform(request)
+        .perform(request.secure(true))
         .andExpect(status().isOk)
         .andReturn()
       expectThat(result.response)
@@ -100,7 +104,7 @@ internal class ResourceControllerTests
       val request = get("/resources/i-do-not-exist")
         .accept(APPLICATION_YAML)
       mvc
-        .perform(request)
+        .perform(request.secure(true))
         .andExpect(status().isNotFound)
     }
 
@@ -116,7 +120,7 @@ internal class ResourceControllerTests
               .accept(MediaType.APPLICATION_JSON_VALUE)
               .header("X-SPINNAKER-USER", user)
 
-            mvc.perform(request).andExpect(status().isForbidden)
+            mvc.perform(request.secure(true)).andExpect(status().isForbidden)
           }
         }
         context("with no READ access to cloud account") {
@@ -129,7 +133,7 @@ internal class ResourceControllerTests
               .accept(MediaType.APPLICATION_JSON_VALUE)
               .header("X-SPINNAKER-USER", user)
 
-            mvc.perform(request).andExpect(status().isForbidden)
+            mvc.perform(request.secure(true)).andExpect(status().isForbidden)
           }
         }
       }
@@ -144,7 +148,7 @@ internal class ResourceControllerTests
               .accept(MediaType.APPLICATION_JSON_VALUE)
               .header("X-SPINNAKER-USER", user)
 
-            mvc.perform(request).andExpect(status().isForbidden)
+            mvc.perform(request.secure(true)).andExpect(status().isForbidden)
           }
         }
         context("with no READ access to cloud account") {
@@ -157,7 +161,7 @@ internal class ResourceControllerTests
               .accept(MediaType.APPLICATION_JSON_VALUE)
               .header("X-SPINNAKER-USER", user)
 
-            mvc.perform(request).andExpect(status().isForbidden)
+            mvc.perform(request.secure(true)).andExpect(status().isForbidden)
           }
         }
       }
@@ -171,7 +175,7 @@ internal class ResourceControllerTests
               .accept(MediaType.APPLICATION_JSON_VALUE)
               .header("X-SPINNAKER-USER", user)
 
-            mvc.perform(request).andExpect(status().isForbidden)
+            mvc.perform(request.secure(true)).andExpect(status().isForbidden)
           }
         }
       }
@@ -186,7 +190,7 @@ internal class ResourceControllerTests
               .accept(MediaType.APPLICATION_JSON_VALUE)
               .header("X-SPINNAKER-USER", user)
 
-            mvc.perform(request).andExpect(status().isForbidden)
+            mvc.perform(request.secure(true)).andExpect(status().isForbidden)
           }
         }
         context("with no access to service account") {
@@ -199,7 +203,7 @@ internal class ResourceControllerTests
               .accept(MediaType.APPLICATION_JSON_VALUE)
               .header("X-SPINNAKER-USER", user)
 
-            mvc.perform(request).andExpect(status().isForbidden)
+            mvc.perform(request.secure(true)).andExpect(status().isForbidden)
           }
         }
       }
@@ -213,7 +217,7 @@ internal class ResourceControllerTests
               .accept(MediaType.APPLICATION_JSON_VALUE)
               .header("X-SPINNAKER-USER", user)
 
-            mvc.perform(request).andExpect(status().isForbidden)
+            mvc.perform(request.secure(true)).andExpect(status().isForbidden)
           }
         }
       }

@@ -40,7 +40,6 @@ import strikt.assertions.isNotNull
 )
 internal class AuthPropagationTests
 @Autowired constructor(val cloudDriverService: CloudDriverService) : JUnit5Minutests {
-
   @Configuration
   class MockFiat {
     val mockAccount = Account()

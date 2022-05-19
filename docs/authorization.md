@@ -78,7 +78,7 @@ Again, here are the tests for the `DeliveryController` request function above:
           .accept(MediaType.APPLICATION_JSON_VALUE)
           .header("X-SPINNAKER-USER", "keel@keel.io")
 
-        mvc.perform(request).andExpect(status().isForbidden)
+        mvc.perform(request.secure(true)).andExpect(status().isForbidden)
       }
     }
     context("with no READ access to cloud account") {
@@ -91,7 +91,7 @@ Again, here are the tests for the `DeliveryController` request function above:
           .accept(MediaType.APPLICATION_JSON_VALUE)
           .header("X-SPINNAKER-USER", "keel@keel.io")
 
-        mvc.perform(request).andExpect(status().isForbidden)
+        mvc.perform(request.secure(true)).andExpect(status().isForbidden)
       }
     }
   }

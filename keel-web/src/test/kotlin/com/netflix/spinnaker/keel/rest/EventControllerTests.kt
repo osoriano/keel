@@ -22,6 +22,8 @@ import com.netflix.spinnaker.keel.spring.test.MockEurekaConfiguration
 import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.keel.yaml.APPLICATION_YAML
 import com.netflix.spinnaker.time.MutableClock
+import com.netflix.springboot.sso.test.EnableSsoTest
+import com.netflix.springboot.sso.test.WithSsoUser
 import com.ninjasquad.springmockk.MockkBean
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
@@ -55,6 +57,8 @@ import io.mockk.coEvery as every
   webEnvironment = MOCK
 )
 @AutoConfigureMockMvc
+@EnableSsoTest
+@WithSsoUser(name = "alice")
 internal class EventControllerTests
 @Autowired constructor(val mvc: MockMvc) : JUnit5Minutests {
 
@@ -88,7 +92,7 @@ internal class EventControllerTests
         val request = get("/resources/events/${resource.id}")
           .accept(APPLICATION_JSON)
         mvc
-          .perform(request)
+          .perform(request.secure(true))
           .andExpect(status().isNotFound)
       }
     }
@@ -120,7 +124,7 @@ internal class EventControllerTests
           test("the list contains the most recent 10 events") {
             val request = get(eventsUri).accept(accept)
             val result = mvc
-              .perform(request)
+              .perform(request.secure(true))
               .andExpect(status().isOk)
               .andExpect(content().contentTypeCompatibleWith(accept))
               .andReturn()
@@ -132,7 +136,7 @@ internal class EventControllerTests
           test("every event specifies its type") {
             val request = get(eventsUri).accept(accept)
             val result = mvc
-              .perform(request)
+              .perform(request.secure(true))
               .andExpect(status().isOk)
               .andExpect(content().contentTypeCompatibleWith(accept))
               .andReturn()
@@ -161,7 +165,7 @@ internal class EventControllerTests
           .param("limit", limit.toString())
           .accept(APPLICATION_JSON)
         val result = mvc
-          .perform(request)
+          .perform(request.secure(true))
           .andExpect(status().isOk)
           .andReturn()
         expectThat(result.response.contentAsTree)
@@ -182,7 +186,7 @@ internal class EventControllerTests
               .accept(MediaType.APPLICATION_JSON_VALUE)
               .header("X-SPINNAKER-USER", "keel@keel.io")
 
-            mvc.perform(request).andExpect(status().isForbidden)
+            mvc.perform(request.secure(true)).andExpect(status().isForbidden)
           }
         }
         context("with no READ access to cloud account") {
@@ -195,7 +199,7 @@ internal class EventControllerTests
               .accept(MediaType.APPLICATION_JSON_VALUE)
               .header("X-SPINNAKER-USER", "keel@keel.io")
 
-            mvc.perform(request).andExpect(status().isForbidden)
+            mvc.perform(request.secure(true)).andExpect(status().isForbidden)
           }
         }
       }

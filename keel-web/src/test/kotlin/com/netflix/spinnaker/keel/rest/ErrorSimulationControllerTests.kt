@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.rest
 
+import com.netflix.springboot.sso.test.EnableSsoTest
+import com.netflix.springboot.sso.test.WithSsoUser
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
@@ -14,6 +16,8 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
   webEnvironment = MOCK
 )
 @AutoConfigureMockMvc
+@EnableSsoTest
+@WithSsoUser(name = "alice")
 internal class ErrorSimulationControllerTests
 @Autowired constructor(val mvc: MockMvc) {
 
@@ -22,7 +26,7 @@ internal class ErrorSimulationControllerTests
     val request = get("/test/error")
 
     mvc
-      .perform(request)
+      .perform(request.secure(true))
       .andExpect(status().is5xxServerError)
   }
 }
