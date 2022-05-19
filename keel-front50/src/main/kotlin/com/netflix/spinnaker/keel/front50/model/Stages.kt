@@ -74,7 +74,8 @@ data class DeployStage(
   override val refId: String,
   override val requisiteStageRefIds: List<String> = emptyList(),
   val clusters: Set<Cluster>,
-  val restrictedExecutionWindow: RestrictedExecutionWindow? = null
+  val restrictedExecutionWindow: RestrictedExecutionWindow? = null,
+  val restrictExecutionDuringTimeWindow: Boolean? = null
 ) : Stage() {
   override val type = "deploy"
 }

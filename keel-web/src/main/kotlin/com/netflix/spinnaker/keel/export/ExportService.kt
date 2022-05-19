@@ -365,7 +365,7 @@ class ExportService(
           emptySet()
         }
 
-        val allowedTimes = deploys.flatMap { extractAllowedTimeConstraint(it.restrictedExecutionWindow) }.toSet()
+        val allowedTimes = deploys.flatMap { it.extractAllowedTimeConstraint() }.toSet()
 
         // 5. infer from the cluster all dependent resources, including artifacts
         val resourcesAndArtifacts = try {
@@ -497,24 +497,26 @@ class ExportService(
     return result
   }
 
-  private fun extractAllowedTimeConstraint(executionWindow: RestrictedExecutionWindow?) =
-    if (executionWindow != null) {
-      val timeWindow = executionWindow.whitelist?.joinToString(",") { time ->
+  private fun DeployStage.extractAllowedTimeConstraint(): Set<AllowedTimesConstraint> {
+    if (restrictExecutionDuringTimeWindow != true) return emptySet()
+    return restrictedExecutionWindow?.let {
+      val timeWindow = it.whitelist?.joinToString(",") { time ->
         "${time.startHour}-${time.endHour}"
       }
-      setOf(AllowedTimesConstraint(
-        windows = listOf(
-          TimeWindow(
-            days = executionWindow.days?.joinToString(",") {
-              it.fromDayNumberToWeekday()
-            },
-            hours = timeWindow
+      setOf(
+        AllowedTimesConstraint(
+          windows = listOf(
+            TimeWindow(
+              days = it.days?.joinToString(",") { day ->
+                day.fromDayNumberToWeekday()
+              },
+              hours = timeWindow
+            )
           )
         )
-      ))
-    } else {
-      emptySet()
-    }
+      )
+    } ?: emptySet()
+  }
 
   /**
    * Adding Slack notifications for production environment, using the Slack channel as defined in spinnaker's configuration.
@@ -574,7 +576,7 @@ class ExportService(
       exportPipeline.mapValues { (pipeline, deploysAndClusters) ->
         pipeline.constraints?.addAll(extractCanaryConstraints(pipeline))
         deploysAndClusters.map { (cluster, deployStages) ->
-          pipeline.constraints?.addAll(deployStages.flatMap { extractAllowedTimeConstraint(it.restrictedExecutionWindow) }
+          pipeline.constraints?.addAll(deployStages.flatMap { it.extractAllowedTimeConstraint() }
                                          .toSet())
           try {
             runBlocking {

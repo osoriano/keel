@@ -50,7 +50,6 @@ import com.netflix.spinnaker.keel.front50.model.PipelineNotifications
 import com.netflix.spinnaker.keel.front50.model.RestrictedExecutionWindow
 import com.netflix.spinnaker.keel.front50.model.TimeWindowConfig
 import com.netflix.spinnaker.keel.front50.model.Trigger
-import com.netflix.spinnaker.keel.igor.ScmService
 import com.netflix.spinnaker.keel.jenkins.BasicReport
 import com.netflix.spinnaker.keel.jenkins.JUnitReportConfig
 import com.netflix.spinnaker.keel.jenkins.JenkinsProject
@@ -290,10 +289,20 @@ internal class ExportServiceTests {
     days = listOf(2, 3, 4, 5, 6)
   )
 
+  private val pipelineWithDisabledWindow = pipelineWithNotifications.copy(
+    _stages = listOf(
+      deployStage.copy(
+        restrictedExecutionWindow = restrictedExecutionWindow,
+        restrictExecutionDuringTimeWindow = false
+      ),
+    )
+  )
+
   private val pipelineWithTwoDeployDifferentResources = pipelineWithNotifications.copy(
     _stages = listOf(
       deployStage.copy(
         restrictedExecutionWindow = restrictedExecutionWindow,
+        restrictExecutionDuringTimeWindow = true
       ),
       deployStageForTitus
     )
@@ -303,6 +312,7 @@ internal class ExportServiceTests {
     _stages = listOf(
       deployStage.copy(
         restrictedExecutionWindow = restrictedExecutionWindow,
+        restrictExecutionDuringTimeWindow = true
       ),
       deployStage.copy(
         clusters = setOf(cluster.copy(
@@ -873,6 +883,24 @@ internal class ExportServiceTests {
           .get { moniker.toName() }
           .isEqualTo(appName)
       }
+    }
+  }
+
+  @Test
+  fun `pipeline with a disabled time window should be ignored`() {
+    every {
+      front50Cache.pipelinesByApplication(appName)
+    } returns listOf(pipelineWithDisabledWindow)
+
+    val result = runBlocking {
+      subject.exportFromPipelines(appName)
+    }
+    expectThat(result)
+      .isA<PipelineExportResult>().and {
+      get { deliveryConfig.environments }
+        .first()
+        .get { constraints }
+        .hasSize(0)
     }
   }
 
