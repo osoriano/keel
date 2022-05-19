@@ -83,10 +83,11 @@ class ExportController(
   fun get(
     @PathVariable("application") application: String,
     @RequestParam("maxAgeDays", defaultValue = "$DEFAULT_PIPELINE_EXPORT_MAX_DAYS") maxAgeDays: Long,
-    @RequestParam("includeVerifications", defaultValue = "false") includeVerifications: Boolean
+    @RequestParam("includeVerifications", defaultValue = "false") includeVerifications: Boolean,
+    @RequestParam("includeManaged", defaultValue = "true") includeManaged: Boolean
   ): ExportResult {
     return runBlocking {
-      exportService.exportFromPipelines(application, maxAgeDays, includeVerifications)
+      exportService.exportFromPipelines(application, maxAgeDays, includeVerifications, includeManaged)
     }
   }
 

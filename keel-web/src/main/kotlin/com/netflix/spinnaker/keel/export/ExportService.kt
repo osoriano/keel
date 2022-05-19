@@ -322,7 +322,8 @@ class ExportService(
   suspend fun exportFromPipelines(
     rawApplicationName: String,
     maxAgeDays: Long = 6L * 30L,
-    includeVerifications: Boolean = false
+    includeVerifications: Boolean = false,
+    includeManaged: Boolean = false,
   ): ExportResult {
     val applicationName = rawApplicationName.lowercase()
     log.info("Exporting delivery config from pipelines for application $applicationName (max age: $maxAgeDays days)")
@@ -331,12 +332,14 @@ class ExportService(
     val application = front50Cache.applicationByName(applicationName)
     val serviceAccount = application.email ?: DEFAULT_SERVICE_ACCOUNT
 
-    try {
-      deliveryConfigRepository.getByApplication(applicationName)
-      log.debug("Found an existing config for application $applicationName. Will not proceed with export process.")
-      return ExportSkippedResult(isManaged = true)
-    } catch (e: NoDeliveryConfigForApplication) {
-      log.debug("Did not find an existing config for application $applicationName. Trying to export...")
+    if (!includeManaged) {
+      try {
+        deliveryConfigRepository.getByApplication(applicationName)
+        log.debug("Found an existing config for application $applicationName. Will not proceed with export process.")
+        return ExportSkippedResult(isManaged = true)
+      } catch (e: NoDeliveryConfigForApplication) {
+        log.debug("Did not find an existing config for application $applicationName. Trying to export...")
+      }
     }
 
     // 1. find pipelines which are not matching to the supported patterns above

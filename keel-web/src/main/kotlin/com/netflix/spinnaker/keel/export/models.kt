@@ -86,6 +86,7 @@ fun PipelineExportResult.toMigratablePipelines(): List<MigrationPipeline> =
           environments =  environments?.map { it.name },
           id = pipeline.id,
           artifacts = pipeline.artifacts.toMigratableArtifacts(),
+          resources = pipeline.resources.toMigratableResouces(),
           status = PipelineStatus.EXPORTED
         )
       }
