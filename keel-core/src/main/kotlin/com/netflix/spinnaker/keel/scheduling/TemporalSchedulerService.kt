@@ -66,7 +66,7 @@ class TemporalSchedulerService(
   }
 
   fun startSchedulingEnvironment(application: String, environment: String) {
-    if (!environmentSchedulingEnabled() && isScheduling(application, environment)) {
+    if (!environmentSchedulingEnabled() || isScheduling(application, environment)) {
       // environment is already scheduled or scheduling is disabled
       return
     }
