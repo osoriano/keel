@@ -212,8 +212,8 @@ data class ResourcesSpec(
 }
 
 data class TitusScalingSpec(
-  val targetTrackingPolicies: Set<TargetTrackingPolicy> = emptySet(),
-  val stepScalingPolicies: Set<StepScalingPolicy> = emptySet()
+  override val targetTrackingPolicies: Set<TargetTrackingPolicy> = emptySet(),
+  override val stepScalingPolicies: Set<StepScalingPolicy> = emptySet()
 ) : ScalingSpec
 
 data class ElasticFileSystem(

@@ -108,11 +108,12 @@ private fun ClusterSpec.resolveLaunchConfiguration(region: SubnetAwareRegionSpec
 
 fun ClusterSpec.resolveCapacity(region: String? = null): Capacity {
   val regionOverrides = overrides[region]
-  val hasScalingPolicies = (regionOverrides?.scaling ?: defaults.scaling).hasScalingPolicies()
+  val hasScalingPolicies = regionOverrides?.scaling.hasScalingPolicies() || defaults.scaling.hasScalingPolicies()
 
   log.debug("Resolving capacity for $moniker (region: $region):" +
     " regionOverrides: ${regionOverrides?.let { "not null" } ?: "null"}" +
-    " hasScalingPolicies: $hasScalingPolicies"
+    " hasScalingPolicies: $hasScalingPolicies\n" +
+    " $this"
   )
 
   return when (region) {
@@ -122,11 +123,6 @@ fun ClusterSpec.resolveCapacity(region: String? = null): Capacity {
 }
 
 fun ServerGroupSpec.resolveCapacity(hasScalingPolicies: Boolean): Capacity? {
-  log.debug("Resolving server group spec:" +
-    " capacity: ${capacity?.let { "not null" } ?: "null"}" +
-    " hasScalingPolicies: $hasScalingPolicies"
-  )
-
   return when {
     capacity == null -> null
     hasScalingPolicies -> Capacity.AutoScalingCapacity(capacity)
@@ -312,13 +308,16 @@ data class ClusterSpec(
   )
 }
 
-interface ScalingSpec
+interface ScalingSpec {
+  val targetTrackingPolicies: Set<TargetTrackingPolicy>
+  val stepScalingPolicies: Set<StepScalingPolicy>
+}
 
 @Title("EC2 Scaling")
 data class EC2ScalingSpec(
   val suspendedProcesses: Set<ScalingProcess> = emptySet(),
-  val targetTrackingPolicies: Set<TargetTrackingPolicy> = emptySet(),
-  val stepScalingPolicies: Set<StepScalingPolicy> = emptySet()
+  override val targetTrackingPolicies: Set<TargetTrackingPolicy> = emptySet(),
+  override val stepScalingPolicies: Set<StepScalingPolicy> = emptySet()
 ) : ScalingSpec
 
 operator fun Locations<SubnetAwareRegionSpec>.get(region: String) =
