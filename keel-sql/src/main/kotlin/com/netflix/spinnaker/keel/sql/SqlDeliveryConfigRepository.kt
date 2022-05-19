@@ -1654,7 +1654,7 @@ class SqlDeliveryConfigRepository(
 
   override fun storeUserGeneratedConfigForMigratedApplication(
     application: String,
-    deliveryConfig: SubmittedDeliveryConfig,
+    deliveryConfig: Map<String, Any>,
     user: String
   ) {
     sqlRetry.withRetry(WRITE) {

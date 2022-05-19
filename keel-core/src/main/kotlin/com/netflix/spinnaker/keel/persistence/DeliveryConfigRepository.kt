@@ -3,7 +3,6 @@ package com.netflix.spinnaker.keel.persistence
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.NotificationConfig
-import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
@@ -324,7 +323,7 @@ interface DeliveryConfigRepository : PeriodicallyCheckedRepository<DeliveryConfi
 
   fun storeUserGeneratedConfigForMigratedApplication(
     application: String,
-    deliveryConfig: SubmittedDeliveryConfig,
+    deliveryConfig: Map<String, Any>,
     user: String
   )
 

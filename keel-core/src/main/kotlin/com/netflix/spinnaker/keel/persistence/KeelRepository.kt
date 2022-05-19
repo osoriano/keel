@@ -38,7 +38,6 @@ import com.netflix.spinnaker.keel.events.ApplicationEvent
 import com.netflix.spinnaker.keel.events.ResourceCreated
 import com.netflix.spinnaker.keel.events.ResourceEvent
 import com.netflix.spinnaker.keel.events.ResourceHistoryEvent
-import com.netflix.spinnaker.keel.events.ResourceState
 import com.netflix.spinnaker.keel.events.ResourceUpdated
 import com.netflix.spinnaker.keel.exceptions.DuplicateManagedResourceException
 import com.netflix.spinnaker.keel.notifications.NotificationScope
@@ -801,7 +800,7 @@ class KeelRepository(
    */
   fun storeUserGeneratedConfigForMigratedApplication(
     application: String,
-    deliveryConfig: SubmittedDeliveryConfig,
+    deliveryConfig: Map<String, Any>,
     user: String
   ) =
     deliveryConfigRepository.storeUserGeneratedConfigForMigratedApplication(application, deliveryConfig, user)

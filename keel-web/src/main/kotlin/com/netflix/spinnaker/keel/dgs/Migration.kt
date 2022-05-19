@@ -102,7 +102,7 @@ class Migration(
   ): Boolean {
     val deliveryConfig = payload.deliveryConfig ?: return false
     return try {
-      applicationService.storeAndGetUserGeneratedConfig(payload.application, deliveryConfig, user)
+      applicationService.storeUserGeneratedConfig(payload.application, deliveryConfig as Map<String, Any>, user)
       true
     } catch (ex: Exception) {
       log.debug("caught an exception while auto-saving the delivery config", ex)
@@ -122,7 +122,7 @@ class Migration(
     val (prData, ) = applicationService.openMigrationPr(
       application = payload.application,
       user = user,
-      rawUserGeneratedConfig = payload.deliveryConfig
+      rawUserGeneratedConfig = payload.deliveryConfig as? Map<String, Any>
     )
 
     // store the delivery config (but paused) so that we can do things with it like diffing resources

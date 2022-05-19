@@ -67,6 +67,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.just
+import io.mockk.runs
 import io.mockk.slot
 import io.mockk.verify
 import org.junit.jupiter.api.BeforeEach
@@ -474,7 +475,7 @@ class QueryTests {
       artifactRepository.getCurrentlyDeployedArtifactVersionId(any(), any(), any())
     } returns null
 
-    val configAsMap = mapper.convertValue(deliveryConfig, Map::class.java)
+    val configAsMap = mapper.convertValue(deliveryConfig, Map::class.java) as Map<String, Any>
 
     expectCatching {
       dgsQueryExecutor.executeAndExtractJsonPathAsObject(
@@ -584,8 +585,8 @@ class QueryTests {
   @Test
   fun checkAutoSaveWithValidConfig() {
     every {
-        applicationService.storeAndGetUserGeneratedConfig(any(), any(), any())
-    } returns submittedDeliveryConfig
+        applicationService.storeUserGeneratedConfig(any(), any(), any())
+    } just runs
 
     val configAsMap = mapper.convertValue(deliveryConfig, Map::class.java)
 

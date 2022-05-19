@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.persistence
 
+import com.fasterxml.jackson.module.kotlin.convertValue
 import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.config.FeatureToggles.Companion.SKIP_PAUSED_APPS
 import com.netflix.spinnaker.keel.api.DeliveryConfig
@@ -35,6 +36,7 @@ import com.netflix.spinnaker.keel.persistence.DependentAttachFilter.ATTACH_NONE
 import com.netflix.spinnaker.keel.persistence.DependentAttachFilter.ATTACH_PREVIEW_ENVIRONMENTS
 import com.netflix.spinnaker.keel.resources.ResourceSpecIdentifier
 import com.netflix.spinnaker.keel.test.DummyResourceSpec
+import com.netflix.spinnaker.keel.test.configuredTestObjectMapper
 import com.netflix.spinnaker.keel.test.debianArtifact
 import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.keel.test.withUpdatedResource
@@ -78,6 +80,7 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
   val featureToggles: FeatureToggles = mockk(relaxed = true) {
     every { isEnabled(FeatureToggles.USE_READ_REPLICA, any()) } returns true
   }
+  val mapper = configuredTestObjectMapper()
 
   abstract fun createDeliveryConfigRepository(
     resourceSpecIdentifier: ResourceSpecIdentifier,
@@ -1070,7 +1073,8 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
         repository.storePipelinesExportResult(submittedConfig, emptyList(), true, isInactive = false)
         repository.storeUserGeneratedConfigForMigratedApplication(
           submittedConfig.application,
-          submittedConfig.copy(serviceAccount = "randomValue@netflix.com"),
+          mapper.convertValue<MutableMap<String, Any>>(submittedConfig.copy(serviceAccount = "randomValue@netflix.com"))
+          ,
           "user@netflix.com"
         )
         expectCatching {
@@ -1196,7 +1200,7 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
         repository.storePipelinesExportResult(submittedConfig, emptyList(), true, "myRepo", "myProject", isInactive = false)
         repository.storeUserGeneratedConfigForMigratedApplication(
           deliveryConfig.application,
-          submittedConfig.copy(serviceAccount = "somethingElse"),
+          mapper.convertValue<MutableMap<String, Any>>(submittedConfig.copy(serviceAccount = "somethingElse")),
           "user"
         )
         val result = expectCatching {

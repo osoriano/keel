@@ -2,6 +2,7 @@ package com.netflix.spinnaker.keel.services
 
 import com.fasterxml.jackson.databind.jsontype.NamedType
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
+import com.fasterxml.jackson.module.kotlin.convertValue
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.keel.actuation.EnvironmentTaskCanceler
 import com.netflix.spinnaker.keel.api.DeliveryConfig
@@ -404,7 +405,11 @@ class ApplicationServiceTests : JUnit5Minutests {
 
       test("successfully created a PR in stash with the config for submitted config") {
         expectCatching {
-          applicationService.openMigrationPr(application1, "keel", submittedDeliveryConfig)
+          applicationService.openMigrationPr(
+            application1,
+            "keel",
+            objectMapper.convertValue<Map<String, Any>>(submittedDeliveryConfig)
+          )
         }.isSuccess()
           .second.isEqualTo(expectedPrResponse.link)
       }
@@ -418,7 +423,11 @@ class ApplicationServiceTests : JUnit5Minutests {
 
         test("PR is not created") {
           expectCatching {
-            applicationService.openMigrationPr(application1, "keel", submittedDeliveryConfig)
+            applicationService.openMigrationPr(
+              application1,
+              "keel",
+              objectMapper.convertValue<Map<String, Any>>(submittedDeliveryConfig)
+            )
           }.isFailure()
         }
       }
