@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.api.ec2.export
 
+import com.fasterxml.jackson.module.kotlin.convertValue
+import com.fasterxml.jackson.module.kotlin.readValue
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.Exportable
 import com.netflix.spinnaker.keel.api.Moniker
@@ -50,8 +52,8 @@ import com.netflix.spinnaker.keel.orca.OrcaTaskLauncher
 import com.netflix.spinnaker.keel.orca.TaskRefResponse
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.retrofit.RETROFIT_NOT_FOUND
+import com.netflix.spinnaker.keel.test.configuredTestObjectMapper
 import com.netflix.spinnaker.keel.test.resource
-import dev.minutest.rootContext
 import io.mockk.clearAllMocks
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
@@ -66,6 +68,7 @@ import strikt.api.expectThrows
 import strikt.assertions.containsKey
 import strikt.assertions.hasSize
 import strikt.assertions.isA
+import strikt.assertions.isEmpty
 import strikt.assertions.isEqualTo
 import strikt.assertions.isNotEmpty
 import strikt.assertions.isNotNull
@@ -207,6 +210,10 @@ internal class ClusterExportTests {
     kind = EC2_CLUSTER_V1_1.kind
   )
 
+  val mapper = configuredTestObjectMapper()
+  val stepScalingServerGroupJson: String = checkNotNull(javaClass.getResource("/cluster-with-step-scaling-policies.json")).readText()
+  val stepScalingServerGroup: ActiveServerGroup = mapper.readValue<ActiveServerGroup>(stepScalingServerGroupJson)
+
   val subject = ClusterHandler(
     cloudDriverService,
     cloudDriverCache,
@@ -271,6 +278,13 @@ internal class ClusterExportTests {
   @AfterEach
   fun cleanup() {
     clearAllMocks()
+  }
+
+  @Test
+  fun `converting step scaling policies`() {
+    val serverGroup = subject.convertServerGroup(stepScalingServerGroup)
+    expectThat(serverGroup.scaling.targetTrackingPolicies).isEmpty()
+    expectThat(serverGroup.scaling.stepScalingPolicies).hasSize(1)
   }
 
   @Nested

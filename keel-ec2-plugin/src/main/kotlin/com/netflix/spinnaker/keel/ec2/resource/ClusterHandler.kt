@@ -1131,6 +1131,9 @@ class ClusterHandler(
         .mapNotNull { it.await() }
     }
 
+  fun convertServerGroup(activeServerGroup: ActiveServerGroup): ServerGroup =
+    activeServerGroup.toServerGroup()
+
   /**
    * Transforms CloudDriver response to our server group model.
    */
@@ -1257,7 +1260,7 @@ class ClusterHandler(
       .toSet()
 
   private fun List<ScalingPolicy>.toStepScalingPolicies(): Set<StepScalingPolicy> =
-    filter { it.targetTrackingConfiguration == null && it.adjustmentType != null }
+    filter { it.adjustmentType != null }
       .map {
         val alarm = it.alarms.first()
         StepScalingPolicy(
