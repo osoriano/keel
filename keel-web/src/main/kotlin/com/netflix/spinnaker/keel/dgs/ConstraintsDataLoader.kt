@@ -24,6 +24,7 @@ import com.netflix.springboot.scheduling.DefaultExecutor
 import kotlinx.coroutines.runBlocking
 import org.dataloader.BatchLoaderEnvironment
 import org.dataloader.MappedBatchLoaderWithContext
+import org.slf4j.LoggerFactory
 import java.util.concurrent.CompletionStage
 import java.util.concurrent.Executor
 
@@ -36,6 +37,8 @@ class ConstraintsDataLoader(
   constraintEvaluators: ConstraintEvaluators,
   @DefaultExecutor private val executor: Executor
 ) : MappedBatchLoaderWithContext<EnvironmentArtifactAndVersion, List<MD_Constraint>> {
+
+  private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
   object Descriptor {
     const val name = "artifact-version-constraints"
@@ -86,9 +89,14 @@ class ConstraintsDataLoader(
             }
             state
           } else { // Stateless constraint
-            val evaluator = statelessEvaluators.find { evaluator ->
-              evaluator.supportedType.name == envConstraint.type
-            } ?: return@forEach // This should never happen, but we bail if we don't find an evaluator
+            val evaluator = try {
+              statelessEvaluators.find { evaluator ->
+                evaluator.supportedType.name == envConstraint.type
+              } ?: return@forEach // This should never happen, but we bail if we don't find an evaluator
+            } catch (e: Exception) {
+              log.error("Unexpected StatelessEvaluator error for $envConstraint: $e")
+              return@forEach
+            }
 
             // Evaluate the current status of the constraint
             val artifact = config.matchingArtifactByReference(key.artifactReference) ?: return@forEach
