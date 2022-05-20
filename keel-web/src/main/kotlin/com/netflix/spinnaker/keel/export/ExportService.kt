@@ -329,7 +329,9 @@ class ExportService(
     log.info("Exporting delivery config from pipelines for application $applicationName (max age: $maxAgeDays days)")
 
     val pipelines = front50Cache.pipelinesByApplication(applicationName)
-    val application = front50Cache.applicationByName(applicationName)
+    val application = front50Cache.applicationByName(applicationName).let {
+      it.copy(name = it.name.lowercase())
+    }
     val serviceAccount = application.email ?: DEFAULT_SERVICE_ACCOUNT
 
     if (!includeManaged) {
