@@ -5,6 +5,7 @@ import com.netflix.spinnaker.keel.scheduling.activities.SchedulingConfigActiviti
 import io.temporal.failure.ActivityFailure
 import io.temporal.failure.CanceledFailure
 import io.temporal.workflow.Async
+import io.temporal.workflow.ContinueAsNewOptions
 import io.temporal.workflow.Promise
 import io.temporal.workflow.Workflow
 import java.time.Duration
@@ -86,7 +87,18 @@ abstract class AbstractScheduler<T>(
             "Aborted poller and will continueAsNew after immediate check"
         )
         checkNowActivity(request)
-        Workflow.continueAsNew(request)
+        // TODO(rz): CAN does not carry-forward search attributes by default.
+        //  https://github.com/temporalio/sdk-java/issues/1200
+        Workflow.continueAsNew(
+          ContinueAsNewOptions.newBuilder()
+            .setSearchAttributes(
+              mapOf(
+                SchedulingConsts.WORKER_ENV_SEARCH_ATTRIBUTE to Workflow.getSearchAttribute<String>(SchedulingConsts.WORKER_ENV_SEARCH_ATTRIBUTE)
+              )
+            )
+            .build(),
+          request
+        )
       }
     }
   }
