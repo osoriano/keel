@@ -84,7 +84,8 @@ class ArtifactDeployedListener(
 
         // We add a special case for migrated apps that already have a version deployed but nothing is approved in the DB.
         // In this case, we still want to mark the version as deployed
-        if (approvedForEnv || hasNoApprovedVersions()) {
+        // We also want to keep marking new versions as deployed while the application is migrating
+        if (approvedForEnv || hasNoApprovedVersions() || deliveryConfig.isMigrating()) {
           if (!approvedForEnv) {
             log.info(
               "approving all constraints of artifact {} - {} in env {} of app {}",
