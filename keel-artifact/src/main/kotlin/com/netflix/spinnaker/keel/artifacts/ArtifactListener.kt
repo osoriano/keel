@@ -28,7 +28,7 @@ class ArtifactListener(
   private val repository: KeelRepository,
   private val artifactSuppliers: List<ArtifactSupplier<*, *>>,
   private val artifactRefreshConfig: ArtifactRefreshConfig,
-  private val workQueueProcessor: WorkQueueProcessor,
+  private val artifactQueueProcessor: ArtifactQueueProcessor,
   private val tracer: Tracer? = null
 ): DiscoveryActivated() {
 
@@ -50,7 +50,7 @@ class ArtifactListener(
       log.debug("Storing latest {} versions of artifact {}", latestVersions.size, artifact)
       latestVersions.forEach {
         log.debug("Storing version {} (status={}) for registered artifact {}", it.version, it.status, artifact)
-        workQueueProcessor.enrichAndStore(it, artifactSupplier)
+        artifactQueueProcessor.enrichAndStore(it, artifactSupplier)
       }
     } else {
       log.warn("No artifact versions found for ${artifact.type}:${artifact.name}")
@@ -110,7 +110,7 @@ class ArtifactListener(
       newVersions.forEach { publishedArtifact ->
         withCoroutineTracingContext(publishedArtifact, tracer) {
           log.debug("Detected missing version ${publishedArtifact.version} of $artifact. Persisting.")
-          workQueueProcessor.enrichAndStore(publishedArtifact, artifactSupplier)
+          artifactQueueProcessor.enrichAndStore(publishedArtifact, artifactSupplier)
         }
       }
     } else {

@@ -84,14 +84,14 @@ internal class ArtifactListenerTests : JUnit5Minutests {
       every { shouldProcessArtifact(any()) } returns true
     }
     val refreshConfig = ArtifactRefreshConfig()
-    val workQueueProcessor: WorkQueueProcessor = mockk {
+    val artifactQueueProcessor: ArtifactQueueProcessor = mockk {
       every { enrichAndStore(any(), any()) } returns false
     }
     val listener: ArtifactListener = ArtifactListener(
       repository,
       listOf(debianArtifactSupplier, dockerArtifactSupplier),
       refreshConfig,
-      workQueueProcessor
+      artifactQueueProcessor
     )
   }
 
@@ -126,7 +126,7 @@ internal class ArtifactListenerTests : JUnit5Minutests {
       }
 
       test("we fetch the latest versions just in case our data is old") {
-        verify(exactly = 1) { workQueueProcessor.enrichAndStore(any(), any()) }
+        verify(exactly = 1) { artifactQueueProcessor.enrichAndStore(any(), any()) }
       }
     }
 
@@ -149,7 +149,7 @@ internal class ArtifactListenerTests : JUnit5Minutests {
 
         test("the newest version is saved") {
           verify(exactly = 1) {
-            workQueueProcessor.enrichAndStore(publishedDeb, any())
+            artifactQueueProcessor.enrichAndStore(publishedDeb, any())
           }
         }
       }
@@ -220,7 +220,7 @@ internal class ArtifactListenerTests : JUnit5Minutests {
           val artifactVersions = mutableListOf<PublishedArtifact>()
 
           verify(exactly = 2) {
-            workQueueProcessor.enrichAndStore(any(), any())
+            artifactQueueProcessor.enrichAndStore(any(), any())
           }
         }
       }
@@ -246,7 +246,7 @@ internal class ArtifactListenerTests : JUnit5Minutests {
 
         test("store not called") {
           listener.syncLastLimitAllArtifactsVersions()
-          verify(exactly = 0) { workQueueProcessor.enrichAndStore(any(), any()) }
+          verify(exactly = 0) { artifactQueueProcessor.enrichAndStore(any(), any()) }
         }
       }
 
@@ -268,7 +268,7 @@ internal class ArtifactListenerTests : JUnit5Minutests {
           listener.syncLastLimitAllArtifactsVersions()
 
           verify(exactly = 2) {
-            workQueueProcessor.enrichAndStore(any(), any())
+            artifactQueueProcessor.enrichAndStore(any(), any())
           }
         }
       }

@@ -8,4 +8,6 @@ class WorkProcessingConfig {
   var timeoutDuration: Duration = Duration.ofMinutes(2)
   var artifactBatchSize: Int = 1
   var codeEventBatchSize: Int = 1
+  var artifactSqsQueueUrl: String? = null
+  var codeEventSqsQueueUrl: String? = null
 }

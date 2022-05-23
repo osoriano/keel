@@ -4,17 +4,15 @@ import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.keel.api.artifacts.DOCKER
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.events.ArtifactPublishedEvent
-import com.netflix.spinnaker.keel.artifacts.WorkQueueProcessor
+import com.netflix.spinnaker.keel.artifacts.WorkQueuePublisher
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
-import io.mockk.runs
 import io.mockk.slot
 import io.mockk.verify
 import org.junit.jupiter.api.Test
-import org.springframework.context.ApplicationEventPublisher
 import strikt.api.expectCatching
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo
@@ -22,7 +20,7 @@ import strikt.assertions.isSuccess
 
 internal class ArtifactControllerTests {
 
-  private val workQueueProcessor: WorkQueueProcessor = mockk {
+  private val workQueuePublisher: WorkQueuePublisher = mockk {
     every { queueCodeEventForProcessing(any()) } just Runs
     every { queueArtifactForProcessing(any()) } just Runs
   }
@@ -33,7 +31,7 @@ internal class ArtifactControllerTests {
     every { isEnabled(any(), any()) } returns true
   }
 
-  private val subject = ArtifactController(artifactMetadataService, workQueueProcessor, featureToggles)
+  private val subject = ArtifactController(artifactMetadataService, workQueuePublisher, featureToggles)
 
   private val disguisedCodeEvent = EchoArtifactEvent(
     eventName = "test",
@@ -116,11 +114,11 @@ internal class ArtifactControllerTests {
 
 
     verify(exactly = 1) {
-      workQueueProcessor.queueCodeEventForProcessing(any())
+      workQueuePublisher.queueCodeEventForProcessing(any())
     }
 
     verify(exactly = 0) {
-      workQueueProcessor.queueArtifactForProcessing(any())
+      workQueuePublisher.queueArtifactForProcessing(any())
     }
   }
 
@@ -133,7 +131,7 @@ internal class ArtifactControllerTests {
     }.isSuccess()
 
     verify(exactly = 1) {
-      workQueueProcessor.queueArtifactForProcessing(capture(queuedArtifact))
+      workQueuePublisher.queueArtifactForProcessing(capture(queuedArtifact))
     }
 
     expectThat(queuedArtifact.captured) {
@@ -148,7 +146,7 @@ internal class ArtifactControllerTests {
     }.isSuccess()
 
     verify(exactly = 0) {
-      workQueueProcessor.queueArtifactForProcessing(any())
+      workQueuePublisher.queueArtifactForProcessing(any())
     }
   }
 }

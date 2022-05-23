@@ -3,12 +3,9 @@ package com.netflix.spinnaker.keel.rest
 import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.config.FeatureToggles.Companion.OPTIMIZED_DOCKER_FLOW
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
-import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 import com.netflix.spinnaker.keel.api.events.ArtifactPublishedEvent
-import com.netflix.spinnaker.keel.api.events.AllArtifactsSyncEvent
-import com.netflix.spinnaker.keel.api.events.ArtifactSyncEvent
 import com.netflix.spinnaker.keel.api.plugins.UnsupportedArtifactException
-import com.netflix.spinnaker.keel.artifacts.WorkQueueProcessor
+import com.netflix.spinnaker.keel.artifacts.WorkQueuePublisher
 import com.netflix.spinnaker.keel.artifacts.isBuildEvent
 import com.netflix.spinnaker.keel.artifacts.isIncompleteDockerArtifact
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
@@ -18,7 +15,6 @@ import com.netflix.spinnaker.keel.scm.toCodeEvent
 import com.netflix.spinnaker.keel.yaml.APPLICATION_YAML_VALUE
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
-import org.springframework.context.ApplicationEventPublisher
 import org.springframework.http.HttpStatus.ACCEPTED
 import org.springframework.http.MediaType.APPLICATION_JSON_VALUE
 import org.springframework.web.bind.annotation.GetMapping
@@ -26,7 +22,6 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 
@@ -34,7 +29,7 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping(path = ["/artifacts"])
 class ArtifactController(
   private val artifactMetadataService: ArtifactMetadataService,
-  private val workQueueProcessor: WorkQueueProcessor,
+  private val workQueuePublisher: WorkQueuePublisher,
   private val featureToggles: FeatureToggles
 ) {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
@@ -61,15 +56,15 @@ class ArtifactController(
         artifact.isCodeEvent -> {
           artifact.toCodeEvent()?.let { codeEvent ->
             log.debug("Queueing code event: $codeEvent")
-            workQueueProcessor.queueCodeEventForProcessing(codeEvent)
+            workQueuePublisher.queueCodeEventForProcessing(codeEvent)
           }
         }
         /** For Docker, we may receive incomplete artifact events from Echo originating from Rocket BUILD events.
-         *  In this case, we still queue the artifact and [WorkQueueProcessor] will fill in the details at the
+         *  In this case, we still queue the artifact and [ArtifactQueueProcessor] will fill in the details at the
          *  time of processing. */
         artifact.isIncompleteDockerArtifact -> {
           if (featureToggles.isEnabled(OPTIMIZED_DOCKER_FLOW)) {
-            workQueueProcessor.queueArtifactForProcessing(artifact)
+            workQueuePublisher.queueArtifactForProcessing(artifact)
           } else {
             log.debug("Ignoring incomplete docker artifact as feature toggle is off: $artifact")
           }
@@ -79,7 +74,7 @@ class ArtifactController(
           withThreadTracingContext(artifact) {
             try {
               log.debug("Queueing artifact ${artifact.type}:${artifact.name} version ${artifact.version} from artifact $artifact")
-              workQueueProcessor.queueArtifactForProcessing(artifact)
+              workQueuePublisher.queueArtifactForProcessing(artifact)
             } catch (e: UnsupportedArtifactException) {
               log.debug("Ignoring artifact event with unsupported type {}: {}", artifact.type, artifact)
             }

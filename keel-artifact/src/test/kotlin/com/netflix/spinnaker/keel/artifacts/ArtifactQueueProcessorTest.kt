@@ -24,7 +24,6 @@ import com.netflix.spinnaker.keel.igor.model.TriggerEvent
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEvent
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventStatus
 import com.netflix.spinnaker.keel.persistence.KeelRepository
-import com.netflix.spinnaker.keel.persistence.WorkQueueRepository
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
 import com.netflix.spinnaker.keel.test.debianArtifact
 import com.netflix.spinnaker.keel.test.dockerArtifact
@@ -48,7 +47,7 @@ import java.time.Clock
 import io.mockk.coEvery as every
 import io.mockk.coVerify as verify
 
-internal class WorkQueueProcessorTests : JUnit5Minutests {
+internal class ArtifactQueueProcessorTest : JUnit5Minutests {
 
   val branchName = "super-branch"
   val branchNameFromRocket = "super-branch-from-rocket"
@@ -103,10 +102,8 @@ internal class WorkQueueProcessorTests : JUnit5Minutests {
     buildMetadata = BuildMetadata(id = 1, status = "SUCCEEDED")
   )
 
-
   abstract class EventQueueProcessorFixture {
     val repository: KeelRepository = mockk(relaxUnitFun = true)
-    val workQueueRepository: WorkQueueRepository = mockk(relaxUnitFun = true)
     val buildService: BuildService = mockk()
     val objectMapper = configuredObjectMapper()
     val publisher: ApplicationEventPublisher = mockk(relaxUnitFun = true)
@@ -121,19 +118,16 @@ internal class WorkQueueProcessorTests : JUnit5Minutests {
     val artifactSuppliers = listOf(dockerArtifactSupplier, debianArtifactSupplier)
     val spectator = NoopRegistry()
     val clock: Clock = MutableClock()
-    val springEnv: Environment = mockk(relaxed = true)
 
     val subject = spyk(
-      WorkQueueProcessor(
+      ArtifactQueueProcessor(
         config = WorkProcessingConfig(),
-        workQueueRepository = workQueueRepository,
         repository = repository,
         buildService = buildService,
         artifactSuppliers = artifactSuppliers,
-        publisher = publisher,
         spectator = spectator,
         clock = clock,
-        springEnv = springEnv,
+        publisher = publisher,
         objectMapper = objectMapper
       )
     )
@@ -302,11 +296,11 @@ internal class WorkQueueProcessorTests : JUnit5Minutests {
         every { repository.isRegistered(artifact.name, artifact.type) } returns true
         every { debianArtifactSupplier.shouldProcessArtifact(any()) } returns true
       }
-      test ("use basic artifact info") {
+      test("use basic artifact info") {
         subject.handlePublishedArtifact(newerPublishedDeb)
         val completeArtifact = slot<PublishedArtifact>()
 
-        verify (exactly = 1) {
+        verify(exactly = 1) {
           repository.storeArtifactVersion(capture(completeArtifact))
           debianArtifactSupplier.getArtifactMetadata(any())
         }
@@ -315,7 +309,6 @@ internal class WorkQueueProcessorTests : JUnit5Minutests {
         }
       }
     }
-
 
     context("a Rocket build event for Docker is disguised as an artifact") {
       before {
@@ -337,7 +330,8 @@ internal class WorkQueueProcessorTests : JUnit5Minutests {
 
         verify {
           with(disguisedPublishedDocker) {
-            buildService.getArtifactContents(buildController!!, buildJob!!, buildDetail!!.buildNumber,
+            buildService.getArtifactContents(
+              buildController!!, buildJob!!, buildDetail!!.buildNumber,
               "lpollo-local-test-server/build/image-server.properties"
             )
           }
@@ -359,7 +353,6 @@ internal class WorkQueueProcessorTests : JUnit5Minutests {
         }
       }
     }
-
   }
 
   data class LifecycleEventsFixture(
@@ -382,7 +375,6 @@ internal class WorkQueueProcessorTests : JUnit5Minutests {
       every { debianArtifactSupplier.getArtifactMetadata(any()) } returns artifactMetadata
       every { dockerArtifactSupplier.getArtifactMetadata(any()) } returns artifactMetadata
       every { repository.storeArtifactVersion(any()) } returns true
-      subject.onApplicationUp()
     }
 
     context("events") {
