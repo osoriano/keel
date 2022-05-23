@@ -38,7 +38,7 @@ abstract class ResolvableResourceHandler<S : ResourceSpec, R : Any>(
    * @param resource a fully-resolved version of the persisted resource spec. You can assume that
    * [applyResolvers] has already been called on this object.
    */
-  protected abstract suspend fun toResolvedType(resource: Resource<S>): R
+  abstract suspend fun toResolvedType(resource: Resource<S>): R
 
   override suspend fun desired(resource: Resource<S>): R = toResolvedType(applyResolvers(resource))
 }

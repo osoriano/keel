@@ -1,0 +1,285 @@
+{
+  "name": "pushconsent-v092",
+  "region": "us-east-1",
+  "accountName": "test",
+  "zones": [
+    "us-west-2a",
+    "us-west-2b",
+    "us-west-2c"
+  ],
+  "image": {
+    "architecture": "x86_64",
+    "creationDate": "2022-05-18T18:03:19.000Z",
+    "imageId": "ami-04ce90187010809da",
+    "imageLocation": "179727101194/push-consent-server-1.0.7_snapshot-h532.267de09-x86_64-20220518180003-bionic-classic-hvm-sriov-ebs",
+    "imageType": "machine",
+    "ownerId": "179727101194",
+    "platformDetails": "Linux/UNIX",
+    "usageOperation": "RunInstances",
+    "productCodes": [],
+    "state": "available",
+    "blockDeviceMappings": [
+      {
+        "deviceName": "/dev/sda1",
+        "ebs": {
+          "deleteOnTermination": true,
+          "snapshotId": "snap-037925c399d599e39",
+          "volumeSize": 10,
+          "volumeType": "standard",
+          "encrypted": false
+        }
+      },
+      {
+        "deviceName": "/dev/sdb",
+        "virtualName": "ephemeral0"
+      },
+      {
+        "deviceName": "/dev/sdc",
+        "virtualName": "ephemeral1"
+      },
+      {
+        "deviceName": "/dev/sdd",
+        "virtualName": "ephemeral2"
+      },
+      {
+        "deviceName": "/dev/sde",
+        "virtualName": "ephemeral3"
+      }
+    ],
+    "description": "name=push-consent-server, arch=x86_64, ancestor_name=bionic-classicbase-x86_64-202204221602-ebs, ancestor_id=ami-00d9fba7dba18f679, ancestor_version=nflx-base-5.758.0-h2634.e8d8504",
+    "enaSupport": true,
+    "hypervisor": "xen",
+    "name": "push-consent-server-1.0.7_snapshot-h532.267de09-x86_64-20220518180003-bionic-classic-hvm-sriov-ebs",
+    "rootDeviceName": "/dev/sda1",
+    "rootDeviceType": "ebs",
+    "sriovNetSupport": "simple",
+    "tags": [
+      {
+        "key": "build_host",
+        "value": "https://membership.builds.test.netflix.net/"
+      },
+      {
+        "key": "appversion",
+        "value": "push-consent-server-1.0.7~snapshot-h532.267de09/CMP-push-consent-build/532"
+      },
+      {
+        "key": "creator",
+        "value": "msg-eng-platform@netflix.com"
+      },
+      {
+        "key": "base_ami_version",
+        "value": "nflx-base-5.758.0-h2634.e8d8504"
+      },
+      {
+        "key": "creation_time",
+        "value": "2022-05-18 18:03:20 UTC"
+      }
+    ],
+    "virtualizationType": "hvm",
+    "public": false
+  },
+  "launchTemplate": {
+    "launchTemplateId": "lt-05648855e24d35eda",
+    "launchTemplateName": "pushconsent-v092-05182022203705",
+    "versionNumber": 1,
+    "createTime": 1652906225000,
+    "createdBy": "arn:aws:sts::149510111645:assumed-role/spinnaker/Spinnaker",
+    "defaultVersion": true,
+    "launchTemplateData": {
+      "ebsOptimized": true,
+      "iamInstanceProfile": {
+        "name": "pushconsentInstanceProfile"
+      },
+      "blockDeviceMappings": [
+        {
+          "deviceName": "/dev/sdb",
+          "ebs": {
+            "volumeSize": 80,
+            "volumeType": "standard"
+          }
+        }
+      ],
+      "networkInterfaces": [
+        {
+          "deviceIndex": 0,
+          "groups": [
+            "sg-610264122",
+            "sg-279585936"
+          ],
+          "ipv6AddressCount": 0,
+          "ipv6Addresses": [],
+          "privateIpAddresses": [],
+          "ipv4Prefixes": [],
+          "ipv6Prefixes": []
+        }
+      ],
+      "imageId": "ami-04ce90187010809da",
+      "instanceType": "m5.xlarge",
+      "keyName": "nf-prod-keypair-a",
+      "monitoring": {
+        "enabled": false
+      },
+      "userData": "TkVURkxJWF9BQ0NPVU5UPSJwcm9kIgpORVRGTElYX0FDQ09VTlRfVFlQRT0ibWFpbiIKTkVURkxJWF9FTlZJUk9OTUVOVD0icHJvZCIKTkVURkxJWF9BUFA9InB1c2hjb25zZW50IgpORVRGTElYX0FQUFVTRVI9InB1c2hjb25zZW50IgpORVRGTElYX1NUQUNLPSIiCk5FVEZMSVhfQ0xVU1RFUj0icHVzaGNvbnNlbnQiCk5FVEZMSVhfREVUQUlMPSIiCk5FVEZMSVhfQVVUT19TQ0FMRV9HUk9VUD0icHVzaGNvbnNlbnQtdjA5MiIKTkVURkxJWF9MQVVOQ0hfQ09ORklHPSIiCk5FVEZMSVhfTEFVTkNIX1RFTVBMQVRFPSJwdXNoY29uc2VudC12MDkyLTA1MTgyMDIyMjAzNzA1IgpFQzJfUkVHSU9OPSJ1cy13ZXN0LTIiCk5FVEZMSVhfUkVHSU9OPSJ1cy13ZXN0LTIiCkVDMl9SRUdJT049InVzLXdlc3QtMiIKTkVURkxJWF9IT01FX1JFR0lPTj0idXMtd2VzdC0yIgpORVRGTElYX0FQUF9NRVRBREFUQT0iYW1pPWFtaS0wNGNlOTAxODcwMTA4MDlkYSZhc2c9cHVzaGNvbnNlbnQtdjA5MiZ0PTE2NTI5MDYyMjUmdHlwZT1hd3MmdmVyc2lvbj0xIgpORVRGTElYX0FQUF9NRVRBREFUQV9CNjQ9IllXMXBQV0Z0YVMwd05HTmxPVEF4T0Rjd01UQTRNRGxrWVNaaGMyYzljSFZ6YUdOdmJuTmxiblF0ZGpBNU1pWjBQVEUyTlRJNU1EWXlNalVtZEhsd1pUMWhkM01tZG1WeWMybHZiajB4IgpORVRGTElYX0FQUF9NRVRBREFUQV9TSUc9InNpZz1KVGxtZjBTMXkwenIzV01oSnlxYklzeTdXd0h4NzAyakRySER0WUJJclJSQjhHWEtUaWVpVjNKZ2ZXcmk5emRCbUg1bDBYWDMwazNvQUV6T2dDWDBGUVNQcnVFV2tVeExPdHNtSExOaWstVUpNaXRONS1WbHRUWVE5NTUtV1JDUDJRTTRqOFhkZlRCTW5FaDl3REwwUV9hYXl2c2I2RFlRV1ljc1p0dHdrX2xmQ3dQWEY4QzVlY0xXUW14TEZvRTZUb0JwQzJnTGExbnlhbTNqeVRkaFo0X1ZqbGlZMGN5NjFPMlZiNWVsRWVuTmVseGFUM0FZQ1VpVVYzUnBTSGY5UVBVV3hib3FQQkJQN09teERqTFo3WmkxQ2s1Tmxfb0o4b3lsYmkweUdMdzNGa0N4TjdybVZIMFEtWE5BTzNzekF0U19JOF83MW5uLUtpcnptLWxOc3I0TllDM2l0QndfSnVfeU55NjNpUndIeHJQRHM5U2QwQnlxdU9kSU5ZOXdxU1FmdmZIVTVrZ3VYdnk3aHdJVEV3d1ZYb3hEZDhMamgxQXdqV1Q1SGN1dWltNGNlZHJ6VXVSdnlyNUNUMUg3WmVBeG9aM0E2MFdFejJsUThDOWg4YTFVbWl3cmxHZmViSlJQUkc1UHBUSEtrWF9UaFVxV0RjUHJTWDRRc1pYdThMU1h0NEtXWjVITHZQWmxyamNsNjJTQkhUaUV0UGRWWXl3ZHNLV1dZY3hYa3BNcjYyNEFOeEFSbk91VXVmaW1CblFJQmhZeDlaMVlxX082cy1xclJuQUxQbnhSQnRrOU80ZmNHTlJqUlRBQ3dTMlR6ajhzZkFKVkJFUHNrNWJBSUJlTm83V3ZRQVVDZ01YUDNfbGY1VFRMYWxYNjhXc1FWRlJ5aXYxQTUzdyUzRCZrZXlJRD1zcGluLjImc0FsZz1TSEE1MTJ3aXRoUlNBYW5kTUdGMSIK",
+      "tagSpecifications": [
+        {
+          "resourceType": "volume",
+          "tags": [
+            {
+              "key": "spinnaker:application",
+              "value": "pushconsent"
+            },
+            {
+              "key": "spinnaker:cluster",
+              "value": "pushconsent"
+            }
+          ]
+        }
+      ],
+      "elasticGpuSpecifications": [],
+      "elasticInferenceAccelerators": [],
+      "securityGroupIds": [],
+      "securityGroups": [],
+      "licenseSpecifications": [],
+      "metadataOptions": {
+        "httpTokens": "required"
+      }
+    }
+  },
+  "asg": {
+    "autoScalingGroupName": "pushconsent-v092",
+    "autoScalingGroupARN": "arn:aws:autoscaling:us-west-2:149510111645:autoScalingGroup:a23f5f63-b064-4e93-af5f-a147698b5f5b:autoScalingGroupName/pushconsent-v092",
+    "launchTemplate": {
+      "launchTemplateId": "lt-05648855e24d35eda",
+      "launchTemplateName": "pushconsent-v092-05182022203705",
+      "version": "1"
+    },
+    "minSize": 6,
+    "maxSize": 33,
+    "desiredCapacity": 14,
+    "defaultCooldown": 10,
+    "availabilityZones": [
+      "us-west-2a",
+      "us-west-2b",
+      "us-west-2c"
+    ],
+    "loadBalancerNames": [],
+    "targetGroupARNs": [],
+    "healthCheckType": "EC2",
+    "healthCheckGracePeriod": 600,
+    "createdTime": 1652906228110,
+    "suspendedProcesses": [],
+    "enabledMetrics": [],
+    "tags": [
+      {
+        "resourceId": "pushconsent-v092",
+        "resourceType": "auto-scaling-group",
+        "key": "spinnaker:application",
+        "value": "pushconsent",
+        "propagateAtLaunch": true
+      }
+    ],
+    "terminationPolicies": [
+      "Default"
+    ],
+    "newInstancesProtectedFromScaleIn": false,
+    "serviceLinkedRoleARN": "arn:aws:iam::149510111645:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling",
+    "vpczoneIdentifier": "subnet-1,subnet-2,subnet-3"
+  },
+  "scalingPolicies": [
+    {
+      "autoScalingGroupName": "pushconsent-v092",
+      "policyName": "pushconsent-v092-AWS/EC2-CPUUtilization-GreaterThanThreshold-40.0-3-60-1652906231733",
+      "policyARN": "arn:aws:autoscaling:us-west-2:149510111645:scalingPolicy:c5471823-4b6e-4d52-8712-56082b4f1228:autoScalingGroupName/pushconsent-v092:policyName/pushconsent-v092-AWS/EC2-CPUUtilization-GreaterThanThreshold-40.0-3-60-1652906231733",
+      "policyType": "StepScaling",
+      "adjustmentType": "ChangeInCapacity",
+      "stepAdjustments": [
+        {
+          "metricIntervalLowerBound": 0.0,
+          "scalingAdjustment": 3
+        }
+      ],
+      "metricAggregationType": "Average",
+      "estimatedInstanceWarmup": 300,
+      "alarms": [
+        {
+          "alarmName": "pushconsent-v092-alarm-8ed99f08-8866-434c-bc88-08c4c0ff022a",
+          "alarmArn": "arn:aws:cloudwatch:us-west-2:149510111645:alarm:pushconsent-v092-alarm-8ed99f08-8866-434c-bc88-08c4c0ff022a",
+          "alarmConfigurationUpdatedTimestamp": 1652906232432,
+          "actionsEnabled": true,
+          "alarmActions": [
+            "arn:aws:autoscaling:us-west-2:149510111645:scalingPolicy:c5471823-4b6e-4d52-8712-56082b4f1228:autoScalingGroupName/pushconsent-v092:policyName/pushconsent-v092-AWS/EC2-CPUUtilization-GreaterThanThreshold-40.0-3-60-1652906231733"
+          ],
+          "insufficientDataActions": [],
+          "stateValue": "OK",
+          "stateReason": "Threshold Crossed: 1 datapoint [1.851353537065779 (18/05/22 20:35:00)] was not greater than the threshold (40.0).",
+          "stateReasonData": "{\"version\":\"1.0\",\"queryDate\":\"2022-05-18T20:39:06.788+0000\",\"startDate\":\"2022-05-18T20:35:00.000+0000\",\"statistic\":\"Average\",\"period\":60,\"recentDatapoints\":[1.851353537065779],\"threshold\":40.0,\"evaluatedDatapoints\":[{\"timestamp\":\"2022-05-18T20:35:00.000+0000\",\"sampleCount\":13.0,\"value\":1.851353537065779}]}",
+          "stateUpdatedTimestamp": 1652906346793,
+          "metricName": "CPUUtilization",
+          "namespace": "AWS/EC2",
+          "statistic": "Average",
+          "dimensions": [
+            {
+              "name": "AutoScalingGroupName",
+              "value": "pushconsent-v092"
+            }
+          ],
+          "period": 60,
+          "evaluationPeriods": 3,
+          "threshold": 40.0,
+          "comparisonOperator": "GreaterThanThreshold",
+          "metrics": [],
+          "okactions": []
+        }
+      ],
+      "enabled": true
+    }
+  ],
+  "scheduledActions": [],
+  "buildInfo": {
+    "package_name": "push-consent-server",
+    "version": "1.0.7~snapshot",
+    "commit": "267de09",
+    "jenkins": {
+      "number": "532",
+      "name": "CMP-push-consent-build",
+      "host": "https://membership.builds.test.netflix.net/"
+    }
+  },
+  "vpcId": "vpc-4342589",
+  "type": "aws",
+  "cloudProvider": "aws",
+  "targetGroups": [],
+  "disabled": false,
+  "capacity": {
+    "min": 6,
+    "max": 33,
+    "desired": 14,
+    "pinned": false
+  },
+  "securityGroups": [
+    "sg-610264122",
+    "sg-279585936"
+  ],
+  "loadBalancers": [],
+  "createdTime": 1652906228110,
+  "instanceType": "m5.xlarge",
+  "instanceCounts": {
+    "total": 14,
+    "up": 14,
+    "down": 0,
+    "unknown": 0,
+    "outOfService": 0,
+    "starting": 0
+  },
+  "labels": {},
+  "moniker": {
+    "app": "pushconsent",
+    "cluster": "pushconsent",
+    "sequence": 92
+  },
+  "serverGroupManagers": [],
+  "application": "pushconsent",
+  "sharding": {
+    "shards": {}
+  }
+}

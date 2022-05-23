@@ -1,6 +1,5 @@
 package com.netflix.spinnaker.keel.api.ec2.export
 
-import com.fasterxml.jackson.module.kotlin.convertValue
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.Exportable
@@ -25,6 +24,8 @@ import com.netflix.spinnaker.keel.api.ec2.EC2_CLUSTER_V1_1
 import com.netflix.spinnaker.keel.api.ec2.LaunchConfigurationSpec
 import com.netflix.spinnaker.keel.api.ec2.ServerGroup.ActiveServerGroupImage
 import com.netflix.spinnaker.keel.api.ec2.ServerGroup.LaunchConfiguration.Companion.defaultIamRoleFor
+import com.netflix.spinnaker.keel.api.ec2.StepAdjustment
+import com.netflix.spinnaker.keel.api.ec2.StepScalingPolicy
 import com.netflix.spinnaker.keel.api.ec2.TargetTrackingPolicy
 import com.netflix.spinnaker.keel.api.ec2.TerminationPolicy
 import com.netflix.spinnaker.keel.api.ec2.VirtualMachineImage
@@ -65,6 +66,7 @@ import org.junit.jupiter.api.Test
 import strikt.api.expect
 import strikt.api.expectThat
 import strikt.api.expectThrows
+import strikt.assertions.containsExactlyInAnyOrder
 import strikt.assertions.containsKey
 import strikt.assertions.hasSize
 import strikt.assertions.isA
@@ -73,7 +75,9 @@ import strikt.assertions.isEqualTo
 import strikt.assertions.isNotEmpty
 import strikt.assertions.isNotNull
 import strikt.assertions.isNull
+import strikt.assertions.map
 import java.time.Clock
+import java.time.Duration
 import java.util.*
 import com.netflix.spinnaker.keel.clouddriver.model.Capacity as ClouddriverCapacity
 import io.mockk.coEvery as every
@@ -121,6 +125,19 @@ internal class ClusterExportTests {
 
   val targetTrackingPolicyName = "keel-test-target-tracking-policy"
 
+  val launchConfig = LaunchConfigurationSpec(
+    image = VirtualMachineImage(
+      id = "ami-123543254134",
+      appVersion = "keel-0.287.0-h208.fe2e8a1",
+      baseImageName = "bionicbase-x86_64-202101262358-ebs"
+    ),
+    instanceType = "r4.8xlarge",
+    ebsOptimized = false,
+    iamRole = defaultIamRoleFor("keel"),
+    keyPair = "nf-keypair-test-fake",
+    instanceMonitoring = false
+  )
+
   val spec = ClusterSpec(
     moniker = Moniker(app = "keel", stack = "test"),
     locations = SubnetAwareLocations(
@@ -136,18 +153,7 @@ internal class ClusterExportTests {
     ),
     deployWith = RedBlack(),
     _defaults = ServerGroupSpec(
-      launchConfiguration = LaunchConfigurationSpec(
-        image = VirtualMachineImage(
-          id = "ami-123543254134",
-          appVersion = "keel-0.287.0-h208.fe2e8a1",
-          baseImageName = "bionicbase-x86_64-202101262358-ebs"
-        ),
-        instanceType = "r4.8xlarge",
-        ebsOptimized = false,
-        iamRole = defaultIamRoleFor("keel"),
-        keyPair = "nf-keypair-test-fake",
-        instanceMonitoring = false
-      ),
+      launchConfiguration = launchConfig,
       capacity = CapacitySpec(min = 1, max = 6),
       scaling = EC2ScalingSpec(
         targetTrackingPolicies = setOf(
@@ -166,6 +172,85 @@ internal class ClusterExportTests {
       dependencies = ClusterDependencies(
         loadBalancerNames = setOf("keel-test-frontend"),
         securityGroupNames = setOf(sg1West.name, sg2West.name)
+      )
+    )
+  )
+
+  val eastStepScaling: EC2ScalingSpec =
+    EC2ScalingSpec(
+      stepScalingPolicies = setOf(
+        StepScalingPolicy(
+          period = Duration.ofMinutes(1),
+          warmup = Duration.ofMinutes(5),
+          namespace = "AWS/EC2",
+          statistic = "Average",
+          threshold = 40,
+          metricName = "CPUUtilization",
+          actionsEnabled = true,
+          adjustmentType = "PercentChangeInCapacity",
+          stepAdjustments = setOf(
+            StepAdjustment(
+              lowerBound = 0.0,
+              scalingAdjustment = 30
+            )
+          ),
+          evaluationPeriods = 1,
+          comparisonOperator = "GreaterThanThreshold",
+          metricAggregationType = "Average"
+        )
+      )
+    )
+  val westEuStepScaling: EC2ScalingSpec =
+    EC2ScalingSpec(
+      stepScalingPolicies = setOf(
+        StepScalingPolicy(
+          period = Duration.ofMinutes(1),
+          warmup = Duration.ofMinutes(5),
+          namespace = "AWS/EC2",
+          statistic = "Average",
+          threshold = 40,
+          metricName = "CPUUtilization",
+          actionsEnabled = true,
+          adjustmentType = "ChangeInCapacity",
+          stepAdjustments = setOf(
+            StepAdjustment(
+              lowerBound = 0.0,
+              scalingAdjustment = 3
+            )
+          ),
+          evaluationPeriods = 3,
+          comparisonOperator = "GreaterThanThreshold",
+          metricAggregationType = "Average"
+        )
+      )
+    )
+
+  val stepScalingSpec = ClusterSpec(
+    moniker = Moniker(app = "pushconsent"),
+    locations = SubnetAwareLocations(
+      account = vpcWest.account,
+      vpc = "vpc0",
+      subnet = subnet1West.purpose!!,
+      regions = listOf(vpcWest, vpcEast).map { subnet ->
+        SubnetAwareRegionSpec(
+          name = subnet.region,
+          availabilityZones = listOf("a", "b", "c").map { "${subnet.region}$it" }.toSet()
+        )
+      }.toSet()
+    ),
+    deployWith = RedBlack(),
+    _defaults = ServerGroupSpec(
+      launchConfiguration = launchConfig,
+      capacity = CapacitySpec(min = 1, max = 6),
+      scaling = eastStepScaling,
+      dependencies = ClusterDependencies(
+        loadBalancerNames = setOf("keel-test-frontend"),
+        securityGroupNames = setOf(sg1West.name, sg2West.name)
+      ),
+    ),
+    overrides = mapOf(
+      "us-west-2" to ServerGroupSpec(
+        scaling = westEuStepScaling
       )
     )
   )
@@ -211,8 +296,12 @@ internal class ClusterExportTests {
   )
 
   val mapper = configuredTestObjectMapper()
-  val stepScalingServerGroupJson: String = checkNotNull(javaClass.getResource("/cluster-with-step-scaling-policies.json")).readText()
-  val stepScalingServerGroup: ActiveServerGroup = mapper.readValue<ActiveServerGroup>(stepScalingServerGroupJson)
+  val eastStepScalingJson: String = checkNotNull(javaClass.getResource("/cluster-with-step-scaling-policies.json")).readText()
+  val eastStepScalingServerGroup: ActiveServerGroup = mapper.readValue<ActiveServerGroup>(eastStepScalingJson)
+  val westStepScalingJson: String = checkNotNull(javaClass.getResource("/west-cluster-step-scaling.json")).readText()
+  val westStepScalingServerGroup: ActiveServerGroup = mapper.readValue<ActiveServerGroup>(westStepScalingJson)
+  val euStepScalingJson: String = checkNotNull(javaClass.getResource("/eu-step-scaling.json")).readText()
+  val euStepScalingServerGroup: ActiveServerGroup = mapper.readValue<ActiveServerGroup>(euStepScalingJson)
 
   val subject = ClusterHandler(
     cloudDriverService,
@@ -281,10 +370,47 @@ internal class ClusterExportTests {
   }
 
   @Test
-  fun `converting step scaling policies`() {
-    val serverGroup = subject.convertServerGroup(stepScalingServerGroup)
-    expectThat(serverGroup.scaling.targetTrackingPolicies).isEmpty()
-    expectThat(serverGroup.scaling.stepScalingPolicies).hasSize(1)
+  fun `converting current state to step scaling policies`() {
+    val eastServerGroup = subject.convertServerGroup(eastStepScalingServerGroup)
+    val westServerGroup = subject.convertServerGroup(westStepScalingServerGroup)
+    val euServerGroup = subject.convertServerGroup(euStepScalingServerGroup)
+
+    expectThat(eastServerGroup.scaling.targetTrackingPolicies).isEmpty()
+    expectThat(eastServerGroup.scaling.stepScalingPolicies).hasSize(1)
+    expectThat(eastServerGroup.scaling.stepScalingPolicies.first().adjustmentType).isEqualTo("PercentChangeInCapacity")
+
+    expectThat(westServerGroup.scaling.targetTrackingPolicies).isEmpty()
+    expectThat(westServerGroup.scaling.stepScalingPolicies).hasSize(1)
+    expectThat(westServerGroup.scaling.stepScalingPolicies.first().adjustmentType).isEqualTo("ChangeInCapacity")
+
+    expectThat(euServerGroup.scaling.targetTrackingPolicies).isEmpty()
+    expectThat(euServerGroup.scaling.stepScalingPolicies).hasSize(1)
+    expectThat(euServerGroup.scaling.stepScalingPolicies.first().adjustmentType).isEqualTo("ChangeInCapacity")
+  }
+
+
+  @Test
+  fun `scaling policy overrides replace defaults in the overriden regions`() {
+    val desired = runBlocking { subject.toResolvedType(resource(
+      kind = EC2_CLUSTER_V1_1.kind,
+      spec = stepScalingSpec
+    )) }
+    val desiredEast = desired["us-east-1"]
+    val desiredWest = desired["us-west-2"]
+
+    expect {
+      that(stepScalingSpec.defaults.scaling).isNotNull()
+      that(desiredEast?.scaling?.stepScalingPolicies).isNotNull().and {
+        hasSize(1)
+        get { first().adjustmentType }.isEqualTo("PercentChangeInCapacity")
+      }
+      //this is not good! we need each region to get the right scaling policy,
+      // not add scaling policies
+      that(desiredWest?.scaling?.stepScalingPolicies).isNotNull().and {
+        hasSize(1)
+        map { it.adjustmentType }.containsExactlyInAnyOrder("ChangeInCapacity")
+      }
+    }
   }
 
   @Nested

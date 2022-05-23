@@ -130,16 +130,14 @@ fun ServerGroupSpec.resolveCapacity(hasScalingPolicies: Boolean): Capacity? {
   }
 }
 
+// overrides replace default scaling values.
 fun ClusterSpec.resolveScaling(region: String? = null): Scaling {
   val defaultScaling = defaults.scaling as? EC2ScalingSpec
   val regionalScaling = overrides[region]?.scaling as? EC2ScalingSpec
   return Scaling(
-    suspendedProcesses = defaultScaling?.suspendedProcesses +
-      (regionalScaling?.suspendedProcesses ?: emptySet()),
-    targetTrackingPolicies = defaultScaling?.targetTrackingPolicies +
-      (regionalScaling?.targetTrackingPolicies ?: emptySet()),
-    stepScalingPolicies = defaultScaling?.stepScalingPolicies +
-      (regionalScaling?.stepScalingPolicies ?: emptySet())
+    suspendedProcesses = regionalScaling?.suspendedProcesses ?: defaultScaling?.suspendedProcesses ?: emptySet(),
+    targetTrackingPolicies = regionalScaling?.targetTrackingPolicies ?: defaultScaling?.targetTrackingPolicies ?: emptySet(),
+    stepScalingPolicies = regionalScaling?.stepScalingPolicies ?: defaultScaling?.stepScalingPolicies ?: emptySet()
   )
 }
 

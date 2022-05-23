@@ -107,7 +107,7 @@ internal fun TitusClusterSpec.resolveDependencies(region: String? = null): Clust
   )
 
 fun TitusClusterSpec.resolveScaling(region: String? = null) =
-  // TODO: could be smarter here and merge policies from defaults and override
+  // Overrides always replace the defaults. How could we tell if they should merge or not? They're an override.
   (region?.let { overrides[it] }?.scaling ?: defaults.scaling)
   ?.run {
     // we set the warmup to ZERO/null as Titus doesn't use the warmup setting

@@ -17,6 +17,8 @@ import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.BRANCH_JOB_COMMIT_BY_JOB
 import com.netflix.spinnaker.keel.api.ec2.ClusterDependencies
 import com.netflix.spinnaker.keel.api.ec2.ClusterSpec.CapacitySpec
+import com.netflix.spinnaker.keel.api.ec2.StepAdjustment
+import com.netflix.spinnaker.keel.api.ec2.StepScalingPolicy
 import com.netflix.spinnaker.keel.api.plugins.Resolver
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.api.titus.ResourcesSpec
@@ -57,6 +59,7 @@ import strikt.api.expect
 import strikt.api.expectThat
 import strikt.assertions.all
 import strikt.assertions.containsExactly
+import strikt.assertions.containsExactlyInAnyOrder
 import strikt.assertions.containsKey
 import strikt.assertions.hasSize
 import strikt.assertions.isA
@@ -64,7 +67,9 @@ import strikt.assertions.isEqualTo
 import strikt.assertions.isNotEmpty
 import strikt.assertions.isNotNull
 import strikt.assertions.isNull
+import strikt.assertions.map
 import java.time.Clock
+import java.time.Duration
 import java.util.UUID
 import io.mockk.coEvery as every
 
@@ -177,6 +182,78 @@ internal class TitusClusterExportTests {
 
   val imagesWithArtifactInfo = branchJobShaImages
     .map { it.copy(branch = "main", commitId = "commit123", buildNumber = "10") }
+
+  val eastStepScaling: TitusScalingSpec =
+    TitusScalingSpec(
+      stepScalingPolicies = setOf(
+        StepScalingPolicy(
+          period = Duration.ofMinutes(1),
+          warmup = Duration.ofMinutes(5),
+          namespace = "AWS/EC2",
+          statistic = "Average",
+          threshold = 40,
+          metricName = "CPUUtilization",
+          actionsEnabled = true,
+          adjustmentType = "PercentChangeInCapacity",
+          stepAdjustments = setOf(
+            StepAdjustment(
+              lowerBound = 0.0,
+              scalingAdjustment = 30
+            )
+          ),
+          evaluationPeriods = 1,
+          comparisonOperator = "GreaterThanThreshold",
+          metricAggregationType = "Average"
+        )
+      )
+    )
+  val westEuStepScaling: TitusScalingSpec =
+    TitusScalingSpec(
+      stepScalingPolicies = setOf(
+        StepScalingPolicy(
+          period = Duration.ofMinutes(1),
+          warmup = Duration.ofMinutes(5),
+          namespace = "AWS/EC2",
+          statistic = "Average",
+          threshold = 40,
+          metricName = "CPUUtilization",
+          actionsEnabled = true,
+          adjustmentType = "ChangeInCapacity",
+          stepAdjustments = setOf(
+            StepAdjustment(
+              lowerBound = 0.0,
+              scalingAdjustment = 3
+            )
+          ),
+          evaluationPeriods = 3,
+          comparisonOperator = "GreaterThanThreshold",
+          metricAggregationType = "Average"
+        )
+      )
+    )
+
+  val stepScalingSpec = TitusClusterSpec(
+    moniker = Moniker(app = "keel", stack = "test"),
+    locations = SimpleLocations(
+      account = titusAccount,
+      regions = setOf(SimpleRegionSpec("us-east-1"), SimpleRegionSpec("us-west-2"))
+    ),
+    _defaults = TitusServerGroupSpec(
+      capacity = CapacitySpec(1, 6, 4),
+      dependencies = ClusterDependencies(
+        loadBalancerNames = setOf("keel-test-frontend"),
+        securityGroupNames = setOf(sg1West.name)
+      ),
+      networkMode = HighScale,
+      scaling = eastStepScaling
+    ),
+    container = container,
+    overrides = mapOf(
+      "us-west-2" to TitusServerGroupSpec(
+        scaling = westEuStepScaling
+      )
+    )
+  )
 
   val subject = TitusClusterHandler(
     cloudDriverService,
@@ -302,6 +379,30 @@ internal class TitusClusterExportTests {
       every { cloudDriverService.titusActiveServerGroup(any(), "us-west-2") } returns activeServerGroupResponseWest
       every { cloudDriverService.findDockerImages("testregistry", (spec.container as DigestProvider).repository()) } returns images
       every { cloudDriverCache.credentialBy(titusAccount) } returns titusAccountCredential
+    }
+
+    @Test
+    fun `scaling policy overrides replace defaults in the overriden regions`() {
+      val desired = runBlocking { subject.toResolvedType(resource(
+        kind = TITUS_CLUSTER_V1.kind,
+        spec = stepScalingSpec
+      )) }
+      val desiredEast = desired["us-east-1"]
+      val desiredWest = desired["us-west-2"]
+
+      expect {
+        that(stepScalingSpec.defaults.scaling).isNotNull()
+        that(desiredEast?.scaling?.stepScalingPolicies).isNotNull().and {
+          hasSize(1)
+          get { first().adjustmentType }.isEqualTo("PercentChangeInCapacity")
+        }
+        //this is not good! we need each region to get the right scaling policy,
+        // not add scaling policies
+        that(desiredWest?.scaling?.stepScalingPolicies).isNotNull().and {
+          hasSize(1)
+          map { it.adjustmentType }.containsExactlyInAnyOrder("ChangeInCapacity")
+        }
+      }
     }
 
     @Test
