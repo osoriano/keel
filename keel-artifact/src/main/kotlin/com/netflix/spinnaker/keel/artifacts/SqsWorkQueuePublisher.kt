@@ -22,7 +22,7 @@ class SqsWorkQueuePublisher(
     sqsClient.sendMessage(
       SendMessageRequest(workProcessingConfig.artifactSqsQueueUrl, objectMapper.writeValueAsString(artifactVersion))
         .withMessageAttributes(
-          mapOf("EnqueueTimestamp" to MessageAttributeValue().withStringValue(clock.instant().toString()))
+          mapOf("EnqueueTimestamp" to MessageAttributeValue().withStringValue(clock.instant().toString()).withDataType("String"))
         )
     )
   }
@@ -31,7 +31,7 @@ class SqsWorkQueuePublisher(
     sqsClient.sendMessage(
       SendMessageRequest(workProcessingConfig.codeEventSqsQueueUrl, objectMapper.writeValueAsString(codeEvent))
         .withMessageAttributes(
-          mapOf("EnqueueTimestamp" to MessageAttributeValue().withStringValue(clock.instant().toString()))
+          mapOf("EnqueueTimestamp" to MessageAttributeValue().withStringValue(clock.instant().toString()).withDataType("String"))
         )
     )
   }
