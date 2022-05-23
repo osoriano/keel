@@ -512,7 +512,6 @@ internal class ClusterExportTests {
         subject.export(exportable)
       }
       expect {
-        that(exported.locations.vpc).isNull()
         that(exported.locations.subnet).isNull()
         that(exported.defaults.health).isNotNull()
 

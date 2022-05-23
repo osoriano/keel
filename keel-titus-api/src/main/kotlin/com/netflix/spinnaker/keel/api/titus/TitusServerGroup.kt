@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.api.titus
 
 import com.netflix.spinnaker.keel.api.ExcludedFromDiff
+import com.netflix.spinnaker.keel.api.LocationConstants.DEFAULT_VPC_NAME
 import com.netflix.spinnaker.keel.api.SimpleLocationProvider
 import com.netflix.spinnaker.keel.api.VersionedArtifactProvider
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
@@ -63,7 +64,8 @@ data class TitusServerGroup(
   // todo eb: should this be more general?
   data class Location(
     override val account: String,
-    override val region: String
+    override val region: String,
+    val vpc: String = DEFAULT_VPC_NAME
   ) : SimpleLocationProvider
 
   data class Resources(

@@ -25,11 +25,13 @@ import com.netflix.spinnaker.keel.api.titus.TitusServerGroupSpec
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.clouddriver.model.Credential
+import com.netflix.spinnaker.keel.clouddriver.model.Network
 import com.netflix.spinnaker.keel.core.serverGroup
 import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.docker.DigestProvider
 import com.netflix.spinnaker.keel.orca.ClusterExportHelper
 import com.netflix.spinnaker.keel.orca.OrcaService
+import com.netflix.spinnaker.keel.titus.DefaultContainerAttributes
 import com.netflix.spinnaker.keel.titus.TitusClusterHandler
 import com.netflix.spinnaker.keel.titus.byRegion
 import com.netflix.spinnaker.keel.titus.registry.TitusRegistryService
@@ -48,6 +50,8 @@ class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, T
       environment = "testenv",
       attributes = mutableMapOf("awsAccount" to "awsAccount", "registry" to "testregistry")
     )
+
+    every { networkBy(any(), any(), any()) } returns Network("aws", "vpc-123", "vpc0", "test", "us-east-1")
 
     every {
       getRegistryForTitusAccount(any())
@@ -109,7 +113,8 @@ class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, T
       clusterExportHelper = clusterExportHelper,
       diffFactory = DefaultResourceDiffFactory(),
       titusRegistryService = titusRegistryService,
-      artifactBridge
+      artifactBridge,
+      DefaultContainerAttributes()
     ))
 
   override fun getSingleRegionCluster(): Resource<TitusClusterSpec> {

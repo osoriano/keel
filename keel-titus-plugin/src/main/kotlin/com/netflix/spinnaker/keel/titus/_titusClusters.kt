@@ -139,7 +139,8 @@ internal fun TitusClusterSpec.resolve(): Set<TitusServerGroup> =
       name = moniker.toString(),
       location = Location(
         account = locations.account,
-        region = it.name
+        region = it.name,
+        vpc = locations.vpc
       ),
       capacity = resolveCapacity(it.name),
       capacityGroup = resolveCapacityGroup(it.name),

@@ -29,6 +29,7 @@ import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.clouddriver.model.Credential
 import com.netflix.spinnaker.keel.api.artifacts.DockerImage
+import com.netflix.spinnaker.keel.clouddriver.model.Network
 import com.netflix.spinnaker.keel.clouddriver.model.SecurityGroupSummary
 import com.netflix.spinnaker.keel.clouddriver.model.ServerGroupCollection
 import com.netflix.spinnaker.keel.core.orcaClusterMoniker
@@ -42,11 +43,8 @@ import com.netflix.spinnaker.keel.orca.OrcaTaskLauncher
 import com.netflix.spinnaker.keel.orca.TaskRefResponse
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.test.resource
-import com.netflix.spinnaker.keel.titus.TitusClusterHandler
-import com.netflix.spinnaker.keel.titus.byRegion
+import com.netflix.spinnaker.keel.titus.*
 import com.netflix.spinnaker.keel.titus.registry.TitusRegistryService
-import com.netflix.spinnaker.keel.titus.resolve
-import com.netflix.spinnaker.keel.titus.resolveCapacity
 import de.huxhorn.sulky.ulid.ULID
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
@@ -222,7 +220,8 @@ class TitusClusterHandlerTests : JUnit5Minutests {
         clusterExportHelper,
         DefaultResourceDiffFactory(),
         titusRegistryService,
-        artifactBridge
+        artifactBridge,
+        DefaultContainerAttributes()
       )
     }
 
@@ -240,6 +239,8 @@ class TitusClusterHandlerTests : JUnit5Minutests {
         every { cloudDriverCache.credentialBy(titusAccount) } returns titusAccountCredential
         every { cloudDriverCache.getAwsAccountNameForTitusAccount(any()) } returns "test"
         every { cloudDriverCache.getRegistryForTitusAccount(any()) } returns "testregistry"
+        every { networkBy(any(), any(), any()) } returns Network("aws", "vpc-123", "vpc0", "test", "us-east-1")
+
       }
       every { repository.environmentFor(any()) } returns Environment("test")
       every {

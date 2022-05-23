@@ -18,32 +18,15 @@ import com.netflix.spinnaker.keel.api.titus.TitusClusterSpec
 import com.netflix.spinnaker.keel.api.titus.TitusScalingSpec
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
-import com.netflix.spinnaker.keel.clouddriver.model.Capacity
-import com.netflix.spinnaker.keel.clouddriver.model.Constraints
-import com.netflix.spinnaker.keel.clouddriver.model.Credential
-import com.netflix.spinnaker.keel.clouddriver.model.CustomizedMetricSpecificationModel
 import com.netflix.spinnaker.keel.api.artifacts.DockerImage
-import com.netflix.spinnaker.keel.clouddriver.model.InstanceCounts
-import com.netflix.spinnaker.keel.clouddriver.model.MetricDimensionModel
-import com.netflix.spinnaker.keel.clouddriver.model.MigrationPolicy
-import com.netflix.spinnaker.keel.clouddriver.model.Placement
-import com.netflix.spinnaker.keel.clouddriver.model.Resources
-import com.netflix.spinnaker.keel.clouddriver.model.ServerGroupCollection
-import com.netflix.spinnaker.keel.clouddriver.model.ServiceJobProcesses
-import com.netflix.spinnaker.keel.clouddriver.model.StepAdjustmentModel
-import com.netflix.spinnaker.keel.clouddriver.model.StepPolicyDescriptor
-import com.netflix.spinnaker.keel.clouddriver.model.StepScalingAlarm
-import com.netflix.spinnaker.keel.clouddriver.model.StepScalingPolicy
-import com.netflix.spinnaker.keel.clouddriver.model.TargetPolicyDescriptor
-import com.netflix.spinnaker.keel.clouddriver.model.TitusActiveServerGroup
-import com.netflix.spinnaker.keel.clouddriver.model.TitusActiveServerGroupImage
-import com.netflix.spinnaker.keel.clouddriver.model.TitusScaling
+import com.netflix.spinnaker.keel.clouddriver.model.*
 import com.netflix.spinnaker.keel.clouddriver.model.TitusScaling.Policy.StepPolicy
 import com.netflix.spinnaker.keel.clouddriver.model.TitusScaling.Policy.TargetPolicy
 import com.netflix.spinnaker.keel.core.api.randomUID
 import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.docker.DigestProvider
 import com.netflix.spinnaker.keel.test.resource
+import com.netflix.spinnaker.keel.titus.DefaultContainerAttributes
 import com.netflix.spinnaker.keel.titus.TitusClusterHandler
 import com.netflix.spinnaker.keel.titus.registry.TitusRegistryService
 import io.mockk.mockk
@@ -178,6 +161,7 @@ class TitusClusterScalingPolicyTests {
     every { getAwsAccountNameForTitusAccount(any()) } returns "test"
     every { getRegistryForTitusAccount(any()) } returns "testregistry"
     every { getAwsAccountIdForTitusAccount(any()) } returns "1234567890"
+    every { networkBy(any(), any(), any()) } returns Network("aws", "vpc-12345", "vpc3", "test", "us-east-1")
   }
 
   val titusRegistryService: TitusRegistryService = mockk {
@@ -239,7 +223,8 @@ class TitusClusterScalingPolicyTests {
     clusterExportHelper = mockk(),
     diffFactory = DefaultResourceDiffFactory(),
     titusRegistryService = titusRegistryService,
-    artifactBridge = mockk()
+    artifactBridge = mockk(),
+    DefaultContainerAttributes()
   )
 
   val resource = resource(

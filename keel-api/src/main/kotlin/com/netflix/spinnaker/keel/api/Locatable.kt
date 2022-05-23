@@ -37,17 +37,12 @@ data class SubnetAwareLocations(
    */
   val subnet: String?,
   // TODO: this is not ideal as we'd like this default to be configurable
-  val vpc: String? = defaultVPC(subnet),
+  val vpc: String = defaultVPC(subnet),
   override val regions: Set<SubnetAwareRegionSpec>
 ) : AccountAwareLocations<SubnetAwareRegionSpec> {
   // TODO: probably should be an extension at use-site
   fun withDefaultsOmitted() =
     copy(
-      vpc = if (vpc == DEFAULT_VPC_NAME) {
-        null
-      } else {
-        vpc
-      },
       subnet = if (subnet == DEFAULT_SUBNET_PURPOSE.format(vpc)) {
         null
       } else {
@@ -61,7 +56,7 @@ data class SubnetAwareLocations(
 data class SimpleLocations(
   override val account: String,
   // TODO: this is not ideal as we'd like this default to be configurable
-  val vpc: String? = DEFAULT_VPC_NAME,
+  val vpc: String = DEFAULT_VPC_NAME,
   override val regions: Set<SimpleRegionSpec>
 ) : AccountAwareLocations<SimpleRegionSpec>
 

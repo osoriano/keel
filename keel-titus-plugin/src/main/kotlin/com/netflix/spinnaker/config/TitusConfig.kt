@@ -28,6 +28,7 @@ import com.netflix.spinnaker.keel.environments.DependentEnvironmentFinder
 import com.netflix.spinnaker.keel.orca.ClusterExportHelper
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.persistence.FeatureRolloutRepository
+import com.netflix.spinnaker.keel.titus.DefaultContainerAttributes
 import com.netflix.spinnaker.keel.titus.InstanceMetadataServiceResolver
 import com.netflix.spinnaker.keel.titus.TitusClusterHandler
 import com.netflix.spinnaker.keel.titus.registry.TitusRegistryService
@@ -53,7 +54,8 @@ class TitusConfig {
     clusterExportHelper: ClusterExportHelper,
     diffFactory: ResourceDiffFactory,
     titusRegistryService: TitusRegistryService,
-    artifactBridge: ArtifactBridge
+    artifactBridge: ArtifactBridge,
+    defaultContainerAttributes: DefaultContainerAttributes
   ): TitusClusterHandler = TitusClusterHandler(
     cloudDriverService,
     cloudDriverCache,
@@ -65,7 +67,8 @@ class TitusConfig {
     clusterExportHelper,
     diffFactory,
     titusRegistryService,
-    artifactBridge
+    artifactBridge,
+    defaultContainerAttributes
   )
 
   @Bean

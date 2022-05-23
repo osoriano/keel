@@ -6,6 +6,7 @@ import com.netflix.buoy.sdk.model.RolloutTarget
 import com.netflix.spinnaker.keel.api.ArtifactBridge
 import com.netflix.spinnaker.keel.api.ClusterDeployStrategy
 import com.netflix.spinnaker.keel.api.Exportable
+import com.netflix.spinnaker.keel.api.LocationConstants.DEFAULT_VPC_NAME
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.NoStrategy
 import com.netflix.spinnaker.keel.api.RedBlack
@@ -62,15 +63,9 @@ import com.netflix.spinnaker.keel.artifacts.DockerArtifact
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.clouddriver.ResourceNotFound
-import com.netflix.spinnaker.keel.clouddriver.model.CustomizedMetricSpecificationModel
-import com.netflix.spinnaker.keel.clouddriver.model.MetricDimensionModel
-import com.netflix.spinnaker.keel.clouddriver.model.PredefinedMetricSpecificationModel
-import com.netflix.spinnaker.keel.clouddriver.model.ServerGroup
-import com.netflix.spinnaker.keel.clouddriver.model.StepAdjustmentModel
-import com.netflix.spinnaker.keel.clouddriver.model.TitusActiveServerGroup
+import com.netflix.spinnaker.keel.clouddriver.model.*
 import com.netflix.spinnaker.keel.clouddriver.model.TitusScaling.Policy.StepPolicy
 import com.netflix.spinnaker.keel.clouddriver.model.TitusScaling.Policy.TargetPolicy
-import com.netflix.spinnaker.keel.clouddriver.model.toActive
 import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.core.orcaClusterMoniker
 import com.netflix.spinnaker.keel.core.serverGroup
@@ -115,7 +110,8 @@ class TitusClusterHandler(
   private val clusterExportHelper: ClusterExportHelper,
   diffFactory: ResourceDiffFactory,
   private val titusRegistryService: TitusRegistryService,
-  private val artifactBridge: ArtifactBridge
+  private val artifactBridge: ArtifactBridge,
+  private val defaultContainerAttributes: DefaultContainerAttributes
 ) : BaseClusterHandler<TitusClusterSpec, TitusServerGroup>(resolvers, taskLauncher, diffFactory) {
 
   private val mapper = configuredObjectMapper()
@@ -1028,13 +1024,50 @@ private fun jsonStringify(arguments: Map<String, Any>?) =
         .mapNotNull { it.await() }
     }
 
+  /**
+   * Extract a list of subnet ids from container attributes
+   *
+   * Subnet ids are encoded as a comma-separated list. For example:
+   *     "subnet-12345678,subnet-abcdefg0,subnet-d71bebaf"
+   */
+  fun subnets(containerAttributes: Map<String, String>) : List<String> =
+    containerAttributes[defaultContainerAttributes.getSubnetKey()]?.split(",") ?: emptyList()
+
+
+  val TitusServerGroup.subnets : List<String>
+    get() = subnets(containerAttributes)
+
+  val TitusActiveServerGroup.subnets : List<String>
+    get() = subnets(containerAttributes)
+
+  /**
+   * Look up a VPC by subnetId
+   */
+  fun vpc(subnetId: String): Network {
+    val subnet = cloudDriverCache.subnetBy(subnetId)
+    return cloudDriverCache.networkBy(subnet.vpcId)
+  }
+
+  val TitusActiveServerGroup.vpc : String
+    get() = subnets.firstOrNull()
+      ?.let { subnetId -> vpc(subnetId) }
+      ?.name
+      ?: DEFAULT_VPC_NAME
+
+  val TitusServerGroup.vpc : String
+    get() = subnets.firstOrNull()
+      ?.let { subnetId -> vpc(subnetId) }
+      ?.name
+      ?: DEFAULT_VPC_NAME
+
   private fun TitusActiveServerGroup.toTitusServerGroup() =
     TitusServerGroup(
       id = id,
       name = name,
       location = Location(
         account = placement.account,
-        region = region
+        region = region,
+        vpc = vpc
       ),
       capacity = capacity.run {
         if (scalingPolicies.isEmpty()) {
@@ -1132,23 +1165,19 @@ private fun jsonStringify(arguments: Map<String, Any>?) =
       networkMode = networkMode?.runCatching(NetworkMode::valueOf)?.getOrNull()
     )
 
-  /**
-   * Note: TitusServerGroup and TitusActiveServerGroup do not encode the VPC id. Instead, they encode subnets,
-   * which are associated with a VPC.
-   *
-   * For now, instead of looking up the VPC id, we simply pass "*" as the vpcId to clouddriver to indicate
-   * default behavior.
-   */
-  private fun getVpcId(): String = "*"
+  val TitusServerGroup.vpcId : String
+    get() = cloudDriverCache.networkBy(vpc, account, region).id
+
   private fun TitusServerGroup.securityGroupIds(): Collection<String> =
     runBlocking {
       val awsAccount = cloudDriverCache.getAwsAccountNameForTitusAccount(location.account)
+      val vpcId = cloudDriverCache.networkBy(vpc, awsAccount, region).id
       dependencies
         .securityGroupNames
         // no need to specify these as Orca will auto-assign them, also the application security group
         // gets auto-created so may not exist yet
         .filter { it !in setOf("nf-infrastructure", "nf-datacenter", moniker.app) }
-        .map { cloudDriverCache.securityGroupByName(awsAccount, location.region, it, getVpcId()).id }
+        .map { cloudDriverCache.securityGroupByName(awsAccount, location.region, it, vpcId).id }
     }
 
   private fun TitusServerGroup.securityGroupIdsForClone(): Collection<String> =
@@ -1156,14 +1185,16 @@ private fun jsonStringify(arguments: Map<String, Any>?) =
       val awsAccount = cloudDriverCache.getAwsAccountNameForTitusAccount(location.account)
       dependencies
         .securityGroupNames
-        .map { cloudDriverCache.securityGroupByName(awsAccount, location.region, it, getVpcId()).id }
+        .map { cloudDriverCache.securityGroupByName(awsAccount, location.region, it, vpcId).id }
     }
 
   private val TitusActiveServerGroup.securityGroupNames: Set<String>
-    get() = securityGroups.map {
-      cloudDriverCache.securityGroupById(awsAccount, region, it, getVpcId()).name
+    get() {
+      val vpcId = cloudDriverCache.networkBy(vpc, awsAccount, region).id
+      return securityGroups.map {
+        cloudDriverCache.securityGroupById(awsAccount, region, it, vpcId).name
+      }.toSet()
     }
-      .toSet()
 
   private fun Instant.iso() =
     atZone(ZoneId.of("UTC")).format(DateTimeFormatter.ISO_DATE_TIME)

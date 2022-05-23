@@ -71,7 +71,8 @@ internal class InstanceMetadataServiceResolverTests :
         name = "${moniker}-v001",
         location = Location(
           account = locations.account,
-          region = region
+          region = region,
+          vpc = "vpc0"
         ),
         capacity = DefaultCapacity(1, 1, 1),
         capacityGroup = "capacityGroup",

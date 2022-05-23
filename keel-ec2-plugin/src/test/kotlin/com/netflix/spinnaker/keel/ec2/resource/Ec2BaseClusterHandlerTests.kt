@@ -23,12 +23,14 @@ import com.netflix.spinnaker.keel.api.plugins.Resolver
 import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
+import com.netflix.spinnaker.keel.clouddriver.model.Network
 import com.netflix.spinnaker.keel.core.serverGroup
 import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactService
 import com.netflix.spinnaker.keel.jenkins.JenkinsService
 import com.netflix.spinnaker.keel.orca.ClusterExportHelper
 import com.netflix.spinnaker.keel.orca.OrcaService
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.spyk
 import org.springframework.core.env.Environment
@@ -36,7 +38,9 @@ import java.time.Clock
 
 class Ec2BaseClusterHandlerTests : BaseClusterHandlerTests<ClusterSpec, ServerGroup, ClusterHandler>() {
   private val cloudDriverService: CloudDriverService = mockk()
-  private val cloudDriverCache: CloudDriverCache = mockk()
+  private val cloudDriverCache: CloudDriverCache = mockk() {
+    every { networkBy(any(), any(), any()) } returns Network("aws", "vpc-123", "vpc0", "test", "us-east-1")
+  }
   private val orcaService: OrcaService = mockk()
   private val clusterExportHelper: ClusterExportHelper = mockk()
   private val springEnv: Environment = mockk(relaxed = true)

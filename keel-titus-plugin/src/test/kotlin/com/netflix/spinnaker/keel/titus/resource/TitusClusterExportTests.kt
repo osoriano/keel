@@ -29,15 +29,7 @@ import com.netflix.spinnaker.keel.api.titus.TitusServerGroupSpec
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverCache
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
-import com.netflix.spinnaker.keel.clouddriver.model.Capacity
-import com.netflix.spinnaker.keel.clouddriver.model.Credential
-import com.netflix.spinnaker.keel.clouddriver.model.CustomizedMetricSpecificationModel
-import com.netflix.spinnaker.keel.clouddriver.model.MetricDimensionModel
-import com.netflix.spinnaker.keel.clouddriver.model.Resources
-import com.netflix.spinnaker.keel.clouddriver.model.SecurityGroupSummary
-import com.netflix.spinnaker.keel.clouddriver.model.TargetPolicyDescriptor
-import com.netflix.spinnaker.keel.clouddriver.model.TitusActiveServerGroup
-import com.netflix.spinnaker.keel.clouddriver.model.TitusScaling
+import com.netflix.spinnaker.keel.clouddriver.model.*
 import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.docker.DigestProvider
 import com.netflix.spinnaker.keel.docker.ReferenceProvider
@@ -47,6 +39,7 @@ import com.netflix.spinnaker.keel.orca.OrcaTaskLauncher
 import com.netflix.spinnaker.keel.orca.TaskRefResponse
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.test.resource
+import com.netflix.spinnaker.keel.titus.DefaultContainerAttributes
 import com.netflix.spinnaker.keel.titus.NETFLIX_CONTAINER_ENV_VARS
 import com.netflix.spinnaker.keel.titus.TitusClusterHandler
 import com.netflix.spinnaker.keel.titus.registry.TitusRegistryService
@@ -196,7 +189,8 @@ internal class TitusClusterExportTests {
     clusterExportHelper,
     DefaultResourceDiffFactory(),
     titusRegistryService,
-    artifactBridge
+    artifactBridge,
+    DefaultContainerAttributes()
   )
 
   @BeforeEach
@@ -214,6 +208,9 @@ internal class TitusClusterExportTests {
 
       every { cloudDriverCache.credentialBy(titusAccount) } returns titusAccountCredential
       every { cloudDriverCache.getRegistryForTitusAccount(any()) } returns "testregistry"
+
+      every { networkBy(any(), any(), any()) } returns Network("aws", "vpc-123", "vpc0", "test", "us-east-1")
+
     }
     every { orcaService.orchestrate(resource.serviceAccount, any(), any()) } returns TaskRefResponse("/tasks/${UUID.randomUUID()}")
     every { repository.environmentFor(any()) } returns Environment("test")

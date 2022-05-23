@@ -20,6 +20,7 @@ import com.netflix.spinnaker.keel.docker.DigestProvider
 import com.netflix.spinnaker.keel.orca.ClusterExportHelper
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.test.resource
+import com.netflix.spinnaker.keel.titus.DefaultContainerAttributes
 import com.netflix.spinnaker.keel.titus.NETFLIX_CONTAINER_ENV_VARS
 import com.netflix.spinnaker.keel.titus.TitusClusterHandler
 import com.netflix.spinnaker.keel.titus.registry.TitusRegistryService
@@ -180,7 +181,8 @@ class TitusClusterDesiredStateResolutionTests : JUnit5Minutests {
       ClusterExportHelper(cloudDriverService, orcaService),
       DefaultResourceDiffFactory(),
       titusRegistryService,
-      artifactBridge
+      artifactBridge,
+      DefaultContainerAttributes()
     )
 
     val desired: Map<String, TitusServerGroup> by lazy {
