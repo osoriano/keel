@@ -656,6 +656,7 @@ class ClusterHandler(
             "region" to location.region,
             "asgName" to moniker.serverGroup
           )
+          job["useSourceCapacity"] = true
           job["copySourceCustomBlockDeviceMappings"] = true
         }
 

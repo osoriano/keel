@@ -765,7 +765,8 @@ class TitusClusterHandler(
               "account" to location.account,
               "region" to location.region,
               "asgName" to moniker.serverGroup
-            )
+            ),
+            "useSourceCapacity" to true
           )
         } ?: job
       }
