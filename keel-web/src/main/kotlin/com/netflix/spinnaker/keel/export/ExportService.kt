@@ -64,7 +64,6 @@ import com.netflix.spinnaker.keel.front50.model.DeployStage
 import com.netflix.spinnaker.keel.front50.model.JenkinsStage
 import com.netflix.spinnaker.keel.front50.model.Pipeline
 import com.netflix.spinnaker.keel.front50.model.PipelineNotifications
-import com.netflix.spinnaker.keel.front50.model.RestrictedExecutionWindow
 import com.netflix.spinnaker.keel.jenkins.JenkinsService
 import com.netflix.spinnaker.keel.jenkins.PublisherType.HTML_REPORT
 import com.netflix.spinnaker.keel.jenkins.PublisherType.JUNIT_REPORT
@@ -678,7 +677,7 @@ class ExportService(
     cluster: Exportable,
     kind: ResourceKind,
     applicationName: String,
-    loadBalancers: List<ApplicationLoadBalancerModel> = emptyList()
+    applicationLoadBalancers: List<ApplicationLoadBalancerModel> = emptyList()
   ): Set<SubmittedResource<ResourceSpec>> {
 
     val dependencyType = when (kind) {
@@ -698,12 +697,15 @@ class ExportService(
       else -> cluster.account
     }
 
-    // Get the exportable for all security groups
     clusterDependencies.forEach {
-      val resourceName = when (kind) {
-        EC2_APPLICATION_LOAD_BALANCER_V1_2.kind -> loadBalancers.findLoadBalancerForTargetGroup(it.name)
-        else -> it.name
+      //since we are exporting target groups as ALBs, we need to get the right resource name for them --
+      //which is the ALB which has a target group called {it.name}
+      val resourceName =  if (kind == EC2_APPLICATION_LOAD_BALANCER_V1_2.kind && applicationLoadBalancers.isNotEmpty()) {
+        applicationLoadBalancers.findLoadBalancerForTargetGroup(it.name)
+      } else {
+        it.name
       }
+
       if (!resourceName.startsWith(applicationName)) {
         log.debug("resource ${it.name} doesn't start with the application name. will not create it.")
       } else {
@@ -743,6 +745,7 @@ class ExportService(
       }.toSet()
     }
 
+  //iterate over application load balancers only, in order to fetch the right name for a target group (which is the load balancer name)
   private fun List<ApplicationLoadBalancerModel>.findLoadBalancerForTargetGroup(targetGroupName: String): String {
     val lb = this.find {
       it.targetGroups.any { tg ->

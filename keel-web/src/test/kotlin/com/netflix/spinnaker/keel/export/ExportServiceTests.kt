@@ -167,30 +167,30 @@ internal class ExportServiceTests {
     )
   )
 
+  private val targetGroup = ApplicationLoadBalancerModel.TargetGroup(
+    targetGroupName = "fnord-awesome",
+    loadBalancerNames = emptyList(),
+    targetType = "whatever-this-is",
+    matcher = ApplicationLoadBalancerModel.TargetGroupMatcher("200"),
+    protocol = "https",
+    port = 8080,
+    healthCheckEnabled = true,
+    healthCheckTimeoutSeconds = 30,
+    healthCheckPort = "8080",
+    healthCheckProtocol = "https",
+    healthCheckPath = "/healthcheck",
+    healthCheckIntervalSeconds = 60,
+    healthyThresholdCount = 10,
+    unhealthyThresholdCount = 5,
+    vpcId = "vpc",
+    attributes = ApplicationLoadBalancerModel.TargetGroupAttributes()
+  )
+
   private val loadBalancer = ApplicationLoadBalancerModel(
     moniker = Moniker(ec2Cluster.application, "stub", "alb"),
     loadBalancerName = "fnord-test",
     dnsName = "stub-alb-1234567890.elb.amazonaws.com",
-    targetGroups = listOf(
-      ApplicationLoadBalancerModel.TargetGroup(
-        targetGroupName = "fnord-awesome",
-        loadBalancerNames = emptyList(),
-        targetType = "whatever-this-is",
-        matcher = ApplicationLoadBalancerModel.TargetGroupMatcher("200"),
-        protocol = "https",
-        port = 8080,
-        healthCheckEnabled = true,
-        healthCheckTimeoutSeconds = 30,
-        healthCheckPort = "8080",
-        healthCheckProtocol = "https",
-        healthCheckPath = "/healthcheck",
-        healthCheckIntervalSeconds = 60,
-        healthyThresholdCount = 10,
-        unhealthyThresholdCount = 5,
-        vpcId = "vpc",
-        attributes = ApplicationLoadBalancerModel.TargetGroupAttributes()
-      )
-    ),
+    targetGroups = listOf(targetGroup),
     availabilityZones = setOf("a", "b", "c"),
     vpcId = "vpc",
     subnets = emptySet(),
@@ -320,9 +320,9 @@ internal class ExportServiceTests {
           availabilityZones = emptyMap()
         ),
           cluster.copy(
-          _region = region3,
-          availabilityZones = emptyMap()
-        )
+            _region = region3,
+            availabilityZones = emptyMap()
+          )
         )
       )
     )
@@ -792,10 +792,17 @@ internal class ExportServiceTests {
   }
 
   @Test
-  fun `throw an exception if a target group not found in the load balancers list`() {
+  fun `throw an exception if a target group not found in the application load balancers list`() {
     every {
       clouddriverService.loadBalancersForApplication(any(), any())
-    } returns emptyList()
+    } returns listOf(loadBalancer.copy(
+      targetGroups = listOf(
+        targetGroup.copy(
+          targetGroupName = "something-else"
+        )
+      ),
+    )
+    )
     expectThrows<UnsupportedResourceTypeException> {
       subject.exportFromPipelines(appName)
     }
@@ -857,20 +864,20 @@ internal class ExportServiceTests {
 
   @Test
   fun `export security group which is matching the app name`() {
-      every {
-        securityGroupHandler.export(Exportable(
-          cloudProvider = "aws",
-          account = "test",
-          user = "keel@spinnaker.io",
-          moniker = Moniker(app = appName),
-          regions = setOf("us-east-1"),
-          kind = EC2_SECURITY_GROUP_V1.kind
-        ))
-      } returns securityGroup().spec.copy(
-        Moniker(
-          app = appName
-        )
+    every {
+      securityGroupHandler.export(Exportable(
+        cloudProvider = "aws",
+        account = "test",
+        user = "keel@spinnaker.io",
+        moniker = Moniker(app = appName),
+        regions = setOf("us-east-1"),
+        kind = EC2_SECURITY_GROUP_V1.kind
+      ))
+    } returns securityGroup().spec.copy(
+      Moniker(
+        app = appName
       )
+    )
 
     val result = runBlocking {
       subject.exportFromPipelines(appName)
@@ -897,11 +904,11 @@ internal class ExportServiceTests {
     }
     expectThat(result)
       .isA<PipelineExportResult>().and {
-      get { deliveryConfig.environments }
-        .first()
-        .get { constraints }
-        .hasSize(0)
-    }
+        get { deliveryConfig.environments }
+          .first()
+          .get { constraints }
+          .hasSize(0)
+      }
   }
 
   @Test
