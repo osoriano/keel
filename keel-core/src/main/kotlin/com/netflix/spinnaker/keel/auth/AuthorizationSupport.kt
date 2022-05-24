@@ -162,7 +162,7 @@ class AuthorizationSupport(
    * specified resource.
    */
   fun checkPermission(authentication: Authentication, resourceName: String, resourceType: AuthorizationResourceType, permission: String) {
-    val user = AuthenticatedRequest.getSpinnakerUser().orElse("anonymous")
+    val user = AuthenticatedRequest.getSpinnakerUser().orElse("unknown")
     log.debug("Checking $permission permission to $resourceType $resourceName for user $user (details: $authentication")
     checkPermission(user, resourceName, resourceType, permission)
   }

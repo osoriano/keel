@@ -12,8 +12,6 @@ import com.netflix.spinnaker.keel.artifacts.DockerArtifact
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
 import com.netflix.spinnaker.keel.rest.VerificationController.RetryVerificationRequest
 import com.netflix.spinnaker.keel.rest.VerificationController.UpdateVerificationStatusRequest
-import com.netflix.springboot.sso.test.EnableSsoTest
-import com.netflix.springboot.sso.test.WithSsoUser
 import com.ninjasquad.springmockk.MockkBean
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
@@ -34,8 +32,6 @@ import io.mockk.coVerify as verify
 
 @SpringBootTest(webEnvironment = MOCK)
 @AutoConfigureMockMvc
-@EnableSsoTest
-@WithSsoUser(name = "alice")
 internal class VerificationControllerTests
 @Autowired constructor(
   private val mvc: MockMvc,
@@ -95,7 +91,7 @@ internal class VerificationControllerTests
       .accept(APPLICATION_JSON)
       .content(jsonMapper.writeValueAsString(payload))
 
-    mvc.perform(request.secure(true)).andExpect(status().isOk)
+    mvc.perform(request).andExpect(status().isOk)
 
     verify {
       verificationRepository.updateState(
@@ -126,7 +122,7 @@ internal class VerificationControllerTests
       .accept(APPLICATION_JSON)
       .content(jsonMapper.writeValueAsString(payload))
 
-    mvc.perform(request.secure(true)).andExpect(status().isUnprocessableEntity)
+    mvc.perform(request).andExpect(status().isUnprocessableEntity)
 
     verify(exactly = 0) {
       verificationRepository.updateState(any(), any(), any(), any())
@@ -157,7 +153,7 @@ internal class VerificationControllerTests
       verificationRepository.resetState(any(), any(), any())
     } returns NOT_EVALUATED
 
-    mvc.perform(request.secure(true)).andExpect(status().isOk)
+    mvc.perform(request).andExpect(status().isOk)
 
     verify {
       verificationRepository.resetState(
@@ -189,7 +185,7 @@ internal class VerificationControllerTests
       verificationRepository.getState(any(), any())
     } returns ActionState(currentStatus, now(), null)
 
-    mvc.perform(request.secure(true)).andExpect(status().isConflict)
+    mvc.perform(request).andExpect(status().isConflict)
 
     verify(exactly = 0) {
       verificationRepository.resetState(any(), any(), any())

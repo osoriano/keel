@@ -4,8 +4,6 @@ import com.netflix.spinnaker.keel.core.api.ApplicationSummary
 import com.netflix.spinnaker.keel.pause.ActuationPauser
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.admin.AdminService
-import com.netflix.springboot.sso.test.EnableSsoTest
-import com.netflix.springboot.sso.test.WithSsoUser
 import com.ninjasquad.springmockk.MockkBean
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
@@ -23,8 +21,6 @@ import java.time.Instant
 
 @SpringBootTest(webEnvironment = MOCK)
 @AutoConfigureMockMvc
-@EnableSsoTest
-@WithSsoUser(name = "alice")
 internal class AdminControllerTests
 @Autowired constructor(
   val mvc: MockMvc,
@@ -63,7 +59,7 @@ internal class AdminControllerTests
         val request = get("/poweruser/applications/")
           .accept(APPLICATION_JSON_VALUE)
         mvc
-          .perform(request.secure(true))
+          .perform(request)
           .andExpect(status().isOk)
           .andExpect(
             content().json(
@@ -111,7 +107,7 @@ internal class AdminControllerTests
         val request = get("/poweruser/applications/")
           .accept(APPLICATION_JSON_VALUE)
         mvc
-          .perform(request.secure(true))
+          .perform(request)
           .andExpect(status().isOk)
           .andExpect(
             content().json(
@@ -148,7 +144,7 @@ internal class AdminControllerTests
         val request = get("/poweruser/applications/")
           .accept(APPLICATION_JSON_VALUE)
         mvc
-          .perform(request.secure(true))
+          .perform(request)
           .andExpect(status().isOk)
           .andExpect(content().json("[]"))
       }
