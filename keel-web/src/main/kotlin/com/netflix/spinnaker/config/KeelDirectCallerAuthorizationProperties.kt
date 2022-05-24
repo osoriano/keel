@@ -3,8 +3,8 @@ package com.netflix.spinnaker.config
 import org.springframework.boot.context.properties.ConfigurationProperties
 
 /**
- * Copycat of [DirectCallerAuthorizationProperties] to work around some hard-to-debug Spring bean instantiation
- * ordering issue.
+ * Copycat of netflixplatform's [DirectCallerAuthorizationProperties] to work around some stupid Spring bean
+ * instantiation ordering issue.
  */
 @ConfigurationProperties("netflix.sso.direct-caller-authorization-filter")
 class KeelDirectCallerAuthorizationProperties {
