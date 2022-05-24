@@ -1,8 +1,8 @@
 package com.netflix.spinnaker.keel.services
 
-import com.fasterxml.jackson.module.kotlin.convertValue
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
+import com.fasterxml.jackson.module.kotlin.convertValue
 import com.netflix.spectator.api.BasicTag
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.config.ArtifactConfig
@@ -265,7 +265,6 @@ class ApplicationService(
   fun Resource<*>.toResourceSummary(deliveryConfig: DeliveryConfig) =
     ResourceSummary(
       resource = this,
-      status = resourceStatusService.getStatus(id),
       locations = if (spec is Locatable<*>) {
         (spec as Locatable<*>).locations
       } else {

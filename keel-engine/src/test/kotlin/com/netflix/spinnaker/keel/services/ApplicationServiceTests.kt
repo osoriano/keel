@@ -52,8 +52,6 @@ import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import io.mockk.Runs
-import io.mockk.coEvery as every
-import io.mockk.coVerify as verify
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
@@ -75,6 +73,8 @@ import strikt.assertions.isTrue
 import strikt.assertions.second
 import java.time.Instant
 import java.time.ZoneId
+import io.mockk.coEvery as every
+import io.mockk.coVerify as verify
 
 class ApplicationServiceTests : JUnit5Minutests {
   class Fixture {
@@ -268,11 +268,6 @@ class ApplicationServiceTests : JUnit5Minutests {
       test("includes all resources within the delivery config") {
         val summaries = applicationService.getResourceSummariesFor(application1)
         expectThat(summaries.size).isEqualTo(singleArtifactDeliveryConfig.resources.size)
-      }
-
-      test("sets the resource status as returned by ResourceStatusService") {
-        val summaries = applicationService.getResourceSummariesFor(application1)
-        expectThat(summaries.map { it.status }.all { it == CREATED }).isTrue()
       }
 
       context("resources are paused") {

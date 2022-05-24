@@ -25,7 +25,6 @@ import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.Monikered
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceKind
-import com.netflix.spinnaker.keel.api.ResourceStatus
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 import com.netflix.spinnaker.keel.pause.Pause
 
@@ -34,11 +33,10 @@ import com.netflix.spinnaker.keel.pause.Pause
  * This powers the UI view of resource status.
  */
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
-@JsonPropertyOrder(value = ["id", "kind", "status", "moniker", "displayName", "locations", "artifact"])
+@JsonPropertyOrder(value = ["id", "kind", "moniker", "displayName", "locations", "artifact"])
 data class ResourceSummary(
   @JsonIgnore
   val resource: Resource<*>,
-  val status: ResourceStatus,
   val locations: Locations<*>?,
   val pause: Pause? = null
 ) {
