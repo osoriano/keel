@@ -1166,9 +1166,6 @@ private fun jsonStringify(arguments: Map<String, Any>?) =
       networkMode = networkMode?.runCatching(NetworkMode::valueOf)?.getOrNull()
     )
 
-  val TitusServerGroup.vpcId : String
-    get() = cloudDriverCache.networkBy(vpc, account, region).id
-
   private fun TitusServerGroup.securityGroupIds(): Collection<String> =
     runBlocking {
       val awsAccount = cloudDriverCache.getAwsAccountNameForTitusAccount(location.account)
@@ -1184,6 +1181,7 @@ private fun jsonStringify(arguments: Map<String, Any>?) =
   private fun TitusServerGroup.securityGroupIdsForClone(): Collection<String> =
     runBlocking {
       val awsAccount = cloudDriverCache.getAwsAccountNameForTitusAccount(location.account)
+      val vpcId = cloudDriverCache.networkBy(vpc, awsAccount, region).id
       dependencies
         .securityGroupNames
         .map { cloudDriverCache.securityGroupByName(awsAccount, location.region, it, vpcId).id }
