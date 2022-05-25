@@ -8,20 +8,14 @@ interface ExtensionRegistry {
     baseType: Class<BASE>,
     extensionType: Class<out BASE>,
     discriminator: String
-  ) = register(baseType, JvmExtensionType(extensionType), discriminator)
-
-  fun <BASE : Any> register(
-    baseType: Class<BASE>,
-    extensionType: ExtensionType,
-    discriminator: String
   )
 
-  fun <BASE : Any> extensionsOf(baseType: Class<BASE>): Map<String, ExtensionType>
+  fun <BASE : Any> extensionsOf(baseType: Class<BASE>): Map<String, Class<out BASE>>
 
   fun baseTypes(): Collection<Class<*>>
 }
 
-inline fun <reified BASE : Any> ExtensionRegistry.extensionsOf(): Map<String, ExtensionType> =
+inline fun <reified BASE : Any> ExtensionRegistry.extensionsOf(): Map<String, Class<out BASE>> =
   extensionsOf(BASE::class.java)
 
 inline fun <reified BASE : Any> ExtensionRegistry.register(
@@ -29,21 +23,4 @@ inline fun <reified BASE : Any> ExtensionRegistry.register(
   discriminator: String
 ) {
   register(BASE::class.java, extensionType, discriminator)
-}
-
-inline fun <reified BASE : Any> ExtensionRegistry.register(
-  extensionType: ExtensionType,
-  discriminator: String
-) {
-  register(BASE::class.java, extensionType, discriminator)
-}
-
-interface ExtensionType {
-  val type: Class<*>
-}
-
-data class JvmExtensionType(
-  override val type: Class<*>
-) : ExtensionType {
-  override fun toString(): String = type.simpleName
 }
