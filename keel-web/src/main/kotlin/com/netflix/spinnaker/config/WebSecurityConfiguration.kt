@@ -19,5 +19,9 @@ class WebSecurityConfiguration : WebSecurityConfigurerAdapter() {
       .headers()
       .frameOptions()
       .disable()
+
+    http
+      .antMatcher("/status/**")
+      .anonymous()
   }
 }
