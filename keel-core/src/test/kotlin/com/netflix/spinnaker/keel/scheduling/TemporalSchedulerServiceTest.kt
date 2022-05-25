@@ -1,7 +1,7 @@
 package com.netflix.spinnaker.keel.scheduling
 
-import com.netflix.spinnaker.config.FeatureToggles
 import com.netflix.spinnaker.keel.api.ResourceKind
+import com.netflix.spinnaker.keel.persistence.EnvironmentHeader
 import com.netflix.spinnaker.keel.scheduling.SchedulingConsts.TEMPORAL_NAMESPACE
 import com.netflix.spinnaker.keel.test.resource
 import com.netflix.temporal.core.convention.TaskQueueNamer
@@ -30,15 +30,13 @@ class TemporalSchedulerServiceTest {
   private lateinit var blockingWorkflowServiceStubs: WorkflowServiceGrpc.WorkflowServiceBlockingStub
   private lateinit var workflowClient: WorkflowClient
 
-  private val featureToggles: FeatureToggles = mockk(relaxed = true) {
-    every { isEnabled(FeatureToggles.TEMPORAL_ENV_CHECKING, any()) } returns true
-  }
-
   private val res = resource(
     kind = ResourceKind.parseKind("ec2/security-group@v1"),
     id = "ec2:security-group:prod:ap-south-1:keel-sg",
     application = "keel"
   )
+
+  private val env = EnvironmentHeader("keel", "test")
 
   private lateinit var subject: TemporalSchedulerService
 
@@ -52,7 +50,7 @@ class TemporalSchedulerServiceTest {
     workflowClient = mockk()
     every { workflowClientProvider.get(TEMPORAL_NAMESPACE) } returns workflowClient
 
-    subject = TemporalSchedulerService(workflowClientProvider, workflowServiceStubsProvider, taskQueueNamer, WorkerEnvironment(StandardEnvironment()), featureToggles)
+    subject = TemporalSchedulerService(workflowClientProvider, workflowServiceStubsProvider, taskQueueNamer, WorkerEnvironment(StandardEnvironment()))
   }
 
   @Test
@@ -66,11 +64,48 @@ class TemporalSchedulerServiceTest {
   }
 
   @Test
+  fun `checkNow resource should signal the workflow`() {
+    subject.checkResourceNow(res)
+
+    verify {
+      blockingWorkflowServiceStubs.signalWorkflowExecution(any())
+    }
+  }
+
+  @Test
   fun `stopScheduling should terminate workflow if canceling fails`() {
     subject.stopScheduling(res)
 
     verify {
       blockingWorkflowServiceStubs.terminateWorkflowExecution(any())
+    }
+  }
+
+  @Test
+  fun `should create env workflows`() {
+    val stub = mockk<EnvironmentScheduler>(relaxUnitFun = true)
+    every { workflowClient.newWorkflowStub(EnvironmentScheduler::class.java, any<WorkflowOptions>()) } returns stub
+
+    subject.startSchedulingEnvironment(env.application, env.name)
+
+    verify { stub.schedule(any()) }
+  }
+
+  @Test
+  fun `should stop scheduling env workflows`() {
+    subject.stopScheduling(env.application, env.name)
+
+    verify {
+      blockingWorkflowServiceStubs.terminateWorkflowExecution(any())
+    }
+  }
+
+  @Test
+  fun `checkNow env should signal the workflow`() {
+    subject.checkEnvironmentNow(env.application, env.name)
+
+    verify {
+      blockingWorkflowServiceStubs.signalWorkflowExecution(any())
     }
   }
 

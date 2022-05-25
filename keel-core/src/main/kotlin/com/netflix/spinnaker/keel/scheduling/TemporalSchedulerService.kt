@@ -1,11 +1,10 @@
 package com.netflix.spinnaker.keel.scheduling
 
 import com.netflix.spinnaker.config.FeatureToggles
-import com.netflix.spinnaker.config.FeatureToggles.Companion.TEMPORAL_ENV_CHECKING
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.persistence.ResourceHeader
-import com.netflix.spinnaker.keel.scheduling.ResourceScheduler.* // ktlint-disable no-wildcard-imports
+import com.netflix.spinnaker.keel.scheduling.ResourceScheduler.*
 import com.netflix.spinnaker.keel.scheduling.SchedulingConsts.ENVIRONMENT_SCHEDULER_TASK_QUEUE
 import com.netflix.spinnaker.keel.scheduling.SchedulingConsts.RESOURCE_SCHEDULER_TASK_QUEUE
 import com.netflix.spinnaker.keel.scheduling.SchedulingConsts.TEMPORAL_NAMESPACE
@@ -24,7 +23,6 @@ import io.temporal.api.workflowservice.v1.TerminateWorkflowExecutionRequest
 import io.temporal.client.WorkflowClient
 import io.temporal.client.WorkflowOptions
 import org.slf4j.LoggerFactory
-import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 
 @Service
@@ -32,14 +30,10 @@ class TemporalSchedulerService(
   private val workflowClientProvider: WorkflowClientProvider,
   private val workflowServiceStubsProvider: WorkflowServiceStubsProvider,
   private val taskQueueNamer: TaskQueueNamer,
-  private val workerEnvironment: WorkerEnvironment,
-  private val featureToggles: FeatureToggles
+  private val workerEnvironment: WorkerEnvironment
 ) {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
-
-  fun environmentSchedulingEnabled(): Boolean =
-    featureToggles.isEnabled(TEMPORAL_ENV_CHECKING, default = false)
 
   /**
    * Checks for a running workflow for the environment
@@ -66,8 +60,8 @@ class TemporalSchedulerService(
   }
 
   fun startSchedulingEnvironment(application: String, environment: String) {
-    if (!environmentSchedulingEnabled() || isScheduling(application, environment)) {
-      // environment is already scheduled or scheduling is disabled
+    if (isScheduling(application, environment)) {
+      // environment is already scheduled
       return
     }
 
@@ -116,12 +110,6 @@ class TemporalSchedulerService(
         throw e
       }
     }
-  }
-
-  @EventListener(StopSchedulingEnvironmentEvent::class)
-  fun onStopSchedulingEnvEvent(event: StopSchedulingEnvironmentEvent) {
-    log.debug("Removing Temporal scheduling of environment ${event.environment} in application ${event.application} because of a fp switch")
-    stopScheduling(event.application, event.environment)
   }
 
   /**
@@ -213,9 +201,6 @@ class TemporalSchedulerService(
   }
 
   fun checkEnvironmentNow(application: String, environment: String) {
-    if (!environmentSchedulingEnabled()) {
-      return
-    }
     log.debug("Rechecking environment $environment in application $application")
     val stub = workflowServiceStubsProvider.forNamespace(TEMPORAL_NAMESPACE)
     try {
@@ -305,9 +290,3 @@ class TemporalSchedulerService(
     )
   }
 }
-
-// todo eb: remove once scheduling is switched over
-data class StopSchedulingEnvironmentEvent(
-  val application: String,
-  val environment: String
-)

@@ -15,7 +15,6 @@ class FeatureToggles(private val springEnvironment: ConfigurableEnvironment) {
     const val COROUTINE_MONITORING: String = "keel.metrics.coroutines.enabled"
     const val SKIP_PAUSED_APPS: String = "keel.environment-check.skip-paused-apps"
     const val USE_READ_REPLICA: String = "read-replica.enabled"
-    const val TEMPORAL_ENV_CHECKING: String = "keel.environment-scheduler.enabled"
   }
 
   /**

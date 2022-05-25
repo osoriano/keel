@@ -403,13 +403,6 @@ class KeelRepository(
   ): List<ConstraintState> =
     deliveryConfigRepository.constraintStateForEnvironments(deliveryConfigName, environmentUIDs)
 
-  fun deliveryConfigsDueForCheck(minTimeSinceLastCheck: Duration, limit: Int): Collection<DeliveryConfig> =
-    deliveryConfigRepository.itemsDueForCheck(minTimeSinceLastCheck, limit)
-
-  fun markDeliveryConfigCheckComplete(deliveryConfig: DeliveryConfig) {
-    deliveryConfigRepository.markCheckComplete(deliveryConfig, null)
-  }
-
   fun getApplicationSummaries(): Collection<ApplicationSummary> =
     deliveryConfigRepository.getApplicationSummaries()
 

@@ -2,7 +2,6 @@ package com.netflix.spinnaker.keel.scheduling.activities
 
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.config.FeatureToggles
-import com.netflix.spinnaker.config.FeatureToggles.Companion.TEMPORAL_ENV_CHECKING
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.scheduling.TemporalSchedulerService
 import com.netflix.spinnaker.keel.scheduling.SchedulerSupervisor
@@ -116,11 +115,6 @@ class DefaultSupervisorActivities(
   }
 
   private fun reconcileEnvironmentSchedulers() {
-    if (!featureToggles.isEnabled(TEMPORAL_ENV_CHECKING, false)) {
-      log.debug("Supervising environments via temporal is disabled, skipping.")
-      throw ApplicationFailure.newFailure("continuing activity", "continuation")
-    }
-
     val knownEnvironmentIds = mutableListOf<String>()
     var i = 0
     keelRepository.allEnvironments().forEachRemaining {

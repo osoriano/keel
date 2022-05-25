@@ -6,8 +6,6 @@ import com.netflix.spinnaker.config.ArtifactCheckConfig
 import com.netflix.spinnaker.config.EnvironmentCheckConfig
 import com.netflix.spinnaker.config.EnvironmentDeletionConfig
 import com.netflix.spinnaker.config.EnvironmentVerificationConfig
-import com.netflix.spinnaker.config.FeatureToggles
-import com.netflix.spinnaker.config.FeatureToggles.Companion.TEMPORAL_ENV_CHECKING
 import com.netflix.spinnaker.config.PostDeployActionsConfig
 import com.netflix.spinnaker.config.ResourceCheckConfig
 import com.netflix.spinnaker.keel.activation.DiscoveryActivated
@@ -17,12 +15,9 @@ import com.netflix.spinnaker.keel.persistence.AgentLockRepository
 import com.netflix.spinnaker.keel.persistence.EnvironmentDeletionRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.postdeploy.PostDeployActionRunner
-import com.netflix.spinnaker.keel.scheduling.StopSchedulingEnvironmentEvent
 import com.netflix.spinnaker.keel.telemetry.AgentInvocationComplete
 import com.netflix.spinnaker.keel.telemetry.ArtifactCheckComplete
 import com.netflix.spinnaker.keel.telemetry.ArtifactCheckTimedOut
-import com.netflix.spinnaker.keel.telemetry.EnvironmentCheckStarted
-import com.netflix.spinnaker.keel.telemetry.EnvironmentsCheckTimedOut
 import com.netflix.spinnaker.keel.telemetry.PostDeployActionCheckComplete
 import com.netflix.spinnaker.keel.telemetry.PostDeployActionTimedOut
 import com.netflix.spinnaker.keel.telemetry.VerificationCheckComplete
@@ -45,7 +40,6 @@ import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import kotlin.coroutines.CoroutineContext
-import kotlin.math.max
 
 @EnableConfigurationProperties(
   ResourceCheckConfig::class,
@@ -59,7 +53,6 @@ import kotlin.math.max
 class CheckScheduler(
   private val repository: KeelRepository,
   private val environmentDeletionRepository: EnvironmentDeletionRepository,
-  private val environmentPromotionChecker: EnvironmentPromotionChecker,
   private val verificationRunner: VerificationRunner,
   private val artifactHandlers: Collection<ArtifactHandler>,
   private val postDeployActionRunner: PostDeployActionRunner,
@@ -94,12 +87,6 @@ class CheckScheduler(
   private val postDeployBatchSize: Int
     get() = springEnv.getProperty("keel.post-deploy.batch-size", Int::class.java, postDeployConfig.batchSize)
 
-  private val resourceWaitForBatchToComplete: Boolean
-    get() = springEnv.getProperty("keel.resource.wait-for-batch.enabled", Boolean::class.java, true)
-
-  private val environmentWaitForBatchToComplete: Boolean
-    get() = springEnv.getProperty("keel.environment.wait-for-batch.enabled", Boolean::class.java, true)
-
   private val environmentDeletionWaitForBatchToComplete: Boolean
     get() = springEnv.getProperty("keel.environment-deletion.wait-for-batch.enabled", Boolean::class.java, true)
 
@@ -111,57 +98,6 @@ class CheckScheduler(
 
   private val postDeployWaitForBatchToComplete: Boolean
     get() = springEnv.getProperty("keel.post-deploy.wait-for-batch.enabled", Boolean::class.java, true)
-
-  private val temporalEnvCheckingEnabled: Boolean
-    get() = springEnv.getProperty(TEMPORAL_ENV_CHECKING, Boolean::class.java, false)
-
-  @Scheduled(fixedDelayString = "\${keel.environment-check.frequency:PT1S}")
-  @NewSpan
-  fun checkEnvironments() {
-    if (enabled.get() && !temporalEnvCheckingEnabled) {
-      val startTime = clock.instant()
-      publisher.publishEvent(ScheduledEnvironmentCheckStarting)
-
-      val job = launch(blankMDC) {
-        supervisorScope {
-          repository
-            .deliveryConfigsDueForCheck(checkMinAge, environmentBatchSize)
-            .forEach { config ->
-              try {
-                /**
-                 * Sets the timeout to (checkTimeout * environmentCount), since a delivery-config's
-                 * environments are checked sequentially within one coroutine job.
-                 *
-                 * TODO: consider refactoring environmentPromotionChecker so that it can be called for
-                 *  individual environments, allowing fairer timeouts.
-                 */
-                withTimeout(environmentCheckConfig.timeoutDuration.toMillis() * max(config.environments.size, 1)) {
-                  launch {
-                    if (!temporalEnvCheckingEnabled) {
-                      config.environments.forEach { env ->
-                        publisher.publishEvent(StopSchedulingEnvironmentEvent(config.application, env.name))
-                      }
-                    }
-                    publisher.publishEvent(EnvironmentCheckStarted(config.application))
-                    environmentPromotionChecker.checkEnvironments(config)
-                  }
-                }
-              } catch (e: TimeoutCancellationException) {
-                log.error("Timed out checking environments for ${config.application}/${config.name}", e)
-                publisher.publishEvent(EnvironmentsCheckTimedOut(config.application, config.name))
-              } finally {
-                repository.markDeliveryConfigCheckComplete(config)
-              }
-            }
-        }
-      }
-
-      if(environmentWaitForBatchToComplete) {
-        runBlocking { job.join() }
-      }
-      recordDuration(startTime, "environment")
-    }
-  }
 
   @Scheduled(fixedDelayString = "\${keel.environment-deletion.check.frequency:PT1S}")
   @NewSpan

@@ -41,40 +41,6 @@ class EnvironmentPromotionChecker(
 ) {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
-  // todo eb: remove this bulk function once we've switch completely to temporal checking
-  suspend fun checkEnvironments(deliveryConfig: DeliveryConfig) {
-    val startTime = clock.instant()
-    try {
-      val pinnedEnvs: Map<String, PinnedEnvironment> = repository
-        .pinnedEnvironments(deliveryConfig)
-        .associateBy { envPinKey(it.targetEnvironment, it.artifact) }
-
-      val vetoedArtifacts: Map<String, EnvironmentArtifactVetoes> = repository
-        .vetoedEnvironmentVersions(deliveryConfig)
-        .associateBy { envPinKey(it.targetEnvironment, it.artifact) }
-
-      deliveryConfig
-        .artifacts
-        .associateWith { repository.artifactVersions(it, artifactConfig.defaultMaxConsideredVersions) }
-        .forEach { (artifact, versions) ->
-          if (versions.isEmpty()) {
-            log.warn("No versions for ${artifact.type} artifact name ${artifact.name} and reference ${artifact.reference} are known")
-          } else {
-            deliveryConfig.environments.forEach { environment ->
-              checkEnvironment(deliveryConfig, environment, artifact, versions, vetoedArtifacts, pinnedEnvs)
-            }
-          }
-        }
-    } finally {
-      publisher.publishEvent(
-        EnvironmentCheckComplete(
-          application = deliveryConfig.application,
-          duration = Duration.between(startTime, clock.instant())
-        )
-      )
-    }
-  }
-
   /**
    * Check all the artifacts used in a single environment in a delivery config.
    *
@@ -83,7 +49,6 @@ class EnvironmentPromotionChecker(
    */
   @NewSpan
   suspend fun checkEnvironment(application: String, environmentName: String) {
-    val startTime = clock.instant()
     try {
       val deliveryConfig = repository.getDeliveryConfigForApplication(application)
       val pinnedEnvs: Map<String, PinnedEnvironment> = repository

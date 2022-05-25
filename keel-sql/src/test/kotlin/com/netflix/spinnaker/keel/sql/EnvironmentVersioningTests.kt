@@ -269,32 +269,6 @@ class EnvironmentVersioningTests {
   }
 
   @Test
-  fun `after creating a new environment version only the newest environment version gets checked`() {
-    deliveryConfig.withUpdatedResource()
-      .also(repository::upsertDeliveryConfig)
-
-    expectCatching {
-      repository.deliveryConfigsDueForCheck(Duration.ofMinutes(1), 1)
-    }
-      .isSuccess()
-      .hasSize(1)
-      .first()
-      .get(DeliveryConfig::environments)
-      .hasSize(1)
-      .first()
-      .get(Environment::resources)
-      .hasSize(1)
-      .first()
-      .get { metadata["version"] } isEqualTo 2
-
-    expectCatching {
-      repository.deliveryConfigsDueForCheck(Duration.ofMinutes(1), 1)
-    }
-      .isSuccess()
-      .isEmpty()
-  }
-
-  @Test
   fun `removing a resource from an environment creates a new version without that resource`() {
     val initialVersion = latestVersion()
 

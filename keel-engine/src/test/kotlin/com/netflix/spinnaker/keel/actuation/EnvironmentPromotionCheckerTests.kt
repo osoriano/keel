@@ -98,7 +98,7 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
     )
     val deliveryConfig = DeliveryConfig(
       name = "my-manifest",
-      application = "fnord",
+      application = "fnord1",
       serviceAccount = "keel@spinnaker",
       environments = setOf(environment),
       artifacts = setOf(dockerArtifact)
@@ -113,7 +113,7 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
     )
     val deliveryConfigWith2ArtifactTypes = DeliveryConfig(
       name = "my-manifest",
-      application = "fnord",
+      application = "fnord2",
       serviceAccount = "keel@spinnaker",
       environments = setOf(multiArtifactEnvironment),
       artifacts = setOf(dockerArtifact, debianArtifact)
@@ -121,10 +121,10 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
 
     val env1 = environment
     val env2 = env1.copy(name = "staging", constraints = setOf(DependsOnConstraint("test")))
-    val multiEnvConfig = deliveryConfig.copy(environments = setOf(env1, env2))
+    val multiEnvConfig = deliveryConfig.copy(application = "fnord4", environments = setOf(env1, env2))
 
     val artifactNotUsedEnvironment = environment.copy(resources = emptySet())
-    val artifactNotUsedConfig = deliveryConfig.copy(environments = setOf(artifactNotUsedEnvironment))
+    val artifactNotUsedConfig = deliveryConfig.copy(application = "fnord3", environments = setOf(artifactNotUsedEnvironment))
 
     fun Collection<String>.toArtifactVersions() =
       map { PublishedArtifact(dockerArtifact.name, dockerArtifact.type, it) }
@@ -133,6 +133,12 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
   fun tests() = rootContext<Fixture> {
     fixture {
       Fixture()
+    }
+    before {
+      every { repository.getDeliveryConfigForApplication("fnord1") } returns deliveryConfig
+      every { repository.getDeliveryConfigForApplication("fnord2") } returns deliveryConfigWith2ArtifactTypes
+      every { repository.getDeliveryConfigForApplication("fnord3") } returns artifactNotUsedConfig
+      every { repository.getDeliveryConfigForApplication("fnord4") } returns multiEnvConfig
     }
 
     context("no versions of an artifact exist") {
@@ -152,7 +158,7 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
 
       test("the check does not throw an exception") {
         expectCatching {
-          subject.checkEnvironments(deliveryConfig)
+          subject.checkEnvironment(deliveryConfig.application, environment.name)
         }
           .isSuccess()
       }
@@ -199,7 +205,7 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
               } returns true
 
               runBlocking {
-                subject.checkEnvironments(deliveryConfig)
+                subject.checkEnvironment(deliveryConfig.application, environment.name)
               }
             }
 
@@ -250,7 +256,7 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
               } returns false
 
               runBlocking {
-                subject.checkEnvironments(deliveryConfig)
+                subject.checkEnvironment(deliveryConfig.application, environment.name)
               }
             }
 
@@ -274,7 +280,7 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
               } returns false
 
               runBlocking {
-                subject.checkEnvironments(deliveryConfig)
+                subject.checkEnvironment(deliveryConfig.application, environment.name)
               }
             }
 
@@ -317,7 +323,7 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
                 } returns PromotionStatus.PREVIOUS
 
                 runBlocking {
-                  subject.checkEnvironments(deliveryConfig)
+                  subject.checkEnvironment(deliveryConfig.application, environment.name)
                 }
               }
 
@@ -353,7 +359,7 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
                 } returns false
 
                 runBlocking {
-                  subject.checkEnvironments(deliveryConfig)
+                  subject.checkEnvironment(deliveryConfig.application, environment.name)
                 }
               }
 
@@ -388,7 +394,7 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
               } returns true
 
               runBlocking {
-                subject.checkEnvironments(deliveryConfig)
+                subject.checkEnvironment(deliveryConfig.application, environment.name)
               }
             }
 
@@ -423,7 +429,7 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
           } returns emptyList()
 
           runBlocking {
-            subject.checkEnvironments(deliveryConfig)
+            subject.checkEnvironment(deliveryConfig.application, environment.name)
           }
         }
 
@@ -454,7 +460,7 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
           } returns emptyList()
 
           runBlocking {
-            subject.checkEnvironments(deliveryConfig)
+            subject.checkEnvironment(deliveryConfig.application, environment.name)
           }
         }
 
@@ -504,7 +510,8 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
           } returns emptyList()
 
           runBlocking {
-            subject.checkEnvironments(multiEnvConfig)
+            subject.checkEnvironment(multiEnvConfig.application, env1.name)
+            subject.checkEnvironment(multiEnvConfig.application, env2.name)
           }
         }
 
@@ -532,7 +539,8 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
           )
 
           runBlocking {
-            subject.checkEnvironments(multiEnvConfig)
+            subject.checkEnvironment(multiEnvConfig.application, env1.name)
+            subject.checkEnvironment(multiEnvConfig.application, env2.name)
           }
         }
 
@@ -570,7 +578,8 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
           } returns true
 
           runBlocking {
-            subject.checkEnvironments(multiEnvConfig)
+            subject.checkEnvironment(multiEnvConfig.application, env1.name)
+            subject.checkEnvironment(multiEnvConfig.application, env2.name)
           }
         }
 
@@ -645,7 +654,7 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
         } returns emptyList()
 
         runBlocking {
-          subject.checkEnvironments(deliveryConfigWith2ArtifactTypes)
+          subject.checkEnvironment(deliveryConfigWith2ArtifactTypes.application, multiArtifactEnvironment.name)
         }
       }
 
@@ -680,7 +689,7 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
           } returns true
 
           runBlocking {
-            subject.checkEnvironments(deliveryConfigWith2ArtifactTypes)
+            subject.checkEnvironment(deliveryConfigWith2ArtifactTypes.application, multiArtifactEnvironment.name)
           }
         }
 
@@ -715,7 +724,7 @@ internal class NewEnvironmentPromotionCheckerTests : JUnit5Minutests {
         } returns emptyList()
 
         runBlocking {
-          subject.checkEnvironments(artifactNotUsedConfig)
+          subject.checkEnvironment(artifactNotUsedConfig.application, artifactNotUsedEnvironment.name)
         }
       }
 

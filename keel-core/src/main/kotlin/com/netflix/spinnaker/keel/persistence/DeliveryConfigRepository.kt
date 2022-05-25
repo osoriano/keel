@@ -25,7 +25,7 @@ data class EnvironmentHeader(
   val name: String,
 )
 
-interface DeliveryConfigRepository : PeriodicallyCheckedRepository<DeliveryConfig> {
+interface DeliveryConfigRepository {
 
   /**
    * Iterates all registered environments

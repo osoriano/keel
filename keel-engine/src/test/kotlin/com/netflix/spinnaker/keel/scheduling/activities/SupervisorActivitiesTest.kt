@@ -8,9 +8,9 @@ import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.ResourceHeader
 import com.netflix.spinnaker.keel.scheduling.SchedulerSupervisor.SupervisorType.ENVIRONMENT
 import com.netflix.spinnaker.keel.scheduling.SchedulerSupervisor.SupervisorType.RESOURCE
-import com.netflix.spinnaker.keel.scheduling.TemporalSchedulerService
 import com.netflix.spinnaker.keel.scheduling.SchedulingConsts.TEMPORAL_NAMESPACE
 import com.netflix.spinnaker.keel.scheduling.TemporalClient
+import com.netflix.spinnaker.keel.scheduling.TemporalSchedulerService
 import com.netflix.spinnaker.keel.scheduling.WorkerEnvironment
 import io.mockk.Runs
 import io.mockk.every
@@ -42,9 +42,7 @@ class SupervisorActivitiesTest {
     ).iterator()
   }
 
-  private val featureToggles: FeatureToggles = mockk(relaxed = true) {
-    every {isEnabled(FeatureToggles.TEMPORAL_ENV_CHECKING, any()) } returns true
-  }
+  private val featureToggles: FeatureToggles = mockk(relaxed = true)
 
   private val temporalSchedulerService: TemporalSchedulerService = mockk(relaxed = true)
 
@@ -96,14 +94,6 @@ class SupervisorActivitiesTest {
   fun `should start managed resource schedulers`() {
     expectThrows<ActivityFailure> { subject.reconcileSchedulers(SupervisorActivities.ReconcileSchedulersRequest(RESOURCE)) }
     verify(exactly = 1) { temporalSchedulerService.startScheduling(any<ResourceHeader>()) }
-  }
-
-  @Test
-  fun `should do nothing if env supervising is not enabled`() {
-    every { featureToggles.isEnabled(FeatureToggles.TEMPORAL_ENV_CHECKING, any()) } returns false
-
-    expectThrows<ActivityFailure> { subject.reconcileSchedulers(SupervisorActivities.ReconcileSchedulersRequest(ENVIRONMENT)) }
-    verify(exactly = 0) { temporalSchedulerService.startSchedulingEnvironment(any(), any()) }
   }
 
   @Test

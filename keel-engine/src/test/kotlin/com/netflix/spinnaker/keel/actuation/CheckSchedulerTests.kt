@@ -6,8 +6,6 @@ import com.netflix.spinnaker.config.DefaultWorkhorseCoroutineContext
 import com.netflix.spinnaker.config.EnvironmentCheckConfig
 import com.netflix.spinnaker.config.EnvironmentDeletionConfig
 import com.netflix.spinnaker.config.EnvironmentVerificationConfig
-import com.netflix.spinnaker.config.FeatureToggles
-import com.netflix.spinnaker.config.FeatureToggles.Companion.TEMPORAL_ENV_CHECKING
 import com.netflix.spinnaker.config.PostDeployActionsConfig
 import com.netflix.spinnaker.config.ResourceCheckConfig
 import com.netflix.spinnaker.keel.api.Environment
@@ -20,27 +18,25 @@ import com.netflix.spinnaker.keel.persistence.EnvironmentDeletionRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.postdeploy.PostDeployActionRunner
 import com.netflix.spinnaker.keel.scheduled.ScheduledAgent
-import com.netflix.spinnaker.keel.telemetry.EnvironmentCheckStarted
 import com.netflix.spinnaker.keel.test.deliveryConfig
 import com.netflix.spinnaker.keel.verification.VerificationRunner
 import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import io.mockk.clearAllMocks
-import io.mockk.coVerify as verify
-import io.mockk.coEvery as every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
 import org.springframework.context.ApplicationEventPublisher
-import org.springframework.core.env.Environment as SpringEnvironment
 import java.time.Duration
+import io.mockk.coEvery as every
+import io.mockk.coVerify as verify
+import org.springframework.core.env.Environment as SpringEnvironment
 
 internal class CheckSchedulerTests : JUnit5Minutests {
 
   private val repository: KeelRepository = mockk()
   private val postDeployActionRunner: PostDeployActionRunner = mockk()
-  private val environmentPromotionChecker = mockk<EnvironmentPromotionChecker>()
   private val artifactHandler = mockk<ArtifactHandler>(relaxUnitFun = true)
   private val publisher = mockk<ApplicationEventPublisher>(relaxUnitFun = true)
   private val registry = NoopRegistry()
@@ -72,13 +68,10 @@ internal class CheckSchedulerTests : JUnit5Minutests {
     every { getProperty("keel.resource-check.batch-size", Int::class.java, any()) } returns resourceCheckConfig.batchSize
     every { getProperty("keel.environment-check.batch-size", Int::class.java, any()) } returns environmentCheckConfig.batchSize
     every { getProperty("keel.artifact-check.batch-size", Int::class.java, any()) } returns artifactCheckConfig.batchSize
-    every { getProperty("keel.resource.wait-for-batch.enabled", Boolean::class.java, any()) } returns false
-    every { getProperty("keel.environment.wait-for-batch.enabled", Boolean::class.java, any()) } returns false
     every { getProperty("keel.environment-deletion.wait-for-batch.enabled", Boolean::class.java, any()) } returns false
     every { getProperty("keel.artifact.wait-for-batch.enabled", Boolean::class.java, any()) } returns false
     every { getProperty("keel.verification.wait-for-batch.enabled", Boolean::class.java, any()) } returns false
     every { getProperty("keel.post-deploy.wait-for-batch.enabled", Boolean::class.java, any()) } returns false
-    every { getProperty(TEMPORAL_ENV_CHECKING, Boolean::class.java, any()) } returns false
   }
 
 
@@ -133,7 +126,6 @@ internal class CheckSchedulerTests : JUnit5Minutests {
       CheckScheduler(
         repository = repository,
         environmentDeletionRepository = environmentDeletionRepository,
-        environmentPromotionChecker = environmentPromotionChecker,
         postDeployActionRunner = postDeployActionRunner,
         artifactHandlers = listOf(artifactHandler),
         resourceCheckConfig = resourceCheckConfig,
@@ -160,40 +152,6 @@ internal class CheckSchedulerTests : JUnit5Minutests {
 
       after {
         onApplicationDown()
-      }
-
-      context("checking environments") {
-        before {
-          every {
-            repository.deliveryConfigsDueForCheck(any(), any())
-          } returns deliveryConfigs
-
-          every {
-            repository.markDeliveryConfigCheckComplete(any())
-          } just runs
-
-          every {
-            environmentPromotionChecker.checkEnvironments(any())
-          } just runs
-
-          checkEnvironments()
-        }
-
-        test("all delivery configs due are checked") {
-          deliveryConfigs.forEach {
-            verify {
-              environmentPromotionChecker.checkEnvironments(it)
-            }
-          }
-        }
-
-        test("a telemetry event is published for each delivery config check") {
-          deliveryConfigs.forEach {
-            verify {
-              publisher.publishEvent(EnvironmentCheckStarted(it.application))
-            }
-          }
-        }
       }
 
       context("checking artifacts") {

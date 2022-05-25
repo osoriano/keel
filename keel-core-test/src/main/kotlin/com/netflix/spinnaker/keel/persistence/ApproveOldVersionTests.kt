@@ -28,7 +28,6 @@ import com.netflix.spinnaker.keel.core.api.ManualJudgementConstraint
 import com.netflix.spinnaker.keel.resources.ResourceFactory
 import com.netflix.spinnaker.keel.resources.ResourceSpecIdentifier
 import com.netflix.spinnaker.keel.test.DummyArtifactReferenceResourceSpec
-import com.netflix.spinnaker.keel.test.DummyResourceSpec
 import com.netflix.spinnaker.keel.test.configuredTestObjectMapper
 import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.keel.test.resourceFactory
@@ -62,21 +61,24 @@ abstract class ApproveOldVersionTests<T : KeelRepository> : JUnit5Minutests {
 
     private val resourceSpecIdentifier: ResourceSpecIdentifier =
       ResourceSpecIdentifier(
-        kind<DummyResourceSpec>("ec2/security-group@v1"),
-        kind<DummyResourceSpec>("ec2/cluster@v1")
+        kind<DummyArtifactReferenceResourceSpec>("test/whatever@v1")
       )
 
     private val resourceFactory = resourceFactory(resourceSpecIdentifier)
 
     internal val repository = repositoryProvider(resourceFactory, mapper)
+    val resource = resource(
+      spec = DummyArtifactReferenceResourceSpec(artifactReference = "my-artifact"),
+      metadata = mapOf(
+        "application" to "fnord"
+      )
+    )
 
     val environment: Environment = Environment(
       name = "test",
       constraints = setOf(ManualJudgementConstraint()),
       resources = setOf(
-        resource(
-          spec = DummyArtifactReferenceResourceSpec(artifactReference = "my-artifact")
-        )
+        resource
       )
     )
 
@@ -179,6 +181,7 @@ abstract class ApproveOldVersionTests<T : KeelRepository> : JUnit5Minutests {
     context("two versions of an artifact exist") {
       before {
         repository.register(artifact)
+        repository.storeResource(resource)
         repository.storeDeliveryConfig(deliveryConfig)
         repository.storeArtifactVersion(artifact.toArtifactVersion(version1, gitMetadata = gitMetadata, createdAt = Instant.now()))
         repository.storeArtifactVersion(artifact.toArtifactVersion(version2, gitMetadata = gitMetadata, createdAt = Instant.now()))
@@ -191,7 +194,7 @@ abstract class ApproveOldVersionTests<T : KeelRepository> : JUnit5Minutests {
 
       test("no version is approved, so the latest approved version is null") {
         runBlocking {
-          subject.checkEnvironments(deliveryConfig)
+          subject.checkEnvironment(deliveryConfig.application, environment.name)
         }
 
         expectThat(repository.latestVersionApprovedIn(deliveryConfig, artifact, environment.name)).isNull()
@@ -204,7 +207,7 @@ abstract class ApproveOldVersionTests<T : KeelRepository> : JUnit5Minutests {
 
         test("so it is the latest approved version") {
           runBlocking {
-            subject.checkEnvironments(deliveryConfig)
+            subject.checkEnvironment(deliveryConfig.application, environment.name)
           }
 
           expectThat(repository.getConstraintState(deliveryConfig.name, environment.name, version1, "manual-judgement", artifact.reference))
