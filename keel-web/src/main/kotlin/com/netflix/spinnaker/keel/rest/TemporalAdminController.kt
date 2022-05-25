@@ -59,4 +59,18 @@ class TemporalAdminController(
   fun resetEnvironments() {
     temporalAdminService.resetAllEnvironmentWorkflowsAsync()
   }
+
+  @PostMapping(
+    path = ["/terminate/resources"]
+  )
+  fun terminateResources() {
+    temporalAdminService.terminateAllResourceWorkflowsAsync()
+  }
+
+  @PostMapping(
+    path = ["/terminate/environments"]
+  )
+  fun terminateEnvironments() {
+    temporalAdminService.terminateAllEnvironmentWorkflowsAsync()
+  }
 }

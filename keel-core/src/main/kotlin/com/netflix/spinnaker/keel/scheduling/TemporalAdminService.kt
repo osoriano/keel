@@ -10,6 +10,7 @@ import io.grpc.StatusRuntimeException
 import io.temporal.api.common.v1.WorkflowExecution
 import io.temporal.api.enums.v1.ResetReapplyType
 import io.temporal.api.workflowservice.v1.ResetWorkflowExecutionRequest
+import io.temporal.api.workflowservice.v1.TerminateWorkflowExecutionRequest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -84,6 +85,36 @@ class TemporalAdminService(
     repository.allEnvironments().forEachRemaining {
       maybeLog(i++, "Resetting all environment workflows")
       resetHistory(temporalSchedulerService.workflowId(it.application, it.name))
+      registry.counter("keel.temporal-admin.environment.history-reset.triggered").increment()
+    }
+  }
+
+  fun terminateAllResourceWorkflowsAsync() {
+    launch(blankMDC) {
+      terminateAllResourceWorkflows()
+    }
+  }
+
+  fun terminateAllEnvironmentWorkflowsAsync() {
+    launch(blankMDC) {
+      terminateAllEnvironmentWorkflows()
+    }
+  }
+
+  suspend fun terminateAllResourceWorkflows() {
+    var i = 0
+    repository.allResources().forEachRemaining {
+      maybeLog(i++, "Terminating all resource workflows")
+      terminate(temporalSchedulerService.workflowId(it.uid))
+      registry.counter("keel.temporal-admin.resource.terminate-workflow.count").increment()
+    }
+  }
+
+  suspend fun terminateAllEnvironmentWorkflows() {
+    var i = 0
+    repository.allEnvironments().forEachRemaining {
+      maybeLog(i++, "Terminating all environment workflows")
+      terminate(temporalSchedulerService.workflowId(it.application, it.name))
       registry.counter("keel.temporal-admin.environment.terminate-workflow.triggered").increment()
     }
   }
@@ -102,6 +133,27 @@ class TemporalAdminService(
             .setResetReapplyType(ResetReapplyType.RESET_REAPPLY_TYPE_NONE)
             .setRequestId(UUID.randomUUID().toString())
             .setReason("Resetting history because of user triggered request at ${clock.instant()}")
+            .build()
+        )
+    } catch (e: StatusRuntimeException) {
+      if (e.status.code != Status.Code.NOT_FOUND) {
+        log.error("Failed to reset workflow execution for $id", e)
+      }
+      // not found will be handled by the supervisor process
+    }
+  }
+
+  fun terminate(id: String) {
+    try {
+      workflowServiceStubsProvider.forNamespace(TEMPORAL_NAMESPACE)
+        .blockingStub()
+        .terminateWorkflowExecution(
+          TerminateWorkflowExecutionRequest.newBuilder()
+            .setWorkflowExecution(WorkflowExecution.newBuilder()
+              .setWorkflowId(id)
+              .build())
+            .setNamespace(TEMPORAL_NAMESPACE)
+            .setReason("Terminating because of user triggered request at ${clock.instant()}")
             .build()
         )
     } catch (e: StatusRuntimeException) {
