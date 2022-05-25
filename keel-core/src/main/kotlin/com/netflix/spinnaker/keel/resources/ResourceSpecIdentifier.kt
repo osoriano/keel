@@ -24,7 +24,7 @@ class ResourceSpecIdentifier(
   private val ExtensionRegistry.supportedKinds: List<SupportedKind<*>>
     get() = extensionsOf<ResourceSpec>()
       .entries
-      .map { SupportedKind(ResourceKind.parseKind(it.key), it.value) }
+      .map { SupportedKind(ResourceKind.parseKind(it.key), it.value.type as Class<out ResourceSpec>) }
 
   fun identify(kind: ResourceKind): Class<out ResourceSpec> =
     // This gives priority to the extension registry which is auto-wired by default, and falls back on the list of

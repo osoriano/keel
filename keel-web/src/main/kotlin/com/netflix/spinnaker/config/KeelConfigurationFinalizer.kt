@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.config
 
+import arrow.core.filterIsInstance
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.netflix.spinnaker.keel.actuation.ArtifactHandler
 import com.netflix.spinnaker.keel.api.Alphabetical
@@ -25,12 +26,17 @@ import com.netflix.spinnaker.keel.api.plugins.Resolver
 import com.netflix.spinnaker.keel.api.plugins.ResourceHandler
 import com.netflix.spinnaker.keel.api.plugins.SupportedKind
 import com.netflix.spinnaker.keel.api.plugins.VerificationEvaluator
+import com.netflix.spinnaker.keel.api.plugins.supporting
 import com.netflix.spinnaker.keel.api.support.ExtensionRegistry
+import com.netflix.spinnaker.keel.api.support.JvmExtensionType
 import com.netflix.spinnaker.keel.api.support.extensionsOf
 import com.netflix.spinnaker.keel.api.support.register
 import com.netflix.spinnaker.keel.bakery.BaseImageCache
 import com.netflix.spinnaker.keel.ec2.jackson.registerEc2Subtypes
 import com.netflix.spinnaker.keel.ec2.jackson.registerKeelEc2ApiModule
+import com.netflix.spinnaker.keel.k8s.KubernetesExtensionType
+import com.netflix.spinnaker.keel.k8s.KubernetesResourceHandler
+import com.netflix.spinnaker.keel.k8s.KubernetesResourceSpec
 import com.netflix.spinnaker.keel.resources.SpecMigrator
 import com.netflix.spinnaker.keel.titus.jackson.registerKeelTitusApiModule
 import com.netflix.spinnaker.keel.titus.jackson.registerTitusSubtypes
@@ -82,8 +88,14 @@ class KeelConfigurationFinalizer(
   fun registerResourceSpecSubtypes() {
     (resourceHandlers.map { it.supportedKind } + specMigrators.map { it.input })
       .forEach { (kind, specClass) ->
-        log.info("Registering ResourceSpec sub-type {}: {}", kind, specClass.simpleName)
-        extensionRegistry.register(specClass, kind.toString())
+        if (specClass == KubernetesResourceSpec::class.java) {
+          log.info("Registering CRD {} as ResourceSpec kind {}", null, kind)
+          val handler = resourceHandlers.supporting(kind) as KubernetesResourceHandler
+          extensionRegistry.register<ResourceSpec>(handler.extensionType, kind.toString())
+        } else {
+          log.info("Registering ResourceSpec sub-type {}: {}", kind, specClass.simpleName)
+          extensionRegistry.register(specClass, kind.toString())
+        }
       }
   }
 
@@ -189,10 +201,16 @@ class KeelConfigurationFinalizer(
 
     val kinds = extensionRegistry
       .extensionsOf<ResourceSpec>()
-      .entries
-      .map { SupportedKind(ResourceKind.parseKind(it.key), it.value) }
+      .filterIsInstance<String, JvmExtensionType>()
+      .map { SupportedKind(ResourceKind.parseKind(it.key), it.value?.type as Class<out ResourceSpec>) }
+
+    val crds = extensionRegistry
+      .extensionsOf<ResourceSpec>()
+      .filterIsInstance<String, KubernetesExtensionType>()
+      .map { "${it.value.group}.${it.value.kind}" }
 
     log.info("Supported resources: {}", kinds.joinToString { it.kind.toString() })
+    log.info("Supported Kubernetes resources: {}", crds.joinToString())
     log.info("Supported artifacts: {}", artifactSuppliers.joinToString { it.supportedArtifact.name })
     log.info("Using resource handlers: {}", resourceHandlers.joinToString { it.name })
     log.info("Using artifact handlers: {}", artifactHandlers.joinToString { it.name })

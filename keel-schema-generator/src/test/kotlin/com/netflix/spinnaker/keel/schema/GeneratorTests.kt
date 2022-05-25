@@ -15,6 +15,8 @@ import com.netflix.spinnaker.keel.api.schema.Optional
 import com.netflix.spinnaker.keel.api.schema.SchemaIgnore
 import com.netflix.spinnaker.keel.api.schema.Title
 import com.netflix.spinnaker.keel.extensions.DefaultExtensionRegistry
+import com.netflix.spinnaker.keel.k8s.KubernetesSchemaCache
+import io.fabric8.kubernetes.client.DefaultKubernetesClient
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.DynamicTest.dynamicTest
@@ -52,7 +54,8 @@ internal class GeneratorTests {
     schemaCustomizers: Collection<SchemaCustomizer> = emptyList()
   ) {
     protected val extensionRegistry = DefaultExtensionRegistry(emptyList())
-    private val generator = Generator(extensionRegistry, options, schemaCustomizers)
+    protected val schemaCache = KubernetesSchemaCache(DefaultKubernetesClient())
+    private val generator = Generator(extensionRegistry, options, schemaCustomizers, schemaCache)
 
     inline fun <reified T : Any> generateSchema() =
       generator
@@ -1063,7 +1066,6 @@ internal class GeneratorTests {
 
       data class Bar2(val string: String) : Bar()
     }
-
 
     val schema by lazy { generateSchema<Foo>() }
 

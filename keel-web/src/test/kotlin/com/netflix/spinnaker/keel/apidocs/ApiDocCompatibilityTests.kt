@@ -8,6 +8,7 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.netflix.spinnaker.keel.api.support.ExtensionRegistry
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.ec2.jackson.registerEc2Subtypes
+import com.netflix.spinnaker.keel.k8s.KubernetesSchemaCache
 import com.netflix.spinnaker.keel.schema.Generator
 import com.netflix.spinnaker.keel.schema.generateSchema
 import com.networknt.schema.JsonSchema
@@ -27,7 +28,14 @@ import strikt.api.expectThat
   webEnvironment = MOCK,
 )
 class ApiDocCompatibilityTests
-@Autowired constructor(val extensionRegistry: ExtensionRegistry, val generator: Generator) {
+@Autowired constructor(
+  val generator: Generator,
+  val extensionRegistry: ExtensionRegistry,
+  kubernetesSchemaCache: KubernetesSchemaCache
+) {
+  init {
+    kubernetesSchemaCache.register(checkNotNull(javaClass.getResourceAsStream("/k8s/connection.yml")))
+  }
 
   val schemaFactory: JsonSchemaFactory = JsonSchemaFactory.getInstance(V201909)
   val api by lazy {
