@@ -14,6 +14,8 @@ import com.netflix.spinnaker.keel.pause.ActuationPauser
 import com.netflix.spinnaker.keel.services.ApplicationService
 import com.netflix.spinnaker.keel.test.deliveryConfig
 import com.netflix.spinnaker.time.MutableClock
+import com.netflix.springboot.sso.test.EnableSsoTest
+import com.netflix.springboot.sso.test.WithSsoUser
 import com.ninjasquad.springmockk.MockkBean
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
@@ -37,6 +39,8 @@ import strikt.assertions.isNotEmpty
 
 @SpringBootTest(webEnvironment = MOCK)
 @AutoConfigureMockMvc
+@EnableSsoTest
+@WithSsoUser(name = "alice")
 internal class ApplicationControllerTests
 @Autowired constructor(
   val mvc: MockMvc,
@@ -88,7 +92,7 @@ internal class ApplicationControllerTests
         val request = get("/application/$application/config")
           .accept(APPLICATION_JSON_VALUE)
         val result = mvc
-          .perform(request)
+          .perform(request.secure(true))
           .andExpect(status().isOk)
           .andDo { print(it.response.contentAsString) }
           .andReturn()
@@ -105,7 +109,7 @@ internal class ApplicationControllerTests
           val request = get("/application/$application")
             .accept(APPLICATION_JSON_VALUE)
           mvc
-            .perform(request)
+            .perform(request.secure(true))
             .andExpect(status().isOk)
             .andExpect(
               content().json(
@@ -124,7 +128,7 @@ internal class ApplicationControllerTests
             get("/application/$application?entities=resources")
               .accept(APPLICATION_JSON_VALUE)
           val result = mvc
-            .perform(request)
+            .perform(request.secure(true))
             .andExpect(status().isOk)
             .andDo { println(it.response.contentAsString) }
             .andReturn()
@@ -149,7 +153,7 @@ internal class ApplicationControllerTests
           val request = get("/application/$application")
             .accept(APPLICATION_JSON_VALUE)
           mvc
-            .perform(request)
+            .perform(request.secure(true))
             .andExpect(status().isOk)
             .andExpect(
               content().json(
@@ -176,7 +180,7 @@ internal class ApplicationControllerTests
         val request = get("/application/bananas")
           .accept(APPLICATION_JSON_VALUE)
         mvc
-          .perform(request)
+          .perform(request.secure(true))
           .andExpect(status().isOk)
           .andExpect(
             content().json(
@@ -202,7 +206,7 @@ internal class ApplicationControllerTests
               .accept(APPLICATION_JSON_VALUE)
               .header("X-SPINNAKER-USER", user)
 
-            mvc.perform(request).andExpect(status().isForbidden)
+            mvc.perform(request.secure(true)).andExpect(status().isForbidden)
           }
         }
         context("with no READ access to cloud account") {
@@ -215,7 +219,7 @@ internal class ApplicationControllerTests
               .accept(APPLICATION_JSON_VALUE)
               .header("X-SPINNAKER-USER", user)
 
-            mvc.perform(request).andExpect(status().isForbidden)
+            mvc.perform(request.secure(true)).andExpect(status().isForbidden)
           }
         }
       }
@@ -233,7 +237,7 @@ internal class ApplicationControllerTests
               .accept(APPLICATION_JSON_VALUE)
               .header("X-SPINNAKER-USER", user)
 
-            mvc.perform(request).andExpect(status().isForbidden)
+            mvc.perform(request.secure(true)).andExpect(status().isForbidden)
           }
         }
         context("with no access to service account") {
@@ -249,7 +253,7 @@ internal class ApplicationControllerTests
               .accept(APPLICATION_JSON_VALUE)
               .header("X-SPINNAKER-USER", user)
 
-            mvc.perform(request).andExpect(status().isForbidden)
+            mvc.perform(request.secure(true)).andExpect(status().isForbidden)
           }
         }
       }
@@ -263,7 +267,7 @@ internal class ApplicationControllerTests
               .accept(APPLICATION_JSON_VALUE)
               .header("X-SPINNAKER-USER", user)
 
-            mvc.perform(request).andExpect(status().isForbidden)
+            mvc.perform(request.secure(true)).andExpect(status().isForbidden)
           }
         }
       }
@@ -278,7 +282,7 @@ internal class ApplicationControllerTests
               .accept(APPLICATION_JSON_VALUE)
               .header("X-SPINNAKER-USER", user)
 
-            mvc.perform(request).andExpect(status().isForbidden)
+            mvc.perform(request.secure(true)).andExpect(status().isForbidden)
           }
         }
         context("with no access to service account") {
@@ -291,7 +295,7 @@ internal class ApplicationControllerTests
               .accept(APPLICATION_JSON_VALUE)
               .header("X-SPINNAKER-USER", user)
 
-            mvc.perform(request).andExpect(status().isForbidden)
+            mvc.perform(request.secure(true)).andExpect(status().isForbidden)
           }
         }
       }
@@ -305,7 +309,7 @@ internal class ApplicationControllerTests
               .accept(APPLICATION_JSON_VALUE)
               .header("X-SPINNAKER-USER", user)
 
-            mvc.perform(request).andExpect(status().isForbidden)
+            mvc.perform(request.secure(true)).andExpect(status().isForbidden)
           }
         }
       }
@@ -319,7 +323,7 @@ internal class ApplicationControllerTests
               .accept(APPLICATION_JSON_VALUE)
               .header("X-SPINNAKER-USER", "keel@keel.io")
 
-            mvc.perform(request).andExpect(status().isForbidden)
+            mvc.perform(request.secure(true)).andExpect(status().isForbidden)
           }
         }
       }

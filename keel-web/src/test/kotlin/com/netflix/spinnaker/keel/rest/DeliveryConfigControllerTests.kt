@@ -32,6 +32,8 @@ import com.netflix.spinnaker.keel.test.DummyResourceSpec
 import com.netflix.spinnaker.keel.test.TEST_API_V1
 import com.netflix.spinnaker.keel.upsert.DeliveryConfigUpserter
 import com.netflix.spinnaker.keel.yaml.APPLICATION_YAML
+import com.netflix.springboot.sso.test.EnableSsoTest
+import com.netflix.springboot.sso.test.WithSsoUser
 import com.ninjasquad.springmockk.MockkBean
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
@@ -68,6 +70,8 @@ import kotlin.reflect.KClass
   webEnvironment = MOCK
 )
 @AutoConfigureMockMvc
+@EnableSsoTest
+@WithSsoUser(name = "alice")
 internal class DeliveryConfigControllerTests
 @Autowired constructor(
   val mvc: MockMvc,
@@ -159,7 +163,7 @@ internal class DeliveryConfigControllerTests
             val request = get("/delivery-configs/keel-manifest")
               .accept(contentType)
 
-            mvc.perform(request)
+            mvc.perform(request.secure(true))
           }
 
           test("the request is successful") {
@@ -329,7 +333,7 @@ internal class DeliveryConfigControllerTests
                   .param("force", "true")
                   .header("X-SPINNAKER-USER", "user")
 
-                mvc.perform(request)
+                mvc.perform(request.secure(true))
               }
 
               test("the request is successful") {
@@ -359,7 +363,7 @@ internal class DeliveryConfigControllerTests
                   .param("force", "true")
                   .header("X-SPINNAKER-USER", "user")
 
-                mvc.perform(request)
+                mvc.perform(request.secure(true))
               }
 
               test("the request is successful") {
@@ -386,7 +390,7 @@ internal class DeliveryConfigControllerTests
                   .content(configPayload)
                   .header("X-SPINNAKER-USER", "user")
 
-                mvc.perform(request)
+                mvc.perform(request.secure(true))
               }
 
               test("the request failed") {
@@ -420,7 +424,7 @@ internal class DeliveryConfigControllerTests
               .param("force", "true")
               .header("X-SPINNAKER-USER", "user")
 
-            mvc.perform(request)
+            mvc.perform(request.secure(true))
           }
 
           test("the request fails") {
@@ -446,7 +450,7 @@ internal class DeliveryConfigControllerTests
               .param("force", "true")
               .header("X-SPINNAKER-USER", "user")
 
-            mvc.perform(request)
+            mvc.perform(request.secure(true))
           }
 
           test("the request fails") {
@@ -481,7 +485,7 @@ internal class DeliveryConfigControllerTests
               .contentType(APPLICATION_YAML)
               .header("X-SPINNAKER-USER", "user")
 
-          val response = mvc.perform(request)
+          val response = mvc.perform(request.secure(true))
           response.andExpect(status().isOk)
 
           verify(exactly = 1) {
@@ -510,7 +514,7 @@ internal class DeliveryConfigControllerTests
               .contentType(APPLICATION_YAML)
               .header("X-SPINNAKER-USER", "user")
 
-          val response = mvc.perform(request)
+          val response = mvc.perform(request.secure(true))
           response.andExpect(status().isNotFound)
         }
       }
@@ -526,7 +530,7 @@ internal class DeliveryConfigControllerTests
 
         test("the request is successful and the manifest deleted") {
           val request = delete("/delivery-configs/myconfig")
-          val response = mvc.perform(request)
+          val response = mvc.perform(request.secure(true))
           response.andExpect(status().isOk)
 
           verify(exactly = 1) {
@@ -544,7 +548,7 @@ internal class DeliveryConfigControllerTests
 
         test("the request fails with a not found error") {
           val request = delete("/delivery-configs/myconfig")
-          val response = mvc.perform(request)
+          val response = mvc.perform(request.secure(true))
           response.andExpect(status().isNotFound)
         }
       }
@@ -562,7 +566,7 @@ internal class DeliveryConfigControllerTests
               .accept(MediaType.APPLICATION_JSON_VALUE)
               .header("X-SPINNAKER-USER", "keel@keel.io")
 
-            mvc.perform(request).andExpect(status().isForbidden)
+            mvc.perform(request.secure(true)).andExpect(status().isForbidden)
           }
         }
         context("with no READ access to cloud account") {
@@ -575,7 +579,7 @@ internal class DeliveryConfigControllerTests
               .accept(MediaType.APPLICATION_JSON_VALUE)
               .header("X-SPINNAKER-USER", "keel@keel.io")
 
-            mvc.perform(request).andExpect(status().isForbidden)
+            mvc.perform(request.secure(true)).andExpect(status().isForbidden)
           }
         }
       }
@@ -590,7 +594,7 @@ internal class DeliveryConfigControllerTests
               .accept(MediaType.APPLICATION_JSON_VALUE)
               .header("X-SPINNAKER-USER", "keel@keel.io")
 
-            mvc.perform(request).andExpect(status().isForbidden)
+            mvc.perform(request.secure(true)).andExpect(status().isForbidden)
           }
         }
         context("with no access to service account") {
@@ -603,7 +607,7 @@ internal class DeliveryConfigControllerTests
               .accept(MediaType.APPLICATION_JSON_VALUE)
               .header("X-SPINNAKER-USER", "keel@keel.io")
 
-            mvc.perform(request).andExpect(status().isForbidden)
+            mvc.perform(request.secure(true)).andExpect(status().isForbidden)
           }
         }
       }
@@ -625,7 +629,7 @@ internal class DeliveryConfigControllerTests
                 .accept(MediaType.APPLICATION_JSON_VALUE)
                 .header("X-SPINNAKER-USER", "keel@keel.io")
 
-            mvc.perform(request).andExpect(status().isForbidden)
+            mvc.perform(request.secure(true)).andExpect(status().isForbidden)
           }
         }
         context("with no access to service account") {
@@ -639,7 +643,7 @@ internal class DeliveryConfigControllerTests
                 .accept(MediaType.APPLICATION_JSON_VALUE)
                 .header("X-SPINNAKER-USER", "keel@keel.io")
 
-            mvc.perform(request).andExpect(status().isForbidden)
+            mvc.perform(request.secure(true)).andExpect(status().isForbidden)
           }
         }
       }
