@@ -86,6 +86,11 @@ interface CloudDriverService {
     @Header("X-SPINNAKER-USER") user: String = DEFAULT_SERVICE_ACCOUNT
   ): Credential
 
+  @GET("/credentials?expand=true")
+  suspend fun getCredentials(
+    @Header("X-SPINNAKER-USER") user: String = DEFAULT_SERVICE_ACCOUNT
+  ): Collection<Credential>
+
   @GET("/applications/{application}/loadBalancers")
   suspend fun loadBalancersForApplication(
     @Header("X-SPINNAKER-USER") user: String,

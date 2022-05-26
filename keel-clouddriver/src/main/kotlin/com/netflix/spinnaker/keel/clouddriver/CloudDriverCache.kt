@@ -30,10 +30,13 @@ interface CloudDriverCache {
   fun securityGroupByName(account: String, region: String, name: String, vpcId: String): SecurityGroupSummary
   fun networkBy(id: String): Network
   fun networkBy(name: String?, account: String, region: String): Network
+  fun networks(): Collection<Network>
   fun availabilityZonesBy(account: String, vpcId: String, purpose: String, region: String): Collection<String>
   fun subnetBy(subnetId: String): Subnet
   fun subnetBy(account: String, region: String, purpose: String): Subnet
+  fun subnets(): Collection<Subnet>
   fun credentialBy(name: String): Credential
+  fun credentials(): Collection<Credential>
   fun defaultKeyPairForAccount(account: String) =
     credentialBy(account).attributes["defaultKeyPair"] as String
   fun certificateByAccountAndName(account: String, name: String): Certificate

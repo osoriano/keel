@@ -1,39 +1,62 @@
 package com.netflix.spinnaker.keel.serialization
 
+import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.BeanProperty
 import com.fasterxml.jackson.databind.DeserializationContext
 import com.fasterxml.jackson.databind.InjectableValues
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.deser.std.StdNodeBasedDeserializer
-import com.netflix.spinnaker.keel.api.Constraint
-import com.netflix.spinnaker.keel.api.NotificationConfig
-import com.netflix.spinnaker.keel.api.SimpleLocations
-import com.netflix.spinnaker.keel.api.SubnetAwareLocations
-import com.netflix.spinnaker.keel.api.Verification
+import com.netflix.spinnaker.keel.api.*
+import com.netflix.spinnaker.keel.api.deserialization.SubmittedEnvironmentPreProcessor
 import com.netflix.spinnaker.keel.api.postdeploy.PostDeployAction
-import com.netflix.spinnaker.keel.api.toSimpleLocations
 import com.netflix.spinnaker.keel.core.api.SubmittedEnvironment
 import com.netflix.spinnaker.keel.core.api.SubmittedResource
+import org.springframework.stereotype.Component
+import javax.annotation.PostConstruct
+
+@Component
+private class SubmittedEnvironmentDeserializerConfig(
+  private var submittedEnvironmentPreProcessors: List<SubmittedEnvironmentPreProcessor> = emptyList()
+) {
+  @PostConstruct
+  private fun init() {
+    SubmittedEnvironmentDeserializer.submittedEnvironmentPreProcessors = submittedEnvironmentPreProcessors
+  }
+}
 
 /**
  * Deserializer that allows us to propagate values such as [SubmittedEnvironment.locations] to all
  * resources in the environment without having to make the corresponding properties in the resource
  * specs nullable and continually have to look up the environment.
  */
-class SubmittedEnvironmentDeserializer : StdNodeBasedDeserializer<SubmittedEnvironment>(SubmittedEnvironment::class.java) {
+class SubmittedEnvironmentDeserializer(
+) : StdNodeBasedDeserializer<SubmittedEnvironment>(SubmittedEnvironment::class.java) {
+  companion object {
+    var submittedEnvironmentPreProcessors: List<SubmittedEnvironmentPreProcessor> = mutableListOf()
+  }
+
   override fun convert(root: JsonNode, context: DeserializationContext): SubmittedEnvironment =
     with(context.mapper) {
-      val name = root.path("name").textValue()
-      val constraints: Set<Constraint> = convert(root, "constraints") ?: emptySet()
-      val verifyWith: List<Verification> = convert(root, "verifyWith") ?: emptyList()
-      val notifications: Set<NotificationConfig> = convert(root, "notifications") ?: emptySet()
-      val postDeploy: List<PostDeployAction> = convert(root, "postDeploy") ?: emptyList()
-      val locations: SubnetAwareLocations? = convert(root, "locations")
+      val rawSubmittedEnvironment = convertValue(root, object : TypeReference<Map<String, Any>>() {}).toMutableMap()
+      submittedEnvironmentPreProcessors.forEach {
+        it.process(rawSubmittedEnvironment)
+      }
+
+      val processedRoot: JsonNode = valueToTree(rawSubmittedEnvironment)
+
+      val name = processedRoot.path("name").textValue()
+      val constraints: Set<Constraint> = convert(processedRoot, "constraints") ?: emptySet()
+      val verifyWith: List<Verification> = convert(processedRoot, "verifyWith") ?: emptyList()
+      val notifications: Set<NotificationConfig> = convert(processedRoot, "notifications") ?: emptySet()
+      val postDeploy: List<PostDeployAction> = convert(processedRoot, "postDeploy") ?: emptyList()
+      val locations: SubnetAwareLocations? = convert(processedRoot, "locations")
+
       val resources: Set<SubmittedResource<*>> = copy().run {
         injectableValues = InjectableLocations(locations)
-        convert(root, "resources") ?: emptySet()
+        convert(processedRoot, "resources") ?: emptySet()
       }
       try {
+        // what happens to the submitted environment after here ... ? should it include workload type or not?
         SubmittedEnvironment(name, resources, constraints, verifyWith, notifications, postDeploy, locations)
       } catch (e: Exception) {
         throw context.instantiationException<SubmittedEnvironment>(e)

@@ -210,6 +210,11 @@ class MemoryCloudDriverCache(
       credentials.get(name).await() ?: notFound("Credential with name $name not found")
     }
 
+  override fun credentials(): Collection<Credential> =
+    runBlocking {
+      cloudDriver.getCredentials()
+    }
+
   override fun securityGroupById(account: String, region: String, id: String, vpcId: String): SecurityGroupSummary =
     runBlocking {
       securityGroupsById.get(SecurityGroupKey(account=account, region=region, nameOrId=id, vpcId=vpcId)).await()?: notFound("Security group with id $id not found in $account:$region")
@@ -230,6 +235,16 @@ class MemoryCloudDriverCache(
       networksByName.get(Triple(account, region, name)).await() ?: notFound("VPC network named $name not found in $account:$region")
     }
 
+  override fun networks(): Collection<Network> =
+    runBlocking {
+      val networks = networksById.asMap()
+      if (networks.isEmpty()) {
+        cloudDriver.listNetworks("aws", DEFAULT_SERVICE_ACCOUNT)
+      } else {
+        networks.mapValues { it.value.await() }.values
+      }
+    }
+
   override fun availabilityZonesBy(account: String, vpcId: String, purpose: String, region: String): Set<String> =
     runBlocking {
       availabilityZones.get(AvailabilityZoneKey(account, region, vpcId, purpose)).await() ?: notFound("Availability zone with purpose \"$purpose\" not found in $account:$region")
@@ -243,6 +258,16 @@ class MemoryCloudDriverCache(
   override fun subnetBy(account: String, region: String, purpose: String): Subnet =
     runBlocking {
       subnetsByPurpose.get(Triple(account, region, purpose)).await() ?: notFound("Subnet with purpose \"$purpose\" not found in $account:$region")
+    }
+
+  override fun subnets(): Collection<Subnet> =
+    runBlocking {
+      val subnets = subnetsById.asMap()
+      if (subnets.isEmpty()) {
+        cloudDriver.listSubnets("aws", DEFAULT_SERVICE_ACCOUNT)
+      } else {
+        subnets.mapValues { it.value.await() }.values
+      }
     }
 
   override fun certificateByAccountAndName(account: String, name: String): Certificate =

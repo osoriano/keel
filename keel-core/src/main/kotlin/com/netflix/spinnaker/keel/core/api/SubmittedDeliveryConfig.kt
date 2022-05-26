@@ -8,12 +8,13 @@ import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.NotificationConfig
 import com.netflix.spinnaker.keel.api.PreviewEnvironmentSpec
+import com.netflix.spinnaker.keel.api.schema.SchemaIgnore
 import com.netflix.spinnaker.keel.api.SubnetAwareLocations
 import com.netflix.spinnaker.keel.api.Verification
+import com.netflix.spinnaker.keel.api.*
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.postdeploy.PostDeployAction
 import com.netflix.spinnaker.keel.api.schema.Description
-import com.netflix.spinnaker.keel.api.schema.SchemaIgnore
 import com.netflix.spinnaker.keel.api.schema.Title
 import com.netflix.spinnaker.keel.serialization.SubmittedEnvironmentDeserializer
 
@@ -76,7 +77,9 @@ data class SubmittedEnvironment(
   val postDeploy: List<PostDeployAction> = emptyList(),
   @get:JsonInclude(JsonInclude.Include.NON_EMPTY)
   @Description("Optional locations that are propagated to any [resources] where they are not specified.")
-  val locations: SubnetAwareLocations? = null
+  val locations: SubnetAwareLocations? = null,
+  @Description("Optional workload type that will be used to determine [locations] where they are not specified.")
+  val workloadType: WorkloadType? = null
 ) {
   // We declare the metadata field here such that it's not used in equals() and hashCode(), since we don't
   // care about the metadata when comparing environments.
