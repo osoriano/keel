@@ -48,7 +48,6 @@ internal object SqlUnhappyVetoRepositoryTests :
     configuredObjectMapper(),
     resourceFactory,
     sqlRetry,
-    publisher = mockk(relaxed = true),
     spectator = NoopRegistry(),
     springEnv = mockEnvironment(),
     resourceEventPruneConfig = ResourceEventPruneConfig()

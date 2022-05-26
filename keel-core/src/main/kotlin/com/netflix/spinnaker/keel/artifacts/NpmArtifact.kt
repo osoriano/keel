@@ -8,6 +8,7 @@ import com.netflix.spinnaker.keel.api.artifacts.FROM_ANY_BRANCH
 import com.netflix.spinnaker.keel.api.artifacts.NPM
 import com.netflix.spinnaker.keel.api.artifacts.SortingStrategy
 import com.netflix.spinnaker.keel.api.schema.Description
+import com.netflix.spinnaker.keel.api.schema.SchemaIgnore
 
 /**
  * A [DeliveryArtifact] that describes NPM packages.
@@ -19,6 +20,8 @@ data class NpmArtifact(
   override val deliveryConfigName: String? = null,
   override val reference: String = name,
   override val from: ArtifactOriginFilter = FROM_ANY_BRANCH,
+  @SchemaIgnore
+  override val isDryRun: Boolean = false,
   @JsonIgnore
   override val metadata: Map<String, Any?> = emptyMap()
 ) : DeliveryArtifact() {
@@ -31,9 +34,11 @@ data class NpmArtifact(
       NpmVersionSortingStrategy
     }
 
-  override fun withDeliveryConfigName(deliveryConfigName: String): DeliveryArtifact {
-    return this.copy(deliveryConfigName = deliveryConfigName)
-  }
+  override fun withDeliveryConfigName(deliveryConfigName: String) =
+    this.copy(deliveryConfigName = deliveryConfigName)
+
+  override fun withDryRunFlag(isDryRun: Boolean) =
+    this.copy(isDryRun = true)
 
   override fun toString(): String = super.toString()
 }

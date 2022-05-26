@@ -15,6 +15,7 @@ import com.netflix.spinnaker.keel.extensions.DefaultExtensionRegistry
 import com.netflix.spinnaker.keel.front50.Front50Cache
 import com.netflix.spinnaker.keel.front50.Front50Service
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
+import com.netflix.spinnaker.keel.k8s.KubernetesSchemaCache
 import com.netflix.spinnaker.keel.pause.ActuationPauser
 import com.netflix.spinnaker.keel.persistence.ApplicationRepository
 import com.netflix.spinnaker.keel.persistence.ArtifactRepository
@@ -47,6 +48,7 @@ internal class DgsTestConfig {
   val cloudDriverService: CloudDriverService = mockk(relaxUnitFun = true)
   val bakeryMetadataService: BakeryMetadataService = mockk(relaxUnitFun = true)
   val extensionRegistry = DefaultExtensionRegistry(emptyList())
+  val kubernetesSchemaCache: KubernetesSchemaCache = mockk(relaxUnitFun = true)
 
   @Bean
   fun applicationFetcherSupport() = ApplicationFetcherSupport(cloudDriverService, bakeryMetadataService)
@@ -59,7 +61,7 @@ internal class DgsTestConfig {
   fun constraintEvaluators() = ConstraintEvaluators(emptyList())
 
   @Bean
-  fun generator() = Generator(extensionRegistry)
+  fun generator() = Generator(extensionRegistry, kubernetesSchemaCache = kubernetesSchemaCache)
 
   @MockkBean
   lateinit var actuationPauser: ActuationPauser

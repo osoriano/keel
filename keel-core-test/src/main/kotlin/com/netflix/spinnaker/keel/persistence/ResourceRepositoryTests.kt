@@ -539,6 +539,23 @@ abstract class ResourceRepositoryTests<T : ResourceRepository> : JUnit5Minutests
         }
       }
     }
+
+    context("a persisted temporary (aka dry-run) resource") {
+      val tempResource = resource().copy(isDryRun = true)
+
+      before {
+        subject.store(tempResource)
+      }
+
+      // verifies dry-run resources will not be picked up by temporal scheduling
+      test("is not returned by allResources") {
+        subject.allResources(callback)
+
+        expectThat(subject.allResources()).and {
+          get { hasNext() }.isFalse()
+        }
+      }
+    }
   }
 
   private fun tick(): Instant {

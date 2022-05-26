@@ -29,7 +29,6 @@ internal object SqlUnhealthyRepositoryTests : UnhealthyRepositoryTests<SqlUnheal
     configuredObjectMapper(),
     resourceFactory,
     sqlRetry,
-    publisher = mockk(relaxed = true),
     spectator = NoopRegistry(),
     springEnv = mockEnvironment(),
     resourceEventPruneConfig = ResourceEventPruneConfig()

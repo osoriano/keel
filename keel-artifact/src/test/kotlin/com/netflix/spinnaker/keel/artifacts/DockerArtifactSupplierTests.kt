@@ -9,8 +9,6 @@ import com.netflix.spinnaker.keel.api.artifacts.Job
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PullRequest
 import com.netflix.spinnaker.keel.api.artifacts.Repo
-import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.INCREASING_TAG
-import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.SEMVER_JOB_COMMIT_BY_SEMVER
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.SEMVER_TAG
 import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
 import com.netflix.spinnaker.keel.api.support.SpringEventPublisherBridge
@@ -35,7 +33,6 @@ import kotlinx.coroutines.runBlocking
 import strikt.api.expectThat
 import strikt.assertions.isEqualTo
 import strikt.assertions.isFalse
-import strikt.assertions.isNull
 import strikt.assertions.isTrue
 import io.mockk.coEvery as every
 import io.mockk.coVerify as verify
@@ -184,7 +181,7 @@ internal class DockerArtifactSupplierTests : JUnit5Minutests {
 
       test("looks up latest artifact from igor") {
         val result = runBlocking {
-          dockerArtifactSupplier.getLatestArtifact(deliveryConfig, dockerArtifact)
+          dockerArtifactSupplier.getLatestVersion(deliveryConfig, dockerArtifact)
         }
         expectThat(result).isEqualTo(latestArtifact)
         verify(exactly = 1) {
@@ -212,7 +209,7 @@ internal class DockerArtifactSupplierTests : JUnit5Minutests {
 
       test("returns artifact with metadata from Docker image") {
         val results = runBlocking {
-          dockerArtifactSupplier.getLatestArtifact(deliveryConfig, dockerArtifact)
+          dockerArtifactSupplier.getLatestVersion(deliveryConfig, dockerArtifact)
         }
         expectThat(results)
           .isEqualTo(latestArtifactWithMetadata)

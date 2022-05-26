@@ -16,7 +16,6 @@ import com.netflix.spinnaker.keel.logging.withCoroutineTracingContext
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.supervisorScope
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
@@ -37,23 +36,8 @@ class ArtifactListener(
    */
   @EventListener(ArtifactRegisteredEvent::class)
   fun onArtifactRegisteredEvent(event: ArtifactRegisteredEvent) {
-    val artifact = event.artifact
-    val artifactSupplier = artifactSuppliers.supporting(artifact.type)
-
-    val latestVersions = runBlocking {
-      log.debug("Retrieving latest versions of registered artifact {}", artifact)
-      artifactSupplier.getLatestArtifacts(artifact.deliveryConfig, artifact, artifactRefreshConfig.firstLoadLimit)
-    }
-
-    if (latestVersions.isNotEmpty()) {
-      // We are storing multiple versions in case that one of the environments is using an older version than latest
-      log.debug("Storing latest {} versions of artifact {}", latestVersions.size, artifact)
-      latestVersions.forEach {
-        log.debug("Storing version {} (status={}) for registered artifact {}", it.version, it.status, artifact)
-        artifactQueueProcessor.enrichAndStore(it, artifactSupplier)
-      }
-    } else {
-      log.warn("No artifact versions found for ${artifact.type}:${artifact.name}")
+    runBlocking {
+      syncLastLimitArtifactVersions(event.artifact, artifactRefreshConfig.firstLoadLimit)
     }
   }
 
@@ -93,17 +77,21 @@ class ArtifactListener(
   }
 
   suspend fun syncLastLimitArtifactVersions(artifact: DeliveryArtifact, limit: Int) {
+    if (artifact.isDryRun) {
+      log.debug("Not syncing versions for dry-run artifact $artifact")
+      return
+    }
+
     log.debug("Syncing last $limit versions of $artifact")
-    val lastStoredVersions = repository.artifactVersions(artifact, limit)
-    val currentVersions = lastStoredVersions.map { it.version }
-    log.debug("Last recorded versions of $artifact: $currentVersions")
+    val lastStoredVersions = repository.artifactVersions(artifact, limit).map { it.version }
+    log.debug("Last recorded versions of $artifact: $lastStoredVersions")
 
     val artifactSupplier = artifactSuppliers.supporting(artifact.type)
-    val latestAvailableVersions = artifactSupplier.getLatestArtifacts(artifact.deliveryConfig, artifact, limit)
+    val latestAvailableVersions = artifactSupplier.getLatestVersions(artifact.deliveryConfig, artifact, limit)
     log.debug("Latest available versions of $artifact: ${latestAvailableVersions.map { it.version }}")
 
     val newVersions = latestAvailableVersions
-      .filterNot { currentVersions.contains(it.version) }
+      .filterNot { lastStoredVersions.contains(it.version) }
       .filter { artifactSupplier.shouldProcessArtifact(it) }
 
     if (newVersions.isNotEmpty()) {

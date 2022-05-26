@@ -31,7 +31,6 @@ import com.netflix.spinnaker.keel.core.api.SubmittedResource
 import com.netflix.spinnaker.keel.core.api.normalize
 import com.netflix.spinnaker.keel.diff.DefaultResourceDiffFactory
 import com.netflix.spinnaker.keel.events.ResourceCreated
-import com.netflix.spinnaker.keel.events.ResourceState.Ok
 import com.netflix.spinnaker.keel.events.ResourceUpdated
 import com.netflix.spinnaker.keel.exceptions.DuplicateManagedResourceException
 import com.netflix.spinnaker.keel.persistence.ArtifactNotFoundException
@@ -64,7 +63,6 @@ import strikt.api.expect
 import strikt.api.expectCatching
 import strikt.api.expectThat
 import strikt.api.expectThrows
-import strikt.assertions.first
 import strikt.assertions.hasSize
 import strikt.assertions.isA
 import strikt.assertions.isEmpty
@@ -74,7 +72,6 @@ import strikt.assertions.isNotNull
 import strikt.assertions.isSuccess
 import strikt.assertions.isTrue
 import java.time.Clock
-import java.time.Duration
 
 /**
  * Tests that involve creating, updating, or deleting things from two or more of the three repositories present.
@@ -108,7 +105,10 @@ class SqlKeelRepositoryTests : JUnit5Minutests {
     )
 
   private fun createResourceRepository(resourceFactory: ResourceFactory): SqlResourceRepository =
-    SqlResourceRepository(jooq, clock, objectMapper, resourceFactory, sqlRetry, publisher = mockk(relaxed = true), spectator = NoopRegistry(), springEnv = mockEnvironment(), resourceEventPruneConfig = ResourceEventPruneConfig())
+    SqlResourceRepository(
+      jooq, clock, objectMapper, resourceFactory, sqlRetry, spectator = NoopRegistry(), springEnv = mockEnvironment(),
+      resourceEventPruneConfig = ResourceEventPruneConfig()
+    )
 
   private fun createArtifactRepository(): SqlArtifactRepository =
     SqlArtifactRepository(jooq, clock, objectMapper, sqlRetry, defaultArtifactSuppliers(), publisher = mockk(relaxed = true))

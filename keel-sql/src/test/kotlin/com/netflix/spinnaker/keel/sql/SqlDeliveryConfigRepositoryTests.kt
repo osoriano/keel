@@ -16,8 +16,6 @@ import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil.cleanupDb
 import com.netflix.spinnaker.time.MutableClock
-import io.mockk.every
-import io.mockk.mockk
 import org.junit.jupiter.api.BeforeAll
 import org.springframework.context.ApplicationEventPublisher
 import java.time.Clock
@@ -44,7 +42,10 @@ internal object SqlDeliveryConfigRepositoryTests : DeliveryConfigRepositoryTests
   }
 
   override fun createResourceRepository(resourceSpecIdentifier: ResourceSpecIdentifier, publisher: ApplicationEventPublisher, clock: MutableClock): SqlResourceRepository =
-    SqlResourceRepository(jooq, clock, objectMapper, resourceFactory(resourceSpecIdentifier), sqlRetry, publisher, NoopRegistry(), springEnv = mockEnvironment(), resourceEventPruneConfig = ResourceEventPruneConfig())
+    SqlResourceRepository(
+      jooq, clock, objectMapper, resourceFactory(resourceSpecIdentifier), sqlRetry, NoopRegistry(),
+      springEnv = mockEnvironment(), resourceEventPruneConfig = ResourceEventPruneConfig()
+    )
 
   override fun createArtifactRepository(publisher: ApplicationEventPublisher, clock: MutableClock): SqlArtifactRepository =
     SqlArtifactRepository(

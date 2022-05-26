@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonPropertyOrder
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
+import com.netflix.spinnaker.keel.api.schema.SchemaIgnore
 import java.time.Instant
 
 /**
@@ -36,6 +37,8 @@ data class DeliveryConfig(
   val rawConfig: String? = null,
   @get:ExcludedFromDiff
   val updatedAt: Instant? = null,
+  @SchemaIgnore
+  val isDryRun: Boolean = false
 ) {
   companion object {
     const val MIGRATING_KEY = "migrating"

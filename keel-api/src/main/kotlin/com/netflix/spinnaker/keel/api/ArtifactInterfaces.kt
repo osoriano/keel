@@ -31,13 +31,6 @@ interface ArtifactProvider {
 interface VersionedArtifactProvider : ArtifactProvider {
   @get:JsonIgnore
   val artifactVersion: String?
-
-  fun completeVersionedArtifactOrNull() =
-    if (artifactName != null && artifactType != null && artifactVersion != null) {
-      CompleteVersionedArtifact(artifactName!!, artifactType!!, artifactVersion!!)
-    } else {
-      null
-    }
 }
 
 /**

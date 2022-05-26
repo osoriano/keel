@@ -40,7 +40,10 @@ class SqlApproveOldVersionTests : ApproveOldVersionTests<KeelRepository>() {
         publisher = mockk(relaxed = true),
         featureToggles = mockk()
     )
-    val resourceRepository = SqlResourceRepository(jooq, clock, mapper, resourceFactory, sqlRetry, publisher = mockk(relaxed = true), spectator = NoopRegistry(), springEnv = mockEnvironment(), resourceEventPruneConfig = ResourceEventPruneConfig())
+    val resourceRepository = SqlResourceRepository(
+      jooq, clock, mapper, resourceFactory, sqlRetry, spectator = NoopRegistry(), springEnv = mockEnvironment(),
+      resourceEventPruneConfig = ResourceEventPruneConfig()
+    )
     val artifactRepository = SqlArtifactRepository(jooq, clock, mapper, sqlRetry, defaultArtifactSuppliers(), publisher = mockk(relaxed = true))
     val verificationRepository = SqlActionRepository(jooq, clock, mapper, resourceFactory, sqlRetry, environment = mockk())
     val notificationRepository = SqlNotificationRepository(jooq, clock, sqlRetry)

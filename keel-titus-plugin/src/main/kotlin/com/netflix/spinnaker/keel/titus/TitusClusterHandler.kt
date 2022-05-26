@@ -3,8 +3,9 @@ package com.netflix.spinnaker.keel.titus
 import com.fasterxml.jackson.module.kotlin.convertValue
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.netflix.buoy.sdk.model.RolloutTarget
-import com.netflix.spinnaker.keel.api.ArtifactBridge
 import com.netflix.spinnaker.keel.api.ClusterDeployStrategy
+import com.netflix.spinnaker.keel.api.DeliveryConfig
+import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.Exportable
 import com.netflix.spinnaker.keel.api.LocationConstants.DEFAULT_VPC_NAME
 import com.netflix.spinnaker.keel.api.Moniker
@@ -18,6 +19,7 @@ import com.netflix.spinnaker.keel.api.SimpleRegionSpec
 import com.netflix.spinnaker.keel.api.actuation.Job
 import com.netflix.spinnaker.keel.api.actuation.TaskLauncher
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
+import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.BRANCH_JOB_COMMIT_BY_JOB
 import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.INCREASING_TAG
@@ -78,6 +80,7 @@ import com.netflix.spinnaker.keel.exceptions.ArtifactExportException
 import com.netflix.spinnaker.keel.orca.ClusterExportHelper
 import com.netflix.spinnaker.keel.orca.OrcaService
 import com.netflix.spinnaker.keel.orca.toOrcaJobProperties
+import com.netflix.spinnaker.keel.parseAppVersion
 import com.netflix.spinnaker.keel.plugin.buildSpecFromDiff
 import com.netflix.spinnaker.keel.retrofit.isNotFound
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
@@ -110,7 +113,6 @@ class TitusClusterHandler(
   private val clusterExportHelper: ClusterExportHelper,
   diffFactory: ResourceDiffFactory,
   private val titusRegistryService: TitusRegistryService,
-  private val artifactBridge: ArtifactBridge,
   private val defaultContainerAttributes: DefaultContainerAttributes
 ) : BaseClusterHandler<TitusClusterSpec, TitusServerGroup>(resolvers, taskLauncher, diffFactory) {
 
@@ -124,6 +126,36 @@ class TitusClusterHandler(
     with(resource.spec) {
       resolve().byRegion()
     }
+
+  override suspend fun getCurrentlyDeployedVersions(
+    deliveryConfig: DeliveryConfig,
+    environment: Environment,
+    resource: Resource<TitusClusterSpec>
+  ): Map<SimpleRegionSpec, PublishedArtifact> {
+    val artifact = resource.findAssociatedArtifact(deliveryConfig)
+      ?: error("Unable to find artifact associated with resource ${resource.id} in delivery config for ${deliveryConfig.application}")
+
+    return getImage(resource).images.associate {
+      val artifactVersion = artifact.toArtifactVersion(it.imageName)
+      val completeVersion = titusRegistryService.findImages(
+        image = artifact.name,
+        digest = it.imageName
+      )
+        .filterNot { it.tag == "latest" } // get the first matching image that's not tagged "latest"
+        .firstOrNull()
+
+      // complete missing basic metadata using info from the Titus registry
+      SimpleRegionSpec(it.region) to artifactVersion.copy(
+        version = completeVersion?.tag ?: artifactVersion.version,
+        metadata = artifactVersion.metadata + mapOf(
+          "commitId" to completeVersion?.commitId,
+          "buildNumber" to completeVersion?.buildNumber,
+          "branch" to completeVersion?.branch,
+          "date" to completeVersion?.date
+        )
+      )
+    }
+  }
 
   override suspend fun current(resource: Resource<TitusClusterSpec>): Map<String, TitusServerGroup> {
     val activeServerGroups = cloudDriverService.getActiveServerGroups(resource)
@@ -151,7 +183,7 @@ class TitusClusterHandler(
     log.debug("Checking if artifact should be marked as deployed in Titus cluster ${resource.id}: " +
       "same container in all ASGs = $allHaveSameImage, unhealthy regions = $unhealthyRegions")
 
-    if (allHaveSameImage && allHealthy) {
+    if (allHaveSameImage && allHealthy && !resource.isDryRun) {
       // only publish a successfully deployed event if the server group is healthy
       val container = activeServerGroups.first().container
       getTagsForDigest(container, resource.spec.locations.account)

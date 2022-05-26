@@ -220,7 +220,6 @@ class TitusClusterHandlerTests : JUnit5Minutests {
         clusterExportHelper,
         DefaultResourceDiffFactory(),
         titusRegistryService,
-        artifactBridge,
         DefaultContainerAttributes()
       )
     }

@@ -20,13 +20,16 @@ package com.netflix.spinnaker.keel.rest
 import com.netflix.spinnaker.config.ArtifactConfig
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.constraints.UpdatedConstraintStatus
+import com.netflix.spinnaker.keel.core.api.ActuationPlan
 import com.netflix.spinnaker.keel.core.api.SubmittedDeliveryConfig
 import com.netflix.spinnaker.keel.events.ApplicationEvent
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
 import com.netflix.spinnaker.keel.pause.ActuationPauser
 import com.netflix.spinnaker.keel.persistence.ResourceRepository.Companion.DEFAULT_MAX_EVENTS
 import com.netflix.spinnaker.keel.services.ApplicationService
+import com.netflix.spinnaker.keel.services.ApplicationService.Companion.DEFAULT_MAX_ARTIFACT_VERSIONS_FOR_DRY_RUN
 import com.netflix.spinnaker.keel.yaml.APPLICATION_YAML_VALUE
+import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.http.MediaType.APPLICATION_JSON_VALUE
@@ -158,4 +161,17 @@ class ApplicationController(
     @PathVariable("application") application: String,
     @RequestParam("limit") limit: Int?
   ): List<ApplicationEvent> = applicationService.getApplicationEventHistory(application, limit ?: DEFAULT_MAX_EVENTS)
+
+  @PostMapping(
+    path = ["/{application}/dry-run"],
+    consumes = [APPLICATION_JSON_VALUE, APPLICATION_YAML_VALUE],
+    produces = [APPLICATION_JSON_VALUE, APPLICATION_YAML_VALUE]
+  )
+  // Not authorized on purpose -- anyone can do a dry-run
+  fun dryRun(
+    @RequestParam("maxArtifactVersions") maxArtifactVersions: Int?,
+    @RequestBody submittedDeliveryConfig: SubmittedDeliveryConfig
+  ): ActuationPlan = runBlocking {
+    applicationService.dryRun(submittedDeliveryConfig, maxArtifactVersions ?: DEFAULT_MAX_ARTIFACT_VERSIONS_FOR_DRY_RUN)
+  }
 }

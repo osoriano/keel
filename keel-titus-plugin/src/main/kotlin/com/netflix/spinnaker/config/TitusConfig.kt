@@ -67,7 +67,6 @@ class TitusConfig {
     clusterExportHelper,
     diffFactory,
     titusRegistryService,
-    artifactBridge,
     defaultContainerAttributes
   )
 

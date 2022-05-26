@@ -4,18 +4,24 @@ import com.fasterxml.jackson.databind.jsontype.NamedType
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import com.fasterxml.jackson.module.kotlin.convertValue
 import com.netflix.spectator.api.NoopRegistry
+import com.netflix.spinnaker.keel.actuation.EnvironmentPromotionChecker
 import com.netflix.spinnaker.keel.actuation.EnvironmentTaskCanceler
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.JiraBridge
 import com.netflix.spinnaker.keel.api.ResourceStatus.CREATED
+import com.netflix.spinnaker.keel.api.SimpleRegionSpec
 import com.netflix.spinnaker.keel.api.StashBridge
 import com.netflix.spinnaker.keel.api.Verification
-import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.jira.JiraIssueResponse
 import com.netflix.spinnaker.keel.api.migration.PrLink
+import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
+import com.netflix.spinnaker.keel.api.plugins.DeployableResourceHandler
+import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
+import com.netflix.spinnaker.keel.api.plugins.SupportedKind
+import com.netflix.spinnaker.keel.artifacts.ArtifactQueueProcessor
 import com.netflix.spinnaker.keel.core.api.ArtifactSummaryInEnvironment
 import com.netflix.spinnaker.keel.core.api.DependsOnConstraint
 import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactPin
@@ -40,9 +46,12 @@ import com.netflix.spinnaker.keel.persistence.PausedRepository
 import com.netflix.spinnaker.keel.scheduling.TemporalSchedulerService
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
 import com.netflix.spinnaker.keel.serialization.configuredYamlMapper
+import com.netflix.spinnaker.keel.services.ApplicationService.Companion.DEFAULT_MAX_ARTIFACT_VERSIONS_FOR_DRY_RUN
 import com.netflix.spinnaker.keel.test.DummyArtifact
+import com.netflix.spinnaker.keel.test.DummyArtifactReferenceResourceSpec
 import com.netflix.spinnaker.keel.test.DummyResourceHandlerV1
 import com.netflix.spinnaker.keel.test.DummyResourceSpec
+import com.netflix.spinnaker.keel.test.DummySortingStrategy
 import com.netflix.spinnaker.keel.test.artifactReferenceResource
 import com.netflix.spinnaker.keel.test.submittedResource
 import com.netflix.spinnaker.keel.test.versionedArtifactResource
@@ -55,6 +64,7 @@ import io.mockk.Runs
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
+import io.mockk.slot
 import io.mockk.spyk
 import kotlinx.coroutines.runBlocking
 import org.springframework.context.ApplicationEventPublisher
@@ -63,6 +73,7 @@ import retrofit.client.Response
 import strikt.api.Assertion.Builder
 import strikt.api.expectCatching
 import strikt.api.expectThat
+import strikt.assertions.all
 import strikt.assertions.isA
 import strikt.assertions.isEmpty
 import strikt.assertions.isEqualTo
@@ -94,12 +105,18 @@ class ApplicationServiceTests : JUnit5Minutests {
     val application1 = "fnord1"
     val application2 = "fnord2"
 
-    val releaseArtifact = DummyArtifact(reference = "release")
-    val snapshotArtifact = DummyArtifact(reference = "snapshot")
+    val releaseArtifact = DummyArtifact(reference = "release", deliveryConfigName = "myconfig")
+    val snapshotArtifact = DummyArtifact(reference = "snapshot", deliveryConfigName = "myconfig")
 
     data class DummyVerification(override val id: String) : Verification {
       override val type = "dummy"
     }
+
+    // resource with new-style artifact reference
+    val artifactReferenceResource = artifactReferenceResource(artifactReference = "release")
+
+    // resource with old-style image provider
+    private val versionedArtifactResource = versionedArtifactResource()
 
     val singleArtifactEnvironments = listOf("test", "staging", "production").associateWith { name ->
       Environment(
@@ -113,12 +130,7 @@ class ApplicationServiceTests : JUnit5Minutests {
         } else {
           emptySet()
         },
-        resources = setOf(
-          // resource with new-style artifact reference
-          artifactReferenceResource(artifactReference = "release"),
-          // resource with old-style image provider
-          versionedArtifactResource()
-        ),
+        resources = setOf(artifactReferenceResource, versionedArtifactResource),
         verifyWith = when (name) {
           "test" -> listOf(DummyVerification("smoke"), DummyVerification("fuzz"))
           "staging" -> listOf(DummyVerification("end-to-end"), DummyVerification("canary"))
@@ -145,6 +157,24 @@ class ApplicationServiceTests : JUnit5Minutests {
           name = "test",
           resources = setOf(
             submittedResource()
+          )
+        )
+      )
+    )
+
+    val dryRunDeliveryConfig = SubmittedDeliveryConfig(
+      application = application1,
+      name = "myconfig",
+      serviceAccount = "keel@keel.io",
+      artifacts = setOf(releaseArtifact),
+      environments = setOf(
+        SubmittedEnvironment(
+          name = "test",
+          resources = setOf(
+            submittedResource(
+              kind = artifactReferenceResource.kind,
+              spec = artifactReferenceResource.spec
+            )
           )
         )
       )
@@ -180,12 +210,6 @@ class ApplicationServiceTests : JUnit5Minutests {
 
     val publisher: ApplicationEventPublisher = mockk(relaxed = true)
 
-    val springEnv: org.springframework.core.env.Environment = mockk {
-      every {
-        getProperty("keel.verifications.summary.enabled", Boolean::class.java, any())
-      } returns true
-    }
-
     val spectator = NoopRegistry()
 
     val environmentTaskCanceler: EnvironmentTaskCanceler = mockk(relaxUnitFun = true)
@@ -199,17 +223,19 @@ class ApplicationServiceTests : JUnit5Minutests {
     val stashBridge: StashBridge = mockk(relaxed = true)
     val jiraBridge: JiraBridge = mockk(relaxed = true)
     val resourceHandler = spyk(DummyResourceHandlerV1)
+    val deployableResourceHandler: DeployableResourceHandler<DummyArtifactReferenceResourceSpec, String> = mockk()
     val diffFactory = DefaultResourceDiffFactory()
     val actuationPauser: ActuationPauser = mockk()
     val temporalSchedulerService: TemporalSchedulerService = mockk()
     val validator: DeliveryConfigValidator = mockk()
+    val artifactQueueProcessor: ArtifactQueueProcessor = mockk(relaxUnitFun = true)
+    val environmentPromotionChecker: EnvironmentPromotionChecker = mockk(relaxUnitFun = true)
+    val artifactSupplier: ArtifactSupplier<DummyArtifact, DummySortingStrategy> = mockk()
 
     // subject
     val applicationService = ApplicationService(
       repository,
-      resourceStatusService,
       publisher,
-      springEnv,
       clock,
       spectator,
       environmentTaskCanceler,
@@ -218,17 +244,15 @@ class ApplicationServiceTests : JUnit5Minutests {
       stashBridge,
       jiraBridge,
       pausedRepository,
-      listOf(resourceHandler),
+      listOf(resourceHandler, deployableResourceHandler),
       diffFactory,
       deliveryConfigUpserter,
       actuationPauser,
       temporalSchedulerService,
-      validator
-    )
-
-    val buildMetadata = BuildMetadata(
-      id = 1,
-      number = "1",
+      validator,
+      artifactQueueProcessor,
+      environmentPromotionChecker,
+      listOf(artifactSupplier)
     )
   }
 
@@ -538,7 +562,7 @@ class ApplicationServiceTests : JUnit5Minutests {
 
         test("indicates CREATE action in the plan") {
           expectCatching {
-            applicationService.getActuationPlan(application1)
+            applicationService.calculateActuationPlan(application1)
           }.isSuccess()
             .get { environmentPlans.first().resourcePlans.first() }
             .and {
@@ -557,7 +581,7 @@ class ApplicationServiceTests : JUnit5Minutests {
 
         test("indicates no action in the plan") {
           expectCatching {
-            applicationService.getActuationPlan(application1)
+            applicationService.calculateActuationPlan(application1)
           }.isSuccess()
             .get { environmentPlans.first().resourcePlans.first() }
             .and {
@@ -576,7 +600,7 @@ class ApplicationServiceTests : JUnit5Minutests {
 
         test("indicates UPDATE action in the plan") {
           expectCatching {
-            applicationService.getActuationPlan(application1)
+            applicationService.calculateActuationPlan(application1)
           }.isSuccess()
             .get { environmentPlans.first().resourcePlans.first() }
             .and {
@@ -600,13 +624,133 @@ class ApplicationServiceTests : JUnit5Minutests {
       test("deleting the config by app also calls stop scheduling of all resources") {
         applicationService.deleteConfigByApp(application1)
         Thread.sleep(100)
-        verify(exactly = 6) { temporalSchedulerService.stopScheduling(any()) }
+        verify(exactly = singleArtifactDeliveryConfig.resources.size) { temporalSchedulerService.stopScheduling(any()) }
       }
 
       test("deleting the config by name also calls stop scheduling of all resources and envs") {
         applicationService.deleteDeliveryConfig(singleArtifactDeliveryConfig.name)
-        verify(exactly = 6) { temporalSchedulerService.stopScheduling(any()) }
-        verify(exactly = 3) { temporalSchedulerService.stopScheduling(any(), any()) }
+        verify(exactly = singleArtifactDeliveryConfig.resources.size) { temporalSchedulerService.stopScheduling(any()) }
+        verify(exactly = singleArtifactDeliveryConfig.environments.size) { temporalSchedulerService.stopScheduling(any(), any()) }
+      }
+    }
+
+    context("dry-run for an application") {
+      before {
+        every {
+          repository.upsertDeliveryConfig(any<DeliveryConfig>())
+        } answers { arg(0) }
+
+        with(deployableResourceHandler) {
+          every { supportedKind } returns
+            SupportedKind(artifactReferenceResource.kind, DummyArtifactReferenceResourceSpec::class.java)
+
+          every { current(any()) } returns null
+
+          every { desired(any()) } returns "deploy-me"
+
+          every { getCurrentlyDeployedVersions(any(), any(), any()) } returns
+            mapOf(SimpleRegionSpec("region") to releaseArtifact.toArtifactVersion("1.0.0"))
+        }
+
+        every {
+          repository.approveVersionFor(any(), any(), any(), any())
+        } returns true
+
+        every {
+          repository.markAsSuccessfullyDeployedTo(any(), any(), any(), any())
+        } returns true
+
+        every {
+          repository.deleteDeliveryConfigByName(any())
+        } just runs
+      }
+
+      context("when application is not managed") {
+        val tempDeliveryConfig = slot<DeliveryConfig>()
+
+        before {
+          every {
+            repository.isApplicationConfigured(any())
+          } returns false
+
+          every {
+            artifactSupplier.supportedArtifact
+          } returns SupportedArtifact("dummy", DummyArtifact::class.java)
+
+          every {
+            artifactSupplier.getLatestVersions(any(), any(), any())
+          } returns versions.map { releaseArtifact.toArtifactVersion(it) }
+
+          expectCatching {
+            applicationService.dryRun(dryRunDeliveryConfig)
+          }.isSuccess()
+        }
+
+        test("validates the submitted config") {
+          verify {
+            validator.validate(dryRunDeliveryConfig)
+          }
+        }
+
+        test("stores a temporary delivery config") {
+          verify {
+            repository.upsertDeliveryConfig(capture(tempDeliveryConfig))
+          }
+
+          expectThat(tempDeliveryConfig.captured) {
+            get { isDryRun }.isTrue()
+            get { artifacts }.all { get { isDryRun }.isTrue() }
+            get { environments }.all { get { isDryRun }.isTrue() }
+            get { resources }.all { get { isDryRun }.isTrue() }
+          }
+        }
+
+        test("processes and stores currently deployed artifact versions") {
+          verify {
+            artifactQueueProcessor.handlePublishedArtifact(releaseArtifact.toArtifactVersion("1.0.0"))
+          }
+        }
+
+        test("marks currently deployed artifact versions as approved") {
+          verify {
+            repository.approveVersionFor(any(), releaseArtifact.withDryRunFlag(true), "1.0.0", "test")
+          }
+        }
+
+        test("marks currently deployed artifact versions as deployed") {
+          verify {
+            repository.markAsSuccessfullyDeployedTo(any(), releaseArtifact.withDryRunFlag(true), "1.0.0", "test")
+          }
+        }
+
+        test("retrieves and persists the latest artifact versions") {
+          verify {
+            artifactSupplier.getLatestVersions(any(), releaseArtifact.copy(isDryRun = true), DEFAULT_MAX_ARTIFACT_VERSIONS_FOR_DRY_RUN)
+          }
+          verify(exactly = versions.size + 1) { // +1 for the currently deployed version above
+            artifactQueueProcessor.handlePublishedArtifact(any())
+          }
+        }
+
+        test("deletes the dry-run config after done") {
+          verify {
+            repository.deleteDeliveryConfigByName("${dryRunDeliveryConfig.application}-dryrun")
+          }
+        }
+      }
+
+      context("when application is managed") {
+        before {
+          every {
+            repository.isApplicationConfigured(any())
+          } returns true
+        }
+
+        test("fails with an exception") {
+          expectCatching {
+            applicationService.dryRun(dryRunDeliveryConfig)
+          }.isFailure()
+        }
       }
     }
   }

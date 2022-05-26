@@ -99,7 +99,6 @@ internal class LegacySpecUpgradeTests : JUnit5Minutests {
       configuredObjectMapper(),
       resourceFactory,
       sqlRetry,
-      publisher = mockk(relaxed = true),
       spectator = NoopRegistry(),
       springEnv = mockEnvironment(),
       resourceEventPruneConfig = ResourceEventPruneConfig()

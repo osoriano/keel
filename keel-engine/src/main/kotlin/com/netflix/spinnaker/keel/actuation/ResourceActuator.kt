@@ -109,6 +109,11 @@ class ResourceActuator(
 
         log.debug("Checking resource $id in environment ${environment.name} of application ${deliveryConfig.application}")
 
+        if (resource.isDryRun) {
+          log.error("Attempt to check temporary resource $id. This is a bug!")
+          return@withTracingContext
+        }
+
         if (actuationPauser.isPaused(resource)) {
           log.debug("Actuation for resource {} is paused, skipping checks", id)
           publisher.publishEvent(ResourceCheckSkipped(resource.kind, id, "ActuationPaused"))

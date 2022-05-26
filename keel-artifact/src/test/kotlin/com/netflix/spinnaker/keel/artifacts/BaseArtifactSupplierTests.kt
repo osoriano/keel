@@ -70,11 +70,11 @@ class BaseArtifactSupplierTests {
     override val supportedArtifact: SupportedArtifact<DummyArtifact>
       get() = SupportedArtifact("dummy", DummyArtifact::class.java)
 
-    override suspend fun getLatestArtifact(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact): PublishedArtifact? {
+    override suspend fun getLatestVersion(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact): PublishedArtifact? {
       TODO("Not yet implemented")
     }
 
-    override suspend fun getLatestArtifacts(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact, limit: Int): List<PublishedArtifact> {
+    override suspend fun getLatestVersions(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact, limit: Int): List<PublishedArtifact> {
       TODO("Not yet implemented")
     }
 

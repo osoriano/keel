@@ -3,6 +3,8 @@ package com.netflix.spinnaker.keel.ec2.resource
 import com.fasterxml.jackson.module.kotlin.convertValue
 import com.netflix.buoy.sdk.model.RolloutTarget
 import com.netflix.spinnaker.keel.api.ClusterDeployStrategy
+import com.netflix.spinnaker.keel.api.DeliveryConfig
+import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.Exportable
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.NoStrategy
@@ -10,12 +12,14 @@ import com.netflix.spinnaker.keel.api.RedBlack
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceDiff
 import com.netflix.spinnaker.keel.api.ResourceDiffFactory
+import com.netflix.spinnaker.keel.api.SimpleRegionSpec
 import com.netflix.spinnaker.keel.api.SubnetAwareLocations
 import com.netflix.spinnaker.keel.api.SubnetAwareRegionSpec
 import com.netflix.spinnaker.keel.api.actuation.Job
 import com.netflix.spinnaker.keel.api.actuation.TaskLauncher
 import com.netflix.spinnaker.keel.api.artifacts.DEBIAN
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
+import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
 import com.netflix.spinnaker.keel.api.artifacts.fromBranch
 import com.netflix.spinnaker.keel.api.ec2.Capacity
@@ -142,6 +146,20 @@ class ClusterHandler(
       resolve().byRegion()
     }
 
+  override suspend fun getCurrentlyDeployedVersions(
+    deliveryConfig: DeliveryConfig,
+    environment: Environment,
+    resource: Resource<ClusterSpec>
+  ): Map<SimpleRegionSpec, PublishedArtifact> {
+    val artifact = resource.findAssociatedArtifact(deliveryConfig)
+      ?: error("Unable to find artifact associated with resource ${resource.id} in delivery config for ${deliveryConfig.application}")
+
+    return getImage(resource).images.associate {
+      val version = it.imageName.parseAppVersion().version
+      SimpleRegionSpec(it.region) to artifact.toArtifactVersion(version)
+    }
+  }
+
   override suspend fun current(resource: Resource<ClusterSpec>): Map<String, ServerGroup> {
     val activeServerGroups = cloudDriverService.getActiveServerGroups(resource)
     val allHaveSameVersion = activeServerGroups.distinctBy { it.launchConfiguration.appVersion }.size == 1
@@ -152,7 +170,7 @@ class ClusterHandler(
       false
     }
 
-    if (allHaveSameVersion && allHealthy) {
+    if (allHaveSameVersion && allHealthy && !resource.isDryRun) {
       // only publish a successfully deployed event if the cluster is healthy
       val appVersion = activeServerGroups.first().launchConfiguration.appVersion
       if (appVersion != null) {

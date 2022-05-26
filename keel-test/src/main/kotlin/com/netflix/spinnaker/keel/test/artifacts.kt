@@ -21,16 +21,19 @@ import com.netflix.spinnaker.keel.titus.registry.TitusRegistryService
 import io.mockk.mockk
 import org.springframework.core.env.Environment
 
-class DummyArtifact(
+data class DummyArtifact(
   override val name: String = "fnord",
   override val deliveryConfigName: String? = "manifest",
-  override val reference: String = "fnord"
+  override val reference: String = "fnord",
+  override val isDryRun: Boolean = false
 ) : DeliveryArtifact() {
   override val type: ArtifactType = "dummy"
   override val sortingStrategy = DummySortingStrategy
-  override fun withDeliveryConfigName(deliveryConfigName: String): DeliveryArtifact {
-    return this
-  }
+  override fun withDeliveryConfigName(deliveryConfigName: String) =
+    this.copy(deliveryConfigName = deliveryConfigName)
+
+  override fun withDryRunFlag(isDryRun: Boolean) =
+    this.copy(isDryRun = true)
 }
 
 object DummySortingStrategy : SortingStrategy {
@@ -45,7 +48,7 @@ fun defaultArtifactSuppliers(): List<ArtifactSupplier<*, *>> {
   val springEnv: Environment = mockk(relaxed = true)
   val titusRegistryService: TitusRegistryService = mockk()
   return listOf(
-    DebianArtifactSupplier(eventBridge, artifactService, artifactMetadataService, springEnv),
+    DebianArtifactSupplier(eventBridge, artifactService, artifactMetadataService),
     DockerArtifactSupplier(eventBridge, artifactMetadataService, titusRegistryService),
     NpmArtifactSupplier(eventBridge, artifactService, artifactMetadataService)
   )

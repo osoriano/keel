@@ -6,6 +6,7 @@ import com.netflix.spinnaker.keel.api.ArtifactReferenceProvider
 import com.netflix.spinnaker.keel.api.ComputeResourceSpec
 import com.netflix.spinnaker.keel.api.Dependency
 import com.netflix.spinnaker.keel.api.Dependent
+import com.netflix.spinnaker.keel.api.DeployableResourceSpec
 import com.netflix.spinnaker.keel.api.ExcludedFromDiff
 import com.netflix.spinnaker.keel.api.Moniker
 import com.netflix.spinnaker.keel.api.Monikered
@@ -223,8 +224,11 @@ data class DummyArtifactReferenceResourceSpec(
   val data: String = randomString(),
   override val artifactReference: String? = "fnord",
   override val moniker: Moniker = Moniker("fnord", "artifactreference", "dummy"),
-  override val locations: SimpleLocations = SimpleLocations(account = "test", regions = setOf(SimpleRegionSpec("us-east-1")))
-) : ResourceSpec, ArtifactReferenceProvider, SpinnakerResourceSpec<SimpleLocations> {
+  override val locations: SimpleLocations = SimpleLocations(account = "test", regions = setOf(SimpleRegionSpec("us-east-1"))),
+  override val artifactName: String? = artifactReference,
+  override val artifactType: ArtifactType? = DEBIAN,
+  override val artifactVersion: String? = null
+) : DeployableResourceSpec, SpinnakerResourceSpec<SimpleLocations> {
   override fun withArtifactReference(reference: String) = copy(artifactReference = reference)
 }
 

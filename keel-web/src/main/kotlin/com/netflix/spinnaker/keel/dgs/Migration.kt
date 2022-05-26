@@ -63,7 +63,7 @@ class Migration(
 
     val actuationPlan = runBlocking {
       try {
-        applicationService.getActuationPlan(deliveryConfig)
+        applicationService.calculateActuationPlan(deliveryConfig)
       } catch (e: Exception) {
         log.debug("Error calculating actuation plan", e)
         null

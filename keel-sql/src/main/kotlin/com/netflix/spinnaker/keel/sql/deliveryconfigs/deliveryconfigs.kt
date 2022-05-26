@@ -2,7 +2,6 @@ package com.netflix.spinnaker.keel.sql.deliveryconfigs
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import com.netflix.spinnaker.config.ConnectionPools
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.PreviewEnvironmentSpec
@@ -24,7 +23,6 @@ import com.netflix.spinnaker.keel.persistence.metamodel.Tables.PREVIEW_ENVIRONME
 import com.netflix.spinnaker.keel.sql.RetryCategory.READ
 import com.netflix.spinnaker.keel.sql.SqlStorageContext
 import com.netflix.spinnaker.keel.sql.mapToArtifact
-import com.netflix.spinnaker.kork.sql.routing.withPool
 import de.huxhorn.sulky.ulid.ULID
 import org.jooq.DSLContext
 import org.jooq.Record1
@@ -43,17 +41,19 @@ internal fun SqlStorageContext.deliveryConfigByName(
         DELIVERY_CONFIG.APPLICATION,
         DELIVERY_CONFIG.SERVICE_ACCOUNT,
         DELIVERY_CONFIG.METADATA,
-        DELIVERY_CONFIG.RAW_CONFIG
+        DELIVERY_CONFIG.RAW_CONFIG,
+        DELIVERY_CONFIG.IS_DRYRUN
       )
         .from(DELIVERY_CONFIG)
         .where(DELIVERY_CONFIG.NAME.eq(name))
-        .fetchOne { (uid, name, application, serviceAccount, metadata, rawConfig) ->
+        .fetchOne { (uid, name, application, serviceAccount, metadata, rawConfig, isDryRun) ->
           uid to DeliveryConfig(
             name = name,
             application = application,
             serviceAccount = serviceAccount,
             metadata = (metadata ?: emptyMap()) + mapOf("createdAt" to ULID.parseULID(uid).timestampAsInstant()),
-            rawConfig = rawConfig
+            rawConfig = rawConfig,
+            isDryRun = isDryRun
           )
         }
         ?.let { (_, deliveryConfig) ->
@@ -154,15 +154,16 @@ internal fun SqlStorageContext.resourcesForEnvironment(uid: String) =
       .select(
         ACTIVE_RESOURCE.KIND,
         ACTIVE_RESOURCE.METADATA,
-        ACTIVE_RESOURCE.SPEC
+        ACTIVE_RESOURCE.SPEC,
+        ACTIVE_RESOURCE.IS_DRYRUN
       )
       .from(ACTIVE_RESOURCE, ENVIRONMENT_RESOURCE, ACTIVE_ENVIRONMENT)
       .where(ACTIVE_RESOURCE.UID.eq(ENVIRONMENT_RESOURCE.RESOURCE_UID))
       .and(ENVIRONMENT_RESOURCE.ENVIRONMENT_UID.eq(ACTIVE_ENVIRONMENT.UID))
       .and(ENVIRONMENT_RESOURCE.ENVIRONMENT_VERSION.eq(ACTIVE_ENVIRONMENT.VERSION))
       .and(ACTIVE_ENVIRONMENT.UID.eq(uid))
-      .fetch { (kind, metadata, spec) ->
-        resourceFactory.create(kind, metadata, spec)
+      .fetch { (kind, metadata, spec, isDryRun) ->
+        resourceFactory.create(kind, metadata, spec, isDryRun)
       }
   }
     .toSet()

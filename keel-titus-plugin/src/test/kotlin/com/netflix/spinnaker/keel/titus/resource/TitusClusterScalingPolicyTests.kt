@@ -223,7 +223,6 @@ class TitusClusterScalingPolicyTests {
     clusterExportHelper = mockk(),
     diffFactory = DefaultResourceDiffFactory(),
     titusRegistryService = titusRegistryService,
-    artifactBridge = mockk(),
     DefaultContainerAttributes()
   )
 

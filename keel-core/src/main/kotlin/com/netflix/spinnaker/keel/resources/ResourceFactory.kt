@@ -25,19 +25,20 @@ class ResourceFactory(
    * by running any applicable spec migrations (i.e. the resource may have a different spec version than
    * the one defined in the spec JSON).
    */
-  fun create(kind: String, metadataJson: String, specJson: String) =
-    createRaw(kind, metadataJson, specJson).migrateMe()
+  fun create(kind: String, metadataJson: String, specJson: String, isDryRun: Boolean) =
+    createRaw(kind, metadataJson, specJson, isDryRun).migrateMe()
 
   /**
    * @return a [Resource] of the specified [kind] with the given metadata and spec, without running
    * any spec migrations (i.e. the resource will have the exact spec version as defined in the spec).
    */
-  fun createRaw(kind: String, metadataJson: String, specJson: String) =
+  fun createRaw(kind: String, metadataJson: String, specJson: String, isDryRun: Boolean) =
     ResourceKind.parseKind(kind).let {
       Resource(
         it,
         objectMapper.readValue<Map<String, Any?>>(metadataJson).asResourceMetadata(),
-        objectMapper.readValue(specJson, resourceSpecIdentifier.identify(it))
+        objectMapper.readValue(specJson, resourceSpecIdentifier.identify(it)),
+        isDryRun = isDryRun
       )
     }
 

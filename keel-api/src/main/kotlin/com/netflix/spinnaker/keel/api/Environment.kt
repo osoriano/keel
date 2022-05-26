@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.api
 
 import com.netflix.spinnaker.keel.api.postdeploy.PostDeployAction
+import com.netflix.spinnaker.keel.api.schema.SchemaIgnore
 
 data class Environment(
   val name: String,
@@ -9,7 +10,9 @@ data class Environment(
   val verifyWith: List<Verification> = emptyList(),
   val notifications: Set<NotificationConfig> = emptySet(), // applies to each resource
   val postDeploy: List<PostDeployAction> = emptyList(),
-  val isPreview: Boolean = false
+  val isPreview: Boolean = false,
+  @SchemaIgnore
+  val isDryRun: Boolean = false
 ) {
   val resourceIds: Set<String>
     get() = resources.mapTo(mutableSetOf(), Resource<*>::id)

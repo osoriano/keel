@@ -16,6 +16,9 @@ import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.postdeploy.PostDeployAction
 import com.netflix.spinnaker.keel.api.schema.Description
 import com.netflix.spinnaker.keel.api.schema.Title
+import com.netflix.spinnaker.keel.artifacts.DebianArtifact
+import com.netflix.spinnaker.keel.artifacts.DockerArtifact
+import com.netflix.spinnaker.keel.artifacts.NpmArtifact
 import com.netflix.spinnaker.keel.serialization.SubmittedEnvironmentDeserializer
 
 const val DEFAULT_SERVICE_ACCOUNT = "keel@spinnaker.io"
@@ -42,22 +45,35 @@ data class SubmittedDeliveryConfig(
   val safeName: String
     @JsonIgnore get() = name ?: "$application-manifest"
 
-  fun toDeliveryConfig(): DeliveryConfig = DeliveryConfig(
+  fun toDeliveryConfig(isDryRun: Boolean = false): DeliveryConfig = DeliveryConfig(
     name = safeName,
     application = application,
     serviceAccount = serviceAccount
       ?: error("No service account specified for app ${application}, and no default applied"),
     artifacts = artifacts.mapTo(mutableSetOf()) { artifact ->
-      artifact.withDeliveryConfigName(safeName)
+      // FIXME: storing the delivery config name in the artifact is a poor way to facilitate SQL querying;
+      //  we should pass the delivery config object for context in those repository calls
+      artifact
+        .withDeliveryConfigName(safeName)
+        .withDryRunFlag(isDryRun)
     },
     environments = environments.mapTo(mutableSetOf()) { env ->
-      env.toEnvironment(this)
+      env.toEnvironment(this, isDryRun)
     },
     previewEnvironments = previewEnvironments,
     metadata = metadata ?: emptyMap(),
+    isDryRun = isDryRun,
     rawConfig = rawConfig
   )
 }
+
+private fun DeliveryArtifact.withDryRunFlag(isDryRun: Boolean) =
+  when (this) {
+    is DebianArtifact -> copy(isDryRun = isDryRun)
+    is DockerArtifact -> copy(isDryRun = isDryRun)
+    is NpmArtifact -> copy(isDryRun = isDryRun)
+    else -> error("Unsupported artifact type ${this.javaClass.simpleName}")
+  }
 
 @JsonDeserialize(using = SubmittedEnvironmentDeserializer::class)
 @Title("Environment")
@@ -91,16 +107,20 @@ data class SubmittedEnvironment(
       this.metadata.putAll(metadata)
     }
 
-  fun toEnvironment(deliveryConfig: SubmittedDeliveryConfig, serviceAccount: String? = null) = Environment(
+  fun toEnvironment(
+    deliveryConfig: SubmittedDeliveryConfig,
+    isDryRun: Boolean = false
+  ) = Environment(
     name = name,
     resources = resources.mapTo(mutableSetOf()) { resource ->
       resource
-        .copy(metadata = mapOf("serviceAccount" to serviceAccount) + resource.metadata)
         .normalize(deliveryConfig)
+        .copy(isDryRun = isDryRun)
     },
     constraints = constraints,
     verifyWith = verifyWith,
     notifications = notifications,
-    postDeploy = postDeploy
+    postDeploy = postDeploy,
+    isDryRun = isDryRun
   ).addMetadata(metadata)
 }

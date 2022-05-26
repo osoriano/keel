@@ -4,10 +4,6 @@ import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.artifacts.DOCKER
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
-import com.netflix.spinnaker.keel.api.artifacts.SortingStrategy
-import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.BRANCH_JOB_COMMIT_BY_JOB
-import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.SEMVER_JOB_COMMIT_BY_JOB
-import com.netflix.spinnaker.keel.api.artifacts.TagVersionStrategy.SEMVER_JOB_COMMIT_BY_SEMVER
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
 import com.netflix.spinnaker.keel.api.support.EventPublisher
@@ -141,10 +137,10 @@ class DockerArtifactSupplier(
     }
   }
 
-  override suspend fun getLatestArtifact(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact): PublishedArtifact? =
-    getLatestArtifacts(deliveryConfig, artifact, 1).firstOrNull()
+  override suspend fun getLatestVersion(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact): PublishedArtifact? =
+    getLatestVersions(deliveryConfig, artifact, 1).firstOrNull()
 
-  override suspend fun getLatestArtifacts(
+  override suspend fun getLatestVersions(
     deliveryConfig: DeliveryConfig,
     artifact: DeliveryArtifact,
     limit: Int
@@ -158,20 +154,6 @@ class DockerArtifactSupplier(
       .sortedWith(artifact.sortingStrategy.comparator)
       .take(limit) // unfortunately we can only limit here because we need to sort with the comparator above
   }
-
-
-  private fun SortingStrategy.hasBuild(): Boolean {
-    return (this as? DockerVersionSortingStrategy)
-      ?.let { it.strategy in listOf(BRANCH_JOB_COMMIT_BY_JOB, SEMVER_JOB_COMMIT_BY_JOB, SEMVER_JOB_COMMIT_BY_SEMVER) }
-      ?: false
-  }
-
-  private fun SortingStrategy.hasCommit(): Boolean {
-    return (this as? DockerVersionSortingStrategy)
-      ?.let { it.strategy in listOf(BRANCH_JOB_COMMIT_BY_JOB, SEMVER_JOB_COMMIT_BY_JOB, SEMVER_JOB_COMMIT_BY_SEMVER) }
-      ?: false
-  }
-
 
   override fun shouldProcessArtifact(artifact: PublishedArtifact): Boolean =
     artifact.version != "latest"

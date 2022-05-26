@@ -117,6 +117,7 @@ class SqlArtifactRepository(
         .set(DELIVERY_ARTIFACT.REFERENCE, artifact.reference)
         .set(DELIVERY_ARTIFACT.DELIVERY_CONFIG_NAME, artifact.deliveryConfigName)
         .set(DELIVERY_ARTIFACT.IS_PREVIEW, artifact.isPreview)
+        .set(DELIVERY_ARTIFACT.IS_DRYRUN, artifact.isDryRun)
         .set(DELIVERY_ARTIFACT.DETAILS, artifact.detailsAsJson())
         .onDuplicateKeyUpdate()
         .set(DELIVERY_ARTIFACT.NAME, artifact.name)
@@ -150,12 +151,17 @@ class SqlArtifactRepository(
   override fun get(name: String, type: ArtifactType, deliveryConfigName: String): List<DeliveryArtifact> =
     sqlRetry.withRetry(READ) {
       jooq
-        .select(DELIVERY_ARTIFACT.DETAILS, DELIVERY_ARTIFACT.REFERENCE, DELIVERY_ARTIFACT.IS_PREVIEW)
+        .select(
+          DELIVERY_ARTIFACT.DETAILS,
+          DELIVERY_ARTIFACT.REFERENCE,
+          DELIVERY_ARTIFACT.IS_PREVIEW,
+          DELIVERY_ARTIFACT.IS_DRYRUN
+        )
         .from(DELIVERY_ARTIFACT)
         .where(DELIVERY_ARTIFACT.NAME.eq(name))
         .and(DELIVERY_ARTIFACT.TYPE.eq(type))
         .and(DELIVERY_ARTIFACT.DELIVERY_CONFIG_NAME.eq(deliveryConfigName))
-        .fetch { (details, reference, isPreview) ->
+        .fetch { (details, reference, isPreview, isDryRun) ->
           objectMapper.mapToArtifact(
             artifactSuppliers.supporting(type),
             name,
@@ -163,7 +169,8 @@ class SqlArtifactRepository(
             details,
             reference,
             deliveryConfigName,
-            isPreview
+            isPreview,
+            isDryRun
           )
         }
     }
@@ -171,7 +178,12 @@ class SqlArtifactRepository(
   override fun get(name: String, type: ArtifactType, reference: String, deliveryConfigName: String): DeliveryArtifact =
     sqlRetry.withRetry(READ) {
       jooq
-        .select(DELIVERY_ARTIFACT.DETAILS, DELIVERY_ARTIFACT.REFERENCE, DELIVERY_ARTIFACT.IS_PREVIEW)
+        .select(
+          DELIVERY_ARTIFACT.DETAILS,
+          DELIVERY_ARTIFACT.REFERENCE,
+          DELIVERY_ARTIFACT.IS_PREVIEW,
+          DELIVERY_ARTIFACT.IS_DRYRUN
+        )
         .from(DELIVERY_ARTIFACT)
         .where(DELIVERY_ARTIFACT.NAME.eq(name))
         .and(DELIVERY_ARTIFACT.TYPE.eq(type))
@@ -179,8 +191,10 @@ class SqlArtifactRepository(
         .and(DELIVERY_ARTIFACT.REFERENCE.eq(reference))
         .fetchOne()
     }
-      ?.let { (details, reference, isPreview) ->
-        objectMapper.mapToArtifact(artifactSuppliers.supporting(type), name, type, details, reference, deliveryConfigName, isPreview)
+      ?.let { (details, reference, isPreview, isDryRun) ->
+        objectMapper.mapToArtifact(
+          artifactSuppliers.supporting(type), name, type, details, reference, deliveryConfigName, isPreview, isDryRun
+        )
       } ?: throw ArtifactNotFoundException(reference, deliveryConfigName)
 
   override fun get(deliveryConfigName: String, reference: String): DeliveryArtifact {
@@ -191,7 +205,8 @@ class SqlArtifactRepository(
           DELIVERY_ARTIFACT.DETAILS,
           DELIVERY_ARTIFACT.REFERENCE,
           DELIVERY_ARTIFACT.TYPE,
-          DELIVERY_ARTIFACT.IS_PREVIEW
+          DELIVERY_ARTIFACT.IS_PREVIEW,
+          DELIVERY_ARTIFACT.IS_DRYRUN
         )
         .from(DELIVERY_ARTIFACT)
         .where(
@@ -200,8 +215,10 @@ class SqlArtifactRepository(
         )
         .fetchOne()
     }
-      ?.let { (name, details, reference, type, isPreview) ->
-        objectMapper.mapToArtifact(artifactSuppliers.supporting(type), name, type, details, reference, deliveryConfigName, isPreview)
+      ?.let { (name, details, reference, type, isPreview, isDryRun) ->
+        objectMapper.mapToArtifact(
+          artifactSuppliers.supporting(type), name, type, details, reference, deliveryConfigName, isPreview, isDryRun
+        )
       } ?: throw ArtifactNotFoundException(reference, deliveryConfigName)
   }
 
@@ -238,8 +255,9 @@ class SqlArtifactRepository(
           DELIVERY_ARTIFACT.IS_PREVIEW
         )
         .from(DELIVERY_ARTIFACT)
-        .apply { if (type != null) where(DELIVERY_ARTIFACT.TYPE.eq(type.toString())) }
-        .apply { if (name != null) where(DELIVERY_ARTIFACT.NAME.eq(name)) }
+        .where(DELIVERY_ARTIFACT.IS_DRYRUN.isFalse) // ignore dry-run artifacts
+        .apply { if (type != null) and(DELIVERY_ARTIFACT.TYPE.eq(type.toString())) }
+        .apply { if (name != null) and(DELIVERY_ARTIFACT.NAME.eq(name)) }
         .fetch { (name, storedType, details, reference, configName, isPreview) ->
           objectMapper.mapToArtifact(
             artifactSuppliers.supporting(storedType),

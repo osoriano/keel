@@ -227,7 +227,7 @@ class QueryTests {
     } returns deliveryConfig
 
     coEvery {
-      applicationService.getActuationPlan(deliveryConfig)
+      applicationService.calculateActuationPlan(deliveryConfig)
     } returns ActuationPlan(
       application = deliveryConfig.application,
       timestamp = Instant.now(),

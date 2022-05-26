@@ -1165,5 +1165,16 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
       }
     }
 
+    context("a persisted temporary (aka dry-run) delivery config") {
+      before {
+        repository.store(deliveryConfig.copy(isDryRun = true))
+      }
+
+      // verifies dry-run environments will not be picked up by temporal scheduling
+      test("its environments are not returned by allEnvironments") {
+        expectThat(repository.allEnvironments().hasNext())
+          .isFalse()
+      }
+    }
   }
 }

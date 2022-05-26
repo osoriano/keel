@@ -37,6 +37,9 @@ interface ArtifactRepository : PeriodicallyCheckedRepository<DeliveryArtifact> {
 
   fun isRegistered(name: String, type: ArtifactType): Boolean
 
+  /**
+   * @return All registered [DeliveryArtifact]s. Ignores dry-run artifacts.
+   */
   fun getAll(type: ArtifactType? = null, name: String? = null): List<DeliveryArtifact>
 
   /**

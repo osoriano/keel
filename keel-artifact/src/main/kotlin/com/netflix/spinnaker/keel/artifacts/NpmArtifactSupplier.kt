@@ -30,10 +30,10 @@ class NpmArtifactSupplier(
 
   override val supportedArtifact = SupportedArtifact(NPM, NpmArtifact::class.java)
 
-  override suspend fun getLatestArtifact(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact): PublishedArtifact? =
-    getLatestArtifacts(deliveryConfig, artifact, 1).firstOrNull()
+  override suspend fun getLatestVersion(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact): PublishedArtifact? =
+    getLatestVersions(deliveryConfig, artifact, 1).firstOrNull()
 
-  override suspend fun getLatestArtifacts(
+  override suspend fun getLatestVersions(
     deliveryConfig: DeliveryConfig,
     artifact: DeliveryArtifact,
     limit: Int

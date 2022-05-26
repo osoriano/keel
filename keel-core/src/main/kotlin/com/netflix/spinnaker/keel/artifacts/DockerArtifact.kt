@@ -28,6 +28,8 @@ data class DockerArtifact(
   val captureGroupRegex: String? = null,
   @JsonIgnore val branch: String? = null,
   override val from: ArtifactOriginFilter? = branch?.let { ArtifactOriginFilter(BranchFilter(name = branch)) },
+  @SchemaIgnore
+  override val isDryRun: Boolean = false,
   @JsonIgnore
   override val metadata: Map<String, Any?> = emptyMap(),
   @get:JsonIgnore
@@ -59,9 +61,11 @@ data class DockerArtifact(
     } else throw ValidationException(
       listOf("Unable to determine sorting strategy for $this. You must specify either `tagVersionStrategy` or `from` in your delivery config."))
 
-  override fun withDeliveryConfigName(deliveryConfigName: String): DeliveryArtifact {
-    return this.copy(deliveryConfigName = deliveryConfigName)
-  }
+  override fun withDeliveryConfigName(deliveryConfigName: String) =
+    this.copy(deliveryConfigName = deliveryConfigName)
+
+  override fun withDryRunFlag(isDryRun: Boolean) =
+    this.copy(isDryRun = true)
 
   override fun toString(): String = super.toString()
 }

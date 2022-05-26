@@ -18,6 +18,7 @@ import dev.minutest.rootContext
 import io.mockk.coEvery as every
 import io.mockk.coVerify as verify
 import io.mockk.mockk
+import kotlinx.coroutines.runBlocking
 
 internal class ArtifactListenerTests : JUnit5Minutests {
   val publishedDeb = PublishedArtifact(
@@ -116,20 +117,6 @@ internal class ArtifactListenerTests : JUnit5Minutests {
       every { dockerArtifactSupplier.supportedArtifact } returns SupportedArtifact(DOCKER, DockerArtifact::class.java)
     }
 
-    context("artifact already has saved versions") {
-      before {
-        every { repository.artifactVersions(event.artifact, any()) } returns listOf(publishedDeb)
-        every {
-          debianArtifactSupplier.getLatestArtifacts(any(), any(), any())
-        } returns listOf(publishedDeb)
-        listener.onArtifactRegisteredEvent(event)
-      }
-
-      test("we fetch the latest versions just in case our data is old") {
-        verify(exactly = 1) { artifactQueueProcessor.enrichAndStore(any(), any()) }
-      }
-    }
-
     context("the artifact does not have any versions stored") {
       before {
         every { repository.artifactVersions(event.artifact, any()) } returns emptyList()
@@ -139,7 +126,7 @@ internal class ArtifactListenerTests : JUnit5Minutests {
         before {
           every { repository.storeArtifactVersion(any()) } returns false
           every {
-            debianArtifactSupplier.getLatestArtifacts(any(), any(), any())
+            debianArtifactSupplier.getLatestVersions(any(), any(), any())
           } returns listOf(publishedDeb)
 
           every { repository.getAllArtifacts(DEBIAN, any()) } returns listOf(debianArtifact)
@@ -157,7 +144,7 @@ internal class ArtifactListenerTests : JUnit5Minutests {
       context("there are no versions of the artifact available") {
         before {
           every {
-            debianArtifactSupplier.getLatestArtifacts(deliveryConfig, artifact, any())
+            debianArtifactSupplier.getLatestVersions(deliveryConfig, artifact, any())
           } returns emptyList()
 
           listener.onArtifactRegisteredEvent(event)
@@ -170,14 +157,29 @@ internal class ArtifactListenerTests : JUnit5Minutests {
         }
       }
     }
+
+    context("artifact from dry-run delivery config") {
+      context("when artifact registered event is received") {
+        before {
+          listener.onArtifactRegisteredEvent(
+            event.copy(artifact = debianArtifact().copy(isDryRun = true))
+          )
+        }
+
+        test("does nothing") {
+          verify(exactly = 0) { repository.artifactVersions(any(), any()) }
+          verify(exactly = 0) { artifactQueueProcessor.enrichAndStore(any(), any()) }
+        }
+      }
+    }
   }
 
   data class SyncArtifactsFixture(
-    val debArtifact: DeliveryArtifact,
+    val debArtifact: DebianArtifact,
     val dockerArtifact: DockerArtifact
   ) : ArtifactListenerFixture()
 
-  fun syncArtifactsFixture() = rootContext<SyncArtifactsFixture> {
+  fun artifactVersionSyncTests() = rootContext<SyncArtifactsFixture> {
     fixture {
       SyncArtifactsFixture(
         debArtifact = debianArtifact,
@@ -203,11 +205,11 @@ internal class ArtifactListenerTests : JUnit5Minutests {
       context("versions are available") {
         before {
           every {
-            debianArtifactSupplier.getLatestArtifacts(deliveryConfig, debArtifact, any())
+            debianArtifactSupplier.getLatestVersions(deliveryConfig, debArtifact, any())
           } returns listOf(publishedDeb)
 
           every {
-            dockerArtifactSupplier.getLatestArtifacts(deliveryConfig, dockerArtifact, any())
+            dockerArtifactSupplier.getLatestVersions(deliveryConfig, dockerArtifact, any())
           } returns listOf(publishedDocker)
 
           every { repository.getAllArtifacts(DEBIAN, any()) } returns listOf(debianArtifact)
@@ -236,11 +238,11 @@ internal class ArtifactListenerTests : JUnit5Minutests {
       context("no newer versions are available") {
         before {
           every {
-            debianArtifactSupplier.getLatestArtifacts(deliveryConfig, debArtifact, any())
+            debianArtifactSupplier.getLatestVersions(deliveryConfig, debArtifact, any())
           } returns listOf(publishedDeb)
 
           every {
-            dockerArtifactSupplier.getLatestArtifacts(deliveryConfig, dockerArtifact, any())
+            dockerArtifactSupplier.getLatestVersions(deliveryConfig, dockerArtifact, any())
           } returns listOf(publishedDocker)
         }
 
@@ -253,11 +255,11 @@ internal class ArtifactListenerTests : JUnit5Minutests {
       context("newer versions are available") {
         before {
           every {
-            debianArtifactSupplier.getLatestArtifacts(deliveryConfig, debArtifact, any())
+            debianArtifactSupplier.getLatestVersions(deliveryConfig, debArtifact, any())
           } returns listOf(newerPublishedDeb)
 
           every {
-            dockerArtifactSupplier.getLatestArtifacts(deliveryConfig, dockerArtifact, any())
+            dockerArtifactSupplier.getLatestVersions(deliveryConfig, dockerArtifact, any())
           } returns listOf(newerPublishedDocker)
 
           every { repository.getAllArtifacts(DEBIAN, any()) } returns listOf(debianArtifact)
@@ -270,6 +272,21 @@ internal class ArtifactListenerTests : JUnit5Minutests {
           verify(exactly = 2) {
             artifactQueueProcessor.enrichAndStore(any(), any())
           }
+        }
+      }
+    }
+
+    context("an artifact from a dry-run delivery config") {
+      context("attempt to sync artifact versions") {
+        before {
+          runBlocking {
+            listener.syncLastLimitArtifactVersions(debArtifact.copy(isDryRun = true), 1)
+          }
+        }
+
+        test("does nothing") {
+          verify(exactly = 0) { repository.artifactVersions(any(), any()) }
+          verify(exactly = 0) { artifactQueueProcessor.enrichAndStore(any(), any()) }
         }
       }
     }

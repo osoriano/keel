@@ -113,7 +113,6 @@ class TitusBaseClusterHandlerTests : BaseClusterHandlerTests<TitusClusterSpec, T
       clusterExportHelper = clusterExportHelper,
       diffFactory = DefaultResourceDiffFactory(),
       titusRegistryService = titusRegistryService,
-      artifactBridge,
       DefaultContainerAttributes()
     ))
 

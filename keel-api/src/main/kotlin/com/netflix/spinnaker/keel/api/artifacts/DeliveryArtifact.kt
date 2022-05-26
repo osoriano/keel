@@ -124,12 +124,17 @@ abstract class DeliveryArtifact {
 
   abstract fun withDeliveryConfigName(deliveryConfigName: String): DeliveryArtifact
 
+  abstract fun withDryRunFlag(isDryRun: Boolean): DeliveryArtifact
+
   /** Filters for the artifact origin in source control. */
   open val from: ArtifactOriginFilter? = null
 
   /** Whether this artifact was created for a preview environment. */
   @get:JsonProperty(access = WRITE_ONLY)
   open val isPreview: Boolean = false
+
+  @SchemaIgnore
+  open val isDryRun: Boolean = false
 
   /** Arbitrary metadata that can be used to augment the generic configuration of the artifact */
   @get:JsonInclude(NON_EMPTY)

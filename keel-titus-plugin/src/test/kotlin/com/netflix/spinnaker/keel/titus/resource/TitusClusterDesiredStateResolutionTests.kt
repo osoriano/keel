@@ -181,7 +181,6 @@ class TitusClusterDesiredStateResolutionTests : JUnit5Minutests {
       ClusterExportHelper(cloudDriverService, orcaService),
       DefaultResourceDiffFactory(),
       titusRegistryService,
-      artifactBridge,
       DefaultContainerAttributes()
     )
 

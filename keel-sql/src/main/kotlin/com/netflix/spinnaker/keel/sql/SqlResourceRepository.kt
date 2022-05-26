@@ -43,7 +43,6 @@ import org.jooq.impl.DSL.max
 import org.jooq.impl.DSL.select
 import org.jooq.impl.DSL.value
 import org.slf4j.LoggerFactory
-import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.event.EventListener
 import org.springframework.core.env.Environment
 import java.time.Clock
@@ -57,7 +56,6 @@ class SqlResourceRepository(
   private val objectMapper: ObjectMapper,
   private val resourceFactory: ResourceFactory,
   private val sqlRetry: SqlRetry,
-  private val publisher: ApplicationEventPublisher,
   private val spectator: Registry,
   private val springEnv: Environment,
   private val resourceEventPruneConfig: ResourceEventPruneConfig,
@@ -74,11 +72,15 @@ class SqlResourceRepository(
   private val resourceFetchSize: Int
     get() = springEnv.getProperty("keel.resource-repository.batch-fetch-size", Int::class.java, 100)
 
+  /**
+   * Calls the specified [callback] for each resource in the database. Ignores temporary resources.
+   */
   override fun allResources(callback: (ResourceHeader) -> Unit) {
     sqlRetry.withRetry(READ) {
       val cursor = jooq
         .select(RESOURCE.KIND, RESOURCE.ID, RESOURCE.UID, RESOURCE.APPLICATION)
         .from(RESOURCE)
+        .where(RESOURCE.IS_DRYRUN.isFalse) // ignore dry-run resources
         .fetchSize(resourceFetchSize)
         .fetchLazy()
 
@@ -92,6 +94,9 @@ class SqlResourceRepository(
     }
   }
 
+  /**
+   * @return An [Iterator] over all resources in the database. Ignores temporary resources.
+   */
   override fun allResources(): Iterator<ResourceHeader> {
     return PagedIterator(
       sqlRetry,
@@ -99,6 +104,7 @@ class SqlResourceRepository(
         jooq
           .select(RESOURCE.KIND, RESOURCE.ID, RESOURCE.UID, RESOURCE.APPLICATION)
           .from(RESOURCE)
+          .where(RESOURCE.IS_DRYRUN.isFalse) // ignore dry-run resources
           .fetchSize(resourceFetchSize)
           .fetchLazy()
       },
@@ -116,20 +122,21 @@ class SqlResourceRepository(
 
   override fun get(id: String): Resource<ResourceSpec> =
     readResource(id) { kind, metadata, spec ->
-      resourceFactory.create(kind, metadata, spec)
+      resourceFactory.create(kind, metadata, spec, isDryRun = false)
     }
 
   override fun getRaw(id: String): Resource<ResourceSpec> =
     readResource(id) { kind, metadata, spec ->
-      resourceFactory.createRaw(kind, metadata, spec)
+      resourceFactory.createRaw(kind, metadata, spec, isDryRun = false)
     }
 
-  private fun readResource(id: String, callback: (String, String, String) -> Resource<ResourceSpec>): Resource<ResourceSpec> =
+  private fun readResource(id: String, factoryCallback: ResourceFactoryCallback): Resource<ResourceSpec> =
     sqlRetry.withRetry(READ) {
       jooq
-        .select(ACTIVE_RESOURCE.KIND, ACTIVE_RESOURCE.METADATA, ACTIVE_RESOURCE.SPEC)
-        .from(ACTIVE_RESOURCE)
+        .select(ACTIVE_RESOURCE.KIND, ACTIVE_RESOURCE.METADATA, ACTIVE_RESOURCE.SPEC, ACTIVE_RESOURCE.IS_DRYRUN)
+        .from(ACTIVE_RESOURCE, RESOURCE)
         .where(ACTIVE_RESOURCE.ID.eq(id))
+        .and(ACTIVE_RESOURCE.IS_DRYRUN.isFalse) // ignore dry-run resources
         .fetch()
         .also {
           if (it.size > 1) {
@@ -138,19 +145,19 @@ class SqlResourceRepository(
         }
         .firstOrNull()
         ?.let { (kind, metadata, spec) ->
-          callback(kind, metadata, spec)
+          factoryCallback(kind, metadata, spec)
         } ?: throw NoSuchResourceId(id)
     }
 
   override fun getResourcesByApplication(application: String): List<Resource<*>> {
     return sqlRetry.withRetry(READ) {
       jooq
-        .select(ACTIVE_RESOURCE.KIND, ACTIVE_RESOURCE.METADATA, ACTIVE_RESOURCE.SPEC)
+        .select(ACTIVE_RESOURCE.KIND, ACTIVE_RESOURCE.METADATA, ACTIVE_RESOURCE.SPEC, ACTIVE_RESOURCE.IS_DRYRUN)
         .from(ACTIVE_RESOURCE)
         .where(ACTIVE_RESOURCE.APPLICATION.eq(application))
         .fetch()
-        .map { (kind, metadata, spec) ->
-          resourceFactory.create(kind, metadata, spec)
+        .map { (kind, metadata, spec, isDryRun) ->
+          resourceFactory.create(kind, metadata, spec, isDryRun)
         }
     }
   }
@@ -171,6 +178,7 @@ class SqlResourceRepository(
         .selectCount()
         .from(RESOURCE)
         .where(RESOURCE.APPLICATION.eq(application))
+        .and(RESOURCE.IS_DRYRUN.isFalse)
         .fetchSingle()
         .value1() > 0
     }
@@ -209,6 +217,7 @@ class SqlResourceRepository(
             .set(RESOURCE.KIND, resource.kind.toString())
             .set(RESOURCE.ID, resource.id)
             .set(RESOURCE.APPLICATION, resource.application)
+            .set(RESOURCE.IS_DRYRUN, resource.isDryRun)
             .execute()
         }
     }
@@ -541,3 +550,5 @@ class SqlResourceRepository(
   private fun String.unquote() =
     if (startsWith('"') && endsWith('"')) this.substring(1, length - 1) else this
 }
+
+typealias ResourceFactoryCallback = (kind: String, metadata: String, spec: String) -> Resource<ResourceSpec>

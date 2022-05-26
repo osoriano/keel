@@ -35,7 +35,6 @@ import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.spyk
 import org.springframework.context.ApplicationEventPublisher
-import org.springframework.core.env.Environment
 import strikt.api.expectThat
 import strikt.assertions.isA
 import strikt.assertions.isEqualTo
@@ -177,7 +176,7 @@ internal class ArtifactQueueProcessorTest : JUnit5Minutests {
       before {
         every { repository.isRegistered(artifact.name, artifact.type) } returns true
         every {
-          debianArtifactSupplier.getLatestArtifact(deliveryConfig, artifact)
+          debianArtifactSupplier.getLatestVersion(deliveryConfig, artifact)
         } returns publishedDeb
         every {
           debianArtifactSupplier.getArtifactMetadata(publishedDeb)
@@ -250,7 +249,7 @@ internal class ArtifactQueueProcessorTest : JUnit5Minutests {
       before {
         every { repository.isRegistered(artifact.name, artifact.type) } returns true
         every {
-          debianArtifactSupplier.getLatestArtifact(deliveryConfig, artifact)
+          debianArtifactSupplier.getLatestVersion(deliveryConfig, artifact)
         } returns publishedDeb
         every {
           debianArtifactSupplier.getArtifactMetadata(publishedDeb)

@@ -473,3 +473,6 @@ databaseChangeLog:
 - include:
     file: changelog/20220519-index-event-timestamp.yml
     relativeToChangelogFile: true
+- include:
+      file: changelog/20220519-add-dry-run-flag-to-various-tables.yml
+      relativeToChangelogFile: true

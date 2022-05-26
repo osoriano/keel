@@ -6,9 +6,12 @@ import com.fasterxml.jackson.module.kotlin.convertValue
 import com.netflix.spectator.api.BasicTag
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.config.ArtifactConfig
+import com.netflix.spinnaker.keel.actuation.EnvironmentPromotionChecker
 import com.netflix.spinnaker.keel.actuation.EnvironmentTaskCanceler
 import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
 import com.netflix.spinnaker.keel.api.DeliveryConfig
+import com.netflix.spinnaker.keel.api.DeployableResourceSpec
+import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.JiraBridge
 import com.netflix.spinnaker.keel.api.Locatable
 import com.netflix.spinnaker.keel.api.Resource
@@ -17,7 +20,6 @@ import com.netflix.spinnaker.keel.api.ResourceDiffFactory
 import com.netflix.spinnaker.keel.api.ResourceSpec
 import com.netflix.spinnaker.keel.api.StashBridge
 import com.netflix.spinnaker.keel.api.action.ActionType
-import com.netflix.spinnaker.keel.api.constraints.ConstraintState
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
 import com.netflix.spinnaker.keel.api.constraints.UpdatedConstraintStatus
 import com.netflix.spinnaker.keel.api.jira.JiraComment
@@ -25,13 +27,15 @@ import com.netflix.spinnaker.keel.api.jira.JiraComponent
 import com.netflix.spinnaker.keel.api.jira.JiraFields
 import com.netflix.spinnaker.keel.api.jira.JiraIssue
 import com.netflix.spinnaker.keel.api.migration.MigrationCommitData
+import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
+import com.netflix.spinnaker.keel.api.plugins.DeployableResourceHandler
 import com.netflix.spinnaker.keel.api.plugins.ResourceHandler
 import com.netflix.spinnaker.keel.api.plugins.supporting
+import com.netflix.spinnaker.keel.artifacts.ArtifactQueueProcessor
 import com.netflix.spinnaker.keel.core.api.ActuationPlan
 import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactPin
 import com.netflix.spinnaker.keel.core.api.EnvironmentArtifactVeto
 import com.netflix.spinnaker.keel.core.api.EnvironmentPlan
-import com.netflix.spinnaker.keel.core.api.PromotionStatus
 import com.netflix.spinnaker.keel.core.api.ResourceAction
 import com.netflix.spinnaker.keel.core.api.ResourceAction.CREATE
 import com.netflix.spinnaker.keel.core.api.ResourceAction.NONE
@@ -62,6 +66,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
@@ -76,7 +81,6 @@ import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import kotlin.coroutines.CoroutineContext
-import org.springframework.core.env.Environment as SpringEnvironment
 
 /**
  * Service object that offers high-level APIs for application-related operations.
@@ -85,9 +89,7 @@ import org.springframework.core.env.Environment as SpringEnvironment
 @EnableConfigurationProperties(ArtifactConfig::class)
 class ApplicationService(
   private val repository: KeelRepository,
-  private val resourceStatusService: ResourceStatusService,
   private val publisher: ApplicationEventPublisher,
-  private val springEnv: SpringEnvironment,
   private val clock: Clock,
   private val spectator: Registry,
   private val environmentTaskCanceler: EnvironmentTaskCanceler,
@@ -102,10 +104,18 @@ class ApplicationService(
   private val actuationPauser: ActuationPauser,
   private val temporalSchedulerService: TemporalSchedulerService,
   private val validator: DeliveryConfigValidator,
+  private val artifactQueueProcessor: ArtifactQueueProcessor,
+  private val environmentPromotionChecker: EnvironmentPromotionChecker,
+  private val artifactSuppliers: List<ArtifactSupplier<*, *>>
 ) : CoroutineScope {
   override val coroutineContext: CoroutineContext = Dispatchers.Default
 
   companion object {
+    const val DEFAULT_MAX_ARTIFACT_VERSIONS_FOR_DRY_RUN = 20
+
+    private const val RESOURCE_SUMMARY_CONSTRUCT_DURATION_ID = "keel.api.resource.summary.duration"
+    private const val APPLICATION_ACTUATION_PLAN_DURATION_ID = "keel.api.application.actuation.plan.duration"
+
     //attributes that should be stripped before being returned through the api
     val privateConstraintAttrs = listOf("manual-judgement")
   }
@@ -114,9 +124,6 @@ class ApplicationService(
 
   private val now: Instant
     get() = clock.instant()
-
-  private val RESOURCE_SUMMARY_CONSTRUCT_DURATION_ID = "keel.api.resource.summary.duration"
-  private val APPLICATION_ACTUATION_PLAN_DURATION_ID = "keel.api.application.actuation.plan.duration"
 
   fun hasManagedResources(application: String) = repository.hasManagedResources(application)
 
@@ -414,17 +421,17 @@ class ApplicationService(
   }
 
   /**
-   * Returns the current point-in-time [ActuationPlan] for the specified [application].
+   * @return The current point-in-time [ActuationPlan] for the specified [application].
    */
-  suspend fun getActuationPlan(application: String): ActuationPlan {
+  suspend fun calculateActuationPlan(application: String): ActuationPlan {
     val deliveryConfig = repository.getDeliveryConfigForApplication(application)
-    return getActuationPlan(deliveryConfig)
+    return calculateActuationPlan(deliveryConfig)
   }
 
   /**
-   * Returns the current point-in-time [ActuationPlan] for the specified [deliveryConfig].
+   * @return The current point-in-time [ActuationPlan] for the specified [deliveryConfig].
    */
-  suspend fun getActuationPlan(deliveryConfig: DeliveryConfig): ActuationPlan {
+  suspend fun calculateActuationPlan(deliveryConfig: DeliveryConfig): ActuationPlan {
     val startTime = now
     val plan = ActuationPlan(
       application = deliveryConfig.application,
@@ -433,11 +440,11 @@ class ApplicationService(
         EnvironmentPlan(
           environment = env.name,
           resourcePlans = env.resources.mapNotNull { resource ->
-            getResourceDiff(resource)?.let {
+            calculateResourceDiff(resource)?.let { diff ->
               ResourcePlan(
                 resourceId = resource.id,
-                diff = it.toConciseDeltaJson(),
-                action = getActuationAction(resource, it)
+                diff = diff.toConciseDeltaJson(),
+                action = diff.toActuationAction()
               )
             }
           }
@@ -453,25 +460,143 @@ class ApplicationService(
   }
 
   /**
+   * Performs a dry-run of the provided [SubmittedDeliveryConfig], i.e. calculate and return the current point-in-time
+   * [ActuationPlan] for the application, given the config.
+   *
+   * We support this by storing a temporary [DeliveryConfig] with temporary [Resource]s, which will be queried by
+   * the corresponding [ResourceHandler]s to calculate current and desired state. In order to support calculating
+   * desired state for deployable resources like clusters, we fast-track the process of storing and approving artifact
+   * versions associated with those resources. The temporary delivery config and resources are flagged as such in the
+   * database so that the actuation layer never picks them up.
+   *
+   * This mechanism allows us to calculate actuation plans for apps that are not currently managed.
+   *
+   * @return The current point-in-time [ActuationPlan] for the [SubmittedDeliveryConfig].
+   */
+  suspend fun dryRun(
+    submittedDeliveryConfig: SubmittedDeliveryConfig,
+    maxArtifactVersions: Int = DEFAULT_MAX_ARTIFACT_VERSIONS_FOR_DRY_RUN
+  ): ActuationPlan {
+    val application = submittedDeliveryConfig.application
+
+    // Sanity checks: can't dry-run an existing app (at the moment)
+    if ( repository.isApplicationConfigured(application)) {
+      error("Dry-run for existing applications is not currently supported (config found for application $application)")
+    }
+
+    // Sanity checks: validate submitted config
+    validator.validate(submittedDeliveryConfig)
+
+    val tempDeliveryConfig = submittedDeliveryConfig
+      .toDeliveryConfig(isDryRun = true)
+      .copy(name = "${application}-dryrun")
+
+    // First step: persist the temporary delivery config.
+    repository.upsertDeliveryConfig(tempDeliveryConfig)
+
+    try {
+      // For each applicable resource, get and store the currently deployed versions and mark them as approved
+      // and deployed. We do this so that we can calculate desired state below even if no other versions would
+      // be approved due to constraints.
+      tempDeliveryConfig.resources.forEach { resource ->
+        val handler = handlers.supporting(resource.kind)
+        if (handler !is DeployableResourceHandler) {
+          log.debug("Resource handler for ${resource.id} does not support retrieving the currently deployed artifact version")
+          return@forEach
+        }
+
+        val artifact = resource.findAssociatedArtifact(tempDeliveryConfig)
+          ?: error("Unable to find artifact associated with resource ${resource.id} in delivery config for $application")
+
+        val environment = tempDeliveryConfig.environmentOfResource(resource)
+          ?: error("Unable to find the environment of resource ${resource.id} for application $application")
+
+        val currentVersions = handler.currentlyDeployedVersions(tempDeliveryConfig, environment, resource)
+        currentVersions.forEach { (_, deployedVersion) ->
+          log.debug("Storing and marking ${deployedVersion.version} of $artifact as approved and deployed for dry-run")
+          // for each currently deployed version, enrich and store it
+          artifactQueueProcessor.handlePublishedArtifact(deployedVersion)
+          // and then mark it as approved and deployed
+          repository.approveVersionFor(tempDeliveryConfig, artifact, deployedVersion.version, environment.name)
+          repository.markAsSuccessfullyDeployedTo(
+            tempDeliveryConfig, artifact, deployedVersion.version, environment.name
+          )
+        }
+      }
+
+      // Fast-track retrieval of artifact versions and their promotion checks so that we can calculate
+      // desired state for the actuation plan below.
+      tempDeliveryConfig.artifacts.forEach { artifact ->
+        log.debug("Retrieving up to $maxArtifactVersions versions for dry-run $artifact")
+        val artifactSupplier = artifactSuppliers.supporting(artifact.type)
+        val latestAvailableVersions = artifactSupplier.getLatestVersions(tempDeliveryConfig, artifact, maxArtifactVersions)
+
+        log.debug("Latest available versions of $artifact: ${latestAvailableVersions.map { it.version }}")
+        latestAvailableVersions.map { publishedArtifact ->
+          launch {
+            artifactQueueProcessor.handlePublishedArtifact(publishedArtifact)
+          }
+        }.joinAll()
+      }
+
+      tempDeliveryConfig.environments.map { environment ->
+        launch {
+          log.debug("Fast-tracking artifact promotion checks for environment ${environment.name} of application $application")
+          environmentPromotionChecker.checkEnvironment(application, environment.name)
+        }
+      }.joinAll()
+
+      // At this point, the resource handler should be able to calculate desired state and find artifact versions
+      // in the database.
+      return calculateActuationPlan(tempDeliveryConfig)
+    } finally {
+      try {
+        log.debug("Deleting temporary dry-run delivery config ${tempDeliveryConfig.name} for $application")
+        repository.deleteDeliveryConfigByName(tempDeliveryConfig.name)
+      } catch(e: Exception) {
+        log.debug("Error deleting temporary dry-run delivery config ${tempDeliveryConfig.name} for $application")
+      }
+    }
+  }
+
+  @Suppress("UNCHECKED_CAST")
+  private suspend fun <SPEC : DeployableResourceSpec> DeployableResourceHandler<SPEC, *>.currentlyDeployedVersions(
+    deliveryConfig: DeliveryConfig,
+    environment: Environment,
+    resource: Resource<*>
+  ) = getCurrentlyDeployedVersions(deliveryConfig, environment, resource as Resource<SPEC>)
+
+  @Suppress("UNCHECKED_CAST")
+  private suspend fun <SPEC : ResourceSpec> Resource<SPEC>.current(): Any? {
+    return try {
+      val handler = handlers.supporting(kind) as ResourceHandler<SPEC, *>
+      handler.current(this)
+    } catch (e: Exception) {
+      log.debug("Failed to obtain current state when diffing resource $id from application $application", e)
+    }
+  }
+
+  @Suppress("UNCHECKED_CAST")
+  private suspend fun <SPEC : ResourceSpec> Resource<SPEC>.desired(): Any {
+    return try {
+      val handler = handlers.supporting(kind) as ResourceHandler<SPEC, *>
+      handler.desired(this)
+    } catch (e: Exception) {
+      log.debug("Failed to calculate desired state when diffing resource $id from application $application", e)
+    }
+  }
+
+  /**
    * @return The [ResourceDiff] for the specified [resource], by comparing its desired and current states.
    */
-  private suspend fun <SPEC : ResourceSpec> getResourceDiff(resource: Resource<SPEC>): ResourceDiff<Any>? {
-    val handler = handlers.supporting(resource.kind) as ResourceHandler<SPEC, *>
+  private suspend fun <SPEC : ResourceSpec> calculateResourceDiff(resource: Resource<SPEC>): ResourceDiff<Any>? {
     return coroutineScope {
       val tasks = listOf(
         async {
-          try {
-            handler.desired(resource)
-          } catch (e: Exception) {
-            log.info("Failed to calculate the desired state", e)
-          }
+          resource.desired()
         },
         async {
-          try {
-            handler.current(resource)
-          } catch (e: Exception) {
-            log.info("failed to calculate the current state", e)
-          }
+          resource.current()
         }
       )
       val (desired, current) = tasks.awaitAll()
@@ -482,12 +607,12 @@ class ApplicationService(
   }
 
   /**
-   * @return What [ResourceAction] Keel would take based on the resource [diff].
+   * @return What [ResourceAction] Keel would take based on the [ResourceDiff].
    */
-  private fun <SPEC : ResourceSpec> getActuationAction(resource: Resource<SPEC>, diff: ResourceDiff<Any>): ResourceAction {
+  private fun ResourceDiff<Any>.toActuationAction(): ResourceAction {
     return when {
-      !diff.hasChanges() -> NONE
-      diff.current == null -> CREATE
+      !hasChanges() -> NONE
+      current == null -> CREATE
       else -> UPDATE
     }
   }
@@ -531,24 +656,3 @@ class ApplicationService(
   private class InvalidActionId(id: String, context: ArtifactInEnvironmentContext) :
     IllegalStateException("Unknown verification id: $id. Expecting one of: ${context.verifications.map { it.id }}")
 }
-
-fun List<ConstraintState>.removePrivateConstraintAttrs() =
-  map { state ->
-    if (state.attributes?.type in ApplicationService.privateConstraintAttrs) {
-      state.copy(attributes = null)
-    } else {
-      state
-    }
-  }
-
-/**
- * Holds the info we need about artifacts in an environment for building the UI view.
- *
- * This is used in a list of versions pertaining to a specific delivery artifact.
- */
-data class StatusInfoForArtifactInEnvironment(
-  val version: String,
-  val status: PromotionStatus,
-  val replacedByVersion: String?,
-  val deployedAt: Instant
-)

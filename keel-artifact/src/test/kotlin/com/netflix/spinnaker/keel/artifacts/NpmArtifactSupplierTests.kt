@@ -114,7 +114,7 @@ internal class NpmArtifactSupplierTests : JUnit5Minutests {
 
       test("looks up latest artifact from igor") {
         val result = runBlocking {
-          npmArtifactSupplier.getLatestArtifact(deliveryConfig, npmArtifact)
+          npmArtifactSupplier.getLatestVersion(deliveryConfig, npmArtifact)
         }
         expectThat(result?.version).isNotNull().isEqualTo(latestArtifact.version)
         verify(exactly = 1) {

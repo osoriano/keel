@@ -35,7 +35,6 @@ import com.netflix.spinnaker.time.MutableClock
 import io.mockk.every
 import io.mockk.mockk
 import org.jooq.Table
-import org.junit.Before
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -89,7 +88,6 @@ class EnvironmentVersioningTests {
     objectMapper,
     resourceFactory,
     sqlRetry,
-    mockk(relaxed = true),
     NoopRegistry(),
     mockEnvironment(),
     ResourceEventPruneConfig()

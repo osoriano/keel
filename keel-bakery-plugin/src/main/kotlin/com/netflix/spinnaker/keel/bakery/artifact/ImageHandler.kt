@@ -199,7 +199,6 @@ class ImageHandler(
       if (!repository.isRegistered(name, type)) {
         // we clearly care about this artifact, let's register it.
         repository.register(this)
-        publisher.publishEvent(ArtifactRegisteredEvent(this))
       }
     }
 

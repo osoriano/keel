@@ -3,9 +3,7 @@ package com.netflix.spinnaker.keel.api.plugins
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactType
-import com.netflix.spinnaker.keel.api.artifacts.BuildMetadata
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
-import com.netflix.spinnaker.keel.api.artifacts.GitMetadata
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.SortingStrategy
 import com.netflix.spinnaker.keel.api.support.EventPublisher
@@ -34,7 +32,7 @@ interface ArtifactSupplier<A : DeliveryArtifact, V : SortingStrategy> : Spinnake
    *
    * This function may interact with external systems to retrieve artifact information as needed.
    */
-  suspend fun getLatestArtifact(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact): PublishedArtifact?
+  suspend fun getLatestVersion(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact): PublishedArtifact?
 
   /**
    * Returns the latest [limit] available versions for the given [DeliveryArtifact], represented
@@ -42,7 +40,7 @@ interface ArtifactSupplier<A : DeliveryArtifact, V : SortingStrategy> : Spinnake
    *
    * This function may interact with external systems to retrieve artifact information as needed.
    */
-  suspend fun getLatestArtifacts(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact, limit: Int): List<PublishedArtifact>
+  suspend fun getLatestVersions(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact, limit: Int): List<PublishedArtifact>
 
   /**
    * Given a [PublishedArtifact] supported by this [ArtifactSupplier], return the display name for the

@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.api
 
 import com.fasterxml.jackson.annotation.JsonIgnore
+import com.netflix.spinnaker.keel.api.schema.SchemaIgnore
 
 /**
  * Internal representation of a resource.
@@ -9,7 +10,9 @@ data class Resource<out T : ResourceSpec>(
   val kind: ResourceKind,
   @get:ExcludedFromDiff
   val metadata: Map<String, Any?>,
-  val spec: T
+  val spec: T,
+  @SchemaIgnore
+  val isDryRun: Boolean = false
 ) {
   init {
     require(metadata["id"].isValidId()) { "resource id must be a valid id" }

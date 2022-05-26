@@ -256,7 +256,7 @@ class AdminController(
     produces = [APPLICATION_JSON_VALUE, APPLICATION_YAML_VALUE]
   )
   fun getActuationPlan(@PathVariable application: String) =
-    runBlocking { applicationService.getActuationPlan(application) }
+    runBlocking { applicationService.calculateActuationPlan(application) }
 
   @PostMapping(
     path = ["/migration/notify-apps"]

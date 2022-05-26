@@ -1,0 +1,80 @@
+databaseChangeLog:
+  - changeSet:
+      id: add-dry-run-flag-to-various-tables
+      author: lpollo
+      changes:
+        - addColumn:
+            tableName: delivery_config
+            columns:
+              - column:
+                  name: is_dryrun
+                  type: boolean
+                  defaultValue: false
+                  constraints:
+                    nullable: false
+                  afterColumn: updated_at
+        - addColumn:
+            tableName: environment
+            columns:
+              - column:
+                  name: is_dryrun
+                  type: boolean
+                  defaultValue: false
+                  constraints:
+                    nullable: false
+                  afterColumn: is_preview
+        - addColumn:
+            tableName: resource
+            columns:
+              - column:
+                  name: is_dryrun
+                  type: boolean
+                  defaultValue: false
+                  constraints:
+                    nullable: false
+                  afterColumn: application
+        - addColumn:
+            tableName: delivery_artifact
+            columns:
+              - column:
+                  name: is_dryrun
+                  type: boolean
+                  defaultValue: false
+                  constraints:
+                    nullable: false
+                  afterColumn: is_preview
+        - createView:
+            viewName: active_resource
+            replaceIfExists: true
+            selectQuery: |
+              select
+                resource.uid,
+                resource.id,
+                resource.application,
+                resource.kind,
+                resource.status,
+                resource.status_updated_at,
+                resource.is_dryrun,
+                json_set(
+                  resource_version.metadata,
+                  '$.uid', resource.uid,
+                  '$.id', resource.id,
+                  '$.version', resource_version.version,
+                  '$.application', resource.application,
+                  '$.environment', active_environment.uid,
+                  '$.environmentName', active_environment.name,
+                  '$.deliveryConfig', delivery_config.uid,
+                  '$.serviceAccount', delivery_config.service_account
+                ) as metadata,
+                resource_version.spec
+              from resource
+              join resource_version
+                on resource.uid = resource_version.resource_uid
+              join environment_resource
+                on resource.uid = environment_resource.resource_uid
+                and resource_version.version = environment_resource.resource_version
+              join active_environment
+                on active_environment.uid = environment_resource.environment_uid
+                and active_environment.version = environment_resource.environment_version
+              join delivery_config
+                on delivery_config.uid = active_environment.delivery_config_uid;

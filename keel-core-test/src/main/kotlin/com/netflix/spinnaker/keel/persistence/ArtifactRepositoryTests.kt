@@ -1068,6 +1068,33 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
           .isA<NoSuchDeploymentException>()
       }
     }
+
+    context("a persisted temporary (aka dry-run) delivery artifact") {
+      before {
+        subject.register(debianFromMainBranch.copy(isDryRun = true))
+      }
+
+      // ensures dry-run artifacts will not be picked up artifact version sync
+      test("is not returned by getAll") {
+        expectThat(subject.getAll())
+          .isEmpty()
+
+        expectThat(subject.getAll(DEBIAN))
+          .isEmpty()
+      }
+
+      test("is returned by get with dry-run flag set") {
+        with (debianFromMainBranch) {
+          expectThat(subject.get(deliveryConfigName!!, reference))
+            .get { isDryRun }
+            .isTrue()
+
+          expectThat(subject.get(name, DEBIAN, reference, deliveryConfigName!!))
+            .get { isDryRun }
+            .isTrue()
+        }
+      }
+    }
   }
 }
 

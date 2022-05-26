@@ -10,6 +10,7 @@ import com.netflix.spinnaker.keel.api.artifacts.SortingStrategy
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
 import com.netflix.spinnaker.keel.api.artifacts.branchRegex
 import com.netflix.spinnaker.keel.api.schema.Description
+import com.netflix.spinnaker.keel.api.schema.SchemaIgnore
 
 /**
  * A [DeliveryArtifact] that describes Debian packages.
@@ -24,7 +25,8 @@ data class DebianArtifact(
   override val from: ArtifactOriginFilter = FROM_ANY_BRANCH,
   @JsonIgnore
   override val metadata: Map<String, Any?> = emptyMap(),
-
+  @SchemaIgnore
+  override val isDryRun: Boolean = false,
   @get:JsonIgnore
   @get:ExcludedFromDiff
   override val exportWarning: Exception? = null
@@ -39,9 +41,11 @@ data class DebianArtifact(
       DebianVersionSortingStrategy
     }
 
-  override fun withDeliveryConfigName(deliveryConfigName: String): DeliveryArtifact {
-    return this.copy(deliveryConfigName = deliveryConfigName)
-  }
+  override fun withDeliveryConfigName(deliveryConfigName: String) =
+    this.copy(deliveryConfigName = deliveryConfigName)
+
+  override fun withDryRunFlag(isDryRun: Boolean) =
+    this.copy(isDryRun = true)
 
   override fun toString(): String = super.toString()
 }

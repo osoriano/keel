@@ -13,7 +13,6 @@ import com.netflix.spinnaker.keel.igor.artifact.ArtifactMetadataService
 import com.netflix.spinnaker.keel.igor.artifact.ArtifactService
 import com.netflix.spinnaker.keel.parseAppVersionOrNull
 import kotlinx.coroutines.CoroutineScope
-import org.springframework.core.env.Environment
 import org.springframework.stereotype.Component
 
 /**
@@ -27,18 +26,14 @@ class DebianArtifactSupplier(
   override val eventPublisher: EventPublisher,
   private val artifactService: ArtifactService,
   override val artifactMetadataService: ArtifactMetadataService,
-  private val springEnv: Environment,
   override val coroutineContext: WorkhorseCoroutineContext = DefaultWorkhorseCoroutineContext
 ) : BaseArtifactSupplier<DebianArtifact, DebianVersionSortingStrategy>(artifactMetadataService), CoroutineScope {
   override val supportedArtifact = SupportedArtifact("deb", DebianArtifact::class.java)
 
-  private val forceSortByVersion: Boolean
-    get() = springEnv.getProperty("keel.artifacts.debian.forceSortByVersion", Boolean::class.java, false)
+  override suspend fun getLatestVersion(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact): PublishedArtifact? =
+    getLatestVersions(deliveryConfig, artifact, 1).firstOrNull()
 
-  override suspend fun getLatestArtifact(deliveryConfig: DeliveryConfig, artifact: DeliveryArtifact): PublishedArtifact? =
-    getLatestArtifacts(deliveryConfig, artifact, 1).firstOrNull()
-
-  override suspend fun getLatestArtifacts(
+  override suspend fun getLatestVersions(
     deliveryConfig: DeliveryConfig,
     artifact: DeliveryArtifact,
     limit: Int
@@ -46,25 +41,17 @@ class DebianArtifactSupplier(
     log.info("Fetching latest $limit debian versions for $artifact")
     val versions = artifactService.getVersions(artifact.name, DEBIAN)
 
-    val importantVersions = if (forceSortByVersion) {
-      versions.sortedWith(DEBIAN_VERSION_COMPARATOR)
-        .take(limit)
-        .map {
-          artifactService.getArtifact(artifact.name, it, DEBIAN)
-        }
-    } else {
-      versions
-        // FIXME: this is making N calls to fill in data for each version so we can sort.
-        //  Ideally, we'd make a single call to return the list with details for each version.
-        .also {
-          log.warn("About to make ${it.size} calls to artifact service to retrieve version details...")
-        }
-        .map { version ->
-          artifactService.getArtifact(artifact.name, version, DEBIAN)
-        }
-        .sortedWith(artifact.sortingStrategy.comparator)
-        .take(limit) // versioning strategies return descending by default... ¯\_(ツ)_/¯
-    }
+    val importantVersions = versions
+      // FIXME: this is making N calls to fill in data for each version so we can sort.
+      //  Ideally, we'd make a single call to return the list with details for each version.
+      .also {
+        log.warn("About to make ${it.size} calls to artifact service to retrieve version details...")
+      }
+      .map { version ->
+        artifactService.getArtifact(artifact.name, version, DEBIAN)
+      }
+      .sortedWith(artifact.sortingStrategy.comparator)
+      .take(limit) // versioning strategies return descending by default... ¯\_(ツ)_/¯
 
     return importantVersions.map {
       // add the correct architecture to the metadata
@@ -93,7 +80,7 @@ class DebianArtifactSupplier(
   }
 
   override fun shouldProcessArtifact(artifact: PublishedArtifact): Boolean =
-    artifact.hasCorrectVersion()
+    artifact.hasWellFormedVersion()
 
 
   // Debian Artifacts should contain a releaseStatus in the metadata
@@ -107,7 +94,7 @@ class DebianArtifactSupplier(
   }
 
   // Debian Artifacts should not have "local" as a part of their version string
-  private fun PublishedArtifact.hasCorrectVersion() : Boolean {
+  private fun PublishedArtifact.hasWellFormedVersion() : Boolean {
     val appversion = "${this.name}-${this.version}".parseAppVersionOrNull()
     return if (appversion != null && appversion.buildNumber != null) {
       if (appversion.buildNumber.contains("local")) {

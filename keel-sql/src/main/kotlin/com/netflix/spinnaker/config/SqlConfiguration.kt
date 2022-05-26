@@ -95,7 +95,6 @@ class SqlConfiguration
       objectMapper,
       resourceFactory,
       SqlRetry(sqlRetryProperties, featureToggles),
-      publisher,
       registry,
       springEnv,
       resourceEventPruneConfig

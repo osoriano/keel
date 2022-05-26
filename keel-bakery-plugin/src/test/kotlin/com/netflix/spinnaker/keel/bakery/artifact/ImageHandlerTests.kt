@@ -10,7 +10,6 @@ import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.artifacts.StoreType.EBS
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
 import com.netflix.spinnaker.keel.api.artifacts.fromBranch
-import com.netflix.spinnaker.keel.api.events.ArtifactRegisteredEvent
 import com.netflix.spinnaker.keel.artifacts.BakedImage
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
 import com.netflix.spinnaker.keel.artifacts.DockerArtifact
@@ -248,10 +247,6 @@ internal class ImageHandlerTests : JUnit5Minutests {
 
           test("it gets registered automatically") {
             verify { repository.register(artifact) }
-          }
-
-          test("an event gets published") {
-            verify { publisher.publishEvent(ofType<ArtifactRegisteredEvent>()) }
           }
         }
 

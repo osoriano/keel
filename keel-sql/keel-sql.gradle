@@ -12,6 +12,7 @@ ext {
   mysqlImage = osArch == "aarch64" ? "jamielsharief/mysql:arm64" : "mysql:8.0.27"
   maxParallelTests = Integer.parseInt(project.properties["maxParallelTests"] ?: "1")
   logger.lifecycle("System architecture is $osArch. Using MySQL image $mysqlImage")
+  liquibaseRunList = project.properties["liquibaseRunList"]?.toString() ?: "docker"
 }
 
 sourceSets {
@@ -316,5 +317,5 @@ liquibase {
       "password"     : "sa"
     ]
   }
-  runList = "docker"
+  runList = liquibaseRunList
 }

@@ -50,15 +50,16 @@ val <T : ResourceSpec> SubmittedResource<T>.id: String
   get() = generateId(kind,spec,metadata)
 
 fun <T : ResourceSpec> SubmittedResource<T>.normalize(deliveryConfig: SubmittedDeliveryConfig): Resource<T> =
-  normalize(deliveryConfig.application)
+  normalize(deliveryConfig.application, deliveryConfig.serviceAccount ?: DEFAULT_SERVICE_ACCOUNT)
 
-fun <T : ResourceSpec> SubmittedResource<T>.normalize(application: String): Resource<T> =
+fun <T : ResourceSpec> SubmittedResource<T>.normalize(application: String, serviceAccount: String = DEFAULT_SERVICE_ACCOUNT): Resource<T> =
   Resource(
     kind = kind,
     metadata = metadata + mapOf(
       "id" to id,
       "uid" to randomUID().toString(),
-      "application" to application
+      "application" to application,
+      "serviceAccount" to serviceAccount
     ),
     spec = spec
   )

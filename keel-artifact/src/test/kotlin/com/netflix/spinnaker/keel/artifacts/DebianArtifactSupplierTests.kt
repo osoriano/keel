@@ -108,7 +108,7 @@ internal class DebianArtifactSupplierTests : JUnit5Minutests {
     val springEnv: Environment = mockk(relaxed = true)
 
     val debianArtifactSupplier =
-      DebianArtifactSupplier(eventBridge, artifactService, artifactMetadataService, springEnv)
+      DebianArtifactSupplier(eventBridge, artifactService, artifactMetadataService)
   }
 
   fun tests() = rootContext<Fixture> {
@@ -145,43 +145,16 @@ internal class DebianArtifactSupplierTests : JUnit5Minutests {
       }
 
       context("retrieving latest artifact version") {
-        context("with forced sorting by version") {
-          before {
-            every {
-              springEnv.getProperty("keel.artifacts.debian.forceSortByVersion", Boolean::class.java, false)
-            } returns true
+        test("calls igor multiple times for the details of all known versions") {
+          val result = runBlocking {
+            debianArtifactSupplier.getLatestVersion(deliveryConfig, debianArtifact)
           }
-
-          test("calls igor a single time for the details of the specified version") {
-            val result = runBlocking {
-              debianArtifactSupplier.getLatestArtifact(deliveryConfig, debianArtifact)
-            }
-            expectThat(result?.version).isNotNull().isEqualTo(latestArtifact.version)
-            verify(exactly = 1) {
-              artifactService.getVersions(debianArtifact.name, DEBIAN)
-              artifactService.getArtifact(debianArtifact.name, any(), DEBIAN)
-            }
+          expectThat(result?.version).isNotNull().isEqualTo(latestArtifact.version)
+          verify(exactly = 1) {
+            artifactService.getVersions(debianArtifact.name, DEBIAN)
           }
-        }
-
-        context("with configured sorting strategy") {
-          before {
-            every {
-              springEnv.getProperty("keel.artifacts.debian.forceSortByVersion", Boolean::class.java, false)
-            } returns false
-          }
-
-          test("calls igor multiple times for the details of all known versions") {
-            val result = runBlocking {
-              debianArtifactSupplier.getLatestArtifact(deliveryConfig, debianArtifact)
-            }
-            expectThat(result?.version).isNotNull().isEqualTo(latestArtifact.version)
-            verify(exactly = 1) {
-              artifactService.getVersions(debianArtifact.name, DEBIAN)
-            }
-            verify(exactly = versions.size) {
-              artifactService.getArtifact(debianArtifact.name, any(), DEBIAN)
-            }
+          verify(exactly = versions.size) {
+            artifactService.getArtifact(debianArtifact.name, any(), DEBIAN)
           }
         }
       }

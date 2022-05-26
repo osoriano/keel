@@ -130,6 +130,7 @@ class SqlDeliveryConfigRepository(
           .from(ENVIRONMENT)
           .join(DELIVERY_CONFIG)
           .on(ENVIRONMENT.DELIVERY_CONFIG_UID.eq(DELIVERY_CONFIG.UID))
+          .where(DELIVERY_CONFIG.IS_DRYRUN.isFalse) // ignore dry-run environments
           .fetchSize(environmentFetchSize)
           .fetchLazy()
       },
@@ -345,6 +346,7 @@ class SqlDeliveryConfigRepository(
         .set(DELIVERY_CONFIG.METADATA, metadata)
         .set(DELIVERY_CONFIG.RAW_CONFIG, rawConfig)
         .set(DELIVERY_CONFIG.UPDATED_AT, clock.instant())
+        .set(DELIVERY_CONFIG.IS_DRYRUN, isDryRun)
         .onDuplicateKeyUpdate()
         .set(DELIVERY_CONFIG.SERVICE_ACCOUNT, serviceAccount)
         .set(DELIVERY_CONFIG.METADATA, metadata)
@@ -425,6 +427,7 @@ class SqlDeliveryConfigRepository(
       .set(ENVIRONMENT.DELIVERY_CONFIG_UID, deliveryConfig.uid)
       .set(ENVIRONMENT.NAME, environment.name)
       .set(ENVIRONMENT.IS_PREVIEW, environment.isPreview)
+      .set(ENVIRONMENT.IS_DRYRUN, deliveryConfig.isDryRun)
       .set(ENVIRONMENT.CONSTRAINTS, environment.constraints.toJson())
       .set(ENVIRONMENT.NOTIFICATIONS, environment.notifications.toJson())
       .set(ENVIRONMENT.VERIFICATIONS, environment.verifyWith.toJson())
@@ -1338,6 +1341,7 @@ class SqlDeliveryConfigRepository(
         .on(ACTIVE_RESOURCE.APPLICATION.eq(DELIVERY_CONFIG.APPLICATION))
         .leftOuterJoin(PAUSED)
         .on(PAUSED.NAME.eq(DELIVERY_CONFIG.APPLICATION).and(PAUSED.SCOPE.eq(APPLICATION)))
+        .where(DELIVERY_CONFIG.IS_DRYRUN.isFalse) // ignore dry-run configs
         .groupBy(DELIVERY_CONFIG.APPLICATION)
         .orderBy(DELIVERY_CONFIG.APPLICATION)
         .fetch { (uid, name, application, serviceAccount, apiVersion, resourceCount, paused) ->

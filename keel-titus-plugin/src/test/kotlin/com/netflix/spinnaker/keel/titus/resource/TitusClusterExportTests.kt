@@ -266,7 +266,6 @@ internal class TitusClusterExportTests {
     clusterExportHelper,
     DefaultResourceDiffFactory(),
     titusRegistryService,
-    artifactBridge,
     DefaultContainerAttributes()
   )
 

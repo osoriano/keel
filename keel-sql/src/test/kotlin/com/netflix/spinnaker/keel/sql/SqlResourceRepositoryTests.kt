@@ -48,7 +48,6 @@ internal class SqlResourceRepositoryTests : ResourceRepositoryTests<SqlResourceR
       configuredObjectMapper(),
       resourceFactory,
       sqlRetry,
-      publisher,
       NoopRegistry(),
       springEnv = mockEnvironment(),
       resourceEventPruneConfig
