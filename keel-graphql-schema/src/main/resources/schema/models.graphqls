@@ -12,6 +12,12 @@ type Query @extends {
   md_application(appName: String!): MD_ApplicationResult
   md_migration(appName: String!): MD_Migration
   md_gitIntegration(appName: String!): MD_GitIntegration
+  md_jsonSchema: MD_JsonSchema
+}
+
+type MD_JsonSchema {
+  id: String!
+  schema: JSON!
 }
 
 type MD_Application {

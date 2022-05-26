@@ -1,0 +1,6 @@
+query fetchApplication {
+  md_jsonSchema {
+    id
+    schema
+  }
+}

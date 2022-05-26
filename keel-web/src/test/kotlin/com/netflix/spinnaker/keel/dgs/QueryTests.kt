@@ -39,7 +39,6 @@ import com.netflix.spinnaker.keel.graphql.types.MD_MigrationStatus
 import com.netflix.spinnaker.keel.graphql.types.MD_UserPermissions
 import com.netflix.spinnaker.keel.graphql.types.MD_ValidateResult
 import com.netflix.spinnaker.keel.igor.DeliveryConfigImporter
-import com.netflix.spinnaker.keel.persistence.LifecycleEventRepository
 import com.netflix.spinnaker.keel.migrations.ApplicationPrData
 import com.netflix.spinnaker.keel.pause.ActuationPauser
 import com.netflix.spinnaker.keel.persistence.ApplicationRepository
@@ -49,6 +48,7 @@ import com.netflix.spinnaker.keel.persistence.DiffFingerprintRepository
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
 import com.netflix.spinnaker.keel.persistence.EnvironmentDeletionRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
+import com.netflix.spinnaker.keel.persistence.LifecycleEventRepository
 import com.netflix.spinnaker.keel.persistence.TaskTrackingRepository
 import com.netflix.spinnaker.keel.scm.ScmUtils
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
@@ -60,6 +60,7 @@ import com.netflix.spinnaker.keel.test.submittedDeliveryConfig
 import com.netflix.spinnaker.keel.test.submittedResource
 import com.netflix.spinnaker.keel.upsert.DeliveryConfigUpserter
 import com.netflix.spinnaker.keel.veto.unhappy.UnhappyVeto
+import com.netflix.spinnaker.test.dgs.DgsTestConfig
 import com.netflix.spinnaker.time.MutableClock
 import com.ninjasquad.springmockk.MockkBean
 import io.mockk.Runs
@@ -94,83 +95,26 @@ class QueryTests {
 
   @Autowired
   lateinit var dgsQueryExecutor: DgsQueryExecutor
-
-  @MockkBean
+  
+  @Autowired
   lateinit var authorizationSupport: AuthorizationSupport
 
-  @MockkBean
+  @Autowired
   lateinit var keelRepository: KeelRepository
 
-  @MockkBean
+  @Autowired
   lateinit var artifactRepository: ArtifactRepository
 
-  @MockkBean
-  lateinit var actuationPauser: ActuationPauser
-
-  @MockkBean
-  lateinit var artifactVersionLinks: ArtifactVersionLinks
-
-  @MockkBean
-  lateinit var notificationRepository: DismissibleNotificationRepository
-
-  @MockkBean
-  lateinit var scmUtils: ScmUtils
-
-  @MockkBean
-  lateinit var executionSummaryService: ExecutionSummaryService
-
-  @MockkBean
-  lateinit var yamlMapper: YAMLMapper
-
-  val mapper = configuredObjectMapper()
-
-  @MockkBean
-  lateinit var deliveryConfigImporter: DeliveryConfigImporter
-
-  @MockkBean
-  lateinit var environmentDeletionRepository: EnvironmentDeletionRepository
-
-  @MockkBean
+  @Autowired
   lateinit var front50Service: Front50Service
 
-  @MockkBean
-  lateinit var exportService: ExportService
-
-  @MockkBean
-  lateinit var front50Cache: Front50Cache
-
-  @MockkBean
-  lateinit var deliveryConfigUpserter: DeliveryConfigUpserter
-
-  @MockkBean
-  lateinit var lifecycleEventRepository: LifecycleEventRepository
-
-  @MockkBean
+  @Autowired
   lateinit var applicationService: ApplicationService
 
-  @MockkBean
-  lateinit var unhappyVeto: UnhappyVeto
-
-  @MockkBean
+  @Autowired
   lateinit var deliveryConfigRepository: DeliveryConfigRepository
 
-  @MockkBean
-  lateinit var resourceStatusService: ResourceStatusService
-
-  @MockkBean
-  lateinit var taskTrackingRepository: TaskTrackingRepository
-
-  @MockkBean
-  lateinit var diffFingerprintRepository: DiffFingerprintRepository
-
-  @MockkBean
-  lateinit var buoyClient: BuoyClient
-
-  @MockkBean
-  lateinit var applicationRepository: ApplicationRepository
-
-  @MockkBean
-  lateinit var actionRepository: ActionRepository
+  val mapper = configuredObjectMapper()
 
   val clock = MutableClock()
 
@@ -323,6 +267,17 @@ class QueryTests {
       )
     }.isSuccess().isEqualTo("test")
   }
+
+  @Test
+  fun jsonSchema() {
+    expectCatching {
+      dgsQueryExecutor.executeAndExtractJsonPath<Map<String, Any>?>(
+        getQuery("/dgs/jsonSchema.graphql"),
+        "data.md_jsonSchema.schema"
+      )
+    }.isSuccess().isNotNull()
+  }
+
 
   private fun fetchWritePermissions() = expectCatching {
     dgsQueryExecutor.executeAndExtractJsonPathAsObject(
