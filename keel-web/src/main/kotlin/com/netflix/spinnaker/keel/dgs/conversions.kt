@@ -305,7 +305,7 @@ private fun Set<PipelineArtifact>?.toArtifacts(): List<MD_ArtifactSpec>? {
   return this?.map { artifact ->
     MD_ArtifactSpec(
       type = artifact.type,
-      id = artifact.name,
+      id = artifact.id,
       spec = artifact.spec,
       warning = when(artifact.warning) {
         TAG_TO_RELEASE_ARTIFACT -> MD_Warning_type.TAG_TO_RELEASE_ARTIFACT

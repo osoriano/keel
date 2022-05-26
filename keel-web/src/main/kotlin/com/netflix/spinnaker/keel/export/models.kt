@@ -73,8 +73,8 @@ fun PipelineExportResult.toMigratablePipelines(): List<MigrationPipeline> =
       reason = reason,
       status = PipelineStatus.PROCESSED,
       constraints = pipeline.constraints.toMigratableConstraints(),
-      resources = pipeline.resources.toMigratableResouces(),
-      artifacts = pipeline.artifacts.toMigratableArtifacts()
+      resources = pipeline.resources.toMigratableResouces(pipeline.id),
+      artifacts = pipeline.artifacts.toMigratableArtifacts(pipeline.id)
     )
   } +
     (exported.keys - skipped.keys).map { pipeline ->
@@ -85,8 +85,8 @@ fun PipelineExportResult.toMigratablePipelines(): List<MigrationPipeline> =
           shape =  pipeline.shape.joinToString(" -> "),
           environments =  environments?.map { it.name },
           id = pipeline.id,
-          artifacts = pipeline.artifacts.toMigratableArtifacts(),
-          resources = pipeline.resources.toMigratableResouces(),
+          artifacts = pipeline.artifacts.toMigratableArtifacts(pipeline.id),
+          resources = pipeline.resources.toMigratableResouces(pipeline.id),
           status = PipelineStatus.EXPORTED
         )
       }
@@ -101,21 +101,22 @@ private fun Set<Constraint>?.toMigratableConstraints(): Set<PipelineConstraint>?
   }?.toSet()
 }
 
-private fun Set<SubmittedResource<ResourceSpec>>?.toMigratableResouces(): Set<PipelineResource>? {
+private fun Set<SubmittedResource<ResourceSpec>>?.toMigratableResouces(pipelineId: String): Set<PipelineResource>? {
   val objectMapper = configuredObjectMapper()
   return this?.map { resource ->
     PipelineResource (
-      id = resource.id,
+      id = "$pipelineId-${resource.id}",
       kind = resource.kind.kind,
       spec = objectMapper.convertValue(resource)
     )
   }?.toSet()
 }
 
-private fun Set<DeliveryArtifact>?.toMigratableArtifacts(): Set<PipelineArtifact>? {
+private fun Set<DeliveryArtifact>?.toMigratableArtifacts(pipelineId: String): Set<PipelineArtifact>? {
   val objectMapper = configuredObjectMapper()
   return this?.map { artifact ->
     PipelineArtifact (
+      id = "$pipelineId-${artifact.name}-${artifact.type}-${artifact.from?.branch?.name}",
       name = artifact.name,
       type = artifact.type,
       spec = objectMapper.convertValue(artifact),

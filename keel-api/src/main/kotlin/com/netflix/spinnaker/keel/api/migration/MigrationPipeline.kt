@@ -28,6 +28,7 @@ data class PipelineConstraint (
 )
 
 data class PipelineArtifact (
+  val id: String,
   val type: String,
   val name: String,
   val spec: Map<String, Any?> = emptyMap(),
