@@ -1,0 +1,229 @@
+{
+  "events": [
+    {
+      "eventId": "1",
+      "eventTime": "2022-05-26T13:42:08.587127368Z",
+      "eventType": "WorkflowExecutionStarted",
+      "version": "41",
+      "taskId": "132207698",
+      "workflowExecutionStartedEventAttributes": {
+        "workflowType": {
+          "name": "ResourceScheduler"
+        },
+        "taskQueue": {
+          "name": "keel-resource-scheduler",
+          "kind": "Normal"
+        },
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg\u003d\u003d"
+              },
+              "data": "eyJyZXNvdXJjZUlkIjoiZWMyOnNlY3VyaXR5LWdyb3VwOnRlc3Q6bG9yaW50ZXN0dGl0dXMtbGQiLCJyZXNvdXJjZUtpbmQiOiJlYzIvc2VjdXJpdHktZ3JvdXBAdjEifQ\u003d\u003d"
+            }
+          ]
+        },
+        "workflowExecutionTimeout": "0s",
+        "workflowRunTimeout": "0s",
+        "workflowTaskTimeout": "10s",
+        "continuedExecutionRunId": "68970239-8e90-412e-9399-897c2fcbeeef",
+        "initiator": "Workflow",
+        "originalExecutionRunId": "390f308e-187d-4b1d-8a94-175aa8447b43",
+        "firstExecutionRunId": "06fa1a3c-e7aa-4dbb-a7a1-57673060d70a",
+        "attempt": 1,
+        "prevAutoResetPoints": {},
+        "header": {}
+      }
+    },
+    {
+      "eventId": "2",
+      "eventTime": "2022-05-26T13:42:08.587158010Z",
+      "eventType": "WorkflowTaskScheduled",
+      "version": "41",
+      "taskId": "132207699",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "keel-resource-scheduler",
+          "kind": "Normal"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "3",
+      "eventTime": "2022-05-26T13:42:08.634711395Z",
+      "eventType": "WorkflowTaskStarted",
+      "version": "41",
+      "taskId": "132207707",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "2",
+        "identity": "5246@keel-prestaging-i-0ec081d4adfb17f76",
+        "requestId": "dab146bc-37c1-44f3-8b5e-2a7a1d850abd"
+      }
+    },
+    {
+      "eventId": "4",
+      "eventTime": "2022-05-26T13:42:08.658299321Z",
+      "eventType": "WorkflowTaskCompleted",
+      "version": "41",
+      "taskId": "132207711",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "2",
+        "startedEventId": "3",
+        "identity": "5246@keel-prestaging-i-0ec081d4adfb17f76"
+      }
+    },
+    {
+      "eventId": "5",
+      "eventTime": "2022-05-26T13:42:08.658322275Z",
+      "eventType": "ActivityTaskScheduled",
+      "version": "41",
+      "taskId": "132207712",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "3119ec06-a1b9-38a0-84cf-04605acdf4f5",
+        "activityType": {
+          "name": "SchedulingConfigActivities-GetResourceKindCheckInterval"
+        },
+        "taskQueue": {
+          "name": "keel-resource-scheduler",
+          "kind": "Normal"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg\u003d\u003d"
+              },
+              "data": "eyJyZXNvdXJjZUtpbmQiOiJlYzIvc2VjdXJpdHktZ3JvdXBAdjEifQ\u003d\u003d"
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "10s",
+        "scheduleToStartTimeout": "10s",
+        "startToCloseTimeout": "10s",
+        "heartbeatTimeout": "0s",
+        "workflowTaskCompletedEventId": "4",
+        "retryPolicy": {
+          "initialInterval": "2s",
+          "backoffCoefficient": 1.1,
+          "maximumInterval": "30s"
+        }
+      }
+    },
+    {
+      "eventId": "6",
+      "eventTime": "2022-05-26T13:42:08.681007092Z",
+      "eventType": "ActivityTaskStarted",
+      "version": "41",
+      "taskId": "132207719",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "5",
+        "identity": "5130@keel-prestaging-i-05b09966dc91581e4",
+        "requestId": "d72eaf4d-dcd0-494f-89ec-c885b1bb3903",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "7",
+      "eventTime": "2022-05-26T13:42:08.712783930Z",
+      "eventType": "ActivityTaskCompleted",
+      "version": "41",
+      "taskId": "132207720",
+      "activityTaskCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg\u003d\u003d"
+              },
+              "data": "IlBUMzBTIg\u003d\u003d"
+            }
+          ]
+        },
+        "scheduledEventId": "5",
+        "startedEventId": "6",
+        "identity": "5130@keel-prestaging-i-05b09966dc91581e4"
+      }
+    },
+    {
+      "eventId": "8",
+      "eventTime": "2022-05-26T13:42:08.712789694Z",
+      "eventType": "WorkflowTaskScheduled",
+      "version": "41",
+      "taskId": "132207721",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "5246@keel-prestaging-i-0ec081d4adfb17f76:5029fad7-5de1-4a18-a36d-9daa958c77e0",
+          "kind": "Sticky"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "9",
+      "eventTime": "2022-05-26T13:42:08.735695092Z",
+      "eventType": "WorkflowTaskStarted",
+      "version": "41",
+      "taskId": "132207726",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "8",
+        "identity": "5029fad7-5de1-4a18-a36d-9daa958c77e0",
+        "requestId": "b0861467-c8e1-4f05-b38d-4c52ef84c02e"
+      }
+    },
+    {
+      "eventId": "10",
+      "eventTime": "2022-05-26T13:42:08.758499740Z",
+      "eventType": "WorkflowTaskCompleted",
+      "version": "41",
+      "taskId": "132207730",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "8",
+        "startedEventId": "9",
+        "identity": "5246@keel-prestaging-i-0ec081d4adfb17f76"
+      }
+    },
+    {
+      "eventId": "11",
+      "eventTime": "2022-05-26T13:42:08.758531282Z",
+      "eventType": "ActivityTaskScheduled",
+      "version": "41",
+      "taskId": "132207731",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "3929f1ef-9417-3bdc-a840-ce7ebf0f670e",
+        "activityType": {
+          "name": "ActuatorActivities-MonitorResource"
+        },
+        "taskQueue": {
+          "name": "keel-resource-scheduler",
+          "kind": "Normal"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg\u003d\u003d"
+              },
+              "data": "eyJyZXNvdXJjZUlkIjoiZWMyOnNlY3VyaXR5LWdyb3VwOnRlc3Q6bG9yaW50ZXN0dGl0dXMtbGQiLCJyZXNvdXJjZUtpbmQiOiJlYzIvc2VjdXJpdHktZ3JvdXBAdjEifQ\u003d\u003d"
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "0s",
+        "scheduleToStartTimeout": "0s",
+        "startToCloseTimeout": "300s",
+        "heartbeatTimeout": "0s",
+        "workflowTaskCompletedEventId": "10",
+        "retryPolicy": {
+          "initialInterval": "30s",
+          "backoffCoefficient": 1.0,
+          "maximumInterval": "30s"
+        }
+      }
+    }
+  ]
+}
