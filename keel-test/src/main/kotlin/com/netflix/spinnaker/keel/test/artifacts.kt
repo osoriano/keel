@@ -33,7 +33,7 @@ data class DummyArtifact(
     this.copy(deliveryConfigName = deliveryConfigName)
 
   override fun withDryRunFlag(isDryRun: Boolean) =
-    this.copy(isDryRun = true)
+    this.copy(isDryRun = isDryRun)
 }
 
 object DummySortingStrategy : SortingStrategy {

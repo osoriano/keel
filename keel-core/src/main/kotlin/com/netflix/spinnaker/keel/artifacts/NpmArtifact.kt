@@ -38,7 +38,7 @@ data class NpmArtifact(
     this.copy(deliveryConfigName = deliveryConfigName)
 
   override fun withDryRunFlag(isDryRun: Boolean) =
-    this.copy(isDryRun = true)
+    this.copy(isDryRun = isDryRun)
 
   override fun toString(): String = super.toString()
 }
