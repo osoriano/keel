@@ -134,7 +134,7 @@ class SqlResourceRepository(
     sqlRetry.withRetry(READ) {
       jooq
         .select(ACTIVE_RESOURCE.KIND, ACTIVE_RESOURCE.METADATA, ACTIVE_RESOURCE.SPEC, ACTIVE_RESOURCE.IS_DRYRUN)
-        .from(ACTIVE_RESOURCE, RESOURCE)
+        .from(ACTIVE_RESOURCE)
         .where(ACTIVE_RESOURCE.ID.eq(id))
         .and(ACTIVE_RESOURCE.IS_DRYRUN.isFalse) // ignore dry-run resources
         .fetch()
