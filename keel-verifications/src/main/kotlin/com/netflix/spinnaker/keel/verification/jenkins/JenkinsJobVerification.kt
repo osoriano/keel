@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.verification.jenkins
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.netflix.spinnaker.keel.api.Verification
 import com.netflix.spinnaker.keel.api.schema.Title
 import com.netflix.spinnaker.keel.verification.StandardTestParameter
@@ -22,9 +23,11 @@ data class JenkinsJobVerification(
 
   override val type: String = TYPE
 
+  @get:JsonIgnore
   override val id by lazy {
     "$controller:$job#${DigestUtils.sha1Hex(staticParameters.toString() + dynamicParameters.toString())}"
   }
 
+  @get:JsonIgnore
   val name: String = "$controller/$job"
 }
