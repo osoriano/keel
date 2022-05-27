@@ -94,6 +94,7 @@ data class SubmittedEnvironment(
   @get:JsonInclude(JsonInclude.Include.NON_EMPTY)
   @Description("Optional locations that are propagated to any [resources] where they are not specified.")
   val locations: SubnetAwareLocations? = null,
+  @SchemaIgnore
   @Description("Optional workload type that will be used to determine [locations] where they are not specified.")
   val workloadType: WorkloadType? = null
 ) {
