@@ -1,5 +1,7 @@
 package com.netflix.spinnaker.keel.sql
 
+import com.netflix.spectator.api.BasicTag
+import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.config.RetentionProperties
 import com.netflix.spinnaker.keel.api.TaskStatus
 import com.netflix.spinnaker.keel.api.TaskStatus.RUNNING
@@ -10,15 +12,19 @@ import com.netflix.spinnaker.keel.sql.RetryCategory.READ
 import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
 import org.jooq.DSLContext
 import org.slf4j.LoggerFactory
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.scheduling.annotation.Scheduled
 import java.time.Clock
+import java.time.Duration
 import java.time.Instant
+import java.util.concurrent.TimeUnit
 
 class SqlTaskTrackingRepository(
   private val jooq: DSLContext,
   private val clock: Clock,
   private val sqlRetry: SqlRetry,
-  private val retentionProperties: RetentionProperties
+  private val publisher: ApplicationEventPublisher,
+  private val spectator: Registry,
 ) : TaskTrackingRepository {
 
   override fun store(task: TaskRecord) {
@@ -37,37 +43,53 @@ class SqlTaskTrackingRepository(
     }
   }
 
-  override fun getIncompleteTasks(): Set<TaskRecord> =
-    sqlRetry.withRetry(READ) {
-      jooq
-        .select(
+  override fun getIncompleteTasks(minTimeSinceLastCheck: Duration, limit: Int): Set<TaskRecord> {
+    val now = clock.instant()
+    val cutoff = now.minus(minTimeSinceLastCheck)
+    return sqlRetry.withRetry(WRITE) {
+      jooq.inTransaction {
+        select(
           TASK_TRACKING.TASK_ID,
           TASK_TRACKING.TASK_NAME,
           TASK_TRACKING.SUBJECT_TYPE,
           TASK_TRACKING.APPLICATION,
           TASK_TRACKING.ENVIRONMENT_NAME,
-          TASK_TRACKING.RESOURCE_ID
+          TASK_TRACKING.RESOURCE_ID,
+          TASK_TRACKING.LAST_CHECKED
         )
         .from(TASK_TRACKING)
-        .where(TASK_TRACKING.ENDED_AT.isNull)
+        .where(TASK_TRACKING.LAST_CHECKED.lessOrEqual(cutoff))
+        .orderBy(TASK_TRACKING.LAST_CHECKED)
+        .limit(limit)
+        .forUpdate()
         .fetch()
-        .map { (taskId, taskName, subjectType, application, environmentName, resourceId) ->
-          TaskRecord(taskId, taskName, subjectType, application, environmentName, resourceId)
-        }
-        .toSet()
-    }
-
-  override fun updateStatus(taskId: String, status: TaskStatus) {
-    sqlRetry.withRetry(WRITE) {
-      jooq.update(TASK_TRACKING)
-        .set(TASK_TRACKING.STATUS, status)
-        .apply {
-          if (status.isComplete()) {
-            set(TASK_TRACKING.ENDED_AT, clock.instant())
+        .also {
+          var maxLagTime = Duration.ZERO
+          val now = clock.instant()
+          it.forEach { (taskId, _, _, _, _, _, lastCheckedAt ) ->
+            update(TASK_TRACKING)
+              .set(TASK_TRACKING.LAST_CHECKED, now)
+              .where(TASK_TRACKING.TASK_ID.eq(taskId))
+              .execute()
+            if (lastCheckedAt != null && lastCheckedAt.isAfter(Instant.EPOCH.plusSeconds(2))) {
+              val lagTime = Duration.between(lastCheckedAt, now)
+              if (maxLagTime.compareTo(lagTime) < 0) {
+                maxLagTime = lagTime
+              }
+            }
           }
+          spectator.timer(
+            "keel.scheduled.method.max.lag",
+            listOf(
+              BasicTag("type", "task")
+            )
+          ).record(maxLagTime.toSeconds(), TimeUnit.SECONDS)
         }
-        .where(TASK_TRACKING.TASK_ID.eq(taskId))
-        .execute()
+      }
+      .map { (taskId, taskName, subjectType, application, environmentName, resourceId, _) ->
+        TaskRecord(taskId, taskName, subjectType, application, environmentName, resourceId)
+      }
+      .toSet()
     }
   }
 
@@ -78,23 +100,6 @@ class SqlTaskTrackingRepository(
         .execute()
     }
   }
-
-  @Scheduled(cron = "0 0 7 * * *")
-  fun purgeOldTaskRecords() {
-    val cutoff = taskCutoff
-    jooq
-      .deleteFrom(TASK_TRACKING)
-      .where(TASK_TRACKING.ENDED_AT.lessThan(cutoff))
-      .execute()
-      .also { count ->
-        if (count > 0) {
-          log.debug("Purged {} tasks that ended before {}", count, cutoff)
-        }
-      }
-  }
-
-  private val taskCutoff: Instant
-    get() = clock.instant().minus(retentionProperties.tasks)
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 }

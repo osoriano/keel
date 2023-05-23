@@ -12,12 +12,14 @@ import com.netflix.spinnaker.keel.notifications.DeliveryConfigImportFailed
 import com.netflix.spinnaker.keel.persistence.DismissibleNotificationRepository
 import com.netflix.spinnaker.keel.telemetry.safeIncrement
 import com.netflix.spinnaker.keel.upsert.DeliveryConfigUpserter
-import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.event.EventListener
 import org.springframework.core.env.Environment
 import org.springframework.stereotype.Component
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import java.time.Clock
 
 /**
@@ -59,75 +61,75 @@ class DeliveryConfigImportListener(
       return
     }
 
-    val apps = runBlocking {
-      try {
-        front50Cache.searchApplicationsByRepo(GitRepository(event.repoType, event.projectKey, event.repoSlug))
-          .also {
-            log.debug("Retrieved ${it.size} applications from Front50")
-          }
-      } catch (e: Exception) {
-        log.error("Error searching applications: $e", e)
-        null
-      }
-    } ?: return
+    GlobalScope.launch(Dispatchers.IO) {
+      val apps = try {
+          front50Cache.searchApplicationsByRepo(GitRepository(event.repoType, event.projectKey, event.repoSlug))
+            .also {
+              log.debug("Retrieved ${it.size} applications from Front50")
+            }
+        } catch (e: Exception) {
+          log.error("Error searching applications: $e", e)
+          null
+        } ?: return@launch
 
-    // Hopefully this returns a single matching app, but who knows... ¯\_(ツ)_/¯
-    val matchingApps = apps
-      .filter { app ->
-        app != null
-          && app.managedDelivery?.importDeliveryConfig == true
-          && event.matchesApplicationConfig(app)
-          && event.targetBranch == scmUtils.getDefaultBranch(app)
-          && keelReadOnlyRepository.isApplicationConfigured(app.name)
-      }
-
-    if (matchingApps.isEmpty()) {
-      log.debug("No applications with matching SCM config found for event: $event")
-      return
-    }
-
-    log.debug("Processing commit event: $event")
-    matchingApps.forEach { app ->
-      log.debug("Importing delivery config for app ${app.name} from branch ${event.targetBranch}, commit ${event.commitHash}")
-
-      // We always want to dismiss the previous notifications, and if needed to create a new one
-      notificationRepository.dismissNotification(DeliveryConfigImportFailed::class.java, app.name, event.targetBranch)
-
-      try {
-        val deliveryConfig = deliveryConfigImporter.import(
-          codeEvent = event,
-          manifestPath = app.managedDelivery?.manifestPath
-        ).let {
-          if (it.serviceAccount == null) {
-            it.copy(serviceAccount = app.email)
-          } else {
-            it
-          }
+      // Hopefully this returns a single matching app, but who knows... ¯\_(ツ)_/¯
+      val matchingApps = apps
+        .filter { app ->
+          app != null
+            && app.managedDelivery?.importDeliveryConfig == true
+            && event.matchesApplicationConfig(app)
+            && event.targetBranch == scmUtils.getDefaultBranch(app)
+            && keelReadOnlyRepository.isApplicationConfigured(app.name)
         }
-        val gitMetadata = event.commitHash?.let {
-          GitMetadata(
-            commit = it,
-            author = event.authorName,
-            project = event.projectKey,
-            branch = event.targetBranch,
-            repo = Repo(name = event.repoKey),
-            commitInfo = Commit(sha = event.commitHash, link = scmUtils.getCommitLink(event), message = event.message)
+
+      if (matchingApps.isEmpty()) {
+        log.debug("No applications with matching SCM config found for event: $event")
+        return@launch
+      }
+
+      log.debug("Processing commit event: $event")
+      matchingApps.forEach { app ->
+        log.debug("Importing delivery config for app ${app.name} from branch ${event.targetBranch}, commit ${event.commitHash}")
+
+        // We always want to dismiss the previous notifications, and if needed to create a new one
+        notificationRepository.dismissNotification(DeliveryConfigImportFailed::class.java, app.name, event.targetBranch)
+
+        try {
+          val deliveryConfig = deliveryConfigImporter.import(
+            codeEvent = event,
+            manifestPath = app.managedDelivery?.manifestPath
+          ).let {
+            if (it.serviceAccount == null) {
+              it.copy(serviceAccount = app.email)
+            } else {
+              it
+            }
+          }
+          val gitMetadata = event.commitHash?.let {
+            GitMetadata(
+              commit = it,
+              author = event.authorName,
+              project = event.projectKey,
+              branch = event.targetBranch,
+              repo = Repo(name = event.repoKey),
+              commitInfo = Commit(sha = event.commitHash, link = scmUtils.getCommitLink(event), message = event.message)
+            )
+          }
+          log.info("Creating/updating delivery config for application ${app.name} from branch ${event.targetBranch}")
+          deliveryConfigUpserter.upsertConfig(deliveryConfig, gitMetadata)
+          event.emitCounterMetric(CODE_EVENT_COUNTER, DELIVERY_CONFIG_RETRIEVAL_SUCCESS, app.name)
+        } catch (e: Exception) {
+          log.error("Error retrieving delivery config: $e", e)
+          event.emitCounterMetric(CODE_EVENT_COUNTER, DELIVERY_CONFIG_RETRIEVAL_ERROR, app.name)
+          eventPublisher.publishDeliveryConfigImportFailed(
+            app.name,
+            event,
+            clock.instant(),
+            e.message ?: "Unknown reason",
+            scmUtils.getCommitLink(event)
           )
+          return@forEach
         }
-        log.info("Creating/updating delivery config for application ${app.name} from branch ${event.targetBranch}")
-        deliveryConfigUpserter.upsertConfig(deliveryConfig, gitMetadata)
-        event.emitCounterMetric(CODE_EVENT_COUNTER, DELIVERY_CONFIG_RETRIEVAL_SUCCESS, app.name)
-      } catch (e: Exception) {
-        log.error("Error retrieving delivery config: $e", e)
-        event.emitCounterMetric(CODE_EVENT_COUNTER, DELIVERY_CONFIG_RETRIEVAL_ERROR, app.name)
-        eventPublisher.publishDeliveryConfigImportFailed(
-          app.name,
-          event,
-          clock.instant(),
-          e.message ?: "Unknown reason",
-          scmUtils.getCommitLink(event)
-        )
-        return@forEach
       }
     }
   }

@@ -30,6 +30,11 @@ fun configuredObjectMapper(): ObjectMapper = ObjectMapper().configureForKeel()
  */
 fun configuredYamlMapper(): YAMLMapper = YAMLMapper().configureForKeel().disable(USE_NATIVE_TYPE_ID)
 
+/**
+ * Factory method for DGS [ObjectMapper]s configured how we like 'em.
+ */
+fun configuredDgsMapper(): ObjectMapper = ObjectMapper().configureForDgs()
+
 fun <T : ObjectMapper> T.configureForKeel(): T =
   apply {
     registerKeelApiModule()
@@ -40,6 +45,12 @@ fun <T : ObjectMapper> T.configureForKeel(): T =
       .disable(FAIL_ON_UNKNOWN_PROPERTIES)
       .enable(ACCEPT_CASE_INSENSITIVE_ENUMS)
       .setSerializationInclusion(NON_NULL)
+  }
+
+fun <T : ObjectMapper> T.configureForDgs(): T =
+  apply {
+    registerKotlinModule()
+      .registerModule(JavaTimeModule())
   }
 
 private fun ObjectMapper.registerULIDModule(): ObjectMapper =

@@ -51,7 +51,7 @@ class BakeryTelemetryListener(private val spectator: Registry) {
       listOf(
         BasicTag("versions", "${event.appVersion}+${event.baseAmiVersion}")
       )
-    )
+    ).increment()
   }
 
   @EventListener(MissingRegionsDetected::class)
@@ -61,7 +61,7 @@ class BakeryTelemetryListener(private val spectator: Registry) {
       listOf(
         BasicTag("versions", event.version)
       )
-    )
+    ).increment()
   }
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }

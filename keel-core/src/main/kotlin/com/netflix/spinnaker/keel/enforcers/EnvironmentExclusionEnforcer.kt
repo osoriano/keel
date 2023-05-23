@@ -13,8 +13,8 @@ import kotlinx.coroutines.withContext
 import org.springframework.stereotype.Component
 import org.springframework.core.env.Environment as SpringEnvironment
 
-class ActiveVerifications(val active: Collection<ArtifactInEnvironmentContext>, deliveryConfig: DeliveryConfig, environment: Environment) :
-  EnvironmentCurrentlyBeingActedOn("active verifications in ${deliveryConfig.name} ${environment.name} against versions ${active.map {it.version}}")
+class ActiveVerifications() :
+  EnvironmentCurrentlyBeingActedOn("active verifications against versions")
 
 class ActiveDeployments(deliveryConfig: DeliveryConfig, environment: Environment ) :
   EnvironmentCurrentlyBeingActedOn("currently deploying into ${deliveryConfig.name} ${environment.name}")
@@ -102,6 +102,24 @@ class EnvironmentExclusionEnforcer(
     }
   }
 
+  suspend fun <T> withActuationLease(envUid: String, action: suspend () -> T) : T {
+    if(!enforcementEnabled) {
+      return action.invoke()
+    }
+
+    // use IO context since the checks call the database, which will block the coroutine's thread
+    return withContext(IO) {
+      environmentLeaseRepository.tryAcquireLease(envUid, "actuation").use {
+
+        // This will throw an exception if the check fails
+        ensureNoActiveVerifications(envUid)
+
+        // it's now safe to do the action
+        return@withContext action.invoke()
+      }
+    }
+  }
+
   /**
    * @throws ActiveDeployments if there's an active deployment in [environment]
    */
@@ -118,9 +136,16 @@ class EnvironmentExclusionEnforcer(
    * @throws ActiveVerifications if there's an active verification
    */
   private fun ensureNoActiveVerifications(deliveryConfig: DeliveryConfig, environment: Environment)  {
-    val activeVerifications = verificationRepository.getVerificationContextsWithStatus(deliveryConfig, environment, PENDING)
-    if(activeVerifications.isNotEmpty()) {
-      throw ActiveVerifications(activeVerifications, deliveryConfig, environment)
+    val activeVerifications = verificationRepository.hasVerificationContextsWithStatus(deliveryConfig, environment, PENDING)
+    if(activeVerifications) {
+      throw ActiveVerifications()
+    }
+  }
+
+  private fun ensureNoActiveVerifications(envUid: String)  {
+    val activeVerifications = verificationRepository.hasVerificationContextsWithStatus(envUid, PENDING)
+    if(activeVerifications) {
+      throw ActiveVerifications()
     }
   }
 }

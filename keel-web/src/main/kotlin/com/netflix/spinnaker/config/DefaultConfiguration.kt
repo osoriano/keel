@@ -13,6 +13,7 @@ import com.netflix.spinnaker.keel.rest.DeliveryConfigYamlParsingFilter
 import com.netflix.spinnaker.keel.schema.Generator
 import com.netflix.spinnaker.keel.schema.ResourceKindSchemaCustomizer
 import com.netflix.spinnaker.keel.schema.TagVersionStrategySchemaCustomizer
+import com.netflix.spinnaker.keel.serialization.configuredDgsMapper
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
 import com.netflix.spinnaker.keel.serialization.configuredYamlMapper
 import com.netflix.spinnaker.kork.web.interceptors.MetricsInterceptor
@@ -77,6 +78,10 @@ class DefaultConfiguration(
   @Bean(name = ["yamlMapper"])
   fun yamlMapper(jsonComponentModule: JsonComponentModule): YAMLMapper =
     configuredYamlMapper().registerModule(jsonComponentModule) as YAMLMapper
+
+  @Bean(name = ["dgsObjectMapper"])
+  fun dgsObjectMapper(jsonComponentModule: JsonComponentModule): ObjectMapper  =
+    configuredDgsMapper().registerModule(jsonComponentModule)
 
   @Bean
   @ConditionalOnMissingBean(ResourceHandler::class)

@@ -61,7 +61,8 @@ class EnvironmentVersioningTests {
     resourceFactory,
     sqlRetry,
     defaultArtifactSuppliers(),
-    publisher = mockk(relaxed = true)
+    publisher = mockk(relaxed = true),
+    spectator = NoopRegistry(),
   )
 
   private val artifactRepository = SqlArtifactRepository(
@@ -69,7 +70,8 @@ class EnvironmentVersioningTests {
     clock,
     objectMapper,
     sqlRetry,
-    publisher = mockk(relaxed = true)
+    publisher = mockk(relaxed = true),
+    spectator = NoopRegistry(),
   )
 
   private val resourceRepository = SqlResourceRepository(
@@ -89,7 +91,9 @@ class EnvironmentVersioningTests {
     resourceFactory = resourceFactory,
     objectMapper = objectMapper,
     sqlRetry = sqlRetry,
-    environment = MockEnvironment()
+    environment = MockEnvironment(),
+    publisher = mockk(relaxed = true),
+    spectator = NoopRegistry(),
   )
 
   private val repository = CombinedRepository(

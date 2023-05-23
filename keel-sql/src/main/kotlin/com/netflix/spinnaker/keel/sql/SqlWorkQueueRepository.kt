@@ -75,6 +75,7 @@ class SqlWorkQueueRepository(
           .where(WORK_QUEUE.TYPE.eq(WorkQueueEventType.ARTIFACT.name))
           .orderBy(WORK_QUEUE.FIRST_SEEN)
           .limit(limit)
+          .forUpdate()
           .fetch { (uid, json) ->
             deleteFrom(WORK_QUEUE)
               .where(WORK_QUEUE.UID.eq(uid))

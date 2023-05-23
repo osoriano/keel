@@ -73,7 +73,8 @@ class MigratorErrorTests {
     objectMapper = objectMapper,
     sqlRetry = sqlRetry,
     artifactSuppliers = defaultArtifactSuppliers(),
-    publisher = mockk(relaxed = true)
+    publisher = mockk(relaxed = true),
+    spectator = NoopRegistry(),
   )
 
   val deliveryConfig = DeliveryConfig(

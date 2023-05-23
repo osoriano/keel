@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.lifecycle
 
+import com.netflix.spectator.api.BasicTag
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.Timer
 import com.netflix.spectator.api.histogram.PercentileTimer
@@ -8,6 +9,7 @@ import com.netflix.spinnaker.keel.activation.ApplicationDown
 import com.netflix.spinnaker.keel.activation.ApplicationUp
 import com.netflix.spinnaker.keel.telemetry.LifecycleMonitorLoadFailed
 import com.netflix.spinnaker.keel.telemetry.LifecycleMonitorTimedOut
+import com.netflix.spinnaker.keel.telemetry.safeIncrement
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -66,7 +68,9 @@ class LifecycleMonitorScheduler(
   @EventListener(StartMonitoringEvent::class)
   fun onStartMonitoringEvent(event: StartMonitoringEvent) {
     log.debug("Saving monitor for event $event")
-    monitorRepository.save(event)
+    launch {
+      monitorRepository.save(event)
+    }
   }
 
   @Scheduled(fixedDelayString = "\${keel.lifecycle-monitor.frequency:PT1S}")
@@ -80,29 +84,43 @@ class LifecycleMonitorScheduler(
               .tasksDueForCheck(lifecycleConfig.minAgeDuration, lifecycleConfig.batchSize)
           }
             .onFailure {
+              log.error("Exception fetching monitor tasks due for check", it)
               publisher.publishEvent(LifecycleMonitorLoadFailed(it))
             }
             .onSuccess { tasks ->
               tasks.forEach { task ->
-                try {
-                  /**
-                   * Allow individual monitoring to timeout but catch the `CancellationException`
-                   * to prevent the cancellation of all coroutines under [job]
-                   */
-                  /**
-                   * Allow individual monitoring to timeout but catch the `CancellationException`
-                   * to prevent the cancellation of all coroutines under [job]
-                   */
-                  withTimeout(lifecycleConfig.timeoutDuration.toMillis()) {
-                    launch {
+                launch {
+                  try {
+                    /**
+                     * Allow individual monitoring to timeout but catch the `CancellationException`
+                     * to prevent the cancellation of all coroutines under [job]
+                     */
+                    /**
+                     * Allow individual monitoring to timeout but catch the `CancellationException`
+                     * to prevent the cancellation of all coroutines under [job]
+                     */
+                    withTimeout(lifecycleConfig.timeoutDuration.toMillis()) {
                       monitors
                         .first { it.handles(task.type) }
                         .monitor(task)
                     }
+                  } catch (e: TimeoutCancellationException) {
+                    log.error("Timed out monitoring task $task", e)
+                    spectator.counter(
+                      "keel.scheduled.timeout",
+                      listOf(
+                        BasicTag("type",  "lifecycle")
+                      )
+                    ).safeIncrement()
+                  } catch (e: Exception) {
+                    log.error("Failed monitoring task $task", e)
+                    spectator.counter(
+                      "keel.scheduled.failure",
+                      listOf(
+                        BasicTag("type",  "lifecycle")
+                      )
+                    ).safeIncrement()
                   }
-                } catch (e: TimeoutCancellationException) {
-                  log.error("Timed out monitoring task $task", e)
-                  publisher.publishEvent(LifecycleMonitorTimedOut(task.type, task.link, task.triggeringEvent.artifactReference))
                 }
               }
             }

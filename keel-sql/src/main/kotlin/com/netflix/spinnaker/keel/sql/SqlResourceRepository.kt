@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.sql
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.netflix.spectator.api.BasicTag
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceKind.Companion.parseKind
@@ -17,6 +18,7 @@ import com.netflix.spinnaker.keel.pause.PauseScope
 import com.netflix.spinnaker.keel.persistence.NoSuchResourceId
 import com.netflix.spinnaker.keel.persistence.ResourceHeader
 import com.netflix.spinnaker.keel.persistence.ResourceRepository
+import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ACTIVE_ENVIRONMENT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ACTIVE_RESOURCE
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.DELIVERY_CONFIG
@@ -44,10 +46,14 @@ import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.event.EventListener
 import org.springframework.core.env.Environment
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.time.Instant.EPOCH
+import java.util.concurrent.TimeUnit
 
 open class SqlResourceRepository(
   private val jooq: DSLContext,
@@ -365,6 +371,8 @@ open class SqlResourceRepository(
           .forUpdate()
           .fetch()
           .also {
+            var maxLagTime = Duration.ZERO
+            val now = clock.instant()
             it.forEach { (uid, _, _, _, application, lastCheckedAt) ->
               insertInto(RESOURCE_LAST_CHECKED)
                 .set(RESOURCE_LAST_CHECKED.RESOURCE_UID, uid)
@@ -372,12 +380,19 @@ open class SqlResourceRepository(
                 .onDuplicateKeyUpdate()
                 .set(RESOURCE_LAST_CHECKED.AT, now)
                 .execute()
-              publisher.publishEvent(AboutToBeChecked(
-                lastCheckedAt,
-                "resource",
-                "application:$application"
-              ))
+              if (lastCheckedAt != null && lastCheckedAt.isAfter(Instant.EPOCH.plusSeconds(2))) {
+                val lagTime = Duration.between(lastCheckedAt, now)
+                if (maxLagTime.compareTo(lagTime) < 0) {
+                  maxLagTime = lagTime
+                }
+              }
             }
+            spectator.timer(
+              "keel.scheduled.method.max.lag",
+              listOf(
+                BasicTag("type", "resource")
+              )
+            ).record(maxLagTime.toSeconds(), TimeUnit.SECONDS)
           }
       }
         .map { (uid, kind, metadata, spec) ->
@@ -449,16 +464,7 @@ open class SqlResourceRepository(
         .fetch()
         .map { (uid, kind, metadata, spec, application) ->
           try {
-            publisher.publishEvent(
-              AboutToBeChecked(
-                resourcesToCheck[uid]!!,
-                "resource",
-                "application:$application"
-              )
-            )
-
             resourceFactory.create(kind, metadata, spec)
-
           } catch (e: Exception) {
             jooq.insertInto(RESOURCE_LAST_CHECKED)
               .set(RESOURCE_LAST_CHECKED.RESOURCE_UID, uid)
@@ -471,6 +477,23 @@ open class SqlResourceRepository(
               .set(RESOURCE_LAST_CHECKED.IGNORE, true)
               .execute()
             throw e
+          }.also {
+            var maxLagTime = Duration.ZERO
+            val now = clock.instant()
+            resourcesToCheck.values.forEach { lastCheckedAt ->
+              if (lastCheckedAt != null && lastCheckedAt.isAfter(Instant.EPOCH.plusSeconds(2))) {
+                val lagTime = Duration.between(lastCheckedAt, now)
+                if (maxLagTime.compareTo(lagTime) < 0) {
+                  maxLagTime = lagTime
+                }
+              }
+            }
+            spectator.timer(
+              "keel.scheduled.method.max.lag",
+              listOf(
+                BasicTag("type", "resource")
+              )
+            ).record(maxLagTime.toSeconds(), TimeUnit.SECONDS)
           }
         }
     }
@@ -494,7 +517,13 @@ open class SqlResourceRepository(
 
   @EventListener(ResourceCheckResult::class)
   fun onResourceChecked(event: ResourceCheckResult) {
-    markCheckComplete(get(event.id), event.state)
+    GlobalScope.launch(Dispatchers.IO) {
+      try {
+        markCheckComplete(get(event.id), event.state)
+      } catch (e: Exception) {
+        log.error("Failed to mark resource as checked", e)
+      }
+    }
   }
 
   override fun triggerResourceRecheck(environmentName: String, application: String) {
@@ -523,6 +552,19 @@ open class SqlResourceRepository(
     }
   }
 
+  override fun getEnvironmentUid(resourceId: String): String {
+    return sqlRetry.withRetry(READ) {
+      jooq.select(ENVIRONMENT.UID)
+        .from(RESOURCE)
+        .join(ENVIRONMENT_RESOURCE)
+        .on(RESOURCE.UID.eq(ENVIRONMENT_RESOURCE.RESOURCE_UID))
+        .join(ENVIRONMENT)
+        .on(ENVIRONMENT.UID.eq(ENVIRONMENT_RESOURCE.ENVIRONMENT_UID))
+        .where(RESOURCE.ID.eq(resourceId))
+        .limit(1)
+        .fetchOne(ENVIRONMENT.UID)!!
+    }
+  }
   override fun incrementDeletionAttempts(resource: Resource<*>) {
     sqlRetry.withRetry(WRITE) {
       jooq.update(RESOURCE)

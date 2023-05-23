@@ -3,11 +3,12 @@ package com.netflix.spinnaker.keel.api.plugins
 import com.netflix.spinnaker.keel.api.Verification
 import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
 import com.netflix.spinnaker.keel.api.action.ActionState
+import com.netflix.spinnaker.kork.plugins.api.internal.SpinnakerExtensionPoint
 
 /**
  * A component responsible for performing verification of an [com.netflix.spinnaker.keel.api.Environment].
  */
-interface VerificationEvaluator<VERIFICATION: Verification> {
+interface VerificationEvaluator<VERIFICATION: Verification> : SpinnakerExtensionPoint {
   val supportedVerification: Pair<String, Class<VERIFICATION>>
 
   /**

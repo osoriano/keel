@@ -12,7 +12,9 @@ import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.persistence.NoSuchResourceException
 import com.netflix.spinnaker.keel.persistence.NotificationRepository
 import com.netflix.spinnaker.keel.persistence.OrphanedResourceException
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Configuration
@@ -59,18 +61,21 @@ class Notifier(
   @EventListener(RepeatedNotificationEvent::class)
   fun onResourceNotificationEvent(event: RepeatedNotificationEvent) {
     if (notificationsEnabled){
-      val shouldNotify = notificationRepository.addNotification(event.scope, event.ref, event.type)
-      if (shouldNotify) {
-        notify(event)
-        notificationRepository.markSent(event.scope, event.ref, event.type)
-        spectator.counter(
-          NOTIFICATION_SENT_ID,
-          listOf(BasicTag("type", event.type.name))
-        )
-          .runCatching { increment() }
-          .onFailure {
-            log.error("Exception incrementing {} counter: {}", NOTIFICATION_SENT_ID, it)
-          }
+
+      GlobalScope.launch(Dispatchers.IO) {
+        val shouldNotify = notificationRepository.addNotification(event.scope, event.ref, event.type)
+        if (shouldNotify) {
+          notify(event)
+          notificationRepository.markSent(event.scope, event.ref, event.type)
+          spectator.counter(
+            NOTIFICATION_SENT_ID,
+            listOf(BasicTag("type", event.type.name))
+          )
+            .runCatching { increment() }
+            .onFailure {
+              log.error("Exception incrementing {} counter: {}", NOTIFICATION_SENT_ID, it)
+            }
+        }
       }
     }
   }
@@ -79,7 +84,7 @@ class Notifier(
    * This method assumes we're notifying about a resource.
    * If / when we notify about something else, we will need to update this assumption
    */
-  private fun notify(event: RepeatedNotificationEvent) {
+  private suspend fun notify(event: RepeatedNotificationEvent) {
     log.debug("Sending notifications for ${event.scope.name.toLowerCase()} ${event.ref} with content ${event.message}")
     try {
       val application = keelRepository.getResource(event.ref).application
@@ -87,9 +92,7 @@ class Notifier(
       env.notifications.forEach { notificationConfig ->
         val notification = notificationConfig.toEchoNotification(application, event)
         log.debug("Sending notification for resource ${event.ref} with config $notification")
-        runBlocking {
-          echoService.sendNotification(notification)
-        }
+        echoService.sendNotification(notification)
       }
     } catch (e: Exception) {
       when (e) {

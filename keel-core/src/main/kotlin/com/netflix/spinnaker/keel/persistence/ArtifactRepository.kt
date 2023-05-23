@@ -347,6 +347,8 @@ interface ArtifactRepository : PeriodicallyCheckedRepository<DeliveryArtifact> {
    */
   override fun itemsDueForCheck(minTimeSinceLastCheck: Duration, limit: Int): Collection<DeliveryArtifact>
 
+  fun itemsDueForRefresh(minTimeSinceLastCheck: Duration, limit: Int): Collection<DeliveryArtifact>
+
   /**
    * Returns true if the version is older (lower) than the existing version.
    * Note: the artifact comparitors are decending by default

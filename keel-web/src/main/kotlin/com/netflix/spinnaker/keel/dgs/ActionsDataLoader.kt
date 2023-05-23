@@ -42,6 +42,11 @@ class ActionsDataLoader(
     CompletionStage<MutableMap<EnvironmentArtifactAndVersion, List<MdAction>>> {
     val context: ApplicationContext = DgsContext.getCustomContext(environment)
     return CompletableFuture.supplyAsync {
+      log.info("Fetching action states for ${keys.size} keys")
+      keys.forEach {
+        log.info("Fetching action states for ${it.environmentName}/${it.artifactReference}/${it.version}")
+      }
+
       // TODO: optimize that by querying only the needed versions
       val config = context.getConfig()
       val actionContexts = keys.map {
@@ -54,6 +59,7 @@ class ActionsDataLoader(
       }
       val states = keelRepository.getAllActionStatesBatch(actionContexts)
 
+      log.info("Finished fetching action states")
       val result = mutableMapOf<EnvironmentArtifactAndVersion, List<MdAction>>()
 
       // an action context corresponds with a list of action states
@@ -74,6 +80,8 @@ class ActionsDataLoader(
         )
         result[postDeployKey] = actionState.filter { it.type == POST_DEPLOY }.toDgsList(ctx, POST_DEPLOY)
       }
+
+      log.info("Returning fetched action states: ${result}")
       result
     }
   }

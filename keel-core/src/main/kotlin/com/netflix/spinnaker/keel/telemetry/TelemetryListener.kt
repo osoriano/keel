@@ -69,22 +69,6 @@ class TelemetryListener(
     enabled.set(false)
   }
 
-  @EventListener(AboutToBeChecked::class)
-  fun onAboutToBeChecked(event: AboutToBeChecked) {
-    if (event.lastCheckedAt == Instant.EPOCH.plusSeconds(1)) {
-      // recheck was triggered or resource is new, ignore this
-      return
-    }
-
-    spectator.timer(
-      TIME_SINCE_LAST_CHECK,
-      listOf(
-        BasicTag("identifier", event.identifier),
-        BasicTag("type", event.type)
-      )
-    ).record(Duration.between(event.lastCheckedAt, clock.instant()).toSeconds(), TimeUnit.SECONDS)
-  }
-
   @EventListener(ResourceCheckResult::class)
   fun onResourceChecked(event: ResourceCheckResult) {
     spectator.counter(
@@ -283,7 +267,7 @@ class TelemetryListener(
         BasicTag("resourceKind", event.kind.toString()),
         BasicTag("resourceApplication", event.application)
       )
-    )
+    ).increment()
   }
 
   private fun secondsSince(start: AtomicReference<Instant>) : Double  =

@@ -32,7 +32,8 @@ internal class SqlEnvironmentLeaseRepositoryTests :
     objectMapper = mapper,
     sqlRetry = sqlRetry,
     artifactSuppliers = artifactSuppliers,
-    publisher = mockk(relaxed = true)
+    publisher = mockk(relaxed = true),
+    spectator = NoopRegistry(),
   )
   override fun createSubject() =
     SqlEnvironmentLeaseRepository(

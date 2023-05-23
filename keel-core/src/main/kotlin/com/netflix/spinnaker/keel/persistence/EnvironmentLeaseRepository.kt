@@ -21,4 +21,5 @@ interface EnvironmentLeaseRepository {
    * @throws [ActiveLeaseExists] if someone else has a lease on the environment
    */
   fun tryAcquireLease(deliveryConfig: DeliveryConfig, environment: Environment, actionType: String) : Lease
+  fun tryAcquireLease(envUid: String, actionType: String) : Lease
 }

@@ -39,7 +39,9 @@ import com.netflix.spinnaker.keel.scm.publishDeliveryConfigImportFailed
 import com.netflix.spinnaker.keel.telemetry.recordDuration
 import com.netflix.spinnaker.keel.telemetry.safeIncrement
 import com.netflix.spinnaker.keel.validators.DeliveryConfigValidator
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.event.EventListener
@@ -96,27 +98,29 @@ class PreviewEnvironmentCodeEventListener(
       return
     }
 
-    log.debug("Processing PR finished event: $event")
-    matchingPreviewEnvironmentSpecs(event).forEach { (deliveryConfig, previewEnvSpecs) ->
-      previewEnvSpecs.forEach { previewEnvSpec ->
-        // Need to get a fully-hydrated delivery config here because the one we get above doesn't include environments
-        // for the sake of performance.
-        val hydratedDeliveryConfig = repository.getDeliveryConfig(deliveryConfig.name)
+    GlobalScope.launch(Dispatchers.IO) {
+      log.debug("Processing PR finished event: $event")
+      matchingPreviewEnvironmentSpecs(event).forEach { (deliveryConfig, previewEnvSpecs) ->
+        previewEnvSpecs.forEach { previewEnvSpec ->
+          // Need to get a fully-hydrated delivery config here because the one we get above doesn't include environments
+          // for the sake of performance.
+          val hydratedDeliveryConfig = repository.getDeliveryConfig(deliveryConfig.name)
 
-        hydratedDeliveryConfig.environments.filter {
-          it.isPreview && it.repoKey == event.repoKey && it.branch == event.pullRequestBranch
-        }.forEach { previewEnv ->
-          log.debug("Marking preview environment for deletion: ${previewEnv.name} in app ${deliveryConfig.application}, " +
-            "branch ${event.pullRequestBranch} of repository ${event.repoKey}")
-          // Here we just mark preview environments for deletion. [ResourceActuator] will delete the associated resources
-          // and [EnvironmentCleaner] will delete the environments when empty.
-          try {
-            environmentDeletionRepository.markForDeletion(previewEnv)
-            event.emitCounterMetric(CODE_EVENT_COUNTER, PREVIEW_ENVIRONMENT_MARK_FOR_DELETION_SUCCESS, deliveryConfig.application)
-          } catch(e: Exception) {
-            log.error("Failed to mark preview environment for deletion:${previewEnv.name} in app ${deliveryConfig.application}, " +
+          hydratedDeliveryConfig.environments.filter {
+            it.isPreview && it.repoKey == event.repoKey && it.branch == event.pullRequestBranch
+          }.forEach { previewEnv ->
+            log.debug("Marking preview environment for deletion: ${previewEnv.name} in app ${deliveryConfig.application}, " +
               "branch ${event.pullRequestBranch} of repository ${event.repoKey}")
-            event.emitCounterMetric(CODE_EVENT_COUNTER, PREVIEW_ENVIRONMENT_MARK_FOR_DELETION_ERROR, deliveryConfig.application)
+            // Here we just mark preview environments for deletion. [ResourceActuator] will delete the associated resources
+            // and [EnvironmentCleaner] will delete the environments when empty.
+            try {
+              environmentDeletionRepository.markForDeletion(previewEnv)
+              event.emitCounterMetric(CODE_EVENT_COUNTER, PREVIEW_ENVIRONMENT_MARK_FOR_DELETION_SUCCESS, deliveryConfig.application)
+            } catch(e: Exception) {
+              log.error("Failed to mark preview environment for deletion:${previewEnv.name} in app ${deliveryConfig.application}, " +
+                "branch ${event.pullRequestBranch} of repository ${event.repoKey}")
+              event.emitCounterMetric(CODE_EVENT_COUNTER, PREVIEW_ENVIRONMENT_MARK_FOR_DELETION_ERROR, deliveryConfig.application)
+            }
           }
         }
       }
@@ -147,56 +151,54 @@ class PreviewEnvironmentCodeEventListener(
       return
     }
 
-    matchingPreviewEnvironmentSpecs(event).forEach { (deliveryConfig, previewEnvSpecs) ->
-      log.debug("Importing delivery config for app ${deliveryConfig.application} " +
-        "from branch ${event.pullRequestBranch}")
+    GlobalScope.launch(Dispatchers.IO) {
+      matchingPreviewEnvironmentSpecs(event).forEach { (deliveryConfig, previewEnvSpecs) ->
+        log.debug("Importing delivery config for app ${deliveryConfig.application} " +
+          "from branch ${event.pullRequestBranch}")
 
-      // We always want to dismiss the previous notifications, and if needed to create a new one
-      notificationRepository.dismissNotification(DeliveryConfigImportFailed::class.java, deliveryConfig.application, event.pullRequestBranch)
-      val manifestPath = runBlocking {
-        front50Cache.applicationByName(deliveryConfig.application).managedDelivery?.manifestPath
-      }
-      val commitEvent = event.toCommitEvent()
-      val newDeliveryConfig = try {
-        deliveryConfigImporter.import(
-          codeEvent = commitEvent,
-          manifestPath = manifestPath
-        ).also {
-          event.emitCounterMetric(CODE_EVENT_COUNTER, DELIVERY_CONFIG_RETRIEVAL_SUCCESS, deliveryConfig.application)
-          log.info("Validating config for application ${deliveryConfig.application} from branch ${event.pullRequestBranch}")
-          deliveryConfigValidator.validate(it)
-        }.toDeliveryConfig()
-      } catch (e: Exception) {
-        log.error("Error retrieving delivery config: $e", e)
-        event.emitCounterMetric(CODE_EVENT_COUNTER, DELIVERY_CONFIG_RETRIEVAL_ERROR, deliveryConfig.application)
-        eventPublisher.publishDeliveryConfigImportFailed(deliveryConfig.application, event, clock.instant(), e.message ?: "Unknown", scmUtils.getPullRequestLink(event))
-        return@forEach
-      }
+        // We always want to dismiss the previous notifications, and if needed to create a new one
+        notificationRepository.dismissNotification(DeliveryConfigImportFailed::class.java, deliveryConfig.application, event.pullRequestBranch)
+        val manifestPath = front50Cache.applicationByName(deliveryConfig.application).managedDelivery?.manifestPath
+        val commitEvent = event.toCommitEvent()
+        val newDeliveryConfig = try {
+          deliveryConfigImporter.import(
+            codeEvent = commitEvent,
+            manifestPath = manifestPath
+          ).also {
+            event.emitCounterMetric(CODE_EVENT_COUNTER, DELIVERY_CONFIG_RETRIEVAL_SUCCESS, deliveryConfig.application)
+            log.info("Validating config for application ${deliveryConfig.application} from branch ${event.pullRequestBranch}")
+            deliveryConfigValidator.validate(it)
+          }.toDeliveryConfig()
+        } catch (e: Exception) {
+          log.error("Error retrieving delivery config: $e", e)
+          event.emitCounterMetric(CODE_EVENT_COUNTER, DELIVERY_CONFIG_RETRIEVAL_ERROR, deliveryConfig.application)
+          eventPublisher.publishDeliveryConfigImportFailed(deliveryConfig.application, event, clock.instant(), e.message ?: "Unknown", scmUtils.getPullRequestLink(event))
+          return@forEach
+        }
 
-      log.info("Creating/updating preview environments for application ${deliveryConfig.application} " +
-        "from branch ${event.pullRequestBranch}")
-      createPreviewEnvironments(event, newDeliveryConfig, previewEnvSpecs)
-      event.emitDurationMetric(COMMIT_HANDLING_DURATION, startTime, deliveryConfig.application)
+        log.info("Creating/updating preview environments for application ${deliveryConfig.application} " +
+          "from branch ${event.pullRequestBranch}")
+        createPreviewEnvironments(event, newDeliveryConfig, previewEnvSpecs)
+        event.emitDurationMetric(COMMIT_HANDLING_DURATION, startTime, deliveryConfig.application)
+      }
     }
   }
 
   /**
    * Returns a map of [DeliveryConfig]s to the [PreviewEnvironmentSpec]s that match the code event.
    */
-  private fun matchingPreviewEnvironmentSpecs(event: CodeEvent): Map<DeliveryConfig, List<PreviewEnvironmentSpec>> {
+  private suspend fun matchingPreviewEnvironmentSpecs(event: CodeEvent): Map<DeliveryConfig, List<PreviewEnvironmentSpec>> {
     val branchToMatch = if (event is PrEvent) event.pullRequestBranch else event.targetBranch
     return repository
       .allDeliveryConfigs(ATTACH_PREVIEW_ENVIRONMENTS)
       .associateWith { deliveryConfig ->
-        val appConfig = runBlocking {
-          try {
+        val appConfig = try {
             front50Cache.applicationByName(deliveryConfig.application)
           } catch (e: Exception) {
             log.error("Error retrieving application ${deliveryConfig.application}: $e")
             event.emitCounterMetric(CODE_EVENT_COUNTER, APPLICATION_RETRIEVAL_ERROR, deliveryConfig.application)
             null
           }
-        }
 
         deliveryConfig.previewEnvironments.filter { previewEnvSpec ->
           event.matchesApplicationConfig(appConfig) && previewEnvSpec.branch.matches(branchToMatch)

@@ -1,0 +1,9 @@
+databaseChangeLog:
+- changeSet:
+    id: environment-lease-unique-uid
+    author: osoriano
+    changes:
+    - addUniqueConstraint:
+        tableName: environment_lease
+        constraintName: fk_environment_lease_environment_uid
+        columnNames: environment_uid

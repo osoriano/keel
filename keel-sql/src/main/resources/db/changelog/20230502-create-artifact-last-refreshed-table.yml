@@ -1,0 +1,68 @@
+databaseChangeLog:
+- changeSet:
+    id: create-artifact-last-refreshed-table
+    author: osoriano
+    changes:
+    - createTable:
+        tableName: artifact_last_refreshed
+        columns:
+        - column:
+            name: artifact_uid
+            type: char(26)
+            constraints:
+              unique: true
+              nullable: false
+        - column:
+            name: at
+            type: timestamp(3)
+            # MySQL is stupid and won't let you insert a zero valued TIMESTAMP
+            defaultValueDate: "1970-01-01T00:00:01"
+            constraints:
+              nullable: false
+    - modifySql:
+        dbms: mysql
+        append:
+          value: " engine innodb"
+    rollback:
+    - dropTable:
+        tableName: artifact_last_refreshed
+
+- changeSet:
+    id: create-artifact-last-refreshed-indicies
+    author: osoriano
+    changes:
+    - createIndex:
+        indexName: artifact_last_refreshed_at_idx
+        tableName: artifact_last_refreshed
+        columns:
+        - column:
+            name: at
+    rollback:
+    - dropIndex:
+        indexName: artifact_last_refreshed_at_idx
+        tableName: artifact_last_refreshed
+- changeSet:
+    id: add-missing-primary-keys
+    author: osoriano
+    changes:
+    - dropUniqueConstraint:
+        tableName: artifact_last_refreshed
+        constraintName: artifact_uid
+        uniqueColumns: artifact_uid
+    - addPrimaryKey:
+        tableName: artifact_last_refreshed
+        columnNames: artifact_uid
+- changeSet:
+    id: foreign-keys-on-artifact_last_refreshed
+    author: osoriano
+    changes:
+    - sql:
+        sql: delete from artifact_last_refreshed where not exists (select 1 from delivery_artifact where artifact_last_refreshed.artifact_uid = delivery_artifact.uid)
+    - addForeignKeyConstraint:
+        baseTableName: artifact_last_refreshed
+        baseColumnNames: artifact_uid
+        constraintName: fk_artifact_last_refreshed_delivery_artifact
+        referencedTableName: delivery_artifact
+        referencedColumnNames: uid
+        referencesUniqueColumn: true
+        onDelete: CASCADE

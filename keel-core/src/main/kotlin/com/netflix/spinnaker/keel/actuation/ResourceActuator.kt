@@ -100,14 +100,15 @@ class ResourceActuator(
   suspend fun <T : ResourceSpec> checkResource(resource: Resource<T>) {
     withTracingContext(resource) {
       val id = resource.id
+      val envUid = resourceRepository.getEnvironmentUid(id)
       try {
         val plugin = handlers.supporting(resource.kind)
-        val deliveryConfig = deliveryConfigRepository.deliveryConfigFor(resource.id)
-        val environment = checkNotNull(deliveryConfig.environmentFor(resource)) {
-          "Failed to find environment for ${resource.id} in deliveryConfig ${deliveryConfig.name}"
-        }
+        // val deliveryConfig = deliveryConfigRepository.deliveryConfigFor(resource.id)
+        // val environment = checkNotNull(deliveryConfig.environmentFor(resource)) {
+        //   "Failed to find environment for ${resource.id} in deliveryConfig ${deliveryConfig.name}"
+        // }
 
-        log.debug("Checking resource $id in environment ${environment.name} of application ${deliveryConfig.application}")
+        log.debug("Checking resource $id")
 
         if (actuationPauser.isPaused(resource)) {
           log.debug("Actuation for resource {} is paused, skipping checks", id)
@@ -121,16 +122,11 @@ class ResourceActuator(
           return@withTracingContext
         }
 
-        if (deliveryConfig.isPromotionCheckStale()) {
-          log.debug("Artifact promotion check for application {} is stale, skipping resource checks", deliveryConfig.application)
-          publisher.publishEvent(ResourceCheckSkipped(resource.kind, id, "PromotionCheckStale"))
-          return@withTracingContext
-        }
-
-        if (environmentDeletionRepository.isMarkedForDeletion(environment)) {
-          log.debug("Skipping resource ${resource.id} as the parent environment is marked for deletion")
-          return@withTracingContext
-        }
+        // if (deliveryConfig.isPromotionCheckStale()) {
+        //   log.debug("Artifact promotion check for application {} is stale, skipping resource checks", deliveryConfig.application)
+        //   publisher.publishEvent(ResourceCheckSkipped(resource.kind, id, "PromotionCheckStale"))
+        //   return@withTracingContext
+        // }
 
         val (desired, current) = plugin.resolve(resource)
         val diff = DefaultResourceDiff(desired, current)
@@ -145,7 +141,6 @@ class ResourceActuator(
 
         val response = vetoEnforcer.canCheck(resource)
         if (!response.allowed) {
-          handleArtifactVetoing(response, resource, deliveryConfig, environment, desired)
           log.debug("Skipping actuation for resource {} because it was vetoed: {}", resource.id, response.message)
           publisher.publishEvent(ResourceCheckSkipped(resource.kind, resource.id, response.vetoName))
           publisher.publishEvent(
@@ -177,11 +172,10 @@ class ResourceActuator(
                 }
             }
             diff.hasChanges() -> {
-              log.warn("Resource {} is invalid", id)
-              log.info("Resource {} delta: {}", id, diff.toDebug())
+              log.debug("Resource {} delta: {}", id, diff.toDebug())
               publisher.publishEvent(ResourceDeltaDetected(resource, diff.toDeltaJson(), clock))
 
-              environmentExclusionEnforcer.withActuationLease(deliveryConfig, environment) {
+              environmentExclusionEnforcer.withActuationLease(envUid) {
                 plugin.update(resource, diff)
                   .also { tasks ->
                     if (tasks.isNotEmpty()) {
@@ -192,7 +186,7 @@ class ResourceActuator(
               }
             }
             else -> {
-              log.info("Resource {} is valid", id)
+              log.debug("Resource {} is valid", id)
               val lastEvent = resourceRepository.lastEvent(id)
               when (lastEvent) {
                 is ResourceActuationLaunched -> log.debug("waiting for actuating task to be completed") // do nothing and wait
@@ -213,92 +207,16 @@ class ResourceActuator(
           publisher.publishEvent(ResourceDiffNotActionable(resource, decision.message))
         }
       } catch (e: ResourceCurrentlyUnresolvable) {
-        log.warn("Resource check for {} failed (hopefully temporarily) due to {}", id, e.message)
+        log.info("Resource check for {} failed (hopefully temporarily) due to {}", id, e.message)
         publisher.publishEvent(ResourceCheckUnresolvable(resource, e, clock))
       } catch (e: ActiveVerifications) {
         log.info("Resource {} can't be actuated because a verification is running", id, e.message)
         publisher.publishEvent(VerificationBlockedActuation(resource, e, clock))
       } catch (e: EnvironmentCurrentlyBeingActedOn) {
-        log.info("Resource {} can't be actuated on because something else is happening in the environment", id, e.message)
+        log.info("Resource {} can't be actuated on because something else is happening in the environment: {}", id, e.message)
       } catch (e: Exception) {
         log.error("Resource check for $id failed", e)
         publisher.publishEvent(ResourceCheckError(resource, e.toSpinnakerException(), clock))
-      }
-    }
-  }
-
-  /**
-   * [VersionedArtifactProvider] is a special [resource] sub-type. When a veto response sets
-   * [VetoResponse.vetoArtifact], the resource under evaluation is of type
-   * [VersionedArtifactProvider], and the version has never before been deployed successfully to an environment,
-   * disallow the desired artifact version from being deployed to
-   * the environment containing [resource]. This ensures that the environment will be fully restored to
-   * a prior good-state.
-   *
-   * This method can override a veto's request to veto an artifact. In this method we have more
-   * information about the diff and the artifact version, and so we can make a better decision about
-   * whether or not to veto an artifact version
-   *
-   * If the version has previously been deployed successfully do not veto the artifact version because
-   * we do not want to veto the artifact version in the case of a bad config change or other downstream
-   * problem. Rolling back most likely will not help in these cases and it will probably cause confusion.
-   */
-  private fun handleArtifactVetoing(
-    response: VetoResponse,
-    resource: Resource<*>,
-    deliveryConfig: DeliveryConfig,
-    environment: Environment,
-    desired: Any?
-  ) {
-    if (response.vetoArtifact && resource.spec is VersionedArtifactProvider) {
-      try {
-        val versionedArtifact = desired.findArtifact()
-
-        if (versionedArtifact != null) {
-          val artifact = deliveryConfig.matchingArtifactByName(versionedArtifact.artifactName, versionedArtifact.artifactType)
-            ?: error("Artifact ${versionedArtifact.artifactType}:${versionedArtifact.artifactName} not found in delivery config ${deliveryConfig.name}")
-
-          val promotionStatus = artifactRepository.getArtifactPromotionStatus(
-            deliveryConfig, artifact, versionedArtifact.artifactVersion, environment.name)
-
-          val veto = EnvironmentArtifactVeto(
-            reference = artifact.reference,
-            version = versionedArtifact.artifactVersion,
-            targetEnvironment = environment.name,
-            vetoedBy = "Spinnaker",
-            comment = "Automatically marked as bad because multiple deployments of this version failed and none have ever succeeded."
-          )
-          if (promotionStatus == DEPLOYING) {
-            artifactRepository.markAsVetoedIn(
-              deliveryConfig = deliveryConfig,
-              veto = veto
-            )
-            log.info(
-              "Vetoing artifact version {} of artifact {} for config {} and env {} because multiple deploys failed",
-              versionedArtifact,
-              artifact.reference + ":" + artifact.type,
-              deliveryConfig.name,
-              environment.name
-            )
-
-            publisher.publishEvent(ArtifactVersionVetoed(
-              resource.application,
-              veto,
-              deliveryConfig),
-            )
-          } else {
-            log.info(
-              "Not vetoing artifact version {} of artifact {} for config {} and env {} because it's not currently deploying",
-              versionedArtifact,
-              artifact.reference + ":" + artifact.type,
-              deliveryConfig.name,
-              environment.name
-            )
-          }
-        }
-      } catch (e: Exception) {
-        log.warn("Failed to veto presumed bad artifact version for ${resource.id}", e)
-        // TODO: emit metric
       }
     }
   }

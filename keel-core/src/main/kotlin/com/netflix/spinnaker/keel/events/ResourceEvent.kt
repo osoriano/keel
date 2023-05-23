@@ -546,10 +546,10 @@ data class VerificationBlockedActuation(
     resource.version,
     resource.application,
     clock.instant(),
-    message = if(e.active.count() == 1) {
-      "there is an active verification against version ${e.active.first().version}"
+    message = if(true) {
+      "there is an active verification against version"
     } else {
-      "there are active verifications against versions ${e.active.map { it.version }}"
+      "there are active verifications against versions"
     }
   )
 }

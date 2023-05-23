@@ -151,6 +151,7 @@ interface ResourceRepository : PeriodicallyCheckedRepository<Resource<ResourceSp
    * Increments the number of attempted deletions of the [resource].
    */
   fun incrementDeletionAttempts(resource: Resource<*>)
+  fun getEnvironmentUid(resourceId: String): String
 
   /**
    * @return The current number of attempted deletions of the [resource].

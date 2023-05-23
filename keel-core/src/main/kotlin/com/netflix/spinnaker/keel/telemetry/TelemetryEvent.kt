@@ -35,7 +35,7 @@ data class ResourceCheckCompleted(
 ) : TelemetryEvent()
 
 data class AboutToBeChecked(
-  val lastCheckedAt: Instant,
+  val lastCheckedAt: Instant?,
   val type: String,
   val identifier: String? = null
 )

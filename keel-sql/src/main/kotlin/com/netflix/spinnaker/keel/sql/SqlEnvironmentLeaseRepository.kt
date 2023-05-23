@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.sql
 
+import com.netflix.spectator.api.BasicTag
 import com.netflix.spectator.api.Id
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.histogram.PercentileTimer
@@ -14,9 +15,13 @@ import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ACTIVE_ENVIRONMEN
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.DELIVERY_CONFIG
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_LEASE
 import com.netflix.spinnaker.keel.persistence.metamodel.tables.records.EnvironmentLeaseRecord
+import com.netflix.spinnaker.keel.telemetry.recordDurationPercentile
 import org.jooq.DSLContext
 import org.jooq.exception.DataAccessException
+import org.slf4j.LoggerFactory
+import org.springframework.dao.DataIntegrityViolationException
 import java.net.InetAddress
+import java.sql.SQLIntegrityConstraintViolationException
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -31,14 +36,9 @@ class SqlEnvironmentLeaseRepository(
   private val spectator: Registry,
   private val leaseDuration: Duration) : EnvironmentLeaseRepository {
 
-  private val leaseCountId = spectator.createId("lease.env.count")
+  private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
-  /**
-   * Percentile timer builder for measuring how long the lease is held
-   *
-   * We use the default percentile time range: 10ms to 1 minute
-   */
-  private val timerBuilder = PercentileTimer.builder(spectator).withName("lease.env.duration")
+  private val leaseCountId = spectator.createId("lease.env.count")
 
 
   /**
@@ -58,31 +58,32 @@ class SqlEnvironmentLeaseRepository(
 
       jooq.inTransaction {
 
-        /**
-         *  This select uses forShare() (LOCK IN SHARE MODE) to ensure that the transaction is serializable
-         *  Without it, there's a race condition where two processes could both check for an active lease,
-         *  both find none, and then both take the lease.
-         */
         val record: EnvironmentLeaseRecord? = selectFrom(ENVIRONMENT_LEASE)
           .where(ENVIRONMENT_LEASE.ENVIRONMENT_UID.eq(environmentUid))
-          .forShare()
+          .forUpdate()
           .fetchOne()
 
         when {
           // no existing lease
-          record == null -> insertRecord(this, leaseUid, environmentUid, actionType)
+          record == null -> insertRecord(this, leaseUid, environmentUid, actionType, deliveryConfig.application, environment.name)
             .also { leaseCountId.incrementGranted("free", actionType, deliveryConfig.application, environment.name) }
 
           // expired lease
           isExpired(record.leasedAt) -> updateRecord(this, leaseUid, environmentUid, actionType)
-            .also { leaseCountId.incrementGranted("expired", actionType, deliveryConfig.application, environment.name) }
+            .also {
+              log.warn("Got expired lease for ${deliveryConfig.application}/${environment.name}")
+              leaseCountId.incrementGranted("expired", actionType, deliveryConfig.application, environment.name)
+            }
 
           // active lease
-          else -> throw ActiveLeaseExists(environment, record.leasedBy, record.leasedAt)
-            .also { leaseCountId.incrementDenied(actionType, deliveryConfig.application, environment.name) }
+          else -> throw ActiveLeaseExists(environment.name, record.leasedBy, record.leasedAt)
+            .also {
+              log.error("Lease already exists for ${deliveryConfig.application}/${environment.name}")
+              leaseCountId.incrementDenied(actionType, deliveryConfig.application, environment.name)
+            }
         }
       }
-      return SqlLease(this, leaseUid, startTime, actionType, timerBuilder, clock)
+      return SqlLease(this, environmentUid, leaseUid, startTime, actionType, spectator, clock)
 
     } catch (e: DataAccessException) {
       recordDeniedLeaseTime(startTime, actionType)
@@ -97,13 +98,65 @@ class SqlEnvironmentLeaseRepository(
     }
   }
 
-  private fun recordDeniedLeaseTime(startTime: Instant, actionType: String) {
-    timerBuilder
-      .withTag("action", actionType)
-      .withTag("outcome", "denied")
-      .build()
-      .record(Duration.between(startTime, clock.instant()))
+  override fun tryAcquireLease(environmentUid: String, actionType: String): Lease {
+    val startTime = clock.instant()
+
+    try {
+      val leaseUid = randomUID()
+
+      jooq.inTransaction {
+
+        val record: EnvironmentLeaseRecord? = selectFrom(ENVIRONMENT_LEASE)
+          .where(ENVIRONMENT_LEASE.ENVIRONMENT_UID.eq(environmentUid))
+          .forUpdate()
+          .fetchOne()
+
+        when {
+          // no existing lease
+          record == null -> insertRecord(this, leaseUid, environmentUid, actionType, "keelapplication", "keelenvironment")
+            .also { leaseCountId.incrementGranted("free", actionType, "keelapplication", "keelenvironment") }
+
+          // expired lease
+          isExpired(record.leasedAt) -> updateRecord(this, leaseUid, environmentUid, actionType)
+            .also {
+              log.warn("Got expired lease for ${environmentUid}")
+              leaseCountId.incrementGranted("expired", actionType, "keelapplication", "keelenvironment")
+            }
+
+          // active lease
+          else -> throw ActiveLeaseExists(environmentUid, record.leasedBy, record.leasedAt)
+            .also {
+              log.error("Lease already exists for ${environmentUid}")
+              leaseCountId.incrementDenied(actionType, "keelapplication", "keelenvironment")
+            }
+        }
+      }
+      return SqlLease(this, environmentUid, leaseUid, startTime, actionType, spectator, clock)
+
+    } catch (e: DataAccessException) {
+      recordDeniedLeaseTime(startTime, actionType)
+
+      // jooq.inTransaction wraps our exception in a DataAccessException so we need to unwrap it
+      (e.cause as? ActiveLeaseExists)
+        ?.let { throw it }
+        ?: throw e
+    } catch (e: Exception) {
+      recordDeniedLeaseTime(startTime, actionType)
+      throw e
+    }
   }
+
+  /**
+   * Percentile timer for measuring how long the lease is held
+   *
+   * We use the default percentile time range: 10ms to 1 minute
+   */
+  private fun recordDeniedLeaseTime(startTime : Instant, actionType: String) =
+    spectator.recordDurationPercentile(
+      "lease.env.duration",
+      clock,
+      startTime,
+      setOf(BasicTag("action", actionType), BasicTag("outcome", "denied")))
 
   /**
    * Return true if the expiration date of the lease is in the past
@@ -114,14 +167,38 @@ class SqlEnvironmentLeaseRepository(
     return expirationDate < now
   }
 
-  private fun insertRecord(ctx: DSLContext, uid: UID, environmentUid: String, comment: String) {
-    ctx.insertInto(ENVIRONMENT_LEASE)
-      .set(ENVIRONMENT_LEASE.UID, uid.toString())
-      .set(ENVIRONMENT_LEASE.ENVIRONMENT_UID, environmentUid)
-      .set(ENVIRONMENT_LEASE.LEASED_BY, lesseeIdentifier())
-      .set(ENVIRONMENT_LEASE.LEASED_AT, clock.instant())
-      .set(ENVIRONMENT_LEASE.COMMENT, comment)
-      .execute()
+  private fun insertRecord(
+    ctx: DSLContext,
+    uid: UID,
+    environmentUid: String,
+    actionType: String,
+    application: String,
+    environmentName: String
+  ) {
+    try {
+      ctx.insertInto(ENVIRONMENT_LEASE)
+        .set(ENVIRONMENT_LEASE.UID, uid.toString())
+        .set(ENVIRONMENT_LEASE.ENVIRONMENT_UID, environmentUid)
+        .set(ENVIRONMENT_LEASE.LEASED_BY, lesseeIdentifier())
+        .set(ENVIRONMENT_LEASE.LEASED_AT, clock.instant())
+        .set(ENVIRONMENT_LEASE.COMMENT, actionType)
+        .execute()
+    } catch (e: DataAccessException) {
+      // jooq.inTransaction wraps our exception in a DataAccessException so we need to unwrap it
+      (e.cause as? SQLIntegrityConstraintViolationException)
+        ?.let {
+            log.error("Lease already exists for $application/${environmentName}")
+            leaseCountId.incrementDenied(actionType, application, environmentName)
+          throw ActiveLeaseExists(environmentName, "insertConflict", clock.instant())
+        } ?: throw e
+    } catch (e: DataIntegrityViolationException) {
+      (e.cause as? SQLIntegrityConstraintViolationException)
+        ?.let {
+            log.error("Lease already exists for $application/${environmentName}")
+            leaseCountId.incrementDenied(actionType, application, environmentName)
+          throw ActiveLeaseExists(environmentName, "insertConflict", clock.instant())
+        } ?: throw e
+    }
   }
 
   /**
@@ -140,9 +217,34 @@ class SqlEnvironmentLeaseRepository(
   }
 
   fun release(lease: SqlLease) {
-    jooq.deleteFrom(ENVIRONMENT_LEASE)
-      .where(ENVIRONMENT_LEASE.UID.eq(lease.uid.toString()))
-      .execute()
+    jooq.inTransaction {
+
+      val record: EnvironmentLeaseRecord? = selectFrom(ENVIRONMENT_LEASE)
+        .where(ENVIRONMENT_LEASE.ENVIRONMENT_UID.eq(lease.environmentUid))
+        .forUpdate()
+        .fetchOne()
+
+      when {
+        // no existing lease
+        record == null -> {
+          log.warn("Lease for environment ${lease.environmentUid} missing. Operation may have taken longer "
+            + "than the lease duration")
+        }
+
+        // end the current active lease
+        record.uid == lease.leaseUid.toString() -> {
+          deleteFrom(ENVIRONMENT_LEASE)
+            .where(ENVIRONMENT_LEASE.ENVIRONMENT_UID.eq(lease.environmentUid))
+            .execute()
+        }
+
+        // lease was granted to another transaction
+        else -> {
+          log.warn("Lease for environment ${lease.environmentUid} taken by another transaction. "
+            + "Operation may have taken longer than the lease duration")
+        }
+      }
+    }
   }
 
   private fun getEnvironmentUid(deliveryConfig: DeliveryConfig, environment: Environment): String =
@@ -184,20 +286,20 @@ class SqlEnvironmentLeaseRepository(
 
   class SqlLease(
     val repository: SqlEnvironmentLeaseRepository,
-    val uid: UID,
+    val environmentUid: String,
+    val leaseUid: UID,
     private val startTime: Instant,
     private val actionType: String,
-    private val timerBuilder: PercentileTimer.Builder,
+    private val spectator: Registry,
     private val clock: Clock
   ) : Lease {
     override fun close() {
       repository.release(this)
-
-      timerBuilder
-        .withTag("action", actionType)
-        .withTag("outcome", "granted")
-        .build()
-        .record(Duration.between(startTime, clock.instant()))
+      spectator.recordDurationPercentile(
+        "lease.env.duration",
+        clock,
+        startTime,
+        setOf(BasicTag("action", actionType), BasicTag("outcome", "granted")))
     }
   }
 }

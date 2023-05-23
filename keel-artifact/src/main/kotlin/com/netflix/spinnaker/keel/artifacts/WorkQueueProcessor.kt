@@ -123,27 +123,34 @@ final class WorkQueueProcessor(
       val startTime = clock.instant()
       val job = launch(TracingSupport.blankMDC) {
         supervisorScope {
+          runCatching {
            workQueueRepository
               .removeArtifactsFromQueue(artifactBatchSize)
-              .forEach { artifactVersion ->
-                try {
-                  /**
-                   * Allow individual artifact processing to timeout but catch the `CancellationException`
-                   * to prevent the cancellation of all coroutines under [job]
-                   */
-                  log.debug("Processing artifact {}", artifactVersion)
-                  withTimeout(config.timeoutDuration.toMillis()) {
-                    launch {
+          }
+            .onFailure {
+              log.error("Exception fetching artifacts from work queue", it)
+            }
+            .onSuccess {
+              it.forEach { artifactVersion ->
+                launch {
+                  try {
+                    /**
+                     * Allow individual artifact processing to timeout but catch the `CancellationException`
+                     * to prevent the cancellation of all coroutines under [job]
+                     */
+                    log.debug("Processing artifact {}", artifactVersion)
+                    withTimeout(config.timeoutDuration.toMillis()) {
                       handlePublishedArtifact(artifactVersion)
                       lastArtifactCheck.set(clock.instant())
                     }
+                  } catch (e: TimeoutCancellationException) {
+                    log.error("Timed out processing artifact version {}:", artifactVersion.version, e)
                   }
-                } catch (e: TimeoutCancellationException) {
-                  log.error("Timed out processing artifact version {}:", artifactVersion.version, e)
                 }
               }
             }
         }
+      }
       runBlocking { job.join() }
       spectator.recordDuration(ARTIFACT_PROCESSING_DURATION, clock, startTime)
     }
@@ -179,13 +186,20 @@ final class WorkQueueProcessor(
       val startTime = clock.instant()
       val job = launch(TracingSupport.blankMDC) {
         supervisorScope {
-          workQueueRepository
-            .removeCodeEventsFromQueue(codeEventBatchSize)
-            .forEach { codeEvent ->
-              // publishing the event here throttles the influx of code events
-              // so that we can deal with them in a slower manner
-              publisher.publishEvent(codeEvent)
-              lastCodeCheck.set(clock.instant())
+          runCatching {
+            workQueueRepository
+              .removeCodeEventsFromQueue(codeEventBatchSize)
+          }
+            .onFailure {
+              log.error("Error fetching code events from work queue", it)
+            }
+            .onSuccess {
+              it.forEach { codeEvent ->
+                // publishing the event here throttles the influx of code events
+                // so that we can deal with them in a slower manner
+                publisher.publishEvent(codeEvent)
+                lastCodeCheck.set(clock.instant())
+              }
             }
         }
       }
@@ -212,7 +226,7 @@ final class WorkQueueProcessor(
    */
   fun enrichAndStore(artifact: PublishedArtifact, supplier: ArtifactSupplier<*,*>): Boolean {
     val enrichedArtifact = supplier.addMetadata(artifact.normalized())
-    publishBuildLifecycleEvent(enrichedArtifact)
+    // publishBuildLifecycleEvent(enrichedArtifact)
     return repository.storeArtifactVersion(enrichedArtifact)
   }
 

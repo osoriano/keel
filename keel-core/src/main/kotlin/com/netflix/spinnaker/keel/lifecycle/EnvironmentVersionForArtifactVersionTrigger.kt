@@ -6,6 +6,9 @@ import com.netflix.spinnaker.keel.lifecycle.LifecycleEventStatus.SUCCEEDED
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEventType.BUILD
 import com.netflix.spinnaker.keel.persistence.DeliveryConfigRepository
 import com.netflix.spinnaker.keel.persistence.NoSuchDeliveryConfigException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
@@ -20,16 +23,18 @@ class EnvironmentVersionForArtifactVersionTrigger(
       return
     }
 
-    val (deliveryConfig, artifact) = event.deliveryConfigAndArtifactOrNull() ?: return
+    GlobalScope.launch(Dispatchers.IO) {
+      val (deliveryConfig, artifact) = event.deliveryConfigAndArtifactOrNull() ?: return@launch
 
-    deliveryConfig.environments.forEach { environment ->
-      if (artifact.isUsedIn(environment)) {
-        deliveryConfigRepository.addArtifactVersionToEnvironment(
-          deliveryConfig,
-          environment.name,
-          artifact,
-          event.artifactVersion
-        )
+      deliveryConfig.environments.forEach { environment ->
+        if (artifact.isUsedIn(environment)) {
+          deliveryConfigRepository.addArtifactVersionToEnvironment(
+            deliveryConfig,
+            environment.name,
+            artifact,
+            event.artifactVersion
+          )
+        }
       }
     }
   }

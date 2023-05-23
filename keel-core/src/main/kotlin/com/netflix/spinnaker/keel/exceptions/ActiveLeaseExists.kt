@@ -4,8 +4,8 @@ import com.netflix.spinnaker.keel.api.Environment
 import java.time.Instant
 
 class ActiveLeaseExists(
-  environment: Environment,
+  environmentUid: String,
   holder: String,
   leasedAt: Instant
-) : EnvironmentCurrentlyBeingActedOn("Active lease exists on ${environment.name}: leased by $holder at $leasedAt") {}
+) : EnvironmentCurrentlyBeingActedOn("Active lease exists on ${environmentUid}: leased by $holder at $leasedAt") {}
 

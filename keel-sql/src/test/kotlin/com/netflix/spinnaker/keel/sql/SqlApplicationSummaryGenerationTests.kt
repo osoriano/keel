@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.sql
 
+import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.persistence.ApplicationSummaryGenerationTests
 import com.netflix.spinnaker.keel.serialization.configuredObjectMapper
@@ -22,11 +23,12 @@ class SqlApplicationSummaryGenerationTests : ApplicationSummaryGenerationTests<S
     objectMapper,
     resourceFactory(),
     sqlRetry,
-    publisher = mockk(relaxed = true)
+    publisher = mockk(relaxed = true),
+    spectator = NoopRegistry(),
   )
 
   override fun factory(clock: Clock): SqlArtifactRepository =
-    SqlArtifactRepository(jooq, clock, objectMapper, sqlRetry, publisher = mockk(relaxed = true))
+    SqlArtifactRepository(jooq, clock, objectMapper, sqlRetry, publisher = mockk(relaxed = true), spectator = NoopRegistry())
 
   override fun SqlArtifactRepository.flush() {
     SqlTestUtil.cleanupDb(jooq)

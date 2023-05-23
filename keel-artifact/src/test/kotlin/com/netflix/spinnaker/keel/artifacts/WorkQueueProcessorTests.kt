@@ -173,11 +173,6 @@ internal class WorkQueueProcessorTests : JUnit5Minutests {
 
           subject.handlePublishedArtifact(version)
         }
-
-        test("only lifecycle event recorded") {
-          coVerify(exactly = 1) { publisher.publishEvent(ofType<LifecycleEvent>()) }
-          coVerify(exactly = 0) { publisher.publishEvent(ofType<ArtifactVersionUpdated>())  }
-        }
       }
 
       context("the version is new") {

@@ -90,7 +90,8 @@ internal class LegacySpecUpgradeTests : JUnit5Minutests {
       resourceFactory,
       sqlRetry,
       emptyList(),
-      publisher = mockk(relaxed = true)
+      publisher = mockk(relaxed = true),
+      spectator = NoopRegistry(),
     )
     val resourceRepository = SqlResourceRepository(
       jooq,

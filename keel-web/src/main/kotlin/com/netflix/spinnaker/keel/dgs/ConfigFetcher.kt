@@ -24,7 +24,7 @@ class ConfigFetcher(
     return MdConfig(
       id = "${config.application}-${config.name}",
       updatedAt = config.updatedAt,
-      rawConfig = config.rawConfig,
+      rawConfig = yamlMapper.writeValueAsString(yamlMapper.readTree(config.rawConfig)),
       processedConfig = yamlMapper.writeValueAsString(config.copy(rawConfig = null))
     )
   }

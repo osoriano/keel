@@ -3,6 +3,8 @@ package com.netflix.spinnaker.keel.sql
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.convertValue
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.netflix.spectator.api.BasicTag
+import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
@@ -39,6 +41,7 @@ import com.netflix.spinnaker.keel.persistence.NoSuchArtifactException
 import com.netflix.spinnaker.keel.persistence.NoSuchArtifactVersionException
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ACTIVE_ENVIRONMENT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ARTIFACT_LAST_CHECKED
+import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ARTIFACT_LAST_REFRESHED
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ARTIFACT_VERSIONS
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.CURRENT_ENVIRONMENT_ARTIFACT_VERSIONS
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.DELIVERY_ARTIFACT
@@ -47,6 +50,7 @@ import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_ARTIFACT_PIN
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_ARTIFACT_VERSIONS
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_ARTIFACT_VETO
+import com.netflix.spinnaker.keel.persistence.metamodel.Tables.SCHEDULER_LOCK
 import com.netflix.spinnaker.keel.services.StatusInfoForArtifactInEnvironment
 import com.netflix.spinnaker.keel.sql.RetryCategory.READ
 import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
@@ -70,6 +74,7 @@ import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.time.Instant.EPOCH
+import java.util.concurrent.TimeUnit
 import javax.xml.bind.DatatypeConverter
 
 class SqlArtifactRepository(
@@ -78,7 +83,8 @@ class SqlArtifactRepository(
   private val objectMapper: ObjectMapper,
   private val sqlRetry: SqlRetry,
   private val artifactSuppliers: List<ArtifactSupplier<*, *>> = emptyList(),
-  private val publisher: ApplicationEventPublisher
+  private val publisher: ApplicationEventPublisher,
+  private val spectator: Registry,
 ) : ArtifactRepository {
 
   override fun register(artifact: DeliveryArtifact) {
@@ -115,6 +121,12 @@ class SqlArtifactRepository(
         .set(ARTIFACT_LAST_CHECKED.AT, EPOCH.plusSeconds(1))
         .onDuplicateKeyUpdate()
         .set(ARTIFACT_LAST_CHECKED.AT, EPOCH.plusSeconds(1))
+        .execute()
+      jooq.insertInto(ARTIFACT_LAST_REFRESHED)
+        .set(ARTIFACT_LAST_REFRESHED.ARTIFACT_UID, id)
+        .set(ARTIFACT_LAST_REFRESHED.AT, EPOCH.plusSeconds(1))
+        .onDuplicateKeyUpdate()
+        .set(ARTIFACT_LAST_REFRESHED.AT, EPOCH.plusSeconds(1))
         .execute()
     }
   }
@@ -225,6 +237,73 @@ class SqlArtifactRepository(
           )
         }
     }
+
+
+  override fun itemsDueForRefresh(minTimeSinceLastCheck: Duration, limit: Int): Collection<DeliveryArtifact> {
+    val now = clock.instant()
+    val cutoff = now.minus(minTimeSinceLastCheck)
+    return sqlRetry.withRetry(WRITE) {
+      jooq.inTransaction {
+
+        selectFrom(SCHEDULER_LOCK)
+          .where(SCHEDULER_LOCK.LOCK_NAME.eq("delivery_artifact_refreshed"))
+          .forUpdate()
+
+        select(
+          DELIVERY_ARTIFACT.UID,
+          DELIVERY_ARTIFACT.NAME,
+          DELIVERY_ARTIFACT.TYPE,
+          DELIVERY_ARTIFACT.DETAILS,
+          DELIVERY_ARTIFACT.REFERENCE,
+          DELIVERY_ARTIFACT.DELIVERY_CONFIG_NAME,
+          ARTIFACT_LAST_REFRESHED.AT
+        )
+          .from(DELIVERY_ARTIFACT, ARTIFACT_LAST_REFRESHED)
+          .where(DELIVERY_ARTIFACT.UID.eq(ARTIFACT_LAST_REFRESHED.ARTIFACT_UID))
+          .and(ARTIFACT_LAST_REFRESHED.AT.lessOrEqual(cutoff))
+          .orderBy(ARTIFACT_LAST_REFRESHED.AT)
+          .limit(limit)
+          .fetch()
+          .also {
+            var maxLagTime = Duration.ZERO
+            val now = clock.instant()
+            it.forEach { (uid, _, _, _, _, deliveryConfigName, lastCheckedAt) ->
+              insertInto(ARTIFACT_LAST_REFRESHED)
+                .set(ARTIFACT_LAST_REFRESHED.ARTIFACT_UID, uid)
+                .set(ARTIFACT_LAST_REFRESHED.AT, now)
+                .onDuplicateKeyUpdate()
+                .set(ARTIFACT_LAST_REFRESHED.AT, now)
+                .execute()
+              if (lastCheckedAt != null && lastCheckedAt.isAfter(Instant.EPOCH.plusSeconds(2))) {
+                val lagTime = Duration.between(lastCheckedAt, now)
+                if (maxLagTime.compareTo(lagTime) < 0) {
+                  maxLagTime = lagTime
+                }
+              }
+            }
+            spectator.timer(
+              "keel.scheduled.method.max.lag",
+              listOf(
+                BasicTag("type", "artifactrefresh")
+              )
+            ).record(maxLagTime.toSeconds(), TimeUnit.SECONDS)
+          }
+          .map { (_, name, storedType, details, reference, deliveryConfigName) ->
+            mapToArtifact(
+              artifactSuppliers.supporting(storedType),
+              name,
+              storedType.toLowerCase(),
+              details,
+              reference,
+              deliveryConfigName
+            )
+          }
+      }
+    }
+  }
+
+
+
 
   override fun versions(artifact: DeliveryArtifact, limit: Int): List<PublishedArtifact> {
     val retry = Retry.of(
@@ -407,8 +486,8 @@ class SqlArtifactRepository(
     targetEnvironment: String
   ): String? {
     val environment = deliveryConfig.environmentNamed(targetEnvironment)
-    val envUid = deliveryConfig.getUidFor(environment)
-    val artifactId = artifact.uid
+    val environmentName = environment.name
+    val deliveryConfigName = deliveryConfig.name
 
     /**
      * If [targetEnvironment] has been pinned to an artifact version, return
@@ -417,9 +496,13 @@ class SqlArtifactRepository(
     sqlRetry.withRetry(READ) {
       jooq.select(ENVIRONMENT_ARTIFACT_PIN.ARTIFACT_VERSION)
         .from(ENVIRONMENT_ARTIFACT_PIN)
+        .join(ENVIRONMENT)
+        .on(ENVIRONMENT_ARTIFACT_PIN.ENVIRONMENT_UID.eq(ENVIRONMENT.UID))
+        .join(DELIVERY_ARTIFACT)
+        .on(ENVIRONMENT_ARTIFACT_PIN.ARTIFACT_UID.eq(DELIVERY_ARTIFACT.UID))
         .where(
-          ENVIRONMENT_ARTIFACT_PIN.ENVIRONMENT_UID.eq(envUid),
-          ENVIRONMENT_ARTIFACT_PIN.ARTIFACT_UID.eq(artifactId)
+          ENVIRONMENT.NAME.eq(environmentName),
+          DELIVERY_ARTIFACT.DELIVERY_CONFIG_NAME.eq(deliveryConfigName)
         )
         .fetchOne(ENVIRONMENT_ARTIFACT_PIN.ARTIFACT_VERSION)
     }
@@ -436,10 +519,19 @@ class SqlArtifactRepository(
           ARTIFACT_VERSIONS.GIT_METADATA,
           ARTIFACT_VERSIONS.BUILD_METADATA
         )
-        .from(ARTIFACT_VERSIONS, ENVIRONMENT_ARTIFACT_VERSIONS)
-        .where(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION.eq(ARTIFACT_VERSIONS.VERSION))
-        .and(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(envUid))
-        .and(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(artifactId))
+        .from(ARTIFACT_VERSIONS)
+        .join(ENVIRONMENT_ARTIFACT_VERSIONS)
+        .on(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION.eq(ARTIFACT_VERSIONS.VERSION))
+        .join(ENVIRONMENT)
+        .on(ENVIRONMENT.UID.eq(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID))
+        .join(DELIVERY_ARTIFACT)
+        .on(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(DELIVERY_ARTIFACT.UID))
+        .and(ARTIFACT_VERSIONS.NAME.eq(DELIVERY_ARTIFACT.NAME))
+        .where(ENVIRONMENT.NAME.eq(environmentName))
+        .and(DELIVERY_ARTIFACT.NAME.eq(artifact.name))
+        .and(DELIVERY_ARTIFACT.TYPE.eq(artifact.type))
+        .and(DELIVERY_ARTIFACT.DELIVERY_CONFIG_NAME.eq(artifact.deliveryConfigName))
+        .and(DELIVERY_ARTIFACT.REFERENCE.eq(artifact.reference))
         .and(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT.isNotNull)
         .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.ne(VETOED))
         .orderBy(ENVIRONMENT_ARTIFACT_VERSIONS.APPROVED_AT.desc())
@@ -1863,6 +1955,11 @@ class SqlArtifactRepository(
     val cutoff = now.minus(minTimeSinceLastCheck)
     return sqlRetry.withRetry(WRITE) {
       jooq.inTransaction {
+
+        selectFrom(SCHEDULER_LOCK)
+          .where(SCHEDULER_LOCK.LOCK_NAME.eq("delivery_artifact"))
+          .forUpdate()
+
         select(
           DELIVERY_ARTIFACT.UID,
           DELIVERY_ARTIFACT.NAME,
@@ -1877,22 +1974,30 @@ class SqlArtifactRepository(
           .and(ARTIFACT_LAST_CHECKED.AT.lessOrEqual(cutoff))
           .orderBy(ARTIFACT_LAST_CHECKED.AT)
           .limit(limit)
-          .forUpdate()
           .fetch()
-          .onEach { (uid, _, _, _, _, deliveryConfigName, lastCheckedAt) ->
-            insertInto(ARTIFACT_LAST_CHECKED)
-              .set(ARTIFACT_LAST_CHECKED.ARTIFACT_UID, uid)
-              .set(ARTIFACT_LAST_CHECKED.AT, now)
-              .onDuplicateKeyUpdate()
-              .set(ARTIFACT_LAST_CHECKED.AT, now)
-              .execute()
-            publisher.publishEvent(
-              AboutToBeChecked(
-                lastCheckedAt,
-                "artifact",
-                "deliveryConfig:$deliveryConfigName"
+          .also {
+            var maxLagTime = Duration.ZERO
+            val now = clock.instant()
+            it.forEach { (uid, _, _, _, _, deliveryConfigName, lastCheckedAt) ->
+              insertInto(ARTIFACT_LAST_CHECKED)
+                .set(ARTIFACT_LAST_CHECKED.ARTIFACT_UID, uid)
+                .set(ARTIFACT_LAST_CHECKED.AT, now)
+                .onDuplicateKeyUpdate()
+                .set(ARTIFACT_LAST_CHECKED.AT, now)
+                .execute()
+              if (lastCheckedAt != null && lastCheckedAt.isAfter(Instant.EPOCH.plusSeconds(2))) {
+                val lagTime = Duration.between(lastCheckedAt, now)
+                if (maxLagTime.compareTo(lagTime) < 0) {
+                  maxLagTime = lagTime
+                }
+              }
+            }
+            spectator.timer(
+              "keel.scheduled.method.max.lag",
+              listOf(
+                BasicTag("type", "artifactcheck")
               )
-            )
+            ).record(maxLagTime.toSeconds(), TimeUnit.SECONDS)
           }
           .map { (_, name, type, details, reference, deliveryConfigName) ->
             mapToArtifact(artifactSuppliers.supporting(type), name, type, details, reference, deliveryConfigName)

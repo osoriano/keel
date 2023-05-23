@@ -24,7 +24,8 @@ internal class SqlResourceRepositoryTests : ResourceRepositoryTests<SqlResourceR
     configuredObjectMapper(),
     resourceFactory,
     sqlRetry,
-    publisher = mockk(relaxed = true)
+    publisher = mockk(relaxed = true),
+    spectator = NoopRegistry(),
   )
 
   override fun factory(clock: Clock, publisher: ApplicationEventPublisher): SqlResourceRepository {

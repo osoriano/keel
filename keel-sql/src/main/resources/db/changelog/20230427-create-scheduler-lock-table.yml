@@ -1,0 +1,54 @@
+databaseChangeLog:
+  - changeSet:
+      id: create-scheduler-lock-table
+      author: osoriano
+      changes:
+        - createTable:
+            tableName: scheduler_lock
+            columns:
+              - column:
+                  name: lock_name
+                  type: varchar(256)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+  - changeSet:
+      id: add-scheduler-lock-delivery-config
+      author: osoriano
+      changes:
+      - insert:
+          tableName: scheduler_lock
+          columns:
+          - column:
+              name: lock_name
+              value: delivery_config
+  - changeSet:
+      id: add-scheduler-lock-delivery-artifact
+      author: osoriano
+      changes:
+      - insert:
+          tableName: scheduler_lock
+          columns:
+          - column:
+              name: lock_name
+              value: delivery_artifact
+  - changeSet:
+      id: add-scheduler-lock-environment-verification
+      author: osoriano
+      changes:
+      - insert:
+          tableName: scheduler_lock
+          columns:
+          - column:
+              name: lock_name
+              value: environment_verification
+  - changeSet:
+      id: add-scheduler-lock-delivery-artifact-refreshed
+      author: osoriano
+      changes:
+      - insert:
+          tableName: scheduler_lock
+          columns:
+          - column:
+              name: lock_name
+              value: delivery_artifact_refreshed

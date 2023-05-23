@@ -289,22 +289,42 @@ class ApplicationService(
       emptyList()
     }
 
-  private fun List<EnvironmentSummary>.sortedByDependencies() =
-    sortedWith { env1, env2 ->
-      when {
-        env1.dependsOn(env2) -> 1
-        env2.dependsOn(env1) -> -1
-        env1.hasDependencies() && !env2.hasDependencies() -> 1
-        env2.hasDependencies() && !env1.hasDependencies() -> -1
-        else -> 0
-      }
+  // todo does not handle duplicate env names
+  // todo does not handle env in dependency missing from env list
+  private fun List<EnvironmentSummary>.sortedByDependencies() : List<EnvironmentSummary> {
+    val summaries = sortedWith { env1, env2 -> env1.name.compareTo(env2.name, ignoreCase = true) }
+    val summaryByName = associateBy({ it.name }, { it })
+    val deps = associateBy({ it.name }, { it.getDependencies() })
+
+    val visited = mutableSetOf<String>()
+    val result = mutableListOf<EnvironmentSummary>()
+    for (summary in summaries) {
+        val resultForSummary = mutableListOf<EnvironmentSummary>()
+        val queue = mutableListOf<EnvironmentSummary>(summary)
+
+        while (!queue.isEmpty()) {
+            val curr = queue.removeLast()
+            if (curr.name in visited) {
+                continue
+            }
+            visited.add(curr.name)
+            resultForSummary.add(curr)
+
+            if (deps[curr.name] != null) {
+                for (dep in deps[curr.name]!!) {
+                    queue.add(summaryByName[dep]!!)
+                }
+            }
+
+        }
+        result.addAll(resultForSummary.reversed())
     }
+    return result
+  }
 
-  private fun EnvironmentSummary.dependsOn(another: EnvironmentSummary) =
-    environment.constraints.any { it is DependsOnConstraint && it.environment == another.environment.name }
 
-  private fun EnvironmentSummary.hasDependencies() =
-    environment.constraints.any { it is DependsOnConstraint }
+  private fun EnvironmentSummary.getDependencies() =
+    environment.constraints.filter { it is DependsOnConstraint }.map { (it as DependsOnConstraint).environment }.toSet()
 
   /**
    * Returns a list of [ArtifactSummary] for the specified application by traversing the list of [EnvironmentSummary]

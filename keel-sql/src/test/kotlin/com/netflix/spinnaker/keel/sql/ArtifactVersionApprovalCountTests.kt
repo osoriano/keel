@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.sql
 
+import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.keel.test.configuredTestObjectMapper
 import com.netflix.spinnaker.keel.test.defaultArtifactSuppliers
 import com.netflix.spinnaker.keel.test.deliveryConfig
@@ -34,14 +35,16 @@ class ArtifactVersionApprovalCountTests {
     resourceFactory,
     sqlRetry,
     defaultArtifactSuppliers(),
-    publisher = publisher
+    publisher = publisher,
+    spectator = NoopRegistry()
   )
   private val artifactRepository = SqlArtifactRepository(
     jooq,
     clock,
     objectMapper,
     sqlRetry,
-    publisher = publisher
+    publisher = publisher,
+    spectator = NoopRegistry(),
   )
 
   @Test

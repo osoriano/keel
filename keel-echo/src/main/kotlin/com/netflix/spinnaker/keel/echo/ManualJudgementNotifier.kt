@@ -9,7 +9,9 @@ import com.netflix.spinnaker.keel.artifacts.ArtifactVersionLinks
 import com.netflix.spinnaker.keel.core.api.ManualJudgementConstraint
 import com.netflix.spinnaker.keel.echo.model.EchoNotification
 import com.netflix.spinnaker.keel.persistence.KeelRepository
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Configuration
@@ -45,16 +47,16 @@ class ManualJudgementNotifier(
   @EventListener(ConstraintStateChanged::class)
   fun constraintStateChanged(event: ConstraintStateChanged) {
     if (!isNewSlackEnabled) {
-      log.debug("Received constraint state changed event: $event")
-      // if this is the first time the constraint was evaluated, send a notification
-      // so the user can react via other interfaces outside the UI (e.g. e-mail, Slack)
-      if (event.constraint is ManualJudgementConstraint &&
-        event.previousState == null &&
-        event.currentState.status == ConstraintStatus.PENDING
-      ) {
-        event.environment.notifications.map {
-          // TODO: run in parallel
-          runBlocking {
+      GlobalScope.launch(Dispatchers.IO) {
+        log.debug("Received constraint state changed event: $event")
+        // if this is the first time the constraint was evaluated, send a notification
+        // so the user can react via other interfaces outside the UI (e.g. e-mail, Slack)
+        if (event.constraint is ManualJudgementConstraint &&
+          event.previousState == null &&
+          event.currentState.status == ConstraintStatus.PENDING
+        ) {
+          event.environment.notifications.map {
+            // TODO: run in parallel
             log.debug("Sending notification for manual judgement with config $it")
             echoService.sendNotification(event.toEchoNotification(it))
           }

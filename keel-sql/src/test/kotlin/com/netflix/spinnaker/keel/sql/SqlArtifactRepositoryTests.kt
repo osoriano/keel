@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.sql
 
+import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactOriginFilter
@@ -39,11 +40,12 @@ class SqlArtifactRepositoryTests : ArtifactRepositoryTests<SqlArtifactRepository
     resourceFactory(),
     sqlRetry,
     defaultArtifactSuppliers(),
-    publisher = mockk(relaxed = true)
+    publisher = mockk(relaxed = true),
+    spectator = NoopRegistry(),
   )
 
   override fun factory(clock: Clock, publisher: ApplicationEventPublisher): SqlArtifactRepository =
-    SqlArtifactRepository(jooq, clock, objectMapper, sqlRetry, defaultArtifactSuppliers(), publisher)
+    SqlArtifactRepository(jooq, clock, objectMapper, sqlRetry, defaultArtifactSuppliers(), publisher, NoopRegistry())
 
   override fun SqlArtifactRepository.flush() {
     cleanupDb(jooq)

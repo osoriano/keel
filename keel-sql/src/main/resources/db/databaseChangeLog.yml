@@ -368,3 +368,18 @@ databaseChangeLog:
 - include:
     file: changelog/20210909-task-tracking-resource-and-environment.yml
     relativeToChangelogFile: true
+- include:
+    file: changelog/20230427-create-scheduler-lock-table.yml
+    relativeToChangelogFile: true
+- include:
+    file: changelog/20230428-update-environment-lease-constraint.yml
+    relativeToChangelogFile: true
+- include:
+    file: changelog/20230502-create-artifact-last-refreshed-table.yml
+    relativeToChangelogFile: true
+- include:
+    file: changelog/20230504-update-task-tracking-columns.yml
+    relativeToChangelogFile: true
+- include:
+    file: changelog/20230505-create-environment-last-verified-at-index.yml
+    relativeToChangelogFile: true

@@ -10,6 +10,8 @@ import org.jooq.exception.SQLDialectNotSupportedException
 class SqlRetry(
   private val sqlRetryProperties: SqlRetryProperties
 ) {
+  // todo this is blocking. Switch to non blocking suspending
+  // apparently there is a kotlin specific way
   fun <T> withRetry(category: RetryCategory, action: () -> T): T {
     return if (category == RetryCategory.WRITE) {
       val retry = Retry.of(

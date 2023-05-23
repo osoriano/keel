@@ -1,6 +1,8 @@
 package com.netflix.spinnaker.keel.sql
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.netflix.spectator.api.BasicTag
+import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
 import com.netflix.spinnaker.keel.persistence.EnvironmentDeletionRepository
@@ -15,8 +17,11 @@ import com.netflix.spinnaker.keel.sql.deliveryconfigs.makeEnvironment
 import com.netflix.spinnaker.keel.sql.deliveryconfigs.selectEnvironmentColumns
 import org.jooq.DSLContext
 import org.jooq.impl.DSL.inline
+import org.springframework.context.ApplicationEventPublisher
 import java.time.Clock
 import java.time.Duration
+import java.time.Instant
+import java.util.concurrent.TimeUnit
 
 /**
  * SQL-based implementation of [EnvironmentDeletionRepository].
@@ -27,7 +32,9 @@ class SqlEnvironmentDeletionRepository(
   objectMapper: ObjectMapper,
   sqlRetry: SqlRetry,
   resourceFactory: ResourceFactory,
-  artifactSuppliers: List<ArtifactSupplier<*, *>> = emptyList()
+  artifactSuppliers: List<ArtifactSupplier<*, *>> = emptyList(),
+  private val publisher: ApplicationEventPublisher,
+  private val spectator: Registry,
 ) : SqlStorageContext(
   jooq,
   clock,
@@ -76,18 +83,34 @@ class SqlEnvironmentDeletionRepository(
     val cutoff = now.minus(minTimeSinceLastCheck)
     val environmentUids = sqlRetry.withRetry(WRITE) {
       jooq.inTransaction {
-        select(ENVIRONMENT_DELETION.ENVIRONMENT_UID)
+        select(ENVIRONMENT_DELETION.ENVIRONMENT_UID, ENVIRONMENT_DELETION.LAST_CHECKED_AT)
           .from(ENVIRONMENT_DELETION)
           .where(ENVIRONMENT_DELETION.LAST_CHECKED_AT.lessOrEqual(cutoff))
           .orderBy(ENVIRONMENT_DELETION.LAST_CHECKED_AT)
           .limit(limit)
           .forUpdate()
           .fetch()
-          .onEach { (environmentUid) ->
-            update(ENVIRONMENT_DELETION)
-              .set(ENVIRONMENT_DELETION.LAST_CHECKED_AT, now)
-              .where(ENVIRONMENT_DELETION.ENVIRONMENT_UID.eq(environmentUid))
-              .execute()
+          .also {
+            var maxLagTime = Duration.ZERO
+            val now = clock.instant()
+            it.forEach { (environmentUid, lastCheckedAt) ->
+              update(ENVIRONMENT_DELETION)
+                .set(ENVIRONMENT_DELETION.LAST_CHECKED_AT, now)
+                .where(ENVIRONMENT_DELETION.ENVIRONMENT_UID.eq(environmentUid))
+                .execute()
+              if (lastCheckedAt != null && lastCheckedAt.isAfter(Instant.EPOCH.plusSeconds(2))) {
+                val lagTime = Duration.between(lastCheckedAt, now)
+                if (maxLagTime.compareTo(lagTime) < 0) {
+                  maxLagTime = lagTime
+                }
+              }
+            }
+            spectator.timer(
+              "keel.scheduled.method.max.lag",
+              listOf(
+                BasicTag("type", "environmentdeletion")
+              )
+            ).record(maxLagTime.toSeconds(), TimeUnit.SECONDS)
           }
       }
     }

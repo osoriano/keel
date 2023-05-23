@@ -1,6 +1,8 @@
 package com.netflix.spinnaker.keel.sql
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.netflix.spectator.api.BasicTag
+import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.keel.lifecycle.LifecycleEvent
 import com.netflix.spinnaker.keel.lifecycle.LifecycleMonitorRepository
 import com.netflix.spinnaker.keel.lifecycle.MonitoredTask
@@ -12,15 +14,19 @@ import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
 import de.huxhorn.sulky.ulid.ULID
 import org.jooq.DSLContext
 import org.slf4j.LoggerFactory
+import org.springframework.context.ApplicationEventPublisher
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
+import java.util.concurrent.TimeUnit
 
 class SqlLifecycleMonitorRepository(
   private val jooq: DSLContext,
   private val clock: Clock,
   private val objectMapper: ObjectMapper,
-  private val sqlRetry: SqlRetry
+  private val sqlRetry: SqlRetry,
+  private val publisher: ApplicationEventPublisher,
+  private val spectator: Registry,
 ) : LifecycleMonitorRepository {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
 
@@ -29,7 +35,7 @@ class SqlLifecycleMonitorRepository(
     val cutoff = now.minus(minTimeSinceLastCheck)
     return sqlRetry.withRetry(WRITE) {
       jooq.inTransaction {
-        select(LIFECYCLE_MONITOR.UID, LIFECYCLE_MONITOR.TYPE, LIFECYCLE_MONITOR.LINK, LIFECYCLE_MONITOR.NUM_FAILURES, LIFECYCLE_MONITOR.TRIGGERING_EVENT_UID)
+        select(LIFECYCLE_MONITOR.UID, LIFECYCLE_MONITOR.TYPE, LIFECYCLE_MONITOR.LINK, LIFECYCLE_MONITOR.NUM_FAILURES, LIFECYCLE_MONITOR.TRIGGERING_EVENT_UID, LIFECYCLE_MONITOR.LAST_CHECKED)
           .from(LIFECYCLE_MONITOR)
           .where(LIFECYCLE_MONITOR.LAST_CHECKED.lessOrEqual(cutoff))
           .and(LIFECYCLE_MONITOR.IGNORE.notEqual(true))
@@ -37,11 +43,27 @@ class SqlLifecycleMonitorRepository(
           .limit(limit)
           .forUpdate()
           .fetch()
-          .onEach { (uid, _, _, _, _) ->
-            update(LIFECYCLE_MONITOR)
-              .set(LIFECYCLE_MONITOR.LAST_CHECKED, now)
-              .where(LIFECYCLE_MONITOR.UID.eq(uid))
-              .execute()
+          .also {
+            var maxLagTime = Duration.ZERO
+            val now = clock.instant()
+            it.forEach { (uid, _, _, _, _, lastCheckedAt) ->
+              update(LIFECYCLE_MONITOR)
+                .set(LIFECYCLE_MONITOR.LAST_CHECKED, now)
+                .where(LIFECYCLE_MONITOR.UID.eq(uid))
+                .execute()
+              if (lastCheckedAt != null && lastCheckedAt.isAfter(Instant.EPOCH.plusSeconds(2))) {
+                val lagTime = Duration.between(lastCheckedAt, now)
+                if (maxLagTime.compareTo(lagTime) < 0) {
+                  maxLagTime = lagTime
+                }
+              }
+            }
+            spectator.timer(
+              "keel.scheduled.method.max.lag",
+              listOf(
+                BasicTag("type", "lifecyclemonitor")
+              )
+            ).record(maxLagTime.toSeconds(), TimeUnit.SECONDS)
           }
       }
         .map { (uid, type, link, numFailures, triggeringEventUid ) ->
@@ -63,6 +85,9 @@ class SqlLifecycleMonitorRepository(
           }
         }
     }
+  }
+
+  private fun recordLagTime() {
   }
 
   private fun fetchEvent(uid: String): LifecycleEvent =

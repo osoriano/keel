@@ -22,7 +22,7 @@ import java.time.Clock
 import java.time.Duration
 
 abstract class LifecycleMonitorRepositoryTests<T : LifecycleMonitorRepository, EVENT : LifecycleEventRepository> : JUnit5Minutests {
-  abstract fun monitorFactory(clock: Clock): T
+  abstract fun monitorFactory(clock: Clock, publisher: ApplicationEventPublisher): T
   abstract fun eventFactory(clock: Clock, publisher: ApplicationEventPublisher): EVENT
 
   open fun T.flush() {}
@@ -54,7 +54,7 @@ abstract class LifecycleMonitorRepositoryTests<T : LifecycleMonitorRepository, E
 
   fun tests() = rootContext<Fixture<T, EVENT>> {
     fixture {
-      Fixture(subject = monitorFactory(clock), eventRepository = eventFactory(clock, publisher))
+      Fixture(subject = monitorFactory(clock, publisher), eventRepository = eventFactory(clock, publisher))
     }
 
     after {

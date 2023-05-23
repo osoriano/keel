@@ -2,6 +2,8 @@ package com.netflix.spinnaker.keel.sql
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.netflix.spectator.api.BasicTag
+import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.NotificationConfig
@@ -46,6 +48,7 @@ import com.netflix.spinnaker.keel.persistence.metamodel.Tables.PAUSED
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.PREVIEW_ENVIRONMENT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.RESOURCE
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.RESOURCE_VERSION
+import com.netflix.spinnaker.keel.persistence.metamodel.Tables.SCHEDULER_LOCK
 import com.netflix.spinnaker.keel.resources.ResourceFactory
 import com.netflix.spinnaker.keel.sql.RetryCategory.READ
 import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
@@ -54,7 +57,6 @@ import com.netflix.spinnaker.keel.sql.deliveryconfigs.deliveryConfigByName
 import com.netflix.spinnaker.keel.sql.deliveryconfigs.makeEnvironment
 import com.netflix.spinnaker.keel.sql.deliveryconfigs.selectEnvironmentColumns
 import com.netflix.spinnaker.keel.sql.deliveryconfigs.uid
-import com.netflix.spinnaker.keel.telemetry.AboutToBeChecked
 import de.huxhorn.sulky.ulid.ULID
 import org.jooq.DSLContext
 import org.jooq.Record1
@@ -75,6 +77,7 @@ import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.time.Instant.EPOCH
+import java.util.concurrent.TimeUnit
 
 class SqlDeliveryConfigRepository(
   jooq: DSLContext,
@@ -83,7 +86,8 @@ class SqlDeliveryConfigRepository(
   resourceFactory: ResourceFactory,
   sqlRetry: SqlRetry,
   artifactSuppliers: List<ArtifactSupplier<*, *>> = emptyList(),
-  private val publisher: ApplicationEventPublisher
+  private val publisher: ApplicationEventPublisher,
+  private val spectator: Registry,
 ) : SqlStorageContext(
   jooq,
   clock,
@@ -1186,6 +1190,11 @@ class SqlDeliveryConfigRepository(
     val cutoff = now.minus(minTimeSinceLastCheck)
     return sqlRetry.withRetry(WRITE) {
       jooq.inTransaction {
+
+        selectFrom(SCHEDULER_LOCK)
+          .where(SCHEDULER_LOCK.LOCK_NAME.eq("delivery_config"))
+          .forUpdate()
+
         select(DELIVERY_CONFIG.UID, DELIVERY_CONFIG.NAME, DELIVERY_CONFIG_LAST_CHECKED.AT)
           .from(DELIVERY_CONFIG, DELIVERY_CONFIG_LAST_CHECKED)
           .where(DELIVERY_CONFIG.UID.eq(DELIVERY_CONFIG_LAST_CHECKED.DELIVERY_CONFIG_UID))
@@ -1197,32 +1206,31 @@ class SqlDeliveryConfigRepository(
             DELIVERY_CONFIG_LAST_CHECKED.LEASED_BY.isNull
               .or(DELIVERY_CONFIG_LAST_CHECKED.LEASED_AT.lessOrEqual(cutoff))
           )
-          // the application is not paused
-          .andNotExists(
-            selectOne()
-              .from(PAUSED)
-              .where(PAUSED.NAME.eq(DELIVERY_CONFIG.APPLICATION))
-              .and(PAUSED.SCOPE.eq(APPLICATION))
-          )
           .orderBy(DELIVERY_CONFIG_LAST_CHECKED.AT)
           .limit(limit)
-          .forUpdate()
           .fetch()
           .also {
+            var maxLagTime = Duration.ZERO
+            val now = clock.instant()
             it.forEach { (uid, name, lastCheckedAt) ->
               update(DELIVERY_CONFIG_LAST_CHECKED)
                 .set(DELIVERY_CONFIG_LAST_CHECKED.LEASED_BY, InetAddress.getLocalHost().hostName)
                 .set(DELIVERY_CONFIG_LAST_CHECKED.LEASED_AT, now)
                 .where(DELIVERY_CONFIG_LAST_CHECKED.DELIVERY_CONFIG_UID.eq(uid))
                 .execute()
-              publisher.publishEvent(
-                AboutToBeChecked(
-                  lastCheckedAt,
-                  "deliveryConfig",
-                  "deliveryConfig:$name"
-                )
-              )
+              if (lastCheckedAt != null && lastCheckedAt.isAfter(Instant.EPOCH.plusSeconds(2))) {
+                val lagTime = Duration.between(lastCheckedAt, now)
+                if (maxLagTime.compareTo(lagTime) < 0) {
+                  maxLagTime = lagTime
+                }
+              }
             }
+            spectator.timer(
+              "keel.scheduled.method.max.lag",
+              listOf(
+                BasicTag("type", "environment")
+              )
+            ).record(maxLagTime.toSeconds(), TimeUnit.SECONDS)
           }
       }
     }

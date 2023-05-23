@@ -1,0 +1,21 @@
+databaseChangeLog:
+  - changeSet:
+      id: create-environment-last-verified-at-index
+      author: osoriano
+      changes:
+        - createIndex:
+            indexName: environment_last_verified_at_idx
+            tableName: environment_last_verified
+            columns:
+              - column:
+                  name: at
+  - changeSet:
+      id: create-environment-last-post-deploy-at-index
+      author: osoriano
+      changes:
+        - createIndex:
+            indexName: environment_last_post_deploy_at_idx
+            tableName: environment_last_post_deploy
+            columns:
+              - column:
+                  name: at

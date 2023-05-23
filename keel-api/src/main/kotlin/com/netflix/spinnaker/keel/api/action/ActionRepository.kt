@@ -92,12 +92,8 @@ interface ActionRepository {
   /**
    * Return verifications contexts in the [environment] of [deliveryConfig] with [status]
    */
-  fun getVerificationContextsWithStatus(deliveryConfig: DeliveryConfig, environment: Environment, status: ConstraintStatus): Collection<ArtifactInEnvironmentContext>
-
-  /**
-   * @return the next [limit] environments to check
-   */
-  fun nextEnvironmentsForPostDeployAction(minTimeSinceLastCheck: Duration, limit: Int) : Collection<ArtifactInEnvironmentContext>
+  fun hasVerificationContextsWithStatus(deliveryConfig: DeliveryConfig, environment: Environment, status: ConstraintStatus): Boolean
+  fun hasVerificationContextsWithStatus(envUid: String, status: ConstraintStatus): Boolean
 }
 
 data class ActionState(

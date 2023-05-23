@@ -5,7 +5,9 @@ import com.netflix.spinnaker.keel.api.support.EventPublisher
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.CURRENT
 import com.netflix.spinnaker.keel.events.ArtifactDeployedNotification
 import com.netflix.spinnaker.keel.persistence.KeelRepository
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
@@ -22,15 +24,15 @@ class ArtifactDeployedListener(
   private val log = LoggerFactory.getLogger(javaClass)
 
   @EventListener(ArtifactVersionDeployed::class)
-  fun onArtifactVersionDeployed(event: ArtifactVersionDeployed) =
-    runBlocking {
+  fun onArtifactVersionDeployed(event: ArtifactVersionDeployed) {
+    GlobalScope.launch(Dispatchers.IO) {
       val resourceId = event.resourceId
       val resource = repository.getResource(resourceId)
       val deliveryConfig = repository.deliveryConfigFor(resourceId)
       val env = repository.environmentFor(resourceId)
 
       // if there's no artifact associated with this resource, we do nothing.
-      val artifact = resource.findAssociatedArtifact(deliveryConfig) ?: return@runBlocking
+      val artifact = resource.findAssociatedArtifact(deliveryConfig) ?: return@launch
         .also {
           log.debug("Unable to find artifact associated with resource $resourceId in application ${deliveryConfig.application}")
         }
@@ -50,7 +52,7 @@ class ArtifactDeployedListener(
           targetEnvironment = env.name
         ) == CURRENT
         if (!markedCurrentlyDeployed) {
-          log.info("Marking {} as deployed in {} for config {} because it's not currently marked as deployed", event.artifactVersion, env.name, deliveryConfig.name)
+          log.debug("Marking {} as deployed in {} for config {} because it's not currently marked as deployed", event.artifactVersion, env.name, deliveryConfig.name)
           repository.markAsSuccessfullyDeployedTo(
             deliveryConfig = deliveryConfig,
             artifact = artifact,
@@ -74,4 +76,5 @@ class ArtifactDeployedListener(
           " ${deliveryConfig.application}, so not marking as deployed.")
       }
     }
+  }
 }

@@ -1,6 +1,8 @@
 package com.netflix.spinnaker.keel.sql
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.netflix.spectator.api.BasicTag
+import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.keel.api.ActionStateUpdateContext
 import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
 import com.netflix.spinnaker.keel.api.DeliveryConfig
@@ -14,16 +16,28 @@ import com.netflix.spinnaker.keel.api.action.ActionType.POST_DEPLOY
 import com.netflix.spinnaker.keel.api.action.ActionType.VERIFICATION
 import com.netflix.spinnaker.keel.api.constraints.ConstraintStatus
 import com.netflix.spinnaker.keel.api.plugins.ArtifactSupplier
+import com.netflix.spinnaker.keel.core.api.PromotionStatus.CURRENT
+import com.netflix.spinnaker.keel.pause.PauseScope
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ACTION_STATE
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ACTIVE_ENVIRONMENT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.DELIVERY_ARTIFACT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.DELIVERY_CONFIG
+import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT
+import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_ARTIFACT_VERSIONS
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_LAST_VERIFIED
+import com.netflix.spinnaker.keel.persistence.metamodel.Tables.SCHEDULER_LOCK
 import com.netflix.spinnaker.keel.resources.ResourceFactory
 import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
 import com.netflix.spinnaker.keel.sql.deliveryconfigs.deliveryConfigByName
-import org.jooq.*
+import org.jooq.DSLContext
+import org.jooq.Field
+import org.jooq.Record1
+import org.jooq.Record4
+import org.jooq.Select
+import org.jooq.Table
+import org.jooq.SelectOrderByStep
+import org.jooq.impl.DSL
 import org.jooq.impl.DSL.field
 import org.jooq.impl.DSL.function
 import org.jooq.impl.DSL.inline
@@ -31,8 +45,11 @@ import org.jooq.impl.DSL.name
 import org.jooq.impl.DSL.select
 import org.jooq.impl.DSL.value
 import org.slf4j.LoggerFactory
+import org.springframework.context.ApplicationEventPublisher
 import java.time.Clock
 import java.time.Duration
+import java.time.Instant
+import java.util.concurrent.TimeUnit
 import org.springframework.core.env.Environment as SpringEnvironment
 
 class SqlActionRepository(
@@ -42,7 +59,9 @@ class SqlActionRepository(
   resourceFactory: ResourceFactory,
   sqlRetry: SqlRetry,
   artifactSuppliers: List<ArtifactSupplier<*, *>> = emptyList(),
-  private val environment: SpringEnvironment
+  private val environment: SpringEnvironment,
+  private val publisher: ApplicationEventPublisher,
+  private val spectator: Registry,
 ) : SqlStorageContext(
   jooq,
   clock,
@@ -53,8 +72,6 @@ class SqlActionRepository(
 ), ActionRepository {
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
-  private val useLockingRead : Boolean
-    get() = environment.getProperty("keel.verifications.db.lock.reads.enabled", Boolean::class.java, true)
 
   override fun nextEnvironmentsForVerification(
     minTimeSinceLastCheck: Duration,
@@ -65,23 +82,73 @@ class SqlActionRepository(
     return sqlRetry.withRetry(WRITE) {
       // TODO: only consider environments that have verifications
       jooq.inTransaction {
-        nextEnvironmentQuery(cutoff, limit)
-          .lockInShareMode(useLockingRead)
+
+        selectFrom(SCHEDULER_LOCK)
+          .where(SCHEDULER_LOCK.LOCK_NAME.eq("environment_verification"))
+          .forUpdate()
+
+        select(
+          DELIVERY_CONFIG.UID,
+          DELIVERY_CONFIG.NAME,
+          ENVIRONMENT.UID,
+          ENVIRONMENT.NAME,
+          DELIVERY_ARTIFACT.UID,
+          DELIVERY_ARTIFACT.REFERENCE,
+          ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION,
+          ENVIRONMENT_LAST_VERIFIED.AT
+        )
+          .from(ENVIRONMENT)
+          .join(DELIVERY_CONFIG)
+          .on(DELIVERY_CONFIG.UID.eq(ENVIRONMENT.DELIVERY_CONFIG_UID))
+          // join currently deployed artifact version
+          .join(ENVIRONMENT_ARTIFACT_VERSIONS)
+          .on(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(ENVIRONMENT.UID))
+          .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.eq(CURRENT))
+          // join artifact
+          .join(DELIVERY_ARTIFACT)
+          .on(DELIVERY_ARTIFACT.UID.eq(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID))
+          // left join so we get results even if there is no row in ENVIRONMENT_LAST_VERIFIED
+          .leftJoin(ENVIRONMENT_LAST_VERIFIED)
+          .on(ENVIRONMENT_LAST_VERIFIED.ENVIRONMENT_UID.eq(ENVIRONMENT.UID))
+          .and(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_UID.eq(DELIVERY_ARTIFACT.UID))
+          .and(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_VERSION.eq(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION))
+          // has not been checked recently (or has never been checked)
+          .where(DSL.isnull(ENVIRONMENT_LAST_VERIFIED.AT, Instant.EPOCH).lessOrEqual(cutoff))
+          // order by last time checked with things never checked coming first
+          .orderBy(DSL.isnull(ENVIRONMENT_LAST_VERIFIED.AT, Instant.EPOCH))
+          .limit(limit)
           .fetch()
-          .onEach { (_, _, environmentUid, _, artifactUid, _, artifactVersion) ->
-            insertInto(ENVIRONMENT_LAST_VERIFIED)
-              .set(ENVIRONMENT_LAST_VERIFIED.ENVIRONMENT_UID, environmentUid)
-              .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_UID, artifactUid)
-              .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_VERSION, artifactVersion)
-              .set(ENVIRONMENT_LAST_VERIFIED.AT, now)
-              .onDuplicateKeyUpdate()
-              .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_VERSION, artifactVersion)
-              .set(ENVIRONMENT_LAST_VERIFIED.AT, now)
-              .execute()
+          .also {
+            var maxLagTime = Duration.ZERO
+            val now = clock.instant()
+            it.forEach { (_, deliveryConfigName, environmentUid, _, artifactUid, _, artifactVersion, lastCheckedAt) ->
+
+              insertInto(ENVIRONMENT_LAST_VERIFIED)
+                .set(ENVIRONMENT_LAST_VERIFIED.ENVIRONMENT_UID, environmentUid)
+                .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_UID, artifactUid)
+                .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_VERSION, artifactVersion)
+                .set(ENVIRONMENT_LAST_VERIFIED.AT, now)
+                .onDuplicateKeyUpdate()
+                .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_VERSION, artifactVersion)
+                .set(ENVIRONMENT_LAST_VERIFIED.AT, now)
+                .execute()
+              if (lastCheckedAt != null && lastCheckedAt.isAfter(Instant.EPOCH.plusSeconds(2))) {
+                val lagTime = Duration.between(lastCheckedAt, now)
+                if (maxLagTime.compareTo(lagTime) < 0) {
+                  maxLagTime = lagTime
+                }
+              }
+            }
+            spectator.timer(
+              "keel.scheduled.method.max.lag",
+              listOf(
+                BasicTag("type", "verification")
+              )
+            ).record(maxLagTime.toSeconds(), TimeUnit.SECONDS)
           }
       }
     }
-      .map { (_, deliveryConfigName, _, environmentName, _, artifactReference, artifactVersion) ->
+      .map { (_, deliveryConfigName, _, environmentName, _, artifactReference, artifactVersion, _) ->
         ArtifactInEnvironmentContext(
           deliveryConfigByName(deliveryConfigName),
           environmentName,
@@ -159,16 +226,16 @@ class SqlActionRepository(
           .all { id ->
             when (states[id]?.status) {
               ConstraintStatus.PASS, ConstraintStatus.OVERRIDE_PASS -> true.also {
-                log.info("${type.name} ($id) passed against version ${context.version} for app ${context.deliveryConfig.application}")
+                log.debug("${type.name} ($id) passed against version ${context.version} for app ${context.deliveryConfig.application}")
               }
               ConstraintStatus.FAIL, ConstraintStatus.OVERRIDE_FAIL -> false.also {
-                log.info("${type.name} ($id) failed against version ${context.version} for app ${context.deliveryConfig.application}")
+                log.debug("${type.name} ($id) failed against version ${context.version} for app ${context.deliveryConfig.application}")
               }
               ConstraintStatus.NOT_EVALUATED, ConstraintStatus.PENDING -> false.also {
-                log.info("${type.name} ($id) still running against version ${context.version} for app ${context.deliveryConfig.application}")
+                log.debug("${type.name} ($id) still running against version ${context.version} for app ${context.deliveryConfig.application}")
               }
               null -> false.also {
-                log.info("no database entry for ${type.name} ($id) against version ${context.version} for app ${context.deliveryConfig.application}")
+                log.debug("no database entry for ${type.name} ($id) against version ${context.version} for app ${context.deliveryConfig.application}")
               }
             }
           }
@@ -193,7 +260,7 @@ class SqlActionRepository(
     }
   }
 
-  override fun getVerificationContextsWithStatus(deliveryConfig: DeliveryConfig, environment: Environment, status: ConstraintStatus): Collection<ArtifactInEnvironmentContext> =
+  override fun hasVerificationContextsWithStatus(deliveryConfig: DeliveryConfig, environment: Environment, status: ConstraintStatus): Boolean =
     jooq.select(
       DELIVERY_ARTIFACT.REFERENCE,
       ACTION_STATE.ARTIFACT_VERSION
@@ -201,23 +268,46 @@ class SqlActionRepository(
       .from(ACTION_STATE)
       .join(DELIVERY_ARTIFACT)
       .on(DELIVERY_ARTIFACT.UID.eq(ACTION_STATE.ARTIFACT_UID))
-      .join(ACTIVE_ENVIRONMENT)
-      .on(ACTIVE_ENVIRONMENT.UID.eq(ACTION_STATE.ENVIRONMENT_UID))
+      .join(ENVIRONMENT)
+      .on(ENVIRONMENT.UID.eq(ACTION_STATE.ENVIRONMENT_UID))
       .join(DELIVERY_CONFIG)
-      .on(DELIVERY_CONFIG.UID.eq(ACTIVE_ENVIRONMENT.DELIVERY_CONFIG_UID))
+      .on(DELIVERY_CONFIG.UID.eq(ENVIRONMENT.DELIVERY_CONFIG_UID))
+      .join(ENVIRONMENT_ARTIFACT_VERSIONS)
+      .on(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(ENVIRONMENT.UID))
+      .and(DELIVERY_ARTIFACT.UID.eq(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID))
+      .and(ACTION_STATE.ARTIFACT_VERSION.eq(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION))
       .where(DELIVERY_CONFIG.NAME.eq(deliveryConfig.name))
-      .and(ACTIVE_ENVIRONMENT.NAME.eq(environment.name))
+      .and(ENVIRONMENT.NAME.eq(environment.name))
       .and(ACTION_STATE.TYPE.eq(VERIFICATION))
       .and(ACTION_STATE.STATUS.eq(status))
+      .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.eq(CURRENT))
       .fetch()
-      .map { (artifactReference, version) ->
-          ArtifactInEnvironmentContext(
-            deliveryConfig = deliveryConfig,
-            environmentName = environment.name,
-            artifactReference = artifactReference,
-            version = version)
-      }
       .toList()
+      .isNotEmpty()
+
+  override fun hasVerificationContextsWithStatus(envUid: String, status: ConstraintStatus): Boolean =
+    jooq.select(
+      DELIVERY_ARTIFACT.REFERENCE,
+      ACTION_STATE.ARTIFACT_VERSION
+    )
+      .from(ACTION_STATE)
+      .join(DELIVERY_ARTIFACT)
+      .on(DELIVERY_ARTIFACT.UID.eq(ACTION_STATE.ARTIFACT_UID))
+      .join(ENVIRONMENT)
+      .on(ENVIRONMENT.UID.eq(ACTION_STATE.ENVIRONMENT_UID))
+      .join(DELIVERY_CONFIG)
+      .on(DELIVERY_CONFIG.UID.eq(ENVIRONMENT.DELIVERY_CONFIG_UID))
+      .join(ENVIRONMENT_ARTIFACT_VERSIONS)
+      .on(ENVIRONMENT_ARTIFACT_VERSIONS.ENVIRONMENT_UID.eq(ENVIRONMENT.UID))
+      .and(DELIVERY_ARTIFACT.UID.eq(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID))
+      .and(ACTION_STATE.ARTIFACT_VERSION.eq(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION))
+      .where(ENVIRONMENT.UID.eq(envUid))
+      .and(ACTION_STATE.TYPE.eq(VERIFICATION))
+      .and(ACTION_STATE.STATUS.eq(status))
+      .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.eq(CURRENT))
+      .fetch()
+      .toList()
+      .isNotEmpty()
 
   /**
    * Query the repository for the states of multiple contexts.
@@ -262,17 +352,17 @@ class SqlActionRepository(
         ACTION_STATE.LINK
       )
         .from(ctxTable)
-        .leftJoin(ACTIVE_ENVIRONMENT)
-        .on(ACTIVE_ENVIRONMENT.NAME.eq(contextTable.ENVIRONMENT_NAME))
+        .leftJoin(ENVIRONMENT)
+        .on(ENVIRONMENT.UID.eq(contextTable.ENVIRONMENT_UID))
         .leftJoin(DELIVERY_CONFIG)
-        .on(DELIVERY_CONFIG.UID.eq(ACTIVE_ENVIRONMENT.DELIVERY_CONFIG_UID))
+        .on(DELIVERY_CONFIG.UID.eq(ENVIRONMENT.DELIVERY_CONFIG_UID))
         .leftJoin(DELIVERY_ARTIFACT)
         .on(DELIVERY_ARTIFACT.REFERENCE.eq(contextTable.ARTIFACT_REFERENCE))
         .leftJoin(ACTION_STATE)
         .on(ACTION_STATE.ARTIFACT_UID.eq(DELIVERY_ARTIFACT.UID))
         .and(ACTION_STATE.ARTIFACT_VERSION.eq(contextTable.ARTIFACT_VERSION))
         .and(DELIVERY_ARTIFACT.DELIVERY_CONFIG_NAME.eq(DELIVERY_CONFIG.NAME))
-        .and(ACTION_STATE.ENVIRONMENT_UID.eq(ACTIVE_ENVIRONMENT.UID))
+        .and(ACTION_STATE.ENVIRONMENT_UID.eq(ENVIRONMENT.UID))
         .and(ACTION_STATE.TYPE.eq(type))
         // execute the query
         .fetch()
@@ -337,17 +427,17 @@ class SqlActionRepository(
         ACTION_STATE.TYPE
       )
         .from(ctxTable)
-        .leftJoin(ACTIVE_ENVIRONMENT)
-        .on(ACTIVE_ENVIRONMENT.NAME.eq(contextTable.ENVIRONMENT_NAME))
+        .leftJoin(ENVIRONMENT)
+        .on(ENVIRONMENT.UID.eq(contextTable.ENVIRONMENT_UID))
         .leftJoin(DELIVERY_CONFIG)
-        .on(DELIVERY_CONFIG.UID.eq(ACTIVE_ENVIRONMENT.DELIVERY_CONFIG_UID))
+        .on(DELIVERY_CONFIG.UID.eq(ENVIRONMENT.DELIVERY_CONFIG_UID))
         .leftJoin(DELIVERY_ARTIFACT)
         .on(DELIVERY_ARTIFACT.REFERENCE.eq(contextTable.ARTIFACT_REFERENCE))
         .leftJoin(ACTION_STATE)
         .on(ACTION_STATE.ARTIFACT_UID.eq(DELIVERY_ARTIFACT.UID))
         .and(ACTION_STATE.ARTIFACT_VERSION.eq(contextTable.ARTIFACT_VERSION))
         .and(DELIVERY_ARTIFACT.DELIVERY_CONFIG_NAME.eq(DELIVERY_CONFIG.NAME))
-        .and(ACTION_STATE.ENVIRONMENT_UID.eq(ACTIVE_ENVIRONMENT.UID))
+        .and(ACTION_STATE.ENVIRONMENT_UID.eq(ENVIRONMENT.UID))
         // execute the query
         .fetch()
 
@@ -431,7 +521,7 @@ class SqlActionRepository(
         }
         .run {
           if (metadata.isNotEmpty()) {
-            set(ACTION_STATE.METADATA, jsonMerge(ACTION_STATE.METADATA, metadata))
+            set(ACTION_STATE.METADATA, jsonMergePatch(ACTION_STATE.METADATA, metadata))
           } else {
             this
           }
@@ -475,52 +565,18 @@ class SqlActionRepository(
     return ConstraintStatus.NOT_EVALUATED
   }
 
-  override fun nextEnvironmentsForPostDeployAction(
-    minTimeSinceLastCheck: Duration,
-    limit: Int
-  ): Collection<ArtifactInEnvironmentContext> {
-    val now = clock.instant()
-    val cutoff = now.minus(minTimeSinceLastCheck)
-    return sqlRetry.withRetry(WRITE) {
-      jooq.inTransaction {
-        nextEnvironmentQuery(cutoff, limit)
-          .lockInShareMode(useLockingRead)
-          .fetch()
-          .onEach { (_, _, environmentUid, _, artifactUid, _, artifactVersion) ->
-            insertInto(Tables.ENVIRONMENT_LAST_POST_DEPLOY)
-              .set(Tables.ENVIRONMENT_LAST_POST_DEPLOY.ENVIRONMENT_UID, environmentUid)
-              .set(Tables.ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_UID, artifactUid)
-              .set(Tables.ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_VERSION, artifactVersion)
-              .set(Tables.ENVIRONMENT_LAST_POST_DEPLOY.AT, now)
-              .onDuplicateKeyUpdate()
-              .set(Tables.ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_VERSION, artifactVersion)
-              .set(Tables.ENVIRONMENT_LAST_POST_DEPLOY.AT, now)
-              .execute()
-          }
-      }
-        .map { (_, deliveryConfigName, _, environmentName, _, artifactReference, artifactVersion) ->
-          ArtifactInEnvironmentContext(
-            deliveryConfigByName(deliveryConfigName),
-            environmentName,
-            artifactReference,
-            artifactVersion
-          )
-        }
-    }
-  }
-
   /**
-   * JOOQ-ified access to MySQL's `json_merge` function.
+   * JOOQ-ified access to MySQL's `json_merge_patch` function.
    *
    * Updates [field] with [values] retaining any existing entries that are not present in [values].
    * Any array properties are appended to existing arrays.
    *
-   * @see https://dev.mysql.com/doc/refman/8.0/en/json-modification-functions.html#function_json-merge
+   * @see https://dev.mysql.com/doc/refman/8.0/en/json-modification-functions.html#function_json-merge-patch
    */
   @Suppress("UNCHECKED_CAST")
-  private fun jsonMerge(field: Field<Map<String, Any?>>, values: Map<String, Any?>) =
+  private fun jsonMergePatch(field: Field<Map<String, Any?>>, values: Map<String, Any?>) =
     function<Map<String, Any?>>(
-      "json_merge",
+      "json_merge_patch",
       field,
       value(objectMapper.writeValueAsString(values))
     )
@@ -531,11 +587,11 @@ class SqlActionRepository(
   private fun currentTimestamp() = clock.instant()
 
   private fun selectEnvironmentUid(deliveryConfig: DeliveryConfig, environment: Environment) =
-    select(ACTIVE_ENVIRONMENT.UID)
-      .from(DELIVERY_CONFIG, ACTIVE_ENVIRONMENT)
+    select(ENVIRONMENT.UID)
+      .from(DELIVERY_CONFIG, ENVIRONMENT)
       .where(DELIVERY_CONFIG.NAME.eq(deliveryConfig.name))
-      .and(ACTIVE_ENVIRONMENT.NAME.eq(environment.name))
-      .and(ACTIVE_ENVIRONMENT.DELIVERY_CONFIG_UID.eq(DELIVERY_CONFIG.UID))
+      .and(ENVIRONMENT.NAME.eq(environment.name))
+      .and(ENVIRONMENT.DELIVERY_CONFIG_UID.eq(DELIVERY_CONFIG.UID))
 
   private val ArtifactInEnvironmentContext.environmentUid: Select<Record1<String>>
     get() = selectEnvironmentUid(deliveryConfig, environment)
@@ -585,7 +641,7 @@ class SqlActionRepository(
     val alias = "action_contexts"
 
     private val ind = "ind"
-    private val environmentName = "environment_name"
+    private val environmentUid = "environment_uid"
     private val artifactReference = "artifact_reference"
     private val artifactVersion = "artifact_version"
 
@@ -594,7 +650,7 @@ class SqlActionRepository(
     // These behave like regular jOOQ table field names when building SQL queries
 
     val IND  = typedField(ind, Long::class.java)
-    val ENVIRONMENT_NAME = typedField(environmentName, String::class.java)
+    val ENVIRONMENT_UID = typedField(environmentUid, String::class.java)
     val ARTIFACT_REFERENCE = typedField(artifactReference, String::class.java)
     val ARTIFACT_VERSION = typedField(artifactVersion, String::class.java)
 
@@ -609,13 +665,13 @@ class SqlActionRepository(
           // Creates a SELECT statement from each element of [contexts], where every column is a constant. e.g.:
           // SELECT 0, "staging", "myapp", "myapp-h123-v23.4" FROM dual
           .mapIndexed { idx, context -> jooq.select(inline(idx).`as`(ind),
-                                              inline(context.environmentName).`as`(environmentName),
+                                              inline(context.environment.uid).`as`(environmentUid),
                                               inline(context.artifactReference).`as`(artifactReference),
                                               inline(context.version).`as`(artifactVersion)) as SelectOrderByStep<Record4<Int, String, String, String>> }
 
           // Apply UNION ALL to the list of SELECT statements so they form a single query
           .reduceOrNull { s1, s2 -> s1.unionAll(s2) } // SelectOrderByStep<Record4<Int, String, String, String>>?
           // Convert the result to a [Table] object
-          ?.asTable(alias, ind, environmentName, artifactReference, artifactVersion)
+          ?.asTable(alias, ind, environmentUid, artifactReference, artifactVersion)
   }
 }

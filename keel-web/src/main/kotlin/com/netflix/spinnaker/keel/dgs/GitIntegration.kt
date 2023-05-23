@@ -94,14 +94,17 @@ class GitIntegration(
   }
 
   private fun Application.toGitIntegration(): MdGitIntegration {
-    val branch = scmUtils.getDefaultBranch(this)
+    // val branch = scmUtils.getDefaultBranch(this)
+    val branch = "master"
+    val link = "https://github.com/foo/helloworlddummyservice/"
     return MdGitIntegration(
       id = "${name}-git-integration",
       repository = "${repoProjectKey}/${repoSlug}",
       branch = branch,
       isEnabled = managedDelivery?.importDeliveryConfig,
       manifestPath = managedDelivery?.manifestPath ?: DEFAULT_MANIFEST_PATH,
-      link = scmUtils.getBranchLink(repoType, repoProjectKey, repoSlug, branch),
+      // link = scmUtils.getBranchLink(repoType, repoProjectKey, repoSlug, branch),
+      link = link,
     )
   }
 }

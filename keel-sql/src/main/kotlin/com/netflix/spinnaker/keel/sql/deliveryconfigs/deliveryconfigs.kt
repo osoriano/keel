@@ -116,37 +116,11 @@ internal fun SqlStorageContext.attachDependents(
     null
   }
 
-  val previewEnvironments = if (ATTACH_ALL in dependentAttachFilter || ATTACH_PREVIEW_ENVIRONMENTS in dependentAttachFilter) {
-    sqlRetry.withRetry(READ) {
-      jooq
-        .select(
-          ACTIVE_ENVIRONMENT.NAME,
-          PREVIEW_ENVIRONMENT.BRANCH_FILTER,
-          PREVIEW_ENVIRONMENT.NOTIFICATIONS,
-          PREVIEW_ENVIRONMENT.VERIFICATIONS
-        )
-        .from(PREVIEW_ENVIRONMENT)
-        .innerJoin(ACTIVE_ENVIRONMENT)
-        .on(ACTIVE_ENVIRONMENT.DELIVERY_CONFIG_UID.eq(PREVIEW_ENVIRONMENT.DELIVERY_CONFIG_UID))
-        .and(ACTIVE_ENVIRONMENT.UID.eq(PREVIEW_ENVIRONMENT.BASE_ENVIRONMENT_UID))
-        .where(PREVIEW_ENVIRONMENT.DELIVERY_CONFIG_UID.eq(deliveryConfig.uid))
-        .fetch { (baseEnvName, branchFilterJson, notificationsJson, verifyWithJson) ->
-          PreviewEnvironmentSpec(
-            baseEnvironment = baseEnvName,
-            branch = objectMapper.readValue(branchFilterJson),
-            notifications = notificationsJson?.let { objectMapper.readValue(it) } ?: emptySet(),
-            verifyWith = verifyWithJson?.let { objectMapper.readValue(it) } ?: emptyList()
-          )
-        }
-    }
-  } else {
-    null
-  }
 
   return deliveryConfig.copy(
     artifacts = artifacts?.toSet() ?: deliveryConfig.artifacts,
     environments = environments?.toSet() ?: deliveryConfig.environments,
-    previewEnvironments = previewEnvironments?.toSet() ?: deliveryConfig.previewEnvironments
+    previewEnvironments = deliveryConfig.previewEnvironments
   )
 }
 

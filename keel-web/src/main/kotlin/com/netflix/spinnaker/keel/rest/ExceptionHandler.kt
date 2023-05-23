@@ -56,7 +56,7 @@ class ExceptionHandler(
   )
   @ResponseStatus(BAD_REQUEST)
   fun onParseFailure(e: Exception): ApiError {
-    log.error(e.message)
+    log.error("Parse failure", e)
     return when {
       e is JsonMappingException ->
         ApiError(BAD_REQUEST, e, e.toDetails())
@@ -70,7 +70,7 @@ class ExceptionHandler(
   @ExceptionHandler(FailedNormalizationException::class, UnsupportedKind::class)
   @ResponseStatus(UNPROCESSABLE_ENTITY)
   fun onInvalidModel(e: Exception): ApiError {
-    log.error(e.message)
+    log.error("Invalid model", e)
     return ApiError(UNPROCESSABLE_ENTITY, e)
   }
 
@@ -84,28 +84,28 @@ class ExceptionHandler(
   )
   @ResponseStatus(NOT_FOUND)
   fun onNotFound(e: Exception): ApiError {
-    log.error(e.message)
+    log.error("Not found", e)
     return ApiError(NOT_FOUND, e)
   }
 
   @ExceptionHandler(ArtifactAlreadyRegistered::class)
   @ResponseStatus(CONFLICT)
   fun onAlreadyRegistered(e: ArtifactAlreadyRegistered): ApiError {
-    log.error(e.message)
+    log.error("Already Registered", e)
     return ApiError(CONFLICT, e)
   }
 
   @ExceptionHandler(ValidationException::class, InvalidVetoException::class)
   @ResponseStatus(BAD_REQUEST)
   fun onInvalidDeliveryConfig(e: Exception): ApiError {
-    log.error(e.message)
+    log.error("Invalid delivery config", e)
     return ApiError(BAD_REQUEST, e)
   }
 
   @ExceptionHandler(AccessDeniedException::class)
   @ResponseStatus(FORBIDDEN)
   fun onAccessDenied(e: AccessDeniedException): ApiError {
-    log.error(e.message)
+    log.error("Access denied", e)
     val authFailure: AuthorizationFailure? = FiatPermissionEvaluator.getAuthorizationFailure().orElse(null)
     val message = if (authFailure != null) {
       val user = "User ${AuthenticatedRequest.getSpinnakerUser().orElse("")}"

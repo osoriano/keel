@@ -28,14 +28,14 @@ import retrofit2.http.Query
 
 interface OrcaService {
 
-  @POST("/ops")
+  @POST("ops")
   @Headers("Content-Type: application/context+json", "X-SPINNAKER-USER-ORIGIN: keel")
   suspend fun orchestrate(
     @Header("X-SPINNAKER-USER") user: String,
     @Body request: OrchestrationRequest
   ): TaskRefResponse
 
-  @POST("/orchestrate/{pipelineConfigId}")
+  @POST("orchestrate/{pipelineConfigId}")
   @Headers("Content-Type: application/context+json", "X-SPINNAKER-USER-ORIGIN: keel")
   suspend fun triggerPipeline(
     @Header("X-SPINNAKER-USER") user: String,
@@ -43,31 +43,39 @@ interface OrcaService {
     @Body trigger: HashMap<String, Any>
   ): TaskRefResponse
 
-  @GET("/pipelines/{id}")
+  @GET("pipelines/{id}")
   suspend fun getPipelineExecution(
     @Path("id") id: String,
     @Header("X-SPINNAKER-USER") user: String = DEFAULT_SERVICE_ACCOUNT
   ): ExecutionDetailResponse
 
-  @GET("/tasks/{id}")
+  @GET("applications/{application}/tasks")
+  suspend fun getApplicationTasks(
+    @Path("application") application: String,
+    @Query("limit") limit: Int,
+    @Query("status") status: String,
+    @Header("X-SPINNAKER-USER") user: String = DEFAULT_SERVICE_ACCOUNT,
+  ): List<ExecutionDetailResponse>
+
+  @GET("tasks/{id}")
   suspend fun getOrchestrationExecution(
     @Path("id") id: String,
     @Header("X-SPINNAKER-USER") user: String = DEFAULT_SERVICE_ACCOUNT
   ): ExecutionDetailResponse
 
-  @PUT("/tasks/{id}/cancel")
+  @PUT("tasks/{id}/cancel")
   suspend fun cancelOrchestration(
     @Path("id") id: String,
     @Header("X-SPINNAKER-USER") user: String = DEFAULT_SERVICE_ACCOUNT
   )
 
-  @GET("/executions/correlated/{correlationId}")
+  @GET("executions/correlated/{correlationId}")
   suspend fun getCorrelatedExecutions(
     @Path("correlationId") correlationId: String,
     @Header("X-SPINNAKER-USER") user: String = DEFAULT_SERVICE_ACCOUNT
   ): List<String>
 
-  @GET("/pipelines")
+  @GET("pipelines")
   suspend fun getExecutions(
     @Query("pipelineConfigIds") pipelineConfigIds: String? = null,
     @Query("executionIds") executionIds: String? = null,

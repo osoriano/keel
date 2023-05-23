@@ -15,12 +15,14 @@ internal object SqlLifecycleMonitorRepositoryTests
   private val retryProperties = RetryProperties(1, 0)
   private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties))
 
-  override fun monitorFactory(clock: Clock): SqlLifecycleMonitorRepository {
+  override fun monitorFactory(clock: Clock, publisher: ApplicationEventPublisher): SqlLifecycleMonitorRepository {
     return SqlLifecycleMonitorRepository(
       jooq,
       clock,
       configuredTestObjectMapper(),
-      sqlRetry
+      sqlRetry,
+      publisher,
+      NoopRegistry(),
     )
   }
 

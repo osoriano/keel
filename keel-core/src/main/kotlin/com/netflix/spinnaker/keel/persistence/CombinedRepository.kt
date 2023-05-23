@@ -400,6 +400,9 @@ class CombinedRepository(
   override fun artifactsDueForCheck(minTimeSinceLastCheck: Duration, limit: Int): Collection<DeliveryArtifact> =
     artifactRepository.itemsDueForCheck(minTimeSinceLastCheck, limit)
 
+  override fun artifactsDueForRefresh(minTimeSinceLastCheck: Duration, limit: Int): Collection<DeliveryArtifact> =
+    artifactRepository.itemsDueForRefresh(minTimeSinceLastCheck, limit)
+
   override fun getArtifact(name: String, type: ArtifactType, deliveryConfigName: String): List<DeliveryArtifact> =
     artifactRepository.get(name, type, deliveryConfigName)
 
@@ -579,12 +582,6 @@ class CombinedRepository(
     limit: Int
   ) : Collection<ArtifactInEnvironmentContext> =
     actionRepository.nextEnvironmentsForVerification(minTimeSinceLastCheck, limit)
-
-  override fun nextEnvironmentsForPostDeployAction(
-    minTimeSinceLastCheck: Duration,
-    limit: Int
-  ): Collection<ArtifactInEnvironmentContext> =
-    actionRepository.nextEnvironmentsForPostDeployAction(minTimeSinceLastCheck, limit)
 
   override fun getVerificationStatesBatch(contexts: List<ArtifactInEnvironmentContext>) : List<Map<String, ActionState>> =
     actionRepository.getStatesBatch(contexts, VERIFICATION)

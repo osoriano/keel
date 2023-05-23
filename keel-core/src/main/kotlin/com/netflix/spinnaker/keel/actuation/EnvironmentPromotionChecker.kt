@@ -119,7 +119,7 @@ class EnvironmentPromotionChecker(
 
                   val versionSelected = queuedForApproval.firstOrNull()
                   if (versionSelected == null) {
-                    log.warn("No version of {} passes constraints for environment {}", artifact, environment.name)
+                    log.debug("No version of {} passes constraints for environment {}", artifact, environment.name)
                   }
                 }
               } else {
@@ -149,7 +149,7 @@ class EnvironmentPromotionChecker(
     val isNewVersion = repository
       .approveVersionFor(deliveryConfig, artifact, version, targetEnvironment.name)
     if (isNewVersion) {
-      log.info(
+      log.debug(
         "Approved {} {} version {} for {} environment {} in {}",
         artifact.name,
         artifact.type,

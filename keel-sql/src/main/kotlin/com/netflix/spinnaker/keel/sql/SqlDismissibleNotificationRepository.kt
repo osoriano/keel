@@ -10,6 +10,9 @@ import com.netflix.spinnaker.keel.persistence.metamodel.Tables.DISMISSIBLE_NOTIF
 import com.netflix.spinnaker.keel.sql.RetryCategory.READ
 import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
 import de.huxhorn.sulky.ulid.ULID
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import org.jooq.DSLContext
 import org.jooq.Field
 import org.jooq.impl.DSL
@@ -33,8 +36,10 @@ class SqlDismissibleNotificationRepository(
 
   @EventListener
   fun storeNotificationFromEvent(notification: DismissibleNotification) {
-    log.debug("Storing notification from event: $notification")
-    storeNotification(notification)
+    GlobalScope.launch(Dispatchers.IO) {
+      log.debug("Storing notification from event: $notification")
+      storeNotification(notification)
+    }
   }
 
   override fun storeNotification(notification: DismissibleNotification): UID {

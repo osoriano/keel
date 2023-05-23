@@ -93,7 +93,8 @@ class SqlConfiguration
     clock: Clock,
     objectMapper: ObjectMapper,
     artifactSuppliers: List<ArtifactSupplier<*, *>>,
-    publisher: ApplicationEventPublisher
+    publisher: ApplicationEventPublisher,
+    registry: Registry
   ) =
     SqlArtifactRepository(
       jooq,
@@ -101,7 +102,8 @@ class SqlConfiguration
       objectMapper,
       SqlRetry(sqlRetryProperties),
       artifactSuppliers,
-      publisher
+      publisher,
+      registry
     )
 
   @Bean
@@ -111,7 +113,8 @@ class SqlConfiguration
     resourceFactory: ResourceFactory,
     objectMapper: ObjectMapper,
     artifactSuppliers: List<ArtifactSupplier<*, *>>,
-    publisher: ApplicationEventPublisher
+    publisher: ApplicationEventPublisher,
+    registry: Registry
   ) =
     SqlDeliveryConfigRepository(
       jooq = jooq,
@@ -120,7 +123,8 @@ class SqlConfiguration
       objectMapper = objectMapper,
       sqlRetry = SqlRetry(sqlRetryProperties),
       artifactSuppliers = artifactSuppliers,
-      publisher = publisher
+      publisher = publisher,
+      spectator = registry,
     )
 
   @Bean
@@ -144,8 +148,9 @@ class SqlConfiguration
   fun taskTrackingRepository(
     jooq: DSLContext,
     clock: Clock,
-    retentionProperties: RetentionProperties
-  ) = SqlTaskTrackingRepository(jooq, clock, SqlRetry(sqlRetryProperties), retentionProperties)
+    publisher: ApplicationEventPublisher,
+    registry: Registry
+  ) = SqlTaskTrackingRepository(jooq, clock, SqlRetry(sqlRetryProperties), publisher, registry)
 
   @Bean
   fun agentLockRepository(
@@ -176,7 +181,9 @@ class SqlConfiguration
     resourceFactory: ResourceFactory,
     objectMapper: ObjectMapper,
     artifactSuppliers: List<ArtifactSupplier<*, *>>,
-    environment: Environment
+    publisher: ApplicationEventPublisher,
+    environment: Environment,
+    registry: Registry
   ) = SqlActionRepository(
     jooq,
     clock,
@@ -184,7 +191,9 @@ class SqlConfiguration
     resourceFactory,
     SqlRetry(sqlRetryProperties),
     artifactSuppliers,
-    environment
+    environment,
+    publisher,
+    registry
   )
 
   @Bean
@@ -203,8 +212,10 @@ class SqlConfiguration
     jooq: DSLContext,
     clock: Clock,
     properties: SqlProperties,
-    objectMapper: ObjectMapper
-  ) = SqlLifecycleMonitorRepository(jooq, clock, objectMapper, SqlRetry(sqlRetryProperties))
+    publisher: ApplicationEventPublisher,
+    objectMapper: ObjectMapper,
+    registry: Registry
+  ) = SqlLifecycleMonitorRepository(jooq, clock, objectMapper, SqlRetry(sqlRetryProperties), publisher, registry)
 
   @Bean
   fun bakedImageRepository(
@@ -234,14 +245,18 @@ class SqlConfiguration
     clock: Clock,
     resourceFactory: ResourceFactory,
     objectMapper: ObjectMapper,
-    artifactSuppliers: List<ArtifactSupplier<*, *>>
+    publisher: ApplicationEventPublisher,
+    artifactSuppliers: List<ArtifactSupplier<*, *>>,
+    registry: Registry
   ) = SqlEnvironmentDeletionRepository(
     jooq,
     clock,
     objectMapper,
     SqlRetry(sqlRetryProperties),
     resourceFactory,
-    artifactSuppliers
+    artifactSuppliers,
+    publisher,
+    registry
   )
 
   @Bean

@@ -2,7 +2,9 @@ package com.netflix.spinnaker.keel.artifacts
 
 import com.netflix.spinnaker.keel.api.events.ArtifactVersionDeploying
 import com.netflix.spinnaker.keel.persistence.KeelRepository
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
@@ -15,15 +17,15 @@ class ArtifactDeployingListener(
   private val log = LoggerFactory.getLogger(javaClass)
 
   @EventListener(ArtifactVersionDeploying::class)
-  fun onArtifactVersionDeploying(event: ArtifactVersionDeploying) =
-    runBlocking {
+  fun onArtifactVersionDeploying(event: ArtifactVersionDeploying) {
+    GlobalScope.launch(Dispatchers.IO) {
       val resourceId = event.resourceId
       val resource = repository.getResource(resourceId)
       val deliveryConfig = repository.deliveryConfigFor(resourceId)
       val env = repository.environmentFor(resourceId)
 
       // if there's no artifact associated with this resource, we do nothing.
-      val artifact = resource.findAssociatedArtifact(deliveryConfig) ?: return@runBlocking
+      val artifact = resource.findAssociatedArtifact(deliveryConfig) ?: return@launch
 
       val approvedForEnv = repository.isApprovedFor(
         deliveryConfig = deliveryConfig,
@@ -33,7 +35,7 @@ class ArtifactDeployingListener(
       )
 
       if (approvedForEnv) {
-        log.info("Marking {} as deploying in {} for config {}", event.artifactVersion, env.name, deliveryConfig.name)
+        log.debug("Marking {} as deploying in {} for config {}", event.artifactVersion, env.name, deliveryConfig.name)
         repository.markAsDeployingTo(
           deliveryConfig = deliveryConfig,
           artifact = artifact,
@@ -49,4 +51,5 @@ class ArtifactDeployingListener(
         )
       }
     }
+  }
 }

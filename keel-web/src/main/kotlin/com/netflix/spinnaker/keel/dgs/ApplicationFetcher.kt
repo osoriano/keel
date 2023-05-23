@@ -9,9 +9,12 @@ import com.netflix.graphql.dgs.exceptions.DgsEntityNotFoundException
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.action.ActionType
 import com.netflix.spinnaker.keel.api.actuation.ExecutionSummaryService
+import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
+import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.artifacts.ArtifactVersionLinks
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport
 import com.netflix.spinnaker.keel.core.api.DependsOnConstraint
+import com.netflix.spinnaker.keel.core.api.PinnedEnvironment
 import com.netflix.spinnaker.keel.events.EventLevel.ERROR
 import com.netflix.spinnaker.keel.events.EventLevel.WARNING
 import com.netflix.spinnaker.keel.graphql.DgsConstants
@@ -89,15 +92,7 @@ class ApplicationFetcher(
   @DgsData(parentType = DgsConstants.MDAPPLICATION.TYPE_NAME, field = DgsConstants.MDAPPLICATION.Environments)
   fun environments(dfe: DgsDataFetchingEnvironment): List<DataFetcherResult<MdEnvironment>> {
     val config = applicationFetcherSupport.getDeliveryConfigFromContext(dfe)
-    return config.environments.sortedWith { env1, env2 ->
-      when {
-        env1.dependsOn(env2) -> -1
-        env2.dependsOn(env1) -> 1
-        env1.hasDependencies() && !env2.hasDependencies() -> -1
-        env2.hasDependencies() && !env1.hasDependencies() -> 1
-        else -> 0
-      }
-    }.map { env ->
+    return config.environments.sortedByDependencies().map { env ->
       val artifacts = config.artifactsUsedIn(env.name).map { artifact ->
         MdArtifact(
           id = "${env.name}-${artifact.reference}",
@@ -257,15 +252,33 @@ class ApplicationFetcher(
 
   @DgsData(parentType = DgsConstants.MDARTIFACT.TYPE_NAME, field = DgsConstants.MDARTIFACT.PinnedVersion)
   fun pinnedVersion(dfe: DataFetchingEnvironment): CompletableFuture<MdPinnedVersion>? {
-    val dataLoader: DataLoader<PinnedArtifactAndEnvironment, MdPinnedVersion> = dfe.getDataLoader(PinnedVersionInEnvironmentDataLoader.Descriptor.name)
-    val artifact: MdArtifact = dfe.getSource()
-    val config = applicationFetcherSupport.getDeliveryConfigFromContext(dfe)
-    val deliveryArtifact = config.matchingArtifactByReference(artifact.reference) ?: return null
-    return dataLoader.load(PinnedArtifactAndEnvironment(
-      artifact = deliveryArtifact,
-      environment = artifact.environment
-    ))
+    return CompletableFuture.supplyAsync(fun(): MdPinnedVersion? {
+      val artifact: MdArtifact = dfe.getSource()
+      val config = applicationFetcherSupport.getDeliveryConfigFromContext(dfe)
+      val deliveryArtifact = config.matchingArtifactByReference(artifact.reference) ?: return null
+      val pinnedEnvironments = keelRepository.pinnedEnvironments(config)
+      for (pinnedEnvironment in pinnedEnvironments) {
+        if (pinnedEnvironment.targetEnvironment == artifact.environment && pinnedEnvironment.artifact.name == deliveryArtifact.name) {
+          val versionData = keelRepository.getArtifactVersion(artifact = pinnedEnvironment.artifact, version = pinnedEnvironment.version, status = null)
+          return pinnedEnvironment.toDgs(versionData);
+        }
+      }
+      return null
+    })
   }
+
+fun PinnedEnvironment.toDgs(versionData: PublishedArtifact?) =
+  MdPinnedVersion(
+    id = "$targetEnvironment-${artifact.reference}",
+    name = artifact.name,
+    reference = artifact.reference,
+    version = version,
+    pinnedAt = pinnedAt,
+    pinnedBy = pinnedBy,
+    comment = comment,
+    buildNumber = versionData?.buildNumber,
+    gitMetadata = versionData?.gitMetadata?.toDgs()
+  )
 
   @DgsData(parentType = DgsConstants.MDARTIFACTVERSIONINENVIRONMENT.TYPE_NAME, field = DgsConstants.MDARTIFACTVERSIONINENVIRONMENT.Constraints)
   fun artifactConstraints(dfe: DataFetchingEnvironment): CompletableFuture<List<MdConstraint>>? {
@@ -362,8 +375,38 @@ class ApplicationFetcher(
 //  add function for putting the resources on the artifactVersion
 }
 
-fun Environment.dependsOn(another: Environment) =
-  constraints.any { it is DependsOnConstraint && it.environment == another.name }
+// todo does not handle duplicate env names
+// todo does not handle env in dependency missing from env list
+private fun Set<Environment>.sortedByDependencies() : List<Environment> {
+  val environments = sortedWith { env1, env2 -> env1.name.compareTo(env2.name, ignoreCase = true) }
+  val environmentsByName = associateBy({ it.name }, { it })
+  val deps = associateBy({ it.name }, { it.getDependencies() })
 
-fun Environment.hasDependencies() =
-  constraints.any { it is DependsOnConstraint }
+  val visited = mutableSetOf<String>()
+  val result = mutableListOf<Environment>()
+  for (environment in environments) {
+      val resultForEnv = mutableListOf<Environment>()
+      val queue = mutableListOf<Environment>(environment)
+
+      while (!queue.isEmpty()) {
+          val curr = queue.removeLast()
+          if (curr.name in visited) {
+              continue
+          }
+          visited.add(curr.name)
+          resultForEnv.add(curr)
+
+          if (deps[curr.name] != null) {
+              for (dep in deps[curr.name]!!) {
+                  queue.add(environmentsByName[dep]!!)
+              }
+          }
+
+      }
+      result.addAll(resultForEnv.reversed())
+  }
+  return result
+}
+
+private fun Environment.getDependencies() =
+  constraints.filter { it is DependsOnConstraint }.map { (it as DependsOnConstraint).environment }.toSet()
