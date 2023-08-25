@@ -283,7 +283,7 @@ class TelemetryListener(
         BasicTag("resourceKind", event.kind.toString()),
         BasicTag("resourceApplication", event.application)
       )
-    )
+    ).safeIncrement()
   }
 
   private fun secondsSince(start: AtomicReference<Instant>) : Double  =
