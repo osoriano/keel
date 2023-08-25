@@ -27,6 +27,7 @@ import io.swagger.v3.oas.annotations.Operation
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.core.env.Environment
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType.APPLICATION_JSON_VALUE
 import org.springframework.security.access.prepost.PreAuthorize
@@ -56,8 +57,12 @@ class DeliveryConfigController(
   private val deliveryConfigUpserter: DeliveryConfigUpserter,
   private val yamlMapper: YAMLMapper,
   private val front50Cache: Front50Cache,
+  private val springEnv: Environment,
 ) {
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
+
+  private val importDeliveryConfigsEnabled: Boolean
+    get() = springEnv.getProperty("keel.importDeliveryConfigs.enabled", Boolean::class.java, true)
 
   data class GateRawConfig(
     val content: String
@@ -97,7 +102,7 @@ class DeliveryConfigController(
     deliveryConfigProcessors.applyAll(submittedDeliveryConfig).let {
       log.debug("Upserting config of app ${submittedDeliveryConfig.application}")
       val (deliveryConfig, isNew) = deliveryConfigUpserter.upsertConfig(it)
-      if (isNew) {
+      if (isNew && importDeliveryConfigsEnabled) {
         // We need to update front50 to enable the git integration to import future delivery config changes
         runBlocking {
           front50Cache.updateManagedDeliveryConfig(submittedDeliveryConfig.application, user, ManagedDeliveryConfig(importDeliveryConfig = true))

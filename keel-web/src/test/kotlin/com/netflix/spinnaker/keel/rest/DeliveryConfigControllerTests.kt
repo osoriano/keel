@@ -45,6 +45,8 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment.MOCK
+import org.springframework.core.env.ConfigurableEnvironment
+import org.springframework.core.env.MapPropertySource
 import org.springframework.http.MediaType
 import org.springframework.http.MediaType.APPLICATION_JSON
 import org.springframework.test.web.servlet.MockMvc
@@ -71,6 +73,7 @@ internal class DeliveryConfigControllerTests
   val mvc: MockMvc,
   val jsonMapper: ObjectMapper,
   val yamlMapper: YAMLMapper,
+  val springEnv: ConfigurableEnvironment,
 ) : JUnit5Minutests {
 
   @MockkBean
@@ -359,7 +362,39 @@ internal class DeliveryConfigControllerTests
                   front50Cache.updateManagedDeliveryConfig(any<String>(), any(), ManagedDeliveryConfig(importDeliveryConfig = true))
                 }
               }
+            }
 
+            derivedContext<ResultActions>("new apps without git integration") {
+              fixture {
+                every { repository.getDeliveryConfigForApplication(deliveryConfig.application) } throws NoDeliveryConfigForApplication(
+                  "no config"
+                )
+
+                val testProperties = mapOf("keel.importDeliveryConfigs.enabled" to false)
+                springEnv.getPropertySources().addFirst(MapPropertySource("testPropertySource", testProperties))
+
+                val request = post(endpoint)
+                  .accept(contentType)
+                  .contentType(contentType)
+                  .content(configPayload)
+                  .header("X-SPINNAKER-USER", "user")
+
+                val resultActions = mvc.perform(request)
+
+                springEnv.getPropertySources().remove("testPropertySource")
+
+                resultActions
+              }
+
+              test("the request is successful") {
+                andExpect(status().isOk)
+              }
+
+              test("front50 is not called") {
+                coVerify(exactly = 0) {
+                  front50Cache.updateManagedDeliveryConfig(any<String>(), any(), ManagedDeliveryConfig(importDeliveryConfig = true))
+                }
+              }
             }
           }
         }
