@@ -39,7 +39,7 @@ class GitIntegration(
     DgsData(parentType = DgsConstants.MDAPPLICATION.TYPE_NAME, field = DgsConstants.MDAPPLICATION.GitIntegration),
     DgsData(parentType = DgsConstants.MD_APPLICATION.TYPE_NAME, field = DgsConstants.MD_APPLICATION.GitIntegration),
   )
-  fun gitIntegration(dfe: DgsDataFetchingEnvironment): MdGitIntegration {
+  fun gitIntegration(dfe: DgsDataFetchingEnvironment): MdGitIntegration? {
     val app: MdApplication = dfe.getSource()
     val config = applicationFetcherSupport.getDeliveryConfigFromContext(dfe)
     return runBlocking {
@@ -58,7 +58,7 @@ class GitIntegration(
   fun updateGitIntegration(
     @InputArgument payload: MdUpdateGitIntegrationPayload,
     @RequestHeader("X-SPINNAKER-USER") user: String
-  ): MdGitIntegration {
+  ): MdGitIntegration? {
     val front50Application = runBlocking {
       front50Cache.applicationByName(payload.application)
     }
@@ -102,7 +102,11 @@ class GitIntegration(
     return true
   }
 
-  private fun Application.toGitIntegration(): MdGitIntegration {
+  private fun Application.toGitIntegration(): MdGitIntegration? {
+    val isEnabled = managedDelivery?.importDeliveryConfig ?: false
+    if (!isEnabled) {
+      return null
+    }
     try {
       scmUtils.getDefaultBranch(this)
     } catch (e: Exception) {

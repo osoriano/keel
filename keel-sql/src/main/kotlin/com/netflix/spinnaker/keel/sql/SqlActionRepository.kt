@@ -263,7 +263,7 @@ class SqlActionRepository(
       )
         .from(ctxTable)
         .leftJoin(ACTIVE_ENVIRONMENT)
-        .on(ACTIVE_ENVIRONMENT.NAME.eq(contextTable.ENVIRONMENT_NAME))
+        .on(ACTIVE_ENVIRONMENT.UID.eq(contextTable.ENVIRONMENT_UID))
         .leftJoin(DELIVERY_CONFIG)
         .on(DELIVERY_CONFIG.UID.eq(ACTIVE_ENVIRONMENT.DELIVERY_CONFIG_UID))
         .leftJoin(DELIVERY_ARTIFACT)
@@ -338,7 +338,7 @@ class SqlActionRepository(
       )
         .from(ctxTable)
         .leftJoin(ACTIVE_ENVIRONMENT)
-        .on(ACTIVE_ENVIRONMENT.NAME.eq(contextTable.ENVIRONMENT_NAME))
+        .on(ACTIVE_ENVIRONMENT.UID.eq(contextTable.ENVIRONMENT_UID))
         .leftJoin(DELIVERY_CONFIG)
         .on(DELIVERY_CONFIG.UID.eq(ACTIVE_ENVIRONMENT.DELIVERY_CONFIG_UID))
         .leftJoin(DELIVERY_ARTIFACT)
@@ -432,7 +432,7 @@ class SqlActionRepository(
         }
         .run {
           if (metadata.isNotEmpty()) {
-            set(ACTION_STATE.METADATA, jsonMerge(ACTION_STATE.METADATA, metadata))
+            set(ACTION_STATE.METADATA, jsonMergePatch(ACTION_STATE.METADATA, metadata))
           } else {
             this
           }
@@ -511,17 +511,17 @@ class SqlActionRepository(
   }
 
   /**
-   * JOOQ-ified access to MySQL's `json_merge` function.
+   * JOOQ-ified access to MySQL's `json_merge_patch` function.
    *
-   * Updates [field] with [values] retaining any existing entries that are not present in [values].
-   * Any array properties are appended to existing arrays.
+   * Performs an RFC 7396 compliant merge of two or more JSON documents and returns the merged result,
+   * without preserving members having duplicate keys.
    *
-   * @see https://dev.mysql.com/doc/refman/8.0/en/json-modification-functions.html#function_json-merge
+   * @see https://dev.mysql.com/doc/refman/8.0/en/json-modification-functions.html#function_json-merge-patch
    */
   @Suppress("UNCHECKED_CAST")
-  private fun jsonMerge(field: Field<Map<String, Any?>>, values: Map<String, Any?>) =
+  private fun jsonMergePatch(field: Field<Map<String, Any?>>, values: Map<String, Any?>) =
     function<Map<String, Any?>>(
-      "json_merge",
+      "json_merge_patch",
       field,
       value(objectMapper.writeValueAsString(values))
     )
@@ -586,7 +586,7 @@ class SqlActionRepository(
     val alias = "action_contexts"
 
     private val ind = "ind"
-    private val environmentName = "environment_name"
+    private val environmentUid = "environment_uid"
     private val artifactReference = "artifact_reference"
     private val artifactVersion = "artifact_version"
 
@@ -595,7 +595,7 @@ class SqlActionRepository(
     // These behave like regular jOOQ table field names when building SQL queries
 
     val IND  = typedField(ind, Long::class.java)
-    val ENVIRONMENT_NAME = typedField(environmentName, String::class.java)
+    val ENVIRONMENT_UID = typedField(environmentUid, String::class.java)
     val ARTIFACT_REFERENCE = typedField(artifactReference, String::class.java)
     val ARTIFACT_VERSION = typedField(artifactVersion, String::class.java)
 
@@ -610,13 +610,13 @@ class SqlActionRepository(
           // Creates a SELECT statement from each element of [contexts], where every column is a constant. e.g.:
           // SELECT 0, "staging", "myapp", "myapp-h123-v23.4" FROM dual
           .mapIndexed { idx, context -> jooq.select(inline(idx).`as`(ind),
-                                              inline(context.environmentName).`as`(environmentName),
+                                              inline(context.environment.uid).`as`(environmentUid),
                                               inline(context.artifactReference).`as`(artifactReference),
                                               inline(context.version).`as`(artifactVersion)) as SelectOrderByStep<Record4<Int, String, String, String>> }
 
           // Apply UNION ALL to the list of SELECT statements so they form a single query
           .reduceOrNull { s1, s2 -> s1.unionAll(s2) } // SelectOrderByStep<Record4<Int, String, String, String>>?
           // Convert the result to a [Table] object
-          ?.asTable(alias, ind, environmentName, artifactReference, artifactVersion)
+          ?.asTable(alias, ind, environmentUid, artifactReference, artifactVersion)
   }
 }

@@ -219,7 +219,7 @@ class ResourceActuator(
         log.info("Resource {} can't be actuated because a verification is running", id, e.message)
         publisher.publishEvent(VerificationBlockedActuation(resource, e, clock))
       } catch (e: EnvironmentCurrentlyBeingActedOn) {
-        log.info("Resource {} can't be actuated on because something else is happening in the environment", id, e.message)
+        log.info("Resource {} can't be actuated on because something else is happening in the environment: {}", id, e.message)
       } catch (e: Exception) {
         log.error("Resource check for $id failed", e)
         publisher.publishEvent(ResourceCheckError(resource, e.toSpinnakerException(), clock))

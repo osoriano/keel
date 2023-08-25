@@ -10,5 +10,5 @@ inline fun <reified T> DynamicConfigService.getConfig(configName: String, defaul
 
 fun YAMLMapper.parseDeliveryConfig(rawDeliveryConfig: String): SubmittedDeliveryConfig {
   return readValueInliningAliases<SubmittedDeliveryConfig>(rawDeliveryConfig)
-    .copy(rawConfig = rawDeliveryConfig)
+    .copy(rawConfig = writeValueAsString(readTree(rawDeliveryConfig)))
 }

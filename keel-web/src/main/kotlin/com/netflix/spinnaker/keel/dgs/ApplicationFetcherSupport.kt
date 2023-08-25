@@ -3,10 +3,12 @@ package com.netflix.spinnaker.keel.dgs
 import com.netflix.graphql.dgs.context.DgsContext
 import com.netflix.graphql.dgs.exceptions.DgsEntityNotFoundException
 import com.netflix.spinnaker.keel.api.DeliveryConfig
+import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.Locatable
 import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
 import com.netflix.spinnaker.keel.bakery.BakeryMetadataService
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
+import com.netflix.spinnaker.keel.core.api.DependsOnConstraint
 import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
 import com.netflix.spinnaker.keel.core.api.PromotionStatus
 import com.netflix.spinnaker.keel.core.api.PublishedArtifactInEnvironment
@@ -141,3 +143,48 @@ data class ArtifactDiffContext(
   val currentDeployedVersion: PublishedArtifactInEnvironment?,
   val previousDeployedVersion: PublishedArtifactInEnvironment?
 )
+
+/**
+ * Traverse the environments graph to get an accurate ordering
+ * by performing a topological sort.
+ *
+ * Uses environment name ordering as a tie-breaker.
+ */
+fun Set<Environment>.sortedByDependencies() : List<Environment> {
+  val environments = sortedWith { env1, env2 -> env1.name.compareTo(env2.name, ignoreCase = true) }
+  val environmentsByName = associateBy({ it.name }, { it })
+  val deps = associateBy({ it.name }, { it.getDependencies() })
+
+  val visited = mutableSetOf<String>()
+  val result = mutableListOf<Environment>()
+  for (environment in environments) {
+    val resultForEnv = mutableListOf<Environment>()
+    var currLevel = listOf(environment)
+    var nextLevel = mutableListOf<Environment>()
+
+    while (!currLevel.isEmpty()) {
+      for (curr in currLevel) {
+        if (curr.name in visited) {
+          continue
+        }
+
+        visited.add(curr.name)
+        resultForEnv.add(curr)
+
+        if (deps[curr.name] != null) {
+          for (dep in deps[curr.name]!!) {
+            nextLevel.add(environmentsByName[dep]!!)
+          }
+        }
+      }
+
+      currLevel = nextLevel
+      nextLevel = mutableListOf<Environment>()
+    }
+    result.addAll(resultForEnv.reversed())
+  }
+  return result.reversed()
+}
+
+fun Environment.getDependencies() =
+  constraints.filter { it is DependsOnConstraint }.map { (it as DependsOnConstraint).environment }.toSet()
