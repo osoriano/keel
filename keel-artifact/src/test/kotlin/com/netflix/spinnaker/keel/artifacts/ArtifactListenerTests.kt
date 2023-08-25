@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.artifacts
 
+import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.config.ArtifactConfig
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactStatus.FINAL
@@ -14,6 +15,7 @@ import com.netflix.spinnaker.keel.api.events.ArtifactRegisteredEvent
 import com.netflix.spinnaker.keel.api.plugins.SupportedArtifact
 import com.netflix.spinnaker.keel.config.ArtifactRefreshConfig
 import com.netflix.spinnaker.keel.persistence.KeelRepository
+import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
 import io.mockk.coVerify
@@ -85,6 +87,8 @@ internal class ArtifactListenerTests : JUnit5Minutests {
       listOf(debianArtifactSupplier, dockerArtifactSupplier),
       artifactConfig,
       refreshConfig,
+      MutableClock(),
+      NoopRegistry(),
       workQueueProcessor
     )
   }
@@ -205,8 +209,9 @@ internal class ArtifactListenerTests : JUnit5Minutests {
             dockerArtifactSupplier.getLatestArtifacts(deliveryConfig, dockerArtifact, 1)
           } returns listOf(publishedDocker)
 
-          every { repository.getAllArtifacts(DEBIAN, any()) } returns listOf(debianArtifact)
-          every { repository.getAllArtifacts(DOCKER, any()) } returns listOf(dockerArtifact)
+          every {
+            repository.artifactsDueForRefresh(refreshConfig.minAgeDuration, refreshConfig.batchSize)
+          } returns listOf(debianArtifact, dockerArtifact)
         }
 
         test("latest versions are stored") {
@@ -255,8 +260,9 @@ internal class ArtifactListenerTests : JUnit5Minutests {
             dockerArtifactSupplier.getLatestArtifacts(deliveryConfig, dockerArtifact, 1)
           } returns listOf(newerPublishedDocker)
 
-          every { repository.getAllArtifacts(DEBIAN, any()) } returns listOf(debianArtifact)
-          every { repository.getAllArtifacts(DOCKER, any()) } returns listOf(dockerArtifact)
+          every {
+            repository.artifactsDueForRefresh(refreshConfig.minAgeDuration, refreshConfig.batchSize)
+          } returns listOf(debianArtifact, dockerArtifact)
         }
 
         test("new versions are stored") {

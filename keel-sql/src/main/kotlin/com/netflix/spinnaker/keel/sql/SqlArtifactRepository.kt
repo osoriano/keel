@@ -42,6 +42,7 @@ import com.netflix.spinnaker.keel.persistence.NoSuchArtifactVersionException
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ACTION_STATE
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ACTIVE_ENVIRONMENT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ARTIFACT_LAST_CHECKED
+import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ARTIFACT_LAST_REFRESHED
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ARTIFACT_VERSIONS
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.CURRENT_ENVIRONMENT_ARTIFACT_VERSIONS
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.DELIVERY_ARTIFACT
@@ -117,6 +118,12 @@ class SqlArtifactRepository(
         .set(ARTIFACT_LAST_CHECKED.AT, EPOCH.plusSeconds(1))
         .onDuplicateKeyUpdate()
         .set(ARTIFACT_LAST_CHECKED.AT, EPOCH.plusSeconds(1))
+        .execute()
+      jooq.insertInto(ARTIFACT_LAST_REFRESHED)
+        .set(ARTIFACT_LAST_REFRESHED.ARTIFACT_UID, id)
+        .set(ARTIFACT_LAST_REFRESHED.AT, EPOCH.plusSeconds(1))
+        .onDuplicateKeyUpdate()
+        .set(ARTIFACT_LAST_REFRESHED.AT, EPOCH.plusSeconds(1))
         .execute()
     }
   }
@@ -227,6 +234,71 @@ class SqlArtifactRepository(
           )
         }
     }
+
+
+  override fun itemsDueForRefresh(minTimeSinceLastCheck: Duration, limit: Int): Collection<DeliveryArtifact> {
+    val now = clock.instant()
+    val cutoff = now.minus(minTimeSinceLastCheck)
+    return sqlRetry.withRetry(WRITE) {
+      jooq.inTransaction {
+
+        select(
+          DELIVERY_ARTIFACT.UID,
+          DELIVERY_ARTIFACT.NAME,
+          DELIVERY_ARTIFACT.TYPE,
+          DELIVERY_ARTIFACT.DETAILS,
+          DELIVERY_ARTIFACT.REFERENCE,
+          DELIVERY_ARTIFACT.DELIVERY_CONFIG_NAME,
+          ARTIFACT_LAST_REFRESHED.AT
+        )
+          .from(DELIVERY_ARTIFACT, ARTIFACT_LAST_REFRESHED)
+          .where(DELIVERY_ARTIFACT.UID.eq(ARTIFACT_LAST_REFRESHED.ARTIFACT_UID))
+          .and(ARTIFACT_LAST_REFRESHED.AT.lessOrEqual(cutoff))
+          .orderBy(ARTIFACT_LAST_REFRESHED.AT)
+          .limit(limit)
+          .forUpdate()
+          .fetch()
+          .also {
+            var maxLagTime = Duration.ZERO
+            val now = clock.instant()
+            it.forEach { (uid, _, _, _, _, deliveryConfigName, lastCheckedAt) ->
+              insertInto(ARTIFACT_LAST_REFRESHED)
+                .set(ARTIFACT_LAST_REFRESHED.ARTIFACT_UID, uid)
+                .set(ARTIFACT_LAST_REFRESHED.AT, now)
+                .onDuplicateKeyUpdate()
+                .set(ARTIFACT_LAST_REFRESHED.AT, now)
+                .execute()
+              // Find the max lag time. Ignore new resources or resources where a recheck was triggered
+              if (lastCheckedAt != null && lastCheckedAt.isAfter(Instant.EPOCH.plusSeconds(1))) {
+                val lagTime = Duration.between(lastCheckedAt, now)
+                if (maxLagTime < lagTime) {
+                  maxLagTime = lagTime
+                }
+              }
+            }
+            spectator.timer(
+              "keel.scheduled.method.max.lag",
+              listOf(
+                BasicTag("type", "artifactrefresh")
+              )
+            ).record(maxLagTime.toSeconds(), TimeUnit.SECONDS)
+          }
+          .map { (_, name, storedType, details, reference, deliveryConfigName) ->
+            mapToArtifact(
+              artifactSuppliers.supporting(storedType),
+              name,
+              storedType.toLowerCase(),
+              details,
+              reference,
+              deliveryConfigName
+            )
+          }
+      }
+    }
+  }
+
+
+
 
   override fun versions(artifact: DeliveryArtifact, limit: Int): List<PublishedArtifact> {
     val retry = Retry.of(

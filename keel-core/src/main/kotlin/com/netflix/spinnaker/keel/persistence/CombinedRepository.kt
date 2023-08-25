@@ -400,6 +400,9 @@ class CombinedRepository(
   override fun artifactsDueForCheck(minTimeSinceLastCheck: Duration, limit: Int): Collection<DeliveryArtifact> =
     artifactRepository.itemsDueForCheck(minTimeSinceLastCheck, limit)
 
+  override fun artifactsDueForRefresh(minTimeSinceLastCheck: Duration, limit: Int): Collection<DeliveryArtifact> =
+    artifactRepository.itemsDueForRefresh(minTimeSinceLastCheck, limit)
+
   override fun getArtifact(name: String, type: ArtifactType, deliveryConfigName: String): List<DeliveryArtifact> =
     artifactRepository.get(name, type, deliveryConfigName)
 

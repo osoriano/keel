@@ -180,6 +180,8 @@ interface KeelRepository : KeelReadOnlyRepository {
   // START ArtifactRepository methods
   fun artifactsDueForCheck(minTimeSinceLastCheck: Duration, limit: Int): Collection<DeliveryArtifact>
 
+  fun artifactsDueForRefresh(minTimeSinceLastCheck: Duration, limit: Int): Collection<DeliveryArtifact>
+
   fun register(artifact: DeliveryArtifact)
 
   fun getAllArtifacts(type: ArtifactType? = null, name: String? = null): List<DeliveryArtifact>
