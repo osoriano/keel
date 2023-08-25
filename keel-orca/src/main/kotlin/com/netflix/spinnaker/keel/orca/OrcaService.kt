@@ -49,6 +49,15 @@ interface OrcaService {
     @Header("X-SPINNAKER-USER") user: String = DEFAULT_SERVICE_ACCOUNT
   ): ExecutionDetailResponse
 
+  @GET("applications/{application}/tasks")
+  suspend fun getApplicationTasks(
+    @Path("application") application: String,
+    @Query("page") page: Int = 1,
+    @Query("limit") limit: Int = 3500,
+    @Query("statuses") statuses: String? = null,
+    @Header("X-SPINNAKER-USER") user: String = DEFAULT_SERVICE_ACCOUNT,
+  ): List<ExecutionDetailResponse>
+
   @GET("tasks/{id}")
   suspend fun getOrchestrationExecution(
     @Path("id") id: String,
