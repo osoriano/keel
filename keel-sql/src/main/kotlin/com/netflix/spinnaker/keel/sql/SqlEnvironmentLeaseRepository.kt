@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.sql
 
+import com.netflix.spectator.api.BasicTag
 import com.netflix.spectator.api.Id
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.histogram.PercentileTimer
@@ -14,6 +15,7 @@ import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ACTIVE_ENVIRONMEN
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.DELIVERY_CONFIG
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_LEASE
 import com.netflix.spinnaker.keel.persistence.metamodel.tables.records.EnvironmentLeaseRecord
+import com.netflix.spinnaker.keel.telemetry.recordDurationPercentile
 import org.jooq.DSLContext
 import org.jooq.exception.DataAccessException
 import java.net.InetAddress
@@ -32,13 +34,6 @@ class SqlEnvironmentLeaseRepository(
   private val leaseDuration: Duration) : EnvironmentLeaseRepository {
 
   private val leaseCountId = spectator.createId("lease.env.count")
-
-  /**
-   * Percentile timer builder for measuring how long the lease is held
-   *
-   * We use the default percentile time range: 10ms to 1 minute
-   */
-  private val timerBuilder = PercentileTimer.builder(spectator).withName("lease.env.duration")
 
 
   /**
@@ -82,7 +77,7 @@ class SqlEnvironmentLeaseRepository(
             .also { leaseCountId.incrementDenied(actionType, deliveryConfig.application, environment.name) }
         }
       }
-      return SqlLease(this, leaseUid, startTime, actionType, timerBuilder, clock)
+      return SqlLease(this, leaseUid, startTime, actionType, spectator, clock)
 
     } catch (e: DataAccessException) {
       recordDeniedLeaseTime(startTime, actionType)
@@ -97,13 +92,17 @@ class SqlEnvironmentLeaseRepository(
     }
   }
 
-  private fun recordDeniedLeaseTime(startTime: Instant, actionType: String) {
-    timerBuilder
-      .withTag("action", actionType)
-      .withTag("outcome", "denied")
-      .build()
-      .record(Duration.between(startTime, clock.instant()))
-  }
+  /**
+   * Percentile timer for measuring how long the lease is held
+   *
+   * We use the default percentile time range: 10ms to 1 minute
+   */
+  private fun recordDeniedLeaseTime(startTime : Instant, actionType: String) =
+    spectator.recordDurationPercentile(
+      "lease.env.duration",
+      clock,
+      startTime,
+      setOf(BasicTag("action", actionType), BasicTag("outcome", "denied")))
 
   /**
    * Return true if the expiration date of the lease is in the past
@@ -187,17 +186,16 @@ class SqlEnvironmentLeaseRepository(
     val uid: UID,
     private val startTime: Instant,
     private val actionType: String,
-    private val timerBuilder: PercentileTimer.Builder,
+    private val spectator: Registry,
     private val clock: Clock
   ) : Lease {
     override fun close() {
       repository.release(this)
-
-      timerBuilder
-        .withTag("action", actionType)
-        .withTag("outcome", "granted")
-        .build()
-        .record(Duration.between(startTime, clock.instant()))
+      spectator.recordDurationPercentile(
+        "lease.env.duration",
+        clock,
+        startTime,
+        setOf(BasicTag("action", actionType), BasicTag("outcome", "granted")))
     }
   }
 }
