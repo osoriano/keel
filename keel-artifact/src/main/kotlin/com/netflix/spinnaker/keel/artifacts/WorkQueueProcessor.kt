@@ -19,6 +19,7 @@ import com.netflix.spinnaker.keel.lifecycle.LifecycleEventType
 import com.netflix.spinnaker.keel.logging.TracingSupport
 import com.netflix.spinnaker.keel.persistence.WorkQueueRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
+import com.netflix.spinnaker.keel.telemetry.recordDurationPercentile
 import com.netflix.spinnaker.keel.telemetry.safeIncrement
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -67,9 +68,7 @@ final class WorkQueueProcessor(
   private val enabled = AtomicBoolean(false)
 
   companion object {
-    private const val ARTIFACT_PROCESSING_DRIFT_GAUGE = "work.processing.artifact.drift"
     private const val CODE_EVENT_PROCESSING_DRIFT_GAUGE = "work.processing.code.drift"
-    private const val ARTIFACT_PROCESSING_DURATION = "work.processing.artifact.duration"
     private const val CODE_EVENT_PROCESSING_DURATION = "work.processing.code.duration"
     private const val ARTIFACT_UPDATED_COUNTER_ID = "keel.artifact.updated"
     private const val NUMBER_QUEUED_GAUGE = "work.processing.queued.number"
@@ -87,9 +86,6 @@ final class WorkQueueProcessor(
       .withName(NUMBER_QUEUED_GAUGE)
       .monitorValue(this) { it.queueSize() }
   }
-
-  private val lastArtifactCheck: AtomicReference<Instant> =
-    createDriftGauge(ARTIFACT_PROCESSING_DRIFT_GAUGE)
 
   private val lastCodeCheck: AtomicReference<Instant> =
     createDriftGauge(CODE_EVENT_PROCESSING_DRIFT_GAUGE)
@@ -123,29 +119,44 @@ final class WorkQueueProcessor(
       val startTime = clock.instant()
       val job = launch(TracingSupport.blankMDC) {
         supervisorScope {
-           workQueueRepository
-              .removeArtifactsFromQueue(artifactBatchSize)
-              .forEach { artifactVersion ->
-                try {
-                  /**
-                   * Allow individual artifact processing to timeout but catch the `CancellationException`
-                   * to prevent the cancellation of all coroutines under [job]
-                   */
-                  log.debug("Processing artifact {}", artifactVersion)
-                  withTimeout(config.timeoutDuration.toMillis()) {
-                    launch {
-                      handlePublishedArtifact(artifactVersion)
-                      lastArtifactCheck.set(clock.instant())
+          runCatching {
+           workQueueRepository.removeArtifactsFromQueue(artifactBatchSize)
+          }
+            .onFailure {
+              log.error("Exception fetching artifacts from work queue", it)
+            }
+            .onSuccess {
+              it.forEach {
+                launch {
+                  try {
+                    log.debug("Processing artifact {}", it)
+                    withTimeout(config.timeoutDuration.toMillis()) {
+                      handlePublishedArtifact(it)
                     }
+                  } catch (e: TimeoutCancellationException) {
+                    log.error("Timed out processing artifact version {}:", it.version, e)
+                    spectator.counter(
+                      "keel.scheduled.timeout",
+                      listOf(BasicTag("type",  "artifactproc"))
+                    ).safeIncrement()
+                  } catch (e: Exception) {
+                    log.error("Failure processing artifact version {}:", it.version, e)
+                    spectator.counter(
+                      "keel.scheduled.failure",
+                      listOf(BasicTag("type",  "artifactproc"))
+                    ).safeIncrement()
                   }
-                } catch (e: TimeoutCancellationException) {
-                  log.error("Timed out processing artifact version {}:", artifactVersion.version, e)
                 }
               }
+              spectator.counter(
+                "keel.scheduled.batch.size",
+                listOf(BasicTag("type", "artifactproc"))
+              ).increment(it.size.toLong())
             }
         }
+      }
       runBlocking { job.join() }
-      spectator.recordDuration(ARTIFACT_PROCESSING_DURATION, clock, startTime)
+      recordDuration(startTime, "artifactproc")
     }
   }
 
@@ -311,4 +322,7 @@ final class WorkQueueProcessor(
 
   fun Registry.recordDuration(metricName: String, clock:Clock, startTime: Instant, tags: Set<BasicTag> = emptySet()) =
     timer(metricName, tags).record(Duration.between(startTime, clock.instant()))
+
+  private fun recordDuration(startTime: Instant, type: String) =
+    spectator.recordDurationPercentile("keel.scheduled.method.duration", clock, startTime, setOf(BasicTag("type", type)))
 }

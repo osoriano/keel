@@ -17,7 +17,6 @@ import com.netflix.spinnaker.keel.persistence.EnvironmentDeletionRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.postdeploy.PostDeployActionRunner
 import com.netflix.spinnaker.keel.scheduled.ScheduledAgent
-import com.netflix.spinnaker.keel.telemetry.ResourceLoadFailed
 import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.keel.verification.VerificationRunner
 import com.netflix.spinnaker.time.MutableClock
@@ -199,10 +198,6 @@ internal object CheckSchedulerTests : JUnit5Minutests {
             } throws UnsupportedKind("some-invalid-kind")
 
             checkResources()
-          }
-
-          test("an event is published") {
-            verify { publisher.publishEvent(match<Any> { it is ResourceLoadFailed }) }
           }
         }
       }

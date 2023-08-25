@@ -2,7 +2,6 @@ package com.netflix.spinnaker.keel.lifecycle
 
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.config.LifecycleConfig
-import com.netflix.spinnaker.keel.telemetry.LifecycleMonitorLoadFailed
 import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
@@ -103,10 +102,6 @@ class LifecycleMonitorSchedulerTests : JUnit5Minutests {
         before {
           every { monitorRepository.tasksDueForCheck(any(), any()) } throws RuntimeException("oh dear.")
           subject.invokeMonitoring()
-        }
-
-        test("failure event published") {
-          verify(exactly = 1) { publisher.publishEvent(ofType<LifecycleMonitorLoadFailed>()) }
         }
       }
     }

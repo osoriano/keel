@@ -8,3 +8,9 @@ interface ArtifactHandler {
 
   suspend fun handle(artifact: DeliveryArtifact)
 }
+
+/**
+ * Applies all [ArtifactHandler] instances in this collection to [artifact].
+ */
+suspend fun Collection<ArtifactHandler>.applyAll(artifact: DeliveryArtifact) =
+  forEach { it.handle(artifact) }

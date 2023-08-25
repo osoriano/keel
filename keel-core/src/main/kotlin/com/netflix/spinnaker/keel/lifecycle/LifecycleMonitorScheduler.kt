@@ -1,13 +1,14 @@
 package com.netflix.spinnaker.keel.lifecycle
 
+import com.netflix.spectator.api.BasicTag
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.Timer
 import com.netflix.spectator.api.histogram.PercentileTimer
 import com.netflix.spinnaker.config.LifecycleConfig
 import com.netflix.spinnaker.keel.activation.ApplicationDown
 import com.netflix.spinnaker.keel.activation.ApplicationUp
-import com.netflix.spinnaker.keel.telemetry.LifecycleMonitorLoadFailed
-import com.netflix.spinnaker.keel.telemetry.LifecycleMonitorTimedOut
+import com.netflix.spinnaker.keel.telemetry.recordDurationPercentile
+import com.netflix.spinnaker.keel.telemetry.safeIncrement
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -41,9 +42,6 @@ class LifecycleMonitorScheduler(
   override val coroutineContext: CoroutineContext = Dispatchers.IO
 
   private val enabled = AtomicBoolean(false)
-
-  private val timerBuilder = spectator.createId("keel.scheduled.method.duration")
-
 
   @EventListener(ApplicationUp::class)
   fun onApplicationUp() {
@@ -80,31 +78,35 @@ class LifecycleMonitorScheduler(
               .tasksDueForCheck(lifecycleConfig.minAgeDuration, lifecycleConfig.batchSize)
           }
             .onFailure {
-              publisher.publishEvent(LifecycleMonitorLoadFailed(it))
+              log.error("Exception fetching monitor tasks due for check", it)
             }
-            .onSuccess { tasks ->
-              tasks.forEach { task ->
-                try {
-                  /**
-                   * Allow individual monitoring to timeout but catch the `CancellationException`
-                   * to prevent the cancellation of all coroutines under [job]
-                   */
-                  /**
-                   * Allow individual monitoring to timeout but catch the `CancellationException`
-                   * to prevent the cancellation of all coroutines under [job]
-                   */
-                  withTimeout(lifecycleConfig.timeoutDuration.toMillis()) {
-                    launch {
-                      monitors
-                        .first { it.handles(task.type) }
-                        .monitor(task)
+            .onSuccess {
+              it.forEach {
+                launch {
+                  try {
+                    withTimeout(lifecycleConfig.timeoutDuration.toMillis()) {
+                      val lifecycleMonitor = monitors.supporting(it.type)
+                      lifecycleMonitor.monitor(it)
                     }
+                  } catch (e: TimeoutCancellationException) {
+                    log.error("Timed out monitoring task $it", e)
+                    spectator.counter(
+                      "keel.scheduled.timeout",
+                      listOf(BasicTag("type",  "lifecycle"))
+                    ).safeIncrement()
+                  } catch (e: Exception) {
+                    log.error("Failed monitoring task $it", e)
+                    spectator.counter(
+                      "keel.scheduled.failure",
+                      listOf(BasicTag("type",  "lifecycle"))
+                    ).safeIncrement()
                   }
-                } catch (e: TimeoutCancellationException) {
-                  log.error("Timed out monitoring task $task", e)
-                  publisher.publishEvent(LifecycleMonitorTimedOut(task.type, task.link, task.triggeringEvent.artifactReference))
                 }
               }
+              spectator.counter(
+                "keel.scheduled.batch.size",
+                listOf(BasicTag("type", "lifecycle"))
+              ).increment(it.size.toLong())
             }
         }
       }
@@ -113,10 +115,6 @@ class LifecycleMonitorScheduler(
     }
   }
 
-  private fun recordDuration(startTime : Instant, type: String) =
-    timerBuilder
-      .withTag("type", type)
-      .let { id ->
-        spectator.timer(id).record(Duration.between(startTime, clock.instant()))
-      }
+  private fun recordDuration(startTime: Instant, type: String) =
+    spectator.recordDurationPercentile("keel.scheduled.method.duration", clock, startTime, setOf(BasicTag("type", type)))
 }

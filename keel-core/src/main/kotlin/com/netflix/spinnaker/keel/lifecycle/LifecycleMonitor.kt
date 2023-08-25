@@ -85,3 +85,9 @@ abstract class LifecycleMonitor(
    */
   abstract fun publishExceptionEvent(task: MonitoredTask)
 }
+
+/**
+ * Return the [LifecycleMonitor] supporting the specified LifecycleEventType.
+ */
+fun List<LifecycleMonitor>.supporting(type: LifecycleEventType) =
+  first { it.handles(type) }

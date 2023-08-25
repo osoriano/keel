@@ -16,16 +16,6 @@ import com.netflix.spinnaker.keel.persistence.EnvironmentDeletionRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
 import com.netflix.spinnaker.keel.postdeploy.PostDeployActionRunner
 import com.netflix.spinnaker.keel.telemetry.AgentInvocationComplete
-import com.netflix.spinnaker.keel.telemetry.ArtifactCheckComplete
-import com.netflix.spinnaker.keel.telemetry.ArtifactCheckTimedOut
-import com.netflix.spinnaker.keel.telemetry.EnvironmentsCheckTimedOut
-import com.netflix.spinnaker.keel.telemetry.PostDeployActionCheckComplete
-import com.netflix.spinnaker.keel.telemetry.PostDeployActionTimedOut
-import com.netflix.spinnaker.keel.telemetry.ResourceCheckCompleted
-import com.netflix.spinnaker.keel.telemetry.ResourceCheckTimedOut
-import com.netflix.spinnaker.keel.telemetry.ResourceLoadFailed
-import com.netflix.spinnaker.keel.telemetry.VerificationCheckComplete
-import com.netflix.spinnaker.keel.telemetry.VerificationTimedOut
 import com.netflix.spinnaker.keel.telemetry.recordDurationPercentile
 import com.netflix.spinnaker.keel.telemetry.safeIncrement
 import com.netflix.spinnaker.keel.verification.VerificationRunner
@@ -105,30 +95,38 @@ class CheckScheduler(
       val job = launch(blankMDC) {
         supervisorScope {
           runCatching {
-            repository
-              .resourcesDueForCheck(checkMinAge, resourceCheckConfig.batchSize)
+            repository.resourcesDueForCheck(checkMinAge, resourceCheckConfig.batchSize)
           }
             .onFailure {
-              publisher.publishEvent(ResourceLoadFailed(it))
+              log.error("Exception fetching resources due for check", it)
             }
             .onSuccess {
+              log.info("Got resource batch({})", it.size)
               it.forEach {
-                try {
-                  /**
-                   * Allow individual resource checks to timeout but catch the `CancellationException`
-                   * to prevent the cancellation of all coroutines under [job]
-                   */
-                  withTimeout(resourceCheckConfig.timeoutDuration.toMillis()) {
-                    launch {
+                launch {
+                  try {
+                    withTimeout(resourceCheckConfig.timeoutDuration.toMillis()) {
                       resourceActuator.checkResource(it)
-                      publisher.publishEvent(ResourceCheckCompleted(Duration.between(startTime, clock.instant())))
                     }
+                  } catch (e: TimeoutCancellationException) {
+                    log.error("Timed out checking resource ${it.id}", e)
+                    spectator.counter(
+                      "keel.scheduled.timeout",
+                      listOf(BasicTag("type",  "resource"))
+                    ).safeIncrement()
+                  } catch (e: Exception ) {
+                    log.error("Failure checking resource ${it.id}", e)
+                    spectator.counter(
+                      "keel.scheduled.failure",
+                      listOf(BasicTag("type",  "resource"))
+                    ).safeIncrement()
                   }
-                } catch (e: TimeoutCancellationException) {
-                  log.error("Timed out checking resource ${it.id}", e)
-                  publisher.publishEvent(ResourceCheckTimedOut(it.kind, it.id, it.application))
                 }
               }
+              spectator.counter(
+                "keel.scheduled.batch.size",
+                listOf(BasicTag("type", "resource"))
+              ).increment(it.size.toLong())
             }
         }
       }
@@ -141,30 +139,50 @@ class CheckScheduler(
   fun checkEnvironments() {
     if (enabled.get()) {
       val startTime = clock.instant()
-      publisher.publishEvent(ScheduledEnvironmentCheckStarting)
 
       val job = launch(blankMDC) {
         supervisorScope {
-          repository
-            .deliveryConfigsDueForCheck(checkMinAge, resourceCheckConfig.batchSize)
-            .forEach {
-              try {
-                /**
-                 * Sets the timeout to (checkTimeout * environmentCount), since a delivery-config's
-                 * environments are checked sequentially within one coroutine job.
-                 *
-                 * TODO: consider refactoring environmentPromotionChecker so that it can be called for
-                 *  individual environments, allowing fairer timeouts.
-                 */
-                withTimeout(resourceCheckConfig.timeoutDuration.toMillis() * max(it.environments.size, 1)) {
-                  launch { environmentPromotionChecker.checkEnvironments(it) }
+          runCatching {
+            repository.deliveryConfigsDueForCheck(checkMinAge, resourceCheckConfig.batchSize)
+          }
+            .onFailure {
+              log.error("Exception fetching delivery configs due for check", it)
+            }
+            .onSuccess {
+              it.forEach {
+                launch {
+                  try {
+                    /**
+                     * Sets the timeout to (checkTimeout * environmentCount), since a delivery-config's
+                     * environments are checked sequentially within one coroutine job.
+                     *
+                     * TODO: consider refactoring environmentPromotionChecker so that it can be called for
+                     *  individual environments, allowing fairer timeouts.
+                     */
+                    withTimeout(resourceCheckConfig.timeoutDuration.toMillis() * max(it.environments.size, 1)) {
+                      environmentPromotionChecker.checkEnvironments(it)
+                    }
+                  } catch (e: TimeoutCancellationException) {
+                    log.error("Timed out checking environments for ${it.application}/${it.name}", e)
+                    spectator.counter(
+                      "keel.scheduled.timeout",
+                      listOf(BasicTag("type",  "environment"))
+                    ).safeIncrement()
+                  } catch (e: Exception) {
+                    log.error("Failure checking environments for ${it.application}/${it.name}", e)
+                    spectator.counter(
+                      "keel.scheduled.failure",
+                      listOf(BasicTag("type",  "environment"))
+                    ).safeIncrement()
+                  } finally {
+                    repository.markDeliveryConfigCheckComplete(it)
+                  }
                 }
-              } catch (e: TimeoutCancellationException) {
-                log.error("Timed out checking environments for ${it.application}/${it.name}", e)
-                publisher.publishEvent(EnvironmentsCheckTimedOut(it.application, it.name))
-              } finally {
-                repository.markDeliveryConfigCheckComplete(it)
               }
+              spectator.counter(
+                "keel.scheduled.batch.size",
+                listOf(BasicTag("type", "environment"))
+              ).increment(it.size.toLong())
             }
         }
       }
@@ -181,16 +199,38 @@ class CheckScheduler(
 
       val job = launch(blankMDC) {
         supervisorScope {
-          environmentDeletionRepository
-            .itemsDueForCheck(checkMinAge, resourceCheckConfig.batchSize)
-            .forEach {
-              try {
-                withTimeout(environmentDeletionConfig.check.timeoutDuration.toMillis()) {
-                  launch { environmentCleaner.cleanupEnvironment(it) }
+          runCatching {
+            environmentDeletionRepository.itemsDueForCheck(checkMinAge, resourceCheckConfig.batchSize)
+          }
+            .onFailure {
+              log.error("Exception fetching environments due for deletion", it)
+            }
+            .onSuccess {
+              it.forEach {
+                launch {
+                  try {
+                    withTimeout(environmentDeletionConfig.check.timeoutDuration.toMillis()) {
+                      environmentCleaner.cleanupEnvironment(it)
+                    }
+                  } catch (e: TimeoutCancellationException) {
+                    log.error("Timed out checking environment ${it.name} for deletion", e)
+                    spectator.counter(
+                      "keel.scheduled.timeout",
+                      listOf(BasicTag("type",  "environmentdeletion"))
+                    ).safeIncrement()
+                  } catch (e: Exception) {
+                    log.error("Failed checking environment ${it.name} for deletion", e)
+                    spectator.counter(
+                      "keel.scheduled.failure",
+                      listOf(BasicTag("type",  "environmentdeletion"))
+                    ).safeIncrement()
+                  }
                 }
-              } catch (e: TimeoutCancellationException) {
-                log.error("Timed out checking environment ${it.name} for deletion", e)
               }
+              spectator.counter(
+                "keel.scheduled.batch.size",
+                listOf(BasicTag("type", "environmentdeletion"))
+              ).increment(it.size.toLong())
             }
         }
       }
@@ -204,29 +244,45 @@ class CheckScheduler(
   fun checkArtifacts() {
     if (enabled.get()) {
       val startTime = clock.instant()
-      publisher.publishEvent(ScheduledArtifactCheckStarting)
       val job = launch(blankMDC) {
         supervisorScope {
-          repository.artifactsDueForCheck(checkMinAge, resourceCheckConfig.batchSize)
-            .forEach { artifact ->
-              try {
-                withTimeout(resourceCheckConfig.timeoutDuration.toMillis()) {
-                  launch {
-                    artifactHandlers.forEach { handler ->
-                      handler.handle(artifact)
+          runCatching {
+            repository.artifactsDueForCheck(checkMinAge, resourceCheckConfig.batchSize)
+          }
+            .onFailure {
+              log.error("Exception fetching artifacts due for check", it)
+            }
+            .onSuccess {
+              it.forEach {
+                launch {
+                  try {
+                    withTimeout(resourceCheckConfig.timeoutDuration.toMillis()) {
+                      artifactHandlers.applyAll(it)
                     }
+                  } catch (e: TimeoutCancellationException) {
+                    log.error("Timed out checking artifact $it from ${it.deliveryConfigName}", e)
+                    spectator.counter(
+                      "keel.scheduled.timeout",
+                      listOf(BasicTag("type",  "artifactcheck"))
+                    ).safeIncrement()
+                  } catch (e: Exception) {
+                    log.error("Failure checking artifact $it from ${it.deliveryConfigName}", e)
+                    spectator.counter(
+                      "keel.scheduled.failure",
+                      listOf(BasicTag("type",  "artifactcheck"))
+                    ).safeIncrement()
                   }
                 }
-              } catch (e: TimeoutCancellationException) {
-                log.error("Timed out checking artifact $artifact from ${artifact.deliveryConfigName}", e)
-                publisher.publishEvent(ArtifactCheckTimedOut(artifact.name, artifact.deliveryConfigName))
               }
+              spectator.counter(
+                "keel.scheduled.batch.size",
+                listOf(BasicTag("type", "artifactcheck"))
+              ).increment(it.size.toLong())
             }
         }
       }
       runBlocking { job.join() }
-      publisher.publishEvent(ArtifactCheckComplete(Duration.between(startTime, clock.instant())))
-      recordDuration(startTime, "artifact")
+      recordDuration(startTime, "artifactcheck")
     }
   }
 
@@ -234,33 +290,51 @@ class CheckScheduler(
   fun verifyEnvironments() {
     if (enabled.get()) {
       val startTime = clock.instant()
-      publisher.publishEvent(ScheduledEnvironmentVerificationStarting)
 
       val job = launch(blankMDC) {
         supervisorScope {
-          repository
-            .nextEnvironmentsForVerification(verificationConfig.minAgeDuration, verificationConfig.batchSize)
-            .forEach {
-              try {
-                withTimeout(verificationConfig.timeoutDuration.toMillis()) {
-                  launch {
-                    try {
-                      verificationRunner.runFor(it)
-                    } catch (e: EnvironmentCurrentlyBeingActedOn) {
-                      log.info("Couldn't verify ${it.version} in ${it.deliveryConfig.application}/${it.environmentName} because environment is currently being acted on", e.message)
+          runCatching {
+            repository
+              .nextEnvironmentsForVerification(verificationConfig.minAgeDuration, verificationConfig.batchSize)
+          }
+            .onFailure {
+              log.error("Exception fetching verifications due for check", it)
+            }
+            .onSuccess {
+              it.forEach {
+                launch {
+                  try {
+                    withTimeout(verificationConfig.timeoutDuration.toMillis()) {
+                        try {
+                          verificationRunner.runFor(it)
+                        } catch (e: EnvironmentCurrentlyBeingActedOn) {
+                          log.info("Couldn't verify ${it.version} in ${it.deliveryConfig.application}/${it.environmentName} because environment is currently being acted on", e.message)
+                        }
                     }
+                  } catch (e: TimeoutCancellationException) {
+                    log.error("Timed out verifying ${it.version} in ${it.deliveryConfig.application}/${it.environmentName}", e)
+                    spectator.counter(
+                      "keel.scheduled.timeout",
+                      listOf(BasicTag("type",  "verification"))
+                    ).safeIncrement()
+                  } catch (e: Exception) {
+                    log.error("Failed verifying ${it.version} in ${it.deliveryConfig.application}/${it.environmentName}", e)
+                    spectator.counter(
+                      "keel.scheduled.failure",
+                      listOf(BasicTag("type",  "verification"))
+                    ).safeIncrement()
                   }
                 }
-              } catch (e: TimeoutCancellationException) {
-                log.error("Timed out verifying ${it.version} in ${it.deliveryConfig.application}/${it.environmentName}", e)
-                publisher.publishEvent(VerificationTimedOut(it))
               }
+              spectator.counter(
+                "keel.scheduled.batch.size",
+                listOf(BasicTag("type", "verification"))
+              ).increment(it.size.toLong())
             }
         }
       }
 
       runBlocking { job.join() }
-      publisher.publishEvent(VerificationCheckComplete(Duration.between(startTime, clock.instant())))
       recordDuration(startTime, "verification")
     }
   }
@@ -269,29 +343,47 @@ class CheckScheduler(
   fun runPostDeployActions() {
     if (enabled.get()) {
       val startTime = clock.instant()
-      publisher.publishEvent(ScheduledPostDeployActionRunStarting)
 
       val job = launch(blankMDC) {
         supervisorScope {
-          repository
-            .nextEnvironmentsForPostDeployAction(postDeployConfig.minAgeDuration, postDeployConfig.batchSize)
-            .forEach {
-              try {
-                withTimeout(postDeployConfig.timeoutDuration.toMillis()) {
-                  launch {
-                    postDeployActionRunner.runFor(it)
+          runCatching {
+            repository
+              .nextEnvironmentsForPostDeployAction(postDeployConfig.minAgeDuration, postDeployConfig.batchSize)
+          }
+            .onFailure {
+              log.error("Exception fetching post deploy actions due for check", it)
+            }
+            .onSuccess {
+              it.forEach {
+                launch {
+                  try {
+                    withTimeout(postDeployConfig.timeoutDuration.toMillis()) {
+                      postDeployActionRunner.runFor(it)
+                    }
+                  } catch (e: TimeoutCancellationException) {
+                    log.error("Timed out running post deploy actions on ${it.version} in ${it.deliveryConfig.application}/${it.environmentName}", e)
+                    spectator.counter(
+                      "keel.scheduled.timeout",
+                      listOf(BasicTag("type",  "postdeploy"))
+                    ).safeIncrement()
+                  } catch (e: Exception) {
+                    log.error("Failure running post deploy actions on ${it.version} in ${it.deliveryConfig.application}/${it.environmentName}", e)
+                    spectator.counter(
+                      "keel.scheduled.failure",
+                      listOf(BasicTag("type",  "postdeploy"))
+                    ).safeIncrement()
                   }
                 }
-              } catch (e: TimeoutCancellationException) {
-                log.error("Timed out running post deploy actions on ${it.version} in ${it.deliveryConfig.application}/${it.environmentName}", e)
-                publisher.publishEvent(PostDeployActionTimedOut(it))
               }
+              spectator.counter(
+                "keel.scheduled.batch.size",
+                listOf(BasicTag("type", "postdeploy"))
+              ).increment(it.size.toLong())
             }
         }
       }
 
       runBlocking { job.join() }
-      publisher.publishEvent(PostDeployActionCheckComplete(Duration.between(startTime, clock.instant())))
       recordDuration(startTime, "postdeploy")
     }
   }
@@ -330,9 +422,7 @@ class CheckScheduler(
               log.error("Exception cleaning old artifact versions", it)
               spectator.counter(
                 "keel.scheduled.failure",
-                listOf(
-                  BasicTag("type",  "artifactversioncleanup")
-                )
+                listOf(BasicTag("type",  "artifactversioncleanup"))
               ).safeIncrement()
             }
             .onSuccess {
@@ -349,7 +439,7 @@ class CheckScheduler(
     }
   }
 
-  private fun recordDuration(startTime : Instant, type: String) =
+  private fun recordDuration(startTime: Instant, type: String) =
     spectator.recordDurationPercentile("keel.scheduled.method.duration", clock, startTime, setOf(BasicTag("type", type)))
 
   private val log by lazy { LoggerFactory.getLogger(javaClass) }
