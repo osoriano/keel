@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.sql
 
+import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.keel.events.EventLevel.ERROR
 import com.netflix.spinnaker.keel.events.EventLevel.INFO
 import com.netflix.spinnaker.keel.notifications.DeliveryConfigImportFailed
@@ -10,7 +11,6 @@ import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil.cleanupDb
 import com.netflix.spinnaker.time.MutableClock
-import io.mockk.mockk
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Disabled
@@ -34,7 +34,7 @@ class SqlDismissibleNotificationRepositoryTests {
   private val sqlRetry = SqlRetry(SqlRetryProperties(retryProperties, retryProperties))
   private val clock = MutableClock()
   private val objectMapper = configuredTestObjectMapper()
-  private val deliveryConfigRepository = SqlDeliveryConfigRepository(jooq, clock, objectMapper, resourceFactory(), sqlRetry, publisher = mockk())
+  private val deliveryConfigRepository = SqlDeliveryConfigRepository(jooq, clock, objectMapper, resourceFactory(), sqlRetry, spectator = NoopRegistry())
   private val notificationRepository = SqlDismissibleNotificationRepository(jooq, sqlRetry, objectMapper, clock)
   private val deliveryConfig = deliveryConfig()
 

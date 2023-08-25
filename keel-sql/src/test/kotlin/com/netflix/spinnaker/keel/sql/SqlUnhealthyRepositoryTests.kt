@@ -9,7 +9,6 @@ import com.netflix.spinnaker.keel.test.resourceFactory
 import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil
-import io.mockk.mockk
 import java.time.Clock
 
 internal object SqlUnhealthyRepositoryTests : UnhealthyRepositoryTests<SqlUnhealthyRepository>() {
@@ -23,7 +22,6 @@ internal object SqlUnhealthyRepositoryTests : UnhealthyRepositoryTests<SqlUnheal
     configuredObjectMapper(),
     resourceFactory,
     sqlRetry,
-    publisher = mockk(relaxed = true),
     spectator = NoopRegistry(),
     springEnv = mockEnvironment()
   )

@@ -3,6 +3,8 @@ package com.netflix.spinnaker.keel.sql
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.convertValue
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.netflix.spectator.api.BasicTag
+import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactMetadata
@@ -51,7 +53,6 @@ import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ENVIRONMENT_ARTIF
 import com.netflix.spinnaker.keel.services.StatusInfoForArtifactInEnvironment
 import com.netflix.spinnaker.keel.sql.RetryCategory.READ
 import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
-import com.netflix.spinnaker.keel.telemetry.AboutToBeChecked
 import io.github.resilience4j.retry.Retry
 import io.github.resilience4j.retry.RetryConfig
 import org.jooq.DSLContext
@@ -65,12 +66,12 @@ import org.jooq.impl.DSL.select
 import org.jooq.impl.DSL.selectOne
 import org.jooq.util.mysql.MySQLDSL
 import org.slf4j.LoggerFactory
-import org.springframework.context.ApplicationEventPublisher
 import java.security.MessageDigest
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.time.Instant.EPOCH
+import java.util.concurrent.TimeUnit
 import javax.xml.bind.DatatypeConverter
 
 class SqlArtifactRepository(
@@ -79,7 +80,7 @@ class SqlArtifactRepository(
   private val objectMapper: ObjectMapper,
   private val sqlRetry: SqlRetry,
   private val artifactSuppliers: List<ArtifactSupplier<*, *>> = emptyList(),
-  private val publisher: ApplicationEventPublisher
+  private val spectator: Registry,
 ) : ArtifactRepository {
 
   override fun register(artifact: DeliveryArtifact) {
@@ -1880,20 +1881,30 @@ class SqlArtifactRepository(
           .limit(limit)
           .forUpdate()
           .fetch()
-          .onEach { (uid, _, _, _, _, deliveryConfigName, lastCheckedAt) ->
-            insertInto(ARTIFACT_LAST_CHECKED)
-              .set(ARTIFACT_LAST_CHECKED.ARTIFACT_UID, uid)
-              .set(ARTIFACT_LAST_CHECKED.AT, now)
-              .onDuplicateKeyUpdate()
-              .set(ARTIFACT_LAST_CHECKED.AT, now)
-              .execute()
-            publisher.publishEvent(
-              AboutToBeChecked(
-                lastCheckedAt,
-                "artifact",
-                "deliveryConfig:$deliveryConfigName"
+          .also {
+            var maxLagTime = Duration.ZERO
+            val now = clock.instant()
+            it.forEach { (uid, _, _, _, _, deliveryConfigName, lastCheckedAt) ->
+              insertInto(ARTIFACT_LAST_CHECKED)
+                .set(ARTIFACT_LAST_CHECKED.ARTIFACT_UID, uid)
+                .set(ARTIFACT_LAST_CHECKED.AT, now)
+                .onDuplicateKeyUpdate()
+                .set(ARTIFACT_LAST_CHECKED.AT, now)
+                .execute()
+              // Find the max lag time. Ignore new resources or resources where a recheck was triggered
+              if (lastCheckedAt != null && lastCheckedAt.isAfter(Instant.EPOCH.plusSeconds(1))) {
+                val lagTime = Duration.between(lastCheckedAt, now)
+                if (maxLagTime < lagTime) {
+                  maxLagTime = lagTime
+                }
+              }
+            }
+            spectator.timer(
+              "keel.scheduled.method.max.lag",
+              listOf(
+                BasicTag("type", "artifactcheck")
               )
-            )
+            ).record(maxLagTime.toSeconds(), TimeUnit.SECONDS)
           }
           .map { (_, name, type, details, reference, deliveryConfigName) ->
             mapToArtifact(artifactSuppliers.supporting(type), name, type, details, reference, deliveryConfigName)

@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.sql
 
+import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.persistence.ArtifactRepositoryPromotionFlowTests
 import com.netflix.spinnaker.keel.test.configuredTestObjectMapper
@@ -8,7 +9,6 @@ import com.netflix.spinnaker.keel.test.resourceFactory
 import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil.cleanupDb
-import io.mockk.mockk
 import org.junit.jupiter.api.AfterEach
 import org.springframework.context.ApplicationEventPublisher
 import java.time.Clock
@@ -26,11 +26,11 @@ class SqlArtifactRepositoryPromotionFlowTests : ArtifactRepositoryPromotionFlowT
     resourceFactory(),
     sqlRetry,
     defaultArtifactSuppliers(),
-    publisher = mockk(relaxed = true)
+    spectator = NoopRegistry()
   )
 
-  override fun factory(clock: Clock, publisher: ApplicationEventPublisher): SqlArtifactRepository =
-    SqlArtifactRepository(jooq, clock, objectMapper, sqlRetry, defaultArtifactSuppliers(), publisher)
+  override fun factory(clock: Clock): SqlArtifactRepository =
+    SqlArtifactRepository(jooq, clock, objectMapper, sqlRetry, defaultArtifactSuppliers(), NoopRegistry())
 
   override fun SqlArtifactRepository.flush() {
     cleanupDb(jooq)

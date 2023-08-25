@@ -39,8 +39,6 @@ import com.netflix.spinnaker.keel.test.withUpdatedResource
 import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
-import io.mockk.mockk
-import org.springframework.context.ApplicationEventPublisher
 import strikt.api.expect
 import strikt.api.expectCatching
 import strikt.api.expectThat
@@ -69,19 +67,15 @@ import java.time.Instant
 abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : ResourceRepository, A : ArtifactRepository, P : PausedRepository> :
   JUnit5Minutests {
 
-  val publisher: ApplicationEventPublisher = mockk(relaxed = true)
-
   abstract fun createDeliveryConfigRepository(
     resourceSpecIdentifier: ResourceSpecIdentifier,
-    publisher: ApplicationEventPublisher
   ): T
 
   abstract fun createResourceRepository(
     resourceSpecIdentifier: ResourceSpecIdentifier,
-    publisher: ApplicationEventPublisher
   ): R
 
-  abstract fun createArtifactRepository(publisher: ApplicationEventPublisher): A
+  abstract fun createArtifactRepository(): A
   abstract fun createPausedRepository(): P
 
   open fun flush() {}
@@ -214,11 +208,10 @@ abstract class DeliveryConfigRepositoryTests<T : DeliveryConfigRepository, R : R
         deliveryConfigRepositoryProvider = {
           this@DeliveryConfigRepositoryTests.createDeliveryConfigRepository(
             it,
-            publisher
           )
         },
-        resourceRepositoryProvider = { this@DeliveryConfigRepositoryTests.createResourceRepository(it, publisher) },
-        artifactRepositoryProvider = { this@DeliveryConfigRepositoryTests.createArtifactRepository(publisher) },
+        resourceRepositoryProvider = { this@DeliveryConfigRepositoryTests.createResourceRepository(it) },
+        artifactRepositoryProvider = { this@DeliveryConfigRepositoryTests.createArtifactRepository() },
         pausedRepositoryProvider = this@DeliveryConfigRepositoryTests::createPausedRepository
       )
     }

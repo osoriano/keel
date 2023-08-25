@@ -2,6 +2,8 @@ package com.netflix.spinnaker.keel.sql
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import com.netflix.spectator.api.BasicTag
+import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.NotificationConfig
@@ -54,7 +56,6 @@ import com.netflix.spinnaker.keel.sql.deliveryconfigs.deliveryConfigByName
 import com.netflix.spinnaker.keel.sql.deliveryconfigs.makeEnvironment
 import com.netflix.spinnaker.keel.sql.deliveryconfigs.selectEnvironmentColumns
 import com.netflix.spinnaker.keel.sql.deliveryconfigs.uid
-import com.netflix.spinnaker.keel.telemetry.AboutToBeChecked
 import de.huxhorn.sulky.ulid.ULID
 import org.jooq.DSLContext
 import org.jooq.Record1
@@ -69,12 +70,12 @@ import org.jooq.impl.DSL.selectOne
 import org.jooq.impl.DSL.value
 import org.jooq.util.mysql.MySQLDSL.values
 import org.slf4j.LoggerFactory
-import org.springframework.context.ApplicationEventPublisher
 import java.net.InetAddress
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.time.Instant.EPOCH
+import java.util.concurrent.TimeUnit
 
 class SqlDeliveryConfigRepository(
   jooq: DSLContext,
@@ -83,7 +84,7 @@ class SqlDeliveryConfigRepository(
   resourceFactory: ResourceFactory,
   sqlRetry: SqlRetry,
   artifactSuppliers: List<ArtifactSupplier<*, *>> = emptyList(),
-  private val publisher: ApplicationEventPublisher
+  private val spectator: Registry,
 ) : SqlStorageContext(
   jooq,
   clock,
@@ -1209,20 +1210,28 @@ class SqlDeliveryConfigRepository(
           .forUpdate()
           .fetch()
           .also {
+            var maxLagTime = Duration.ZERO
+            val now = clock.instant()
             it.forEach { (uid, name, lastCheckedAt) ->
               update(DELIVERY_CONFIG_LAST_CHECKED)
                 .set(DELIVERY_CONFIG_LAST_CHECKED.LEASED_BY, InetAddress.getLocalHost().hostName)
                 .set(DELIVERY_CONFIG_LAST_CHECKED.LEASED_AT, now)
                 .where(DELIVERY_CONFIG_LAST_CHECKED.DELIVERY_CONFIG_UID.eq(uid))
                 .execute()
-              publisher.publishEvent(
-                AboutToBeChecked(
-                  lastCheckedAt,
-                  "deliveryConfig",
-                  "deliveryConfig:$name"
-                )
-              )
+              // Find the max lag time. Ignore new resources or resources where a recheck was triggered
+              if (lastCheckedAt != null && lastCheckedAt.isAfter(Instant.EPOCH.plusSeconds(1))) {
+                val lagTime = Duration.between(lastCheckedAt, now)
+                if (maxLagTime < lagTime) {
+                  maxLagTime = lagTime
+                }
+              }
             }
+            spectator.timer(
+              "keel.scheduled.method.max.lag",
+              listOf(
+                BasicTag("type", "environment")
+              )
+            ).record(maxLagTime.toSeconds(), TimeUnit.SECONDS)
           }
       }
     }

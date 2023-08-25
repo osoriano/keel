@@ -1,6 +1,8 @@
 package com.netflix.spinnaker.keel.sql
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.netflix.spectator.api.BasicTag
+import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.keel.api.ActionStateUpdateContext
 import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
 import com.netflix.spinnaker.keel.api.DeliveryConfig
@@ -33,6 +35,8 @@ import org.jooq.impl.DSL.value
 import org.slf4j.LoggerFactory
 import java.time.Clock
 import java.time.Duration
+import java.time.Instant
+import java.util.concurrent.TimeUnit
 import org.springframework.core.env.Environment as SpringEnvironment
 
 class SqlActionRepository(
@@ -42,7 +46,8 @@ class SqlActionRepository(
   resourceFactory: ResourceFactory,
   sqlRetry: SqlRetry,
   artifactSuppliers: List<ArtifactSupplier<*, *>> = emptyList(),
-  private val environment: SpringEnvironment
+  private val environment: SpringEnvironment,
+  private val spectator: Registry,
 ) : SqlStorageContext(
   jooq,
   clock,
@@ -68,20 +73,38 @@ class SqlActionRepository(
         nextEnvironmentQuery(cutoff, limit)
           .lockInShareMode(useLockingRead)
           .fetch()
-          .onEach { (_, _, environmentUid, _, artifactUid, _, artifactVersion) ->
-            insertInto(ENVIRONMENT_LAST_VERIFIED)
-              .set(ENVIRONMENT_LAST_VERIFIED.ENVIRONMENT_UID, environmentUid)
-              .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_UID, artifactUid)
-              .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_VERSION, artifactVersion)
-              .set(ENVIRONMENT_LAST_VERIFIED.AT, now)
-              .onDuplicateKeyUpdate()
-              .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_VERSION, artifactVersion)
-              .set(ENVIRONMENT_LAST_VERIFIED.AT, now)
-              .execute()
+          .also {
+            var maxLagTime = Duration.ZERO
+            val now = clock.instant()
+            it.forEach { (_, deliveryConfigName, environmentUid, _, artifactUid, _, artifactVersion, lastCheckedAt) ->
+
+              insertInto(ENVIRONMENT_LAST_VERIFIED)
+                .set(ENVIRONMENT_LAST_VERIFIED.ENVIRONMENT_UID, environmentUid)
+                .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_UID, artifactUid)
+                .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_VERSION, artifactVersion)
+                .set(ENVIRONMENT_LAST_VERIFIED.AT, now)
+                .onDuplicateKeyUpdate()
+                .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_VERSION, artifactVersion)
+                .set(ENVIRONMENT_LAST_VERIFIED.AT, now)
+                .execute()
+              // Find the max lag time. Ignore new resources or resources where a recheck was triggered
+              if (lastCheckedAt != null && lastCheckedAt.isAfter(Instant.EPOCH.plusSeconds(1))) {
+                val lagTime = Duration.between(lastCheckedAt, now)
+                if (maxLagTime < lagTime) {
+                  maxLagTime = lagTime
+                }
+              }
+            }
+            spectator.timer(
+              "keel.scheduled.method.max.lag",
+              listOf(
+                BasicTag("type", "verification")
+              )
+            ).record(maxLagTime.toSeconds(), TimeUnit.SECONDS)
           }
       }
     }
-      .map { (_, deliveryConfigName, _, environmentName, _, artifactReference, artifactVersion) ->
+      .map { (_, deliveryConfigName, _, environmentName, _, artifactReference, artifactVersion, _) ->
         ArtifactInEnvironmentContext(
           deliveryConfigByName(deliveryConfigName),
           environmentName,
@@ -486,19 +509,36 @@ class SqlActionRepository(
         nextEnvironmentQuery(cutoff, limit)
           .lockInShareMode(useLockingRead)
           .fetch()
-          .onEach { (_, _, environmentUid, _, artifactUid, _, artifactVersion) ->
-            insertInto(Tables.ENVIRONMENT_LAST_POST_DEPLOY)
-              .set(Tables.ENVIRONMENT_LAST_POST_DEPLOY.ENVIRONMENT_UID, environmentUid)
-              .set(Tables.ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_UID, artifactUid)
-              .set(Tables.ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_VERSION, artifactVersion)
-              .set(Tables.ENVIRONMENT_LAST_POST_DEPLOY.AT, now)
-              .onDuplicateKeyUpdate()
-              .set(Tables.ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_VERSION, artifactVersion)
-              .set(Tables.ENVIRONMENT_LAST_POST_DEPLOY.AT, now)
-              .execute()
+          .also {
+            var maxLagTime = Duration.ZERO
+            val now = clock.instant()
+            it.forEach { (_, deliveryConfigName, environmentUid, _, artifactUid, _, artifactVersion, lastCheckedAt) ->
+              insertInto(Tables.ENVIRONMENT_LAST_POST_DEPLOY)
+                .set(Tables.ENVIRONMENT_LAST_POST_DEPLOY.ENVIRONMENT_UID, environmentUid)
+                .set(Tables.ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_UID, artifactUid)
+                .set(Tables.ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_VERSION, artifactVersion)
+                .set(Tables.ENVIRONMENT_LAST_POST_DEPLOY.AT, now)
+                .onDuplicateKeyUpdate()
+                .set(Tables.ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_VERSION, artifactVersion)
+                .set(Tables.ENVIRONMENT_LAST_POST_DEPLOY.AT, now)
+                .execute()
+              // Find the max lag time. Ignore new resources or resources where a recheck was triggered
+              if (lastCheckedAt != null && lastCheckedAt.isAfter(Instant.EPOCH.plusSeconds(1))) {
+                val lagTime = Duration.between(lastCheckedAt, now)
+                if (maxLagTime < lagTime) {
+                  maxLagTime = lagTime
+                }
+              }
+            }
+            spectator.timer(
+              "keel.scheduled.method.max.lag",
+              listOf(
+                BasicTag("type", "postdeploy")
+              )
+            ).record(maxLagTime.toSeconds(), TimeUnit.SECONDS)
           }
       }
-        .map { (_, deliveryConfigName, _, environmentName, _, artifactReference, artifactVersion) ->
+        .map { (_, deliveryConfigName, _, environmentName, _, artifactReference, artifactVersion, _) ->
           ArtifactInEnvironmentContext(
             deliveryConfigByName(deliveryConfigName),
             environmentName,

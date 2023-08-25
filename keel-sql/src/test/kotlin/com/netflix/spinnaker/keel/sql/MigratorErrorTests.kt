@@ -17,7 +17,6 @@ import com.netflix.spinnaker.keel.test.resourceFactory
 import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil.cleanupDb
-import io.mockk.mockk
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -61,7 +60,6 @@ class MigratorErrorTests {
     resourceFactory = resourceFactory,
     objectMapper = objectMapper,
     sqlRetry = sqlRetry,
-    publisher = mockk(relaxed = true),
     spectator = NoopRegistry(),
     springEnv = mockEnvironment()
   )
@@ -73,7 +71,7 @@ class MigratorErrorTests {
     objectMapper = objectMapper,
     sqlRetry = sqlRetry,
     artifactSuppliers = defaultArtifactSuppliers(),
-    publisher = mockk(relaxed = true)
+    spectator = NoopRegistry(),
   )
 
   val deliveryConfig = DeliveryConfig(

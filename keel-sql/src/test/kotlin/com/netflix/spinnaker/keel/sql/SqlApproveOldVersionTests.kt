@@ -22,10 +22,10 @@ class SqlApproveOldVersionTests : ApproveOldVersionTests<CombinedRepository>() {
   private val clock = Clock.systemUTC()
 
   override fun createKeelRepository(resourceFactory: ResourceFactory, mapper: ObjectMapper): CombinedRepository {
-    val deliveryConfigRepository = SqlDeliveryConfigRepository(jooq, clock, mapper, resourceFactory, sqlRetry, defaultArtifactSuppliers(), publisher = mockk(relaxed = true))
-    val resourceRepository = SqlResourceRepository(jooq, clock, mapper, resourceFactory, sqlRetry, publisher = mockk(relaxed = true), spectator = NoopRegistry(), springEnv = mockEnvironment())
-    val artifactRepository = SqlArtifactRepository(jooq, clock, mapper, sqlRetry, defaultArtifactSuppliers(), publisher = mockk(relaxed = true))
-    val verificationRepository = SqlActionRepository(jooq, clock, mapper, resourceFactory, sqlRetry, environment = mockk())
+    val deliveryConfigRepository = SqlDeliveryConfigRepository(jooq, clock, mapper, resourceFactory, sqlRetry, defaultArtifactSuppliers(), spectator = NoopRegistry())
+    val resourceRepository = SqlResourceRepository(jooq, clock, mapper, resourceFactory, sqlRetry, spectator = NoopRegistry(), springEnv = mockEnvironment())
+    val artifactRepository = SqlArtifactRepository(jooq, clock, mapper, sqlRetry, defaultArtifactSuppliers(), spectator = NoopRegistry())
+    val verificationRepository = SqlActionRepository(jooq, clock, mapper, resourceFactory, sqlRetry, environment = mockk(), spectator = NoopRegistry())
     return CombinedRepository(
       deliveryConfigRepository,
       artifactRepository,

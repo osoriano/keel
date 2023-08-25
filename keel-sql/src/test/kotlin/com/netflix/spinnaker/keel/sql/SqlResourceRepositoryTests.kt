@@ -9,8 +9,6 @@ import com.netflix.spinnaker.keel.test.resourceFactory
 import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil.cleanupDb
-import io.mockk.mockk
-import org.springframework.context.ApplicationEventPublisher
 import java.time.Clock
 
 internal class SqlResourceRepositoryTests : ResourceRepositoryTests<SqlResourceRepository>() {
@@ -24,17 +22,16 @@ internal class SqlResourceRepositoryTests : ResourceRepositoryTests<SqlResourceR
     configuredObjectMapper(),
     resourceFactory,
     sqlRetry,
-    publisher = mockk(relaxed = true)
+    spectator = NoopRegistry(),
   )
 
-  override fun factory(clock: Clock, publisher: ApplicationEventPublisher): SqlResourceRepository {
+  override fun factory(clock: Clock): SqlResourceRepository {
     return SqlResourceRepository(
       jooq,
       clock,
       configuredObjectMapper(),
       resourceFactory,
       sqlRetry,
-      publisher,
       NoopRegistry(),
       springEnv = mockEnvironment()
     )

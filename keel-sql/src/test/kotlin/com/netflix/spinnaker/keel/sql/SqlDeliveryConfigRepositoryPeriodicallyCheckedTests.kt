@@ -17,7 +17,6 @@ import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil.cleanupDb
 import dev.minutest.rootContext
-import io.mockk.mockk
 import strikt.api.expectThat
 import strikt.assertions.first
 import strikt.assertions.hasSize
@@ -42,7 +41,7 @@ internal class SqlDeliveryConfigRepositoryPeriodicallyCheckedTests :
       objectMapper = objectMapper,
       sqlRetry = sqlRetry,
       artifactSuppliers = defaultArtifactSuppliers(),
-      publisher = mockk(relaxed = true)
+      spectator = NoopRegistry(),
     )
   }
 
@@ -124,7 +123,6 @@ internal class SqlDeliveryConfigRepositoryPeriodicallyCheckedTests :
         resourceFactory = resourceFactory,
         objectMapper = objectMapper,
         sqlRetry = sqlRetry,
-        publisher = mockk(relaxed = true),
         spectator = NoopRegistry(),
         springEnv = mockEnvironment()
       )
@@ -137,7 +135,7 @@ internal class SqlDeliveryConfigRepositoryPeriodicallyCheckedTests :
           objectMapper = objectMapper,
           sqlRetry = sqlRetry,
           artifactSuppliers = defaultArtifactSuppliers(),
-          publisher = mockk(relaxed = true)
+          spectator = NoopRegistry(),
         )
       }
 

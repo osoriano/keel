@@ -33,8 +33,6 @@ import com.netflix.spinnaker.keel.core.api.PromotionStatus.SKIPPED
 import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
-import io.mockk.mockk
-import org.springframework.context.ApplicationEventPublisher
 import strikt.api.expect
 import strikt.api.expectCatching
 import strikt.api.expectThat
@@ -56,9 +54,8 @@ import java.time.Duration
  * All the promotion flow tests around artifacts
  */
 abstract class ArtifactRepositoryPromotionFlowTests<T : ArtifactRepository> : JUnit5Minutests {
-  val publisher: ApplicationEventPublisher = mockk(relaxed = true)
 
-  abstract fun factory(clock: Clock, publisher: ApplicationEventPublisher): T
+  abstract fun factory(clock: Clock): T
 
   val clock = MutableClock()
 
@@ -324,7 +321,7 @@ abstract class ArtifactRepositoryPromotionFlowTests<T : ArtifactRepository> : JU
   }
 
   fun tests() = rootContext<Fixture<T>> {
-    fixture { Fixture(factory(clock, publisher)) }
+    fixture { Fixture(factory(clock)) }
 
     before {
       persist()

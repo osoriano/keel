@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.sql
 
+import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.keel.test.configuredTestObjectMapper
 import com.netflix.spinnaker.keel.test.defaultArtifactSuppliers
 import com.netflix.spinnaker.keel.test.deliveryConfig
@@ -9,7 +10,6 @@ import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.time.MutableClock
 import io.mockk.mockk
 import org.junit.jupiter.api.Test
-import org.springframework.context.ApplicationEventPublisher
 import strikt.api.expect
 import strikt.assertions.isEqualTo
 import java.time.Duration
@@ -24,7 +24,6 @@ class ArtifactVersionApprovalCountTests {
   }
   private val objectMapper = configuredTestObjectMapper()
   private val clock = MutableClock()
-  private val publisher = mockk<ApplicationEventPublisher>(relaxed = true)
   private val resourceFactory = resourceFactory()
   private val deliveryConfig = deliveryConfig()
   private val deliveryConfigRepository = SqlDeliveryConfigRepository(
@@ -34,14 +33,14 @@ class ArtifactVersionApprovalCountTests {
     resourceFactory,
     sqlRetry,
     defaultArtifactSuppliers(),
-    publisher = publisher
+    spectator = NoopRegistry()
   )
   private val artifactRepository = SqlArtifactRepository(
     jooq,
     clock,
     objectMapper,
     sqlRetry,
-    publisher = publisher
+    spectator = NoopRegistry(),
   )
 
   @Test

@@ -35,8 +35,6 @@ import com.netflix.spinnaker.keel.core.api.PromotionStatus.VETOED
 import com.netflix.spinnaker.time.MutableClock
 import dev.minutest.junit.JUnit5Minutests
 import dev.minutest.rootContext
-import io.mockk.mockk
-import org.springframework.context.ApplicationEventPublisher
 import strikt.api.expect
 import strikt.api.expectThat
 import strikt.api.expectThrows
@@ -57,9 +55,8 @@ import java.time.Clock
 import java.time.Instant
 
 abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests {
-  val publisher: ApplicationEventPublisher = mockk(relaxed = true)
 
-  abstract fun factory(clock: Clock, publisher: ApplicationEventPublisher): T
+  abstract fun factory(clock: Clock): T
 
   val clock = MutableClock()
 
@@ -318,7 +315,7 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
   }
 
   fun tests() = rootContext<Fixture<T>> {
-    fixture { Fixture(factory(clock, publisher)) }
+    fixture { Fixture(factory(clock)) }
 
     after {
       subject.flush()

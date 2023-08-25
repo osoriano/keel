@@ -17,7 +17,6 @@ import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil.cleanupDb
 import dev.minutest.rootContext
-import io.mockk.mockk
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -50,13 +49,12 @@ internal object SqlResourceRepositoryPeriodicallyCheckedTests :
       configuredObjectMapper(),
       resourceFactory,
       sqlRetry,
-      publisher = mockk(relaxed = true),
       spectator = NoopRegistry(),
       springEnv = mockEnvironment()
     )
   }
 
-  val deliveryConfigRepository = SqlDeliveryConfigRepository(jooq, systemUTC(), configuredObjectMapper(), resourceFactory, sqlRetry, publisher = mockk(relaxed = true))
+  val deliveryConfigRepository = SqlDeliveryConfigRepository(jooq, systemUTC(), configuredObjectMapper(), resourceFactory, sqlRetry, spectator = NoopRegistry())
 
   override val storeDeliveryConfig: (DeliveryConfig) -> Unit = deliveryConfigRepository::store
 
@@ -98,7 +96,7 @@ internal object SqlResourceRepositoryPeriodicallyCheckedTests :
         // create a new repository object that is configured with our custom retries
         val repo =
           SqlResourceRepository(jooq, clock, configuredObjectMapper(), resourceFactory,
-            customSqlRetry, publisher = mockk(relaxed = true), spectator = NoopRegistry(), springEnv = mockEnvironment())
+            customSqlRetry, spectator = NoopRegistry(), springEnv = mockEnvironment())
         val results = synchronizedSet<Resource<ResourceSpec>>(HashSet())
 
         doInParallel(500) {

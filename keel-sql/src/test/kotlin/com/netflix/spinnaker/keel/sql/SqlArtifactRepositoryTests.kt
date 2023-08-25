@@ -1,5 +1,6 @@
 package com.netflix.spinnaker.keel.sql
 
+import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.artifacts.ArtifactOriginFilter
@@ -15,10 +16,8 @@ import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil.cleanupDb
 import com.netflix.spinnaker.time.MutableClock
-import io.mockk.mockk
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
-import org.springframework.context.ApplicationEventPublisher
 import strikt.api.expectThat
 import strikt.assertions.containsExactlyInAnyOrder
 import strikt.assertions.isEqualTo
@@ -39,11 +38,11 @@ class SqlArtifactRepositoryTests : ArtifactRepositoryTests<SqlArtifactRepository
     resourceFactory(),
     sqlRetry,
     defaultArtifactSuppliers(),
-    publisher = mockk(relaxed = true)
+    spectator = NoopRegistry(),
   )
 
-  override fun factory(clock: Clock, publisher: ApplicationEventPublisher): SqlArtifactRepository =
-    SqlArtifactRepository(jooq, clock, objectMapper, sqlRetry, defaultArtifactSuppliers(), publisher)
+  override fun factory(clock: Clock): SqlArtifactRepository =
+    SqlArtifactRepository(jooq, clock, objectMapper, sqlRetry, defaultArtifactSuppliers(), NoopRegistry())
 
   override fun SqlArtifactRepository.flush() {
     cleanupDb(jooq)
@@ -69,7 +68,7 @@ class SqlArtifactRepositoryTests : ArtifactRepositoryTests<SqlArtifactRepository
 
     // version 3 is the candidate
     // version 1 is the current
-    val pending = factory(mutableClock, publisher).removeExtra(
+    val pending = factory(mutableClock).removeExtra(
       versions = versions,
       artifact = artifact,
       mjVersion = version3,
@@ -89,7 +88,7 @@ class SqlArtifactRepositoryTests : ArtifactRepositoryTests<SqlArtifactRepository
     val versions = listOf(version0, version1, version2, version3, version4).toArtifactVersions(artifact)
 
     // version 3 is the candidate
-    val pending = factory(mutableClock, publisher).removeExtra(
+    val pending = factory(mutableClock).removeExtra(
       versions = versions,
       artifact = artifact,
       mjVersion = version3,

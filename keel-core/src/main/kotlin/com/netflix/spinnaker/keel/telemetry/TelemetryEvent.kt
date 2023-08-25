@@ -20,12 +20,6 @@ data class ResourceCheckSkipped(
   val skipper: String = "unknown"
 ) : TelemetryEvent()
 
-data class AboutToBeChecked(
-  val lastCheckedAt: Instant,
-  val type: String,
-  val identifier: String? = null
-)
-
 data class ArtifactVersionUpdated(
   val name: String,
   val type: ArtifactType

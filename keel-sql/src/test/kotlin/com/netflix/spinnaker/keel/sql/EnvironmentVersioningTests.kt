@@ -26,7 +26,6 @@ import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil.cleanupDb
 import com.netflix.spinnaker.time.MutableClock
-import io.mockk.mockk
 import io.mockk.slot
 import org.jooq.Table
 import org.junit.jupiter.api.AfterEach
@@ -61,7 +60,7 @@ class EnvironmentVersioningTests {
     resourceFactory,
     sqlRetry,
     defaultArtifactSuppliers(),
-    publisher = mockk(relaxed = true)
+    spectator = NoopRegistry(),
   )
 
   private val artifactRepository = SqlArtifactRepository(
@@ -69,7 +68,7 @@ class EnvironmentVersioningTests {
     clock,
     objectMapper,
     sqlRetry,
-    publisher = mockk(relaxed = true)
+    spectator = NoopRegistry(),
   )
 
   private val resourceRepository = SqlResourceRepository(
@@ -78,7 +77,6 @@ class EnvironmentVersioningTests {
     objectMapper,
     resourceFactory,
     sqlRetry,
-    mockk(relaxed = true),
     NoopRegistry(),
     mockEnvironment()
   )
@@ -89,7 +87,8 @@ class EnvironmentVersioningTests {
     resourceFactory = resourceFactory,
     objectMapper = objectMapper,
     sqlRetry = sqlRetry,
-    environment = MockEnvironment()
+    environment = MockEnvironment(),
+    spectator = NoopRegistry(),
   )
 
   private val repository = CombinedRepository(

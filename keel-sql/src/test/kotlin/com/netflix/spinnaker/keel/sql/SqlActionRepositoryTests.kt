@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.sql
 
 import com.fasterxml.jackson.databind.jsontype.NamedType
+import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
 import com.netflix.spinnaker.keel.artifacts.DockerArtifactSupplier
@@ -41,7 +42,7 @@ internal class SqlActionRepositoryTests :
     objectMapper = mapper,
     sqlRetry = sqlRetry,
     artifactSuppliers = artifactSuppliers,
-    publisher = mockk(relaxed = true)
+    spectator = NoopRegistry(),
   )
   private val artifactRepository = SqlArtifactRepository(
     jooq = jooq,
@@ -49,7 +50,7 @@ internal class SqlActionRepositoryTests :
     objectMapper = mapper,
     sqlRetry = sqlRetry,
     artifactSuppliers = artifactSuppliers,
-    publisher = mockk(relaxed = true)
+    spectator = NoopRegistry(),
   )
 
   private val pausedRepository = SqlPausedRepository(
@@ -66,7 +67,8 @@ internal class SqlActionRepositoryTests :
       objectMapper = mapper,
       sqlRetry = sqlRetry,
       artifactSuppliers = artifactSuppliers,
-      environment = mockEnvironment()
+      environment = mockEnvironment(),
+      spectator = NoopRegistry(),
     )
 
   override fun ArtifactInEnvironmentContext.setup() {

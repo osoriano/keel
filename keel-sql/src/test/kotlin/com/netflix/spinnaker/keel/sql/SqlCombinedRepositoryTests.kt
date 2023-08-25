@@ -34,16 +34,17 @@ internal object SqlCombinedRepositoryTests :
       resourceFactory,
       sqlRetry,
       defaultArtifactSuppliers(),
-      publisher = mockk(relaxed = true))
+      spectator = NoopRegistry(),
+    )
 
   override fun createResourceRepository(resourceFactory: ResourceFactory): SqlResourceRepository =
-    SqlResourceRepository(jooq, clock, objectMapper, resourceFactory, sqlRetry, publisher = mockk(relaxed = true), spectator = NoopRegistry(), springEnv = mockEnvironment())
+    SqlResourceRepository(jooq, clock, objectMapper, resourceFactory, sqlRetry, spectator = NoopRegistry(), springEnv = mockEnvironment())
 
   override fun createArtifactRepository(): SqlArtifactRepository =
-    SqlArtifactRepository(jooq, clock, objectMapper, sqlRetry, defaultArtifactSuppliers(), publisher = mockk(relaxed = true))
+    SqlArtifactRepository(jooq, clock, objectMapper, sqlRetry, defaultArtifactSuppliers(), spectator = NoopRegistry())
 
   override fun createVerificationRepository(resourceFactory: ResourceFactory): SqlActionRepository =
-    SqlActionRepository(jooq, clock, objectMapper, resourceFactory, sqlRetry, environment = mockk())
+    SqlActionRepository(jooq, clock, objectMapper, resourceFactory, sqlRetry, environment = mockk(), spectator = NoopRegistry())
 
   override fun flush() {
     SqlTestUtil.cleanupDb(jooq)

@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.sql
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.netflix.spectator.api.BasicTag
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.keel.api.Resource
 import com.netflix.spinnaker.keel.api.ResourceKind.Companion.parseKind
@@ -30,7 +31,6 @@ import com.netflix.spinnaker.keel.persistence.metamodel.Tables.RESOURCE_VERSION
 import com.netflix.spinnaker.keel.resources.ResourceFactory
 import com.netflix.spinnaker.keel.sql.RetryCategory.READ
 import com.netflix.spinnaker.keel.sql.RetryCategory.WRITE
-import com.netflix.spinnaker.keel.telemetry.AboutToBeChecked
 import de.huxhorn.sulky.ulid.ULID
 import org.jooq.DSLContext
 import org.jooq.Record1
@@ -41,13 +41,13 @@ import org.jooq.impl.DSL.max
 import org.jooq.impl.DSL.select
 import org.jooq.impl.DSL.value
 import org.slf4j.LoggerFactory
-import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.event.EventListener
 import org.springframework.core.env.Environment
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.time.Instant.EPOCH
+import java.util.concurrent.TimeUnit
 
 open class SqlResourceRepository(
   private val jooq: DSLContext,
@@ -55,7 +55,6 @@ open class SqlResourceRepository(
   private val objectMapper: ObjectMapper,
   private val resourceFactory: ResourceFactory,
   private val sqlRetry: SqlRetry,
-  private val publisher: ApplicationEventPublisher,
   private val spectator: Registry,
   private val springEnv: Environment
 ) : ResourceRepository {
@@ -365,6 +364,8 @@ open class SqlResourceRepository(
           .forUpdate()
           .fetch()
           .also {
+            var maxLagTime = Duration.ZERO
+            val now = clock.instant()
             it.forEach { (uid, _, _, _, application, lastCheckedAt) ->
               insertInto(RESOURCE_LAST_CHECKED)
                 .set(RESOURCE_LAST_CHECKED.RESOURCE_UID, uid)
@@ -372,12 +373,20 @@ open class SqlResourceRepository(
                 .onDuplicateKeyUpdate()
                 .set(RESOURCE_LAST_CHECKED.AT, now)
                 .execute()
-              publisher.publishEvent(AboutToBeChecked(
-                lastCheckedAt,
-                "resource",
-                "application:$application"
-              ))
+              // Find the max lag time. Ignore new resources or resources where a recheck was triggered
+              if (lastCheckedAt != null && lastCheckedAt.isAfter(Instant.EPOCH.plusSeconds(1))) {
+                val lagTime = Duration.between(lastCheckedAt, now)
+                if (maxLagTime < lagTime) {
+                  maxLagTime = lagTime
+                }
+              }
             }
+            spectator.timer(
+              "keel.scheduled.method.max.lag",
+              listOf(
+                BasicTag("type", "resource")
+              )
+            ).record(maxLagTime.toSeconds(), TimeUnit.SECONDS)
           }
       }
         .map { (uid, kind, metadata, spec) ->
@@ -449,16 +458,7 @@ open class SqlResourceRepository(
         .fetch()
         .map { (uid, kind, metadata, spec, application) ->
           try {
-            publisher.publishEvent(
-              AboutToBeChecked(
-                resourcesToCheck[uid]!!,
-                "resource",
-                "application:$application"
-              )
-            )
-
             resourceFactory.create(kind, metadata, spec)
-
           } catch (e: Exception) {
             jooq.insertInto(RESOURCE_LAST_CHECKED)
               .set(RESOURCE_LAST_CHECKED.RESOURCE_UID, uid)
@@ -471,6 +471,24 @@ open class SqlResourceRepository(
               .set(RESOURCE_LAST_CHECKED.IGNORE, true)
               .execute()
             throw e
+          }.also {
+            var maxLagTime = Duration.ZERO
+            val now = clock.instant()
+            resourcesToCheck.values.forEach { lastCheckedAt ->
+              // Find the max lag time. Ignore new resources or resources where a recheck was triggered
+              if (lastCheckedAt != null && lastCheckedAt.isAfter(Instant.EPOCH.plusSeconds(1))) {
+                val lagTime = Duration.between(lastCheckedAt, now)
+                if (maxLagTime < lagTime) {
+                  maxLagTime = lagTime
+                }
+              }
+            }
+            spectator.timer(
+              "keel.scheduled.method.max.lag",
+              listOf(
+                BasicTag("type", "resource")
+              )
+            ).record(maxLagTime.toSeconds(), TimeUnit.SECONDS)
           }
         }
     }
