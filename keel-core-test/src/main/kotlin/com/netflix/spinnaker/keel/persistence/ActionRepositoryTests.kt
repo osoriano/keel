@@ -214,7 +214,7 @@ abstract class ActionRepositoryTests<IMPLEMENTATION : ActionRepository> {
       .isSuccess()
       .isNotNull()
       .with(ActionState::metadata) {
-        get("tasks").isA<List<*>>().hasSize(2)
+        get("tasks").isA<List<*>>().hasSize(1)
       }
   }
 
