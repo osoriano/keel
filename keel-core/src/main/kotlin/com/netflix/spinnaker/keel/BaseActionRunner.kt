@@ -110,7 +110,7 @@ abstract class BaseActionRunner<T: Action> {
             actionRepository.updateState(context, action, newStatus, link=newState.link)
             publishCompleteEvent(context, action, newState)
           } else if (oldState.link != newState.link) {
-            actionRepository.updateState(context, action, newStatus, link=newState.link)
+            actionRepository.updateState(context, action, newStatus, metadata=newState.metadata, link=newState.link)
           }
         }
     } else {
