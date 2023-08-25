@@ -432,7 +432,7 @@ class SqlActionRepository(
         }
         .run {
           if (metadata.isNotEmpty()) {
-            set(ACTION_STATE.METADATA, jsonMerge(ACTION_STATE.METADATA, metadata))
+            set(ACTION_STATE.METADATA, jsonMergePatch(ACTION_STATE.METADATA, metadata))
           } else {
             this
           }
@@ -511,17 +511,17 @@ class SqlActionRepository(
   }
 
   /**
-   * JOOQ-ified access to MySQL's `json_merge` function.
+   * JOOQ-ified access to MySQL's `json_merge_patch` function.
    *
-   * Updates [field] with [values] retaining any existing entries that are not present in [values].
-   * Any array properties are appended to existing arrays.
+   * Performs an RFC 7396 compliant merge of two or more JSON documents and returns the merged result,
+   * without preserving members having duplicate keys.
    *
-   * @see https://dev.mysql.com/doc/refman/8.0/en/json-modification-functions.html#function_json-merge
+   * @see https://dev.mysql.com/doc/refman/8.0/en/json-modification-functions.html#function_json-merge-patch
    */
   @Suppress("UNCHECKED_CAST")
-  private fun jsonMerge(field: Field<Map<String, Any?>>, values: Map<String, Any?>) =
+  private fun jsonMergePatch(field: Field<Map<String, Any?>>, values: Map<String, Any?>) =
     function<Map<String, Any?>>(
-      "json_merge",
+      "json_merge_patch",
       field,
       value(objectMapper.writeValueAsString(values))
     )
