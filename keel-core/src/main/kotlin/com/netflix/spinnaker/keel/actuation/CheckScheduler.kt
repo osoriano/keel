@@ -7,15 +7,16 @@ import com.netflix.spinnaker.config.EnvironmentDeletionConfig
 import com.netflix.spinnaker.config.EnvironmentVerificationConfig
 import com.netflix.spinnaker.config.PostDeployActionsConfig
 import com.netflix.spinnaker.config.ResourceCheckConfig
+import com.netflix.spinnaker.config.TaskCheckConfig
 import com.netflix.spinnaker.keel.activation.ApplicationDown
 import com.netflix.spinnaker.keel.activation.ApplicationUp
 import com.netflix.spinnaker.keel.exceptions.EnvironmentCurrentlyBeingActedOn
 import com.netflix.spinnaker.keel.logging.TracingSupport.Companion.blankMDC
-import com.netflix.spinnaker.keel.persistence.AgentLockRepository
 import com.netflix.spinnaker.keel.persistence.EnvironmentDeletionRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
+import com.netflix.spinnaker.keel.persistence.TaskTrackingRepository
 import com.netflix.spinnaker.keel.postdeploy.PostDeployActionRunner
-import com.netflix.spinnaker.keel.telemetry.AgentInvocationComplete
+import com.netflix.spinnaker.keel.scheduled.TaskActuator
 import com.netflix.spinnaker.keel.telemetry.recordDurationPercentile
 import com.netflix.spinnaker.keel.telemetry.safeIncrement
 import com.netflix.spinnaker.keel.verification.VerificationRunner
@@ -43,6 +44,7 @@ import kotlin.math.max
 @EnableConfigurationProperties(
   ArtifactVersionCleanupConfig::class,
   ResourceCheckConfig::class,
+  TaskCheckConfig::class,
   EnvironmentDeletionConfig::class,
   EnvironmentVerificationConfig::class,
   PostDeployActionsConfig::class,
@@ -58,12 +60,14 @@ class CheckScheduler(
   private val postDeployActionRunner: PostDeployActionRunner,
   private val artifactVersionCleanupConfig: ArtifactVersionCleanupConfig,
   private val resourceCheckConfig: ResourceCheckConfig,
+  private val taskCheckConfig: TaskCheckConfig,
   private val verificationConfig: EnvironmentVerificationConfig,
   private val postDeployConfig: PostDeployActionsConfig,
   private val environmentDeletionConfig: EnvironmentDeletionConfig,
   private val environmentCleaner: EnvironmentCleaner,
   private val publisher: ApplicationEventPublisher,
-  private val agentLockRepository: AgentLockRepository,
+  private val taskActuator: TaskActuator,
+  private val taskTrackingRepository: TaskTrackingRepository,
   private val clock: Clock,
   private val springEnv: Environment,
   private val spectator: Registry
@@ -388,23 +392,53 @@ class CheckScheduler(
     }
   }
 
-  // todo eb: remove this loop in favor of transitioning the [OrcaTaskMonitoringAgent] to a
-  //  [LifecycleMonitor]
-  @Scheduled(fixedDelayString = "\${keel.scheduled.agent.frequency:PT1M}")
-  fun invokeAgent() {
+  @Scheduled(fixedDelayString = "\${keel.task-check.frequency:PT1S}")
+  fun checkTasks() {
     if (enabled.get()) {
       val startTime = clock.instant()
-      agentLockRepository.agents.forEach {
-        val agentName: String = it.javaClass.simpleName
-        val lockAcquired = agentLockRepository.tryAcquireLock(agentName, it.lockTimeoutSeconds)
-        if (lockAcquired) {
-          runBlocking(blankMDC) {
-            it.invokeAgent()
+      val job = launch(blankMDC) {
+        supervisorScope {
+          runCatching {
+            taskTrackingRepository.getIncompleteTasks(taskCheckConfig.minAgeDuration, taskCheckConfig.batchSize)
           }
-          publisher.publishEvent(AgentInvocationComplete(Duration.between(startTime, clock.instant()), agentName))
+            .onFailure {
+              log.error("Exception fetching tasks due for check", it)
+            }
+            .onSuccess {
+              it.forEach {
+                launch {
+                  try {
+                    withTimeout(taskCheckConfig.timeoutDuration.toMillis()) {
+                      taskActuator.checkTask(it)
+                    }
+                  } catch (e: TimeoutCancellationException) {
+                    log.error("Timed out checking task ${it.id}", e)
+                    spectator.counter(
+                      "keel.scheduled.timeout",
+                      listOf(
+                        BasicTag("type",  "task")
+                      )
+                    ).safeIncrement()
+                  } catch (e: Exception) {
+                    log.error("Failed checking task ${it.id}", e)
+                    spectator.counter(
+                      "keel.scheduled.failure",
+                      listOf(
+                        BasicTag("type",  "task")
+                      )
+                    ).safeIncrement()
+                  }
+                }
+              }
+              spectator.counter(
+                "keel.scheduled.batch.size",
+                listOf(BasicTag("type", "task"))
+              ).increment(it.size.toLong())
+            }
         }
       }
-      recordDuration(startTime, "agent")
+      runBlocking { job.join() }
+      recordDuration(startTime, "task")
     }
   }
 

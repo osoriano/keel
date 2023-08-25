@@ -11,6 +11,7 @@ import strikt.assertions.first
 import strikt.assertions.isEmpty
 import strikt.assertions.isEqualTo
 import java.time.Clock
+import java.time.Duration
 
 abstract class TaskTrackingRepositoryTests<T : TaskTrackingRepository> {
 
@@ -31,28 +32,28 @@ abstract class TaskTrackingRepositoryTests<T : TaskTrackingRepository> {
 
   @Test
   fun `returns nothing if there are no in-progress tasks`() {
-    expectThat(subject.getIncompleteTasks()).isEmpty()
+    expectThat(subject.getIncompleteTasks(Duration.ZERO, Int.MAX_VALUE)).isEmpty()
   }
 
   @Test
   fun `in-progress tasks are returned`() {
     subject.store(taskRecord1)
-    expectThat(subject.getIncompleteTasks().size).isEqualTo(1)
-    expectThat(subject.getIncompleteTasks()).first().get(TaskRecord::id).isEqualTo(taskRecord1.id)
+    expectThat(subject.getIncompleteTasks(Duration.ZERO, Int.MAX_VALUE).size).isEqualTo(1)
+    expectThat(subject.getIncompleteTasks(Duration.ZERO, Int.MAX_VALUE)).first().get(TaskRecord::id).isEqualTo(taskRecord1.id)
   }
 
   @Test
   fun `multiple tasks may be returned`() {
     subject.store(taskRecord2)
     subject.store(taskRecord1)
-    expectThat(subject.getIncompleteTasks().size).isEqualTo(2)
+    expectThat(subject.getIncompleteTasks(Duration.ZERO, Int.MAX_VALUE).size).isEqualTo(2)
   }
 
   @Test
   fun `completed tasks are not returned`() {
     subject.store(taskRecord1)
-    expectThat(subject.getIncompleteTasks().size).isEqualTo(1)
-    subject.updateStatus(taskRecord1.id, SUCCEEDED)
-    expectThat(subject.getIncompleteTasks()).isEmpty()
+    expectThat(subject.getIncompleteTasks(Duration.ZERO, Int.MAX_VALUE).size).isEqualTo(1)
+    subject.delete(taskRecord1.id)
+    expectThat(subject.getIncompleteTasks(Duration.ZERO, Int.MAX_VALUE)).isEmpty()
   }
 }

@@ -43,7 +43,6 @@ import javax.annotation.PostConstruct
 
 @Configuration
 @ConditionalOnProperty("sql.enabled")
-@EnableConfigurationProperties(RetentionProperties::class)
 @Import(DefaultSqlConfiguration::class, SqlRetryProperties::class, EnvironmentExclusionConfig::class)
 class SqlConfiguration
 {
@@ -142,8 +141,9 @@ class SqlConfiguration
   fun taskTrackingRepository(
     jooq: DSLContext,
     clock: Clock,
-    retentionProperties: RetentionProperties
-  ) = SqlTaskTrackingRepository(jooq, clock, SqlRetry(sqlRetryProperties), retentionProperties)
+    publisher: ApplicationEventPublisher,
+    registry: Registry
+  ) = SqlTaskTrackingRepository(jooq, clock, SqlRetry(sqlRetryProperties), publisher, registry)
 
   @Bean
   fun agentLockRepository(

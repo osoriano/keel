@@ -1,11 +1,13 @@
 package com.netflix.spinnaker.keel.sql
 
-import com.netflix.spinnaker.config.RetentionProperties
+import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spinnaker.keel.persistence.TaskTrackingRepositoryTests
 import com.netflix.spinnaker.kork.sql.config.RetryProperties
 import com.netflix.spinnaker.kork.sql.config.SqlRetryProperties
 import com.netflix.spinnaker.kork.sql.test.SqlTestUtil
+import io.mockk.mockk
 import java.time.Clock
+import org.springframework.context.ApplicationEventPublisher
 
 internal object SqlTaskTrackingRepositoryTests : TaskTrackingRepositoryTests<SqlTaskTrackingRepository>() {
 
@@ -18,7 +20,8 @@ internal object SqlTaskTrackingRepositoryTests : TaskTrackingRepositoryTests<Sql
       jooq,
       Clock.systemUTC(),
       sqlRetry,
-      RetentionProperties()
+      publisher = mockk(),
+      spectator = NoopRegistry()
     )
   }
 

@@ -1,0 +1,36 @@
+databaseChangeLog:
+  - changeSet:
+      id: task-tracking-drop-completed-tasks
+      author: osoriano
+      changes:
+        - sql:
+            sql: delete from task_tracking where ended_at is not null
+  - changeSet:
+      id: task-tracking-rename-ended-at-to-last-checked
+      author: osoriano
+      changes:
+        - renameColumn:
+            tableName: task_tracking
+            oldColumnName: ended_at
+            newColumnName: last_checked
+            columnDataType: datetime(3)
+  - changeSet:
+      id: task-tracking-drop-last-checked-not-null
+      author: osoriano
+      changes:
+        - addNotNullConstraint:
+            tableName: task_tracking
+            columnName: last_checked
+            columnDataType: datetime(3)
+            # MySQL is stupid and won't let you insert a zero valued TIMESTAMP
+            defaultNullValue: "1970-01-01T00:00:01"
+  - changeSet:
+      id: task-tracking-drop-last-checked-default-epoch
+      author: osoriano
+      changes:
+        - addDefaultValue:
+            tableName: task_tracking
+            columnName: last_checked
+            columnDataType: datetime(3)
+            # MySQL is stupid and won't let you insert a zero valued TIMESTAMP
+            defaultValueDate: "1970-01-01T00:00:01"

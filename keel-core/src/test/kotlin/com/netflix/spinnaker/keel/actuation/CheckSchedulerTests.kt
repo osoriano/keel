@@ -6,8 +6,10 @@ import com.netflix.spinnaker.config.EnvironmentDeletionConfig
 import com.netflix.spinnaker.config.EnvironmentVerificationConfig
 import com.netflix.spinnaker.config.PostDeployActionsConfig
 import com.netflix.spinnaker.config.ResourceCheckConfig
+import com.netflix.spinnaker.config.TaskCheckConfig
 import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.api.ResourceKind.Companion.parseKind
+import com.netflix.spinnaker.keel.api.actuation.SubjectType
 import com.netflix.spinnaker.keel.api.artifacts.VirtualMachineOptions
 import com.netflix.spinnaker.keel.api.plugins.UnsupportedKind
 import com.netflix.spinnaker.keel.artifacts.DebianArtifact
@@ -15,8 +17,11 @@ import com.netflix.spinnaker.keel.artifacts.DockerArtifact
 import com.netflix.spinnaker.keel.persistence.AgentLockRepository
 import com.netflix.spinnaker.keel.persistence.EnvironmentDeletionRepository
 import com.netflix.spinnaker.keel.persistence.KeelRepository
+import com.netflix.spinnaker.keel.persistence.TaskRecord
+import com.netflix.spinnaker.keel.persistence.TaskTrackingRepository
 import com.netflix.spinnaker.keel.postdeploy.PostDeployActionRunner
-import com.netflix.spinnaker.keel.scheduled.ScheduledAgent
+import com.netflix.spinnaker.keel.scheduled.TaskActuator
+import com.netflix.spinnaker.keel.test.randomString
 import com.netflix.spinnaker.keel.test.resource
 import com.netflix.spinnaker.keel.verification.VerificationRunner
 import com.netflix.spinnaker.time.MutableClock
@@ -38,12 +43,17 @@ internal object CheckSchedulerTests : JUnit5Minutests {
   private val repository: KeelRepository = mockk()
   private val postDeployActionRunner: PostDeployActionRunner = mockk()
   private val resourceActuator = mockk<ResourceActuator>(relaxUnitFun = true)
+  private val taskActuator = mockk<TaskActuator>(relaxUnitFun = true)
   private val environmentPromotionChecker = mockk<EnvironmentPromotionChecker>()
   private val artifactHandler = mockk<ArtifactHandler>(relaxUnitFun = true)
   private val publisher = mockk<ApplicationEventPublisher>(relaxUnitFun = true)
   private val registry = NoopRegistry()
   private val checkMinAge = Duration.ofMinutes(5)
   private val resourceCheckConfig = ResourceCheckConfig().also {
+    it.minAgeDuration = checkMinAge
+    it.batchSize = 2
+  }
+  private val taskCheckConfig = TaskCheckConfig().also {
     it.minAgeDuration = checkMinAge
     it.batchSize = 2
   }
@@ -64,20 +74,7 @@ internal object CheckSchedulerTests : JUnit5Minutests {
   }
 
 
-  class DummyScheduledAgent(override val lockTimeoutSeconds: Long) : ScheduledAgent {
-    override suspend fun invokeAgent() {
-    }
-  }
-
-  private val dummyAgent = mockk<DummyScheduledAgent>(relaxUnitFun = true) {
-    every {
-      lockTimeoutSeconds
-    } returns 5
-  }
-
-  private var agentLockRepository = mockk<AgentLockRepository>(relaxUnitFun = true) {
-    every { agents } returns listOf(dummyAgent)
-  }
+  private var taskTrackingRepository = mockk<TaskTrackingRepository>()
 
   private val verificationRunner = mockk<VerificationRunner>()
 
@@ -117,6 +114,11 @@ internal object CheckSchedulerTests : JUnit5Minutests {
     Environment("my-preview-environment2")
   )
 
+  private val taskRecords = setOf(
+    TaskRecord("123", "Upsert server group", SubjectType.RESOURCE, randomString(), randomString(), randomString()),
+    TaskRecord("456", "Bake", SubjectType.RESOURCE, randomString(), null, null)
+  )
+
   fun tests() = rootContext<CheckScheduler> {
     fixture {
       CheckScheduler(
@@ -128,12 +130,14 @@ internal object CheckSchedulerTests : JUnit5Minutests {
         artifactHandlers = listOf(artifactHandler),
         artifactVersionCleanupConfig = ArtifactVersionCleanupConfig(),
         resourceCheckConfig = resourceCheckConfig,
+        taskCheckConfig = taskCheckConfig,
         verificationConfig = verificationConfig,
         postDeployConfig = postDeployConfig,
         environmentDeletionConfig = EnvironmentDeletionConfig(),
         environmentCleaner = environmentCleaner,
         publisher = publisher,
-        agentLockRepository = agentLockRepository,
+        taskActuator = taskActuator,
+        taskTrackingRepository = taskTrackingRepository,
         verificationRunner = verificationRunner,
         clock = MutableClock(),
         springEnv = springEnv,
@@ -243,20 +247,26 @@ internal object CheckSchedulerTests : JUnit5Minutests {
       }
     }
 
-    context("test invoke agents") {
+    context("test task checking") {
       before {
         onApplicationUp()
       }
 
-      test("invoke a single agent") {
+      test("invoke a single task tracking iteration") {
         every {
-          agentLockRepository.tryAcquireLock(any(), any())
-        } returns true
+          taskTrackingRepository.getIncompleteTasks(any(), any())
+        } returns taskRecords
 
-        invokeAgent()
+        checkTasks()
+
+        taskRecords.forEach { taskRecord ->
+          verify(timeout = 500) {
+            taskActuator.checkTask(taskRecord)
+          }
+        }
 
         verify {
-          dummyAgent.invokeAgent()
+          taskTrackingRepository.getIncompleteTasks(any(), any())
         }
       }
       after {

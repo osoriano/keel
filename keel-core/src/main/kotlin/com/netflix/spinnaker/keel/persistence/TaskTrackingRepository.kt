@@ -2,11 +2,11 @@ package com.netflix.spinnaker.keel.persistence
 
 import com.netflix.spinnaker.keel.api.TaskStatus
 import com.netflix.spinnaker.keel.api.actuation.SubjectType
+import java.time.Duration
 
 interface TaskTrackingRepository {
   fun store(task: TaskRecord)
-  fun getIncompleteTasks(): Set<TaskRecord>
-  fun updateStatus(taskId: String, status: TaskStatus)
+  fun getIncompleteTasks(minTimeSinceLastCheck: Duration, limit: Int): Set<TaskRecord>
   fun delete(taskId: String)
 }
 
