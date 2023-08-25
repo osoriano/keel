@@ -1,11 +1,13 @@
 package com.netflix.spinnaker.keel.dgs
 
+import com.netflix.spinnaker.keel.api.Environment
 import com.netflix.spinnaker.keel.bakery.BakeryMetadataService
 import com.netflix.spinnaker.keel.bakery.diff.OldNewPair
 import com.netflix.spinnaker.keel.bakery.diff.PackageDiff
 import com.netflix.spinnaker.keel.clouddriver.CloudDriverService
 import com.netflix.spinnaker.keel.clouddriver.model.NamedImage
 import com.netflix.spinnaker.keel.core.api.DEFAULT_SERVICE_ACCOUNT
+import com.netflix.spinnaker.keel.core.api.DependsOnConstraint
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.CURRENT
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.PREVIOUS
 import com.netflix.spinnaker.keel.core.api.PublishedArtifactInEnvironment
@@ -17,6 +19,7 @@ import io.mockk.spyk
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import strikt.api.expectThat
+import strikt.assertions.containsExactly
 import strikt.assertions.isEqualTo
 import io.mockk.coEvery as every
 
@@ -87,5 +90,24 @@ class ApplicationFetcherSupportTests {
   fun packageDiff() {
     val result = subject.getDebianPackageDiff(dfe)
     expectThat(result).isEqualTo(packageDiff.toDgs())
+  }
+
+  @Test
+  fun testEnvironmentOrdering() {
+    val environments = listOf("latest", "staging", "canary", "control", "production").shuffled().map {
+      Environment(
+        name = it,
+        constraints = when (it) {
+          "staging" -> setOf(DependsOnConstraint("latest"))
+          "canary" -> setOf(DependsOnConstraint("staging"))
+          "control" -> setOf(DependsOnConstraint("canary"))
+          "production" -> setOf(DependsOnConstraint("canary"))
+          else -> emptySet()
+        }
+      )
+    }.toSet().sortedByDependencies()
+
+    expectThat(environments.map { it.name })
+      .containsExactly(listOf("production", "control", "canary", "staging", "latest"))
   }
 }

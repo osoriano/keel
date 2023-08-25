@@ -11,7 +11,6 @@ import com.netflix.spinnaker.keel.api.action.ActionType
 import com.netflix.spinnaker.keel.actuation.ExecutionSummaryService
 import com.netflix.spinnaker.keel.artifacts.ArtifactVersionLinks
 import com.netflix.spinnaker.keel.auth.AuthorizationSupport
-import com.netflix.spinnaker.keel.core.api.DependsOnConstraint
 import com.netflix.spinnaker.keel.events.EventLevel.ERROR
 import com.netflix.spinnaker.keel.events.EventLevel.WARNING
 import com.netflix.spinnaker.keel.graphql.DgsConstants
@@ -83,15 +82,7 @@ class ApplicationFetcher(
   @DgsData(parentType = DgsConstants.MD_APPLICATION.TYPE_NAME, field = DgsConstants.MD_APPLICATION.Environments)
   fun environments(dfe: DgsDataFetchingEnvironment): List<DataFetcherResult<MD_Environment>> {
     val config = applicationFetcherSupport.getDeliveryConfigFromContext(dfe)
-    return config.environments.sortedWith { env1, env2 ->
-      when {
-        env1.dependsOn(env2) -> -1
-        env2.dependsOn(env1) -> 1
-        env1.hasDependencies() && !env2.hasDependencies() -> -1
-        env2.hasDependencies() && !env1.hasDependencies() -> 1
-        else -> 0
-      }
-    }.map { env ->
+    return config.environments.sortedByDependencies().map { env ->
       val artifacts = config.artifactsUsedIn(env.name).map { artifact ->
         MD_Artifact(
           id = "${env.name}-${artifact.reference}",
@@ -336,9 +327,3 @@ class ApplicationFetcher(
     return environment?.let { dataLoader.load(environment) }
   }
 }
-
-fun Environment.dependsOn(another: Environment) =
-  constraints.any { it is DependsOnConstraint && it.environment == another.name }
-
-fun Environment.hasDependencies() =
-  constraints.any { it is DependsOnConstraint }
