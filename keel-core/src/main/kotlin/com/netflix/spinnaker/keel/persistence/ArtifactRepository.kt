@@ -398,6 +398,8 @@ interface ArtifactRepository : PeriodicallyCheckedRepository<DeliveryArtifact> {
     startTime: Instant,
     endTime: Instant
   ): Int
+
+  fun artifactVersionCleanup(threshold: Int)
 }
 
 class NoSuchArtifactException(name: String, type: ArtifactType) :

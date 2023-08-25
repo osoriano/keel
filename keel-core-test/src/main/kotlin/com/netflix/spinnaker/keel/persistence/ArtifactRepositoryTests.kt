@@ -40,6 +40,7 @@ import org.springframework.context.ApplicationEventPublisher
 import strikt.api.expect
 import strikt.api.expectThat
 import strikt.api.expectThrows
+import strikt.assertions.contains
 import strikt.assertions.containsExactly
 import strikt.assertions.containsExactlyInAnyOrder
 import strikt.assertions.first
@@ -858,5 +859,45 @@ abstract class ArtifactRepositoryTests<T : ArtifactRepository> : JUnit5Minutests
           .isEqualTo(version2)
       }
     }
+
+    context("artifact versions are cleaned up") {
+
+      test("in-use artifacts are are not cleaned up") {
+        /* Set up test artifact and manifest */
+        val testArtifact = versionedSnapshotDebian.copy(name = "keeldemo", reference = "keeldemo")
+        val testManifest = manifest.copy(artifacts = setOf(testArtifact))
+        persist(testManifest)
+        subject.register(testArtifact)
+
+        /* Store 10 artifacts, created 10 minutes apart */
+        val numArtifactVersions = 10
+        val firstVersionCreatedAt = clock.instant().toString()
+        for (i in 1..numArtifactVersions) {
+          val createdAt = clock.instant()
+          clock.tickMinutes(10)
+          val artifactVersion = testArtifact.toArtifactVersion(
+            createdAt.toString(),
+            SNAPSHOT,
+            createdAt = createdAt
+          )
+          subject.storeArtifactVersion(artifactVersion)
+        }
+
+        /* Mark the first version as deployed */
+        subject.markAsSuccessfullyDeployedTo(testManifest, testArtifact, "keeldemo-${firstVersionCreatedAt}", testEnvironment.name)
+
+        val allVersions = subject.getAllVersionsForEnvironment(testArtifact, testManifest, testEnvironment.name)
+        expectThat(allVersions).hasSize(10)
+
+        /* Ensure only 5 versions are kept after cleanup, plus the currently deployed version */
+        subject.artifactVersionCleanup(5)
+        val versions = subject.getAllVersionsForEnvironment(testArtifact, testManifest, testEnvironment.name)
+          .map { it.publishedArtifact.version }
+        expectThat(versions).hasSize(6)
+        val lastVersionCreatedAt = clock.instant().minusSeconds(600).toString()
+        expectThat(versions).contains("keeldemo-${firstVersionCreatedAt}", "keeldemo-${lastVersionCreatedAt}")
+      }
+    }
+
   }
 }

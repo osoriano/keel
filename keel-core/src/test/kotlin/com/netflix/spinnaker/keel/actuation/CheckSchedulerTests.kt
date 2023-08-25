@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.keel.actuation
 
 import com.netflix.spectator.api.NoopRegistry
+import com.netflix.spinnaker.config.ArtifactVersionCleanupConfig
 import com.netflix.spinnaker.config.EnvironmentDeletionConfig
 import com.netflix.spinnaker.config.EnvironmentVerificationConfig
 import com.netflix.spinnaker.config.PostDeployActionsConfig
@@ -126,6 +127,7 @@ internal object CheckSchedulerTests : JUnit5Minutests {
         environmentPromotionChecker = environmentPromotionChecker,
         postDeployActionRunner = postDeployActionRunner,
         artifactHandlers = listOf(artifactHandler),
+        artifactVersionCleanupConfig = ArtifactVersionCleanupConfig(),
         resourceCheckConfig = resourceCheckConfig,
         verificationConfig = verificationConfig,
         postDeployConfig = postDeployConfig,
@@ -260,6 +262,28 @@ internal object CheckSchedulerTests : JUnit5Minutests {
 
         verify {
           dummyAgent.invokeAgent()
+        }
+      }
+      after {
+        onApplicationDown()
+        clearAllMocks()
+      }
+    }
+
+    context("test artifact versions") {
+      before {
+        onApplicationUp()
+      }
+
+      test("artifacts are cleaned") {
+        every {
+          repository.artifactVersionCleanup(2000)
+        } returns Unit
+
+        artifactVersionCleanup()
+
+        verify {
+          repository.artifactVersionCleanup(2000)
         }
       }
       after {

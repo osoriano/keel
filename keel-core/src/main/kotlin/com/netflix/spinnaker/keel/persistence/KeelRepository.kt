@@ -234,6 +234,8 @@ interface KeelRepository : KeelReadOnlyRepository {
     supersededByVersion: String?
   )
 
+  fun artifactVersionCleanup(threshold: Int)
+
   /**
    * Given information about a delivery config, environment, artifact and a list of versions
    * returns a list of summaries for all versions that can be

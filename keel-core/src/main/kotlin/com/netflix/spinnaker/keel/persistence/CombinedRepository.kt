@@ -571,6 +571,9 @@ class CombinedRepository(
   override fun getPinnedVersion(deliveryConfig: DeliveryConfig, targetEnvironment: String, reference: String)
     = artifactRepository.getPinnedVersion(deliveryConfig, targetEnvironment, reference)
 
+  override fun artifactVersionCleanup(threshold: Int)
+    = artifactRepository.artifactVersionCleanup(threshold)
+
   // END ArtifactRepository methods
 
   // START VerificationRepository methods

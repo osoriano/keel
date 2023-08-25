@@ -37,6 +37,7 @@ import com.netflix.spinnaker.keel.persistence.ArtifactNotFoundException
 import com.netflix.spinnaker.keel.persistence.ArtifactRepository
 import com.netflix.spinnaker.keel.persistence.NoSuchArtifactException
 import com.netflix.spinnaker.keel.persistence.NoSuchArtifactVersionException
+import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ACTION_STATE
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ACTIVE_ENVIRONMENT
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ARTIFACT_LAST_CHECKED
 import com.netflix.spinnaker.keel.persistence.metamodel.Tables.ARTIFACT_VERSIONS
@@ -1955,6 +1956,146 @@ class SqlArtifactRepository(
         ENVIRONMENT_ARTIFACT_PIN.ENVIRONMENT_UID.eq(envUid),
         ENVIRONMENT_ARTIFACT_PIN.ARTIFACT_UID.eq(artUid)
       )
+      .execute()
+  }
+
+  /**
+   * For each artifact, clean up the old artifact versions,
+   * up to the specified count threshold.
+   */
+  override fun artifactVersionCleanup(threshold: Int) {
+    log.info("Cleaning up artifact versions with threshold={}", threshold)
+
+    jooq.selectDistinct(ARTIFACT_VERSIONS.NAME, ARTIFACT_VERSIONS.TYPE)
+      .from(ARTIFACT_VERSIONS)
+      .fetch()
+      .forEach( { (artifactName, artifactType) ->
+        artifactVersionCleanup(threshold, artifactName, artifactType)
+      })
+  }
+
+  private fun artifactVersionCleanup(
+    threshold: Int,
+    artifactName: String,
+    artifactType: String,
+  ) {
+    log.info("Cleaning up artifact versions with name={} type={}", artifactName, artifactType)
+
+    val cutoffTime: Instant? = jooq.select(ARTIFACT_VERSIONS.CREATED_AT)
+      .from(ARTIFACT_VERSIONS)
+      .where(ARTIFACT_VERSIONS.NAME.eq(artifactName))
+      .and(ARTIFACT_VERSIONS.TYPE.eq(artifactType))
+      .and(ARTIFACT_VERSIONS.CREATED_AT.isNotNull)
+      .orderBy(ARTIFACT_VERSIONS.CREATED_AT.desc())
+      .limit(threshold - 1, 1)
+      .fetchOne(ARTIFACT_VERSIONS.CREATED_AT)
+
+    if (cutoffTime == null ) {
+      log.info("Skipping cleanup since the threshold is not reached")
+    } else {
+      artifactVersionCleanup(cutoffTime, artifactName, artifactType)
+    }
+  }
+
+  /**
+   * For the specified artifact name and type, clean up the old artifact versions,
+   * according to the specified cutoff time.
+   *
+   * Artifacts which are in-use are not removed.
+   */
+  private fun artifactVersionCleanup(
+    cutoffTime: Instant,
+    artifactName: String,
+    artifactType: String,
+  ) {
+    log.info("Cleaning up artifact versions with cutoffTime={}", cutoffTime)
+
+    /* Build a list of in-use artifact versions to avoid pruning them */
+    val inUseArtifactVersions: List<String> = jooq.selectDistinct(ARTIFACT_VERSIONS.VERSION)
+      .from(ENVIRONMENT_ARTIFACT_VERSIONS)
+      .join(DELIVERY_ARTIFACT)
+      .on(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(DELIVERY_ARTIFACT.UID))
+      .join(ARTIFACT_VERSIONS)
+      .on(ARTIFACT_VERSIONS.NAME.eq(DELIVERY_ARTIFACT.NAME))
+      .and(ARTIFACT_VERSIONS.TYPE.eq(DELIVERY_ARTIFACT.TYPE))
+      .and(ARTIFACT_VERSIONS.VERSION.eq(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION))
+      .where(DELIVERY_ARTIFACT.NAME.eq(DELIVERY_ARTIFACT.REFERENCE))
+      .and(ARTIFACT_VERSIONS.NAME.eq(artifactName))
+      .and(ARTIFACT_VERSIONS.TYPE.eq(artifactType))
+      .and(ARTIFACT_VERSIONS.CREATED_AT.isNotNull)
+      .and(ARTIFACT_VERSIONS.CREATED_AT.lt(cutoffTime))
+      .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.ne(PREVIOUS))
+      .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.ne(VETOED))
+      .and(ENVIRONMENT_ARTIFACT_VERSIONS.PROMOTION_STATUS.ne(SKIPPED))
+      .fetch(ARTIFACT_VERSIONS.VERSION)
+
+    log.info("Found {} old artifact versions in use", inUseArtifactVersions.size)
+
+    /* Clean up the artifact versions from the various tables */
+
+    /* Clean up the ENVIRONMENT_ARTIFACT_VERSIONS table. Other tables are joined
+     * in order to prune based off of the ARTIFACT_VERSIONS.CREATED_AT field */
+    jooq.deleteFrom(ENVIRONMENT_ARTIFACT_VERSIONS)
+      .using(
+        ENVIRONMENT_ARTIFACT_VERSIONS.join(DELIVERY_ARTIFACT)
+        .on(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(DELIVERY_ARTIFACT.UID))
+        .join(ARTIFACT_VERSIONS)
+        .on(ARTIFACT_VERSIONS.NAME.eq(DELIVERY_ARTIFACT.NAME))
+        .and(ARTIFACT_VERSIONS.TYPE.eq(DELIVERY_ARTIFACT.TYPE))
+        .and(ARTIFACT_VERSIONS.VERSION.eq(ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION))
+      )
+      .where(DELIVERY_ARTIFACT.NAME.eq(DELIVERY_ARTIFACT.REFERENCE))
+      .and(ARTIFACT_VERSIONS.NAME.eq(artifactName))
+      .and(ARTIFACT_VERSIONS.TYPE.eq(artifactType))
+      .and(ARTIFACT_VERSIONS.CREATED_AT.isNotNull)
+      .and(ARTIFACT_VERSIONS.CREATED_AT.lt(cutoffTime))
+      .andNot(ARTIFACT_VERSIONS.VERSION.`in`(*inUseArtifactVersions.toTypedArray()))
+      .execute()
+
+    /* Clean up the CURRENT_ENVIRONMENT_ARTIFACT_VERSIONS table. Other tables are joined
+     * in order to prune based off of the ARTIFACT_VERSIONS.CREATED_AT field */
+    jooq.deleteFrom(CURRENT_ENVIRONMENT_ARTIFACT_VERSIONS)
+      .using(
+        CURRENT_ENVIRONMENT_ARTIFACT_VERSIONS.join(DELIVERY_ARTIFACT)
+        .on(CURRENT_ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_UID.eq(DELIVERY_ARTIFACT.UID))
+        .join(ARTIFACT_VERSIONS)
+        .on(ARTIFACT_VERSIONS.NAME.eq(DELIVERY_ARTIFACT.NAME))
+        .and(ARTIFACT_VERSIONS.TYPE.eq(DELIVERY_ARTIFACT.TYPE))
+        .and(CURRENT_ENVIRONMENT_ARTIFACT_VERSIONS.ARTIFACT_VERSION.eq(ARTIFACT_VERSIONS.VERSION))
+      )
+      .where(DELIVERY_ARTIFACT.NAME.eq(DELIVERY_ARTIFACT.REFERENCE))
+      .and(ARTIFACT_VERSIONS.NAME.eq(artifactName))
+      .and(ARTIFACT_VERSIONS.TYPE.eq(artifactType))
+      .and(ARTIFACT_VERSIONS.CREATED_AT.isNotNull)
+      .and(ARTIFACT_VERSIONS.CREATED_AT.lt(cutoffTime))
+      .andNot(ARTIFACT_VERSIONS.VERSION.`in`(*inUseArtifactVersions.toTypedArray()))
+      .execute()
+
+    /* Clean up the ACTION_STATE table. Other tables are joined
+     * in order to prune based off of the ARTIFACT_VERSIONS.CREATED_AT field */
+    jooq.deleteFrom(ACTION_STATE)
+      .using(
+        ACTION_STATE.join(DELIVERY_ARTIFACT)
+        .on(ACTION_STATE.ARTIFACT_UID.eq(DELIVERY_ARTIFACT.UID))
+        .join(ARTIFACT_VERSIONS)
+        .on(ARTIFACT_VERSIONS.NAME.eq(DELIVERY_ARTIFACT.NAME))
+        .and(ARTIFACT_VERSIONS.TYPE.eq(DELIVERY_ARTIFACT.TYPE))
+        .and(ARTIFACT_VERSIONS.VERSION.eq(ACTION_STATE.ARTIFACT_VERSION))
+      )
+      .where(DELIVERY_ARTIFACT.NAME.eq(DELIVERY_ARTIFACT.REFERENCE))
+      .and(ARTIFACT_VERSIONS.NAME.eq(artifactName))
+      .and(ARTIFACT_VERSIONS.TYPE.eq(artifactType))
+      .and(ARTIFACT_VERSIONS.CREATED_AT.isNotNull)
+      .and(ARTIFACT_VERSIONS.CREATED_AT.lt(cutoffTime))
+      .andNot(ARTIFACT_VERSIONS.VERSION.`in`(*inUseArtifactVersions.toTypedArray()))
+      .execute()
+
+    jooq.deleteFrom(ARTIFACT_VERSIONS)
+      .where(ARTIFACT_VERSIONS.NAME.eq(artifactName))
+      .and(ARTIFACT_VERSIONS.TYPE.eq(artifactType))
+      .and(ARTIFACT_VERSIONS.CREATED_AT.isNotNull)
+      .and(ARTIFACT_VERSIONS.CREATED_AT.lt(cutoffTime))
+      .andNot(ARTIFACT_VERSIONS.VERSION.`in`(*inUseArtifactVersions.toTypedArray()))
       .execute()
   }
 

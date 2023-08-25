@@ -2,6 +2,7 @@ package com.netflix.spinnaker.keel.actuation
 
 import com.netflix.spectator.api.BasicTag
 import com.netflix.spectator.api.Registry
+import com.netflix.spinnaker.config.ArtifactVersionCleanupConfig
 import com.netflix.spinnaker.config.EnvironmentDeletionConfig
 import com.netflix.spinnaker.config.EnvironmentVerificationConfig
 import com.netflix.spinnaker.config.PostDeployActionsConfig
@@ -26,6 +27,7 @@ import com.netflix.spinnaker.keel.telemetry.ResourceLoadFailed
 import com.netflix.spinnaker.keel.telemetry.VerificationCheckComplete
 import com.netflix.spinnaker.keel.telemetry.VerificationTimedOut
 import com.netflix.spinnaker.keel.telemetry.recordDurationPercentile
+import com.netflix.spinnaker.keel.telemetry.safeIncrement
 import com.netflix.spinnaker.keel.verification.VerificationRunner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -49,6 +51,7 @@ import kotlin.coroutines.CoroutineContext
 import kotlin.math.max
 
 @EnableConfigurationProperties(
+  ArtifactVersionCleanupConfig::class,
   ResourceCheckConfig::class,
   EnvironmentDeletionConfig::class,
   EnvironmentVerificationConfig::class,
@@ -63,6 +66,7 @@ class CheckScheduler(
   private val verificationRunner: VerificationRunner,
   private val artifactHandlers: Collection<ArtifactHandler>,
   private val postDeployActionRunner: PostDeployActionRunner,
+  private val artifactVersionCleanupConfig: ArtifactVersionCleanupConfig,
   private val resourceCheckConfig: ResourceCheckConfig,
   private val verificationConfig: EnvironmentVerificationConfig,
   private val postDeployConfig: PostDeployActionsConfig,
@@ -309,6 +313,39 @@ class CheckScheduler(
         }
       }
       recordDuration(startTime, "agent")
+    }
+  }
+
+  @Scheduled(fixedDelayString = "\${keel.artifact-version-cleanup.frequency:PT1H}")
+  fun artifactVersionCleanup() {
+    if (enabled.get()) {
+      val startTime = clock.instant()
+      val job = launch(blankMDC) {
+        supervisorScope {
+          runCatching {
+            repository
+              .artifactVersionCleanup(artifactVersionCleanupConfig.threshold)
+          }
+            .onFailure {
+              log.error("Exception cleaning old artifact versions", it)
+              spectator.counter(
+                "keel.scheduled.failure",
+                listOf(
+                  BasicTag("type",  "artifactversioncleanup")
+                )
+              ).safeIncrement()
+            }
+            .onSuccess {
+              log.info("Successfully pruned old artifact versions")
+              spectator.counter(
+                "keel.scheduled.batch.size",
+                listOf(BasicTag("type", "artifactversioncleanup"))
+              ).safeIncrement()
+            }
+        }
+      }
+      runBlocking { job.join() }
+      recordDuration(startTime, "artifactversioncleanup")
     }
   }
 
