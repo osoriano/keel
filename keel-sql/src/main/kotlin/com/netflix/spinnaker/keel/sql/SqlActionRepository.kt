@@ -92,7 +92,11 @@ class SqlActionRepository(
           // has not been checked recently (or has never been checked)
           .where(ENVIRONMENT_LAST_VERIFIED.AT.lessOrEqual(cutoff))
           // order by last time checked with things never checked coming first
-          .orderBy(ENVIRONMENT_LAST_VERIFIED.AT)
+          .orderBy(
+            ENVIRONMENT_LAST_VERIFIED.AT,
+            ENVIRONMENT_LAST_VERIFIED.ENVIRONMENT_UID,
+            ENVIRONMENT_LAST_VERIFIED.ARTIFACT_UID
+          )
           .limit(limit)
           .forUpdate()
           .fetch()
@@ -591,7 +595,11 @@ class SqlActionRepository(
           // has not been checked recently (or has never been checked)
           .where(ENVIRONMENT_LAST_POST_DEPLOY.AT.lessOrEqual(cutoff))
           // order by last time checked with things never checked coming first
-          .orderBy(ENVIRONMENT_LAST_POST_DEPLOY.AT)
+          .orderBy(
+            ENVIRONMENT_LAST_POST_DEPLOY.AT,
+            ENVIRONMENT_LAST_POST_DEPLOY.ENVIRONMENT_UID,
+            ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_UID,
+          )
           .limit(limit)
           .forUpdate()
           .fetch()
