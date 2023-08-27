@@ -94,7 +94,7 @@ class SqlActionRepository(
           // order by last time checked with things never checked coming first
           .orderBy(ENVIRONMENT_LAST_VERIFIED.AT)
           .limit(limit)
-          .lockInShareMode(useLockingRead)
+          .forUpdate()
           .fetch()
           .also {
             var maxLagTime = Duration.ZERO
@@ -593,7 +593,7 @@ class SqlActionRepository(
           // order by last time checked with things never checked coming first
           .orderBy(ENVIRONMENT_LAST_POST_DEPLOY.AT)
           .limit(limit)
-          .lockInShareMode(useLockingRead)
+          .forUpdate()
           .fetch()
           .also {
             var maxLagTime = Duration.ZERO
