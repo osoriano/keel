@@ -3,6 +3,8 @@ package com.netflix.spinnaker.keel.services
 import com.netflix.spectator.api.BasicTag
 import com.netflix.spectator.api.Registry
 import com.netflix.spinnaker.config.ArtifactConfig
+import com.netflix.spinnaker.keel.api.artifacts.DeliveryArtifact
+import com.netflix.spinnaker.keel.api.artifacts.PublishedArtifact
 import com.netflix.spinnaker.keel.api.ArtifactInEnvironmentContext
 import com.netflix.spinnaker.keel.api.DeliveryConfig
 import com.netflix.spinnaker.keel.api.Environment
@@ -41,6 +43,7 @@ import com.netflix.spinnaker.keel.core.api.PromotionStatus.PREVIOUS
 import com.netflix.spinnaker.keel.core.api.PromotionStatus.SKIPPED
 import com.netflix.spinnaker.keel.core.api.ResourceArtifactSummary
 import com.netflix.spinnaker.keel.core.api.ResourceSummary
+import com.netflix.spinnaker.keel.core.api.VerificationSummary
 import com.netflix.spinnaker.keel.events.MarkAsBadNotification
 import com.netflix.spinnaker.keel.events.PinnedNotification
 import com.netflix.spinnaker.keel.events.UnpinnedNotification
@@ -225,7 +228,6 @@ class ApplicationService(
     summaries["resources"] = getResourceSummariesFor(application)
     val envSummary = getEnvironmentSummariesFor(application)
     summaries["environments"] = envSummary
-    summaries["artifacts"] = getArtifactSummariesFor(application, envSummary, artifactConfig.defaultMaxConsideredVersions)
     return summaries
   }
 
@@ -302,151 +304,6 @@ class ApplicationService(
 
   private fun EnvironmentSummary.hasDependencies() =
     environment.constraints.any { it is DependsOnConstraint }
-
-  /**
-   * Returns a list of [ArtifactSummary] for the specified application by traversing the list of [EnvironmentSummary]
-   * for the application and reindexing the data so that it matches the right format.
-   *
-   * The list is capped at the specified [limit] of artifact versions, sorted in descending version order.
-   *
-   * This function assumes there's a single delivery config associated with the application.
-   */
-  fun getArtifactSummariesFor(application: String, limit: Int): List<ArtifactSummary> {
-    val startTime = now
-    val environmentSummaries = getEnvironmentSummariesFor(application)
-    spectator.timer(
-      ENV_SUMMARY_CONSTRUCT_DURATION_ID,
-      listOf(BasicTag("application", application))
-    ).record(Duration.between(startTime, now))
-    return getArtifactSummariesFor(application, environmentSummaries, limit)
-  }
-
-  /**
-   * If we've already calculated the env summaries, pass them in so we don't have to query again.
-   * It's non-trivial to pull that data.
-   */
-  fun getArtifactSummariesFor(application: String, envSummaries: List<EnvironmentSummary>, limit: Int): List<ArtifactSummary> {
-    val startTime = now
-    val deliveryConfig = try {
-      repository.getDeliveryConfigForApplication(application)
-    } catch (e: NoSuchDeliveryConfigException) {
-      return emptyList()
-    }
-
-    val artifactSummaries = deliveryConfig.artifacts.map { artifact ->
-      // We calculate a bunch of data for each artifact, so pre-load the bulk of it here and pass that info into
-      //  later functions to save redundant database calls.
-
-      // Load all artifact version information
-      val artifactVersions = repository.artifactVersions(artifact, limit)
-      // Load the status of the versions in the environments
-      val artifactVersionInfoInEnvironment: Map<String, List<StatusInfoForArtifactInEnvironment>> = deliveryConfig
-        .environments
-        .associate { env ->
-          env.name to repository.getVersionInfoInEnvironment(deliveryConfig, env.name, artifact)
-        }
-
-      // Load the summary info for each version in each environment
-      val artifactSummariesInEnv: Map<String, List<ArtifactSummaryInEnvironment>> = deliveryConfig
-        .environments
-        .associate { env->
-          env.name to repository.getArtifactSummariesInEnvironment(
-            deliveryConfig,
-            env.name,
-            artifact.reference,
-            artifactVersions.map { it.version }
-          )
-        }
-
-      // A verification context identifies an artifact version in an environment
-      // For each context, there may be multiple verifications (e.g., test-container, canary)
-      //
-      // This map associates a context with this collection of verifications and their states
-      val verificationStateMap = try {
-        getVerificationStates(deliveryConfig, artifactVersions)
-      } catch(e: Exception) {
-        log.error("error getting verification states for application ${deliveryConfig.application}", e)
-        emptyMap()
-      }
-
-      val artifactVersionSummaries = artifactVersions.map { artifactVersion ->
-        // For each version of the artifact
-        val artifactSummariesInEnvironments = mutableSetOf<ArtifactSummaryInEnvironment>()
-
-        envSummaries.forEach { environmentSummary ->
-          // For each environment
-          val environment = deliveryConfig.environments.find { it.name == environmentSummary.name }!!
-          val verifications = getVerifications(deliveryConfig, environment, artifactVersion, verificationStateMap)
-
-          // Build the context needed for other functions to use
-          val versionEnvironmentContext = ArtifactSummaryContext(
-            deliveryConfig = deliveryConfig,
-            environmentName = environment.name,
-            artifact = artifact,
-            verifications = verifications,
-            allVersions = artifactVersions,
-            artifactInfoInEnvironment = artifactVersionInfoInEnvironment[environment.name] ?: emptyList(),
-            artifactSummariesInEnv = artifactSummariesInEnv[environment.name] ?: emptyList()
-          )
-
-          environmentSummary.getArtifactPromotionStatus(artifact, artifactVersion.version)
-            ?.let { status ->
-              if (artifact.isUsedIn(environment)) { // only add a summary if the artifact is used in the environment
-                val artifactInEnvStartTime = now
-                buildArtifactSummaryInEnvironment(
-                  versionEnvironmentContext,
-                  artifactVersion,
-                  status
-                )
-                  ?.also {
-                    artifactSummariesInEnvironments.add(
-                      it.addConstraintSummaries(deliveryConfig, environment, artifactVersion.version, artifact)
-                    )
-                  }
-                spectator.timer(
-                  ARTIFACT_IN_ENV_SUMMARY_CONSTRUCT_DURATION,
-                  listOf(BasicTag("application", application))
-                ).record(Duration.between(artifactInEnvStartTime, now))
-              }
-            }
-        }
-
-        val versionStartTime = now
-        val summary = buildArtifactVersionSummary(
-          artifact,
-          artifactVersion.version,
-          artifactSummariesInEnvironments,
-          artifactVersions
-        )
-        spectator.timer(
-          ARTIFACT_VERSION_SUMMARY_CONSTRUCT_DURATION_ID,
-          listOf(BasicTag("application", application))
-        ).record(Duration.between(versionStartTime, now))
-        summary
-      }
-      ArtifactSummary(
-        name = artifact.name,
-        type = artifact.type,
-        reference = artifact.reference,
-        versions = artifactVersionSummaries.toSet()
-      )
-    }
-    spectator.timer(
-      ARTIFACT_SUMMARY_CONSTRUCT_DURATION_ID,
-      listOf(BasicTag("application", application))
-    ).record(Duration.between(startTime, now))
-    return artifactSummaries
-  }
-
-  private fun getVerificationStates(
-    deliveryConfig: DeliveryConfig,
-    artifactVersions: List<PublishedArtifact>
-  ) =
-    if (verificationsEnabled) {
-      repository.getVerificationStates(deliveryConfig, artifactVersions)
-    } else {
-      emptyMap()
-    }
 
   private fun getVerifications(
     deliveryConfig: DeliveryConfig,
@@ -648,20 +505,6 @@ class ApplicationService(
 
   private fun ConstraintState.toConstraintSummary() =
     ConstraintSummary(type, status, createdAt, judgedBy, judgedAt, comment, attributes)
-
-  /**
-   * Query the repository for all of the verification states associated with [versions]
-   *
-   * This just calls [KeelRepository.getVerificationStatesBatch] and reshapes the returned value to a map
-   */
-  fun KeelRepository.getVerificationStates(
-    deliveryConfig: DeliveryConfig,
-    versions: List<PublishedArtifact>
-  ): Map<ArtifactInEnvironmentContext, Map<Verification, ActionState>> =
-    deliveryConfig.contexts(versions).let { contexts: List<ArtifactInEnvironmentContext> ->
-      contexts.zip(getVerificationStatesBatch(contexts))
-        .associate { (ctx, vIdToState) -> ctx to vIdToState.toVerificationMap(deliveryConfig, ctx) }
-    }
 
   /**
    * Convert a (verification id -> verification state) map to a (verification -> verification state) map

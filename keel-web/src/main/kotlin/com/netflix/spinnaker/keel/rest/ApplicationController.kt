@@ -88,8 +88,6 @@ class ApplicationController(
           results[entity] = when (entity) {
             "resources" -> applicationService.getResourceSummariesFor(application)
             "environments" -> applicationService.getEnvironmentSummariesFor(application)
-            "artifacts" -> applicationService.getArtifactSummariesFor(application,
-              maxArtifactVersions ?: artifactConfig.defaultMaxConsideredVersions)
             else -> throw InvalidRequestException("Unknown entity type: $entity")
           }
         }
