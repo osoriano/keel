@@ -869,11 +869,7 @@ class SqlArtifactRepository(
         .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_UID, artifactUid)
         .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_VERSION, version)
         .set(ENVIRONMENT_LAST_VERIFIED.AT, EPOCH.plusSeconds(1))
-        .onDuplicateKeyUpdate() // we want a new version to be rechecked immediately
-        .set(ENVIRONMENT_LAST_VERIFIED.ENVIRONMENT_UID, envUid)
-        .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_UID, artifactUid)
-        .set(ENVIRONMENT_LAST_VERIFIED.ARTIFACT_VERSION, version)
-        .set(ENVIRONMENT_LAST_VERIFIED.AT, EPOCH.plusSeconds(1))
+        .onDuplicateKeyIgnore()
         .execute()
       txn
         .insertInto(ENVIRONMENT_LAST_POST_DEPLOY)
@@ -881,11 +877,7 @@ class SqlArtifactRepository(
         .set(ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_UID, artifactUid)
         .set(ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_VERSION, version)
         .set(ENVIRONMENT_LAST_POST_DEPLOY.AT, EPOCH.plusSeconds(1))
-        .onDuplicateKeyUpdate() // we want a new version to be rechecked immediately
-        .set(ENVIRONMENT_LAST_POST_DEPLOY.ENVIRONMENT_UID, envUid)
-        .set(ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_UID, artifactUid)
-        .set(ENVIRONMENT_LAST_POST_DEPLOY.ARTIFACT_VERSION, version)
-        .set(ENVIRONMENT_LAST_POST_DEPLOY.AT, EPOCH.plusSeconds(1))
+        .onDuplicateKeyIgnore()
         .execute()
   }
 
