@@ -329,10 +329,6 @@ class CombinedRepository(
     resourceRepository.markCheckComplete(resource, state)
   }
 
-  override fun markDeliveryConfigCheckComplete(deliveryConfig: DeliveryConfig) {
-    deliveryConfigRepository.markCheckComplete(deliveryConfig, null)
-  }
-
   override fun getApplicationSummaries(): Collection<ApplicationSummary> =
     deliveryConfigRepository.getApplicationSummaries()
 

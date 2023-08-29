@@ -1190,14 +1190,7 @@ class SqlDeliveryConfigRepository(
         select(DELIVERY_CONFIG.UID, DELIVERY_CONFIG.NAME, DELIVERY_CONFIG_LAST_CHECKED.AT)
           .from(DELIVERY_CONFIG, DELIVERY_CONFIG_LAST_CHECKED)
           .where(DELIVERY_CONFIG.UID.eq(DELIVERY_CONFIG_LAST_CHECKED.DELIVERY_CONFIG_UID))
-          // has not been checked recently
           .and(DELIVERY_CONFIG_LAST_CHECKED.AT.lessOrEqual(cutoff))
-          // either no other Keel instance is working on this, or the lease has expired (e.g. due to
-          // instance termination mid-check)
-          .and(
-            DELIVERY_CONFIG_LAST_CHECKED.LEASED_BY.isNull
-              .or(DELIVERY_CONFIG_LAST_CHECKED.LEASED_AT.lessOrEqual(cutoff))
-          )
           // the application is not paused
           .andNotExists(
             selectOne()
@@ -1214,8 +1207,7 @@ class SqlDeliveryConfigRepository(
             val now = clock.instant()
             it.forEach { (uid, name, lastCheckedAt) ->
               update(DELIVERY_CONFIG_LAST_CHECKED)
-                .set(DELIVERY_CONFIG_LAST_CHECKED.LEASED_BY, InetAddress.getLocalHost().hostName)
-                .set(DELIVERY_CONFIG_LAST_CHECKED.LEASED_AT, now)
+                .set(DELIVERY_CONFIG_LAST_CHECKED.AT, now)
                 .where(DELIVERY_CONFIG_LAST_CHECKED.DELIVERY_CONFIG_UID.eq(uid))
                 .execute()
               // Find the max lag time. Ignore new resources or resources where a recheck was triggered
@@ -1238,27 +1230,6 @@ class SqlDeliveryConfigRepository(
       .map { (_, name) ->
         get(name)
       }
-  }
-
-  override fun markCheckComplete(deliveryConfig: DeliveryConfig, status: Any?) {
-    sqlRetry.withRetry(WRITE) {
-      jooq
-        .update(DELIVERY_CONFIG_LAST_CHECKED)
-        // set last check time to now
-        .set(DELIVERY_CONFIG_LAST_CHECKED.AT, clock.instant())
-        // clear the lease to allow other instances to check this item
-        .setNull(DELIVERY_CONFIG_LAST_CHECKED.LEASED_BY)
-        .setNull(DELIVERY_CONFIG_LAST_CHECKED.LEASED_AT)
-        .where(
-          DELIVERY_CONFIG_LAST_CHECKED.DELIVERY_CONFIG_UID.eq(
-            select(DELIVERY_CONFIG.UID)
-              .from(DELIVERY_CONFIG)
-              .where(DELIVERY_CONFIG.NAME.eq(deliveryConfig.name))
-          )
-        )
-        .and(DELIVERY_CONFIG_LAST_CHECKED.LEASED_BY.ne(RECHECK_LEASE_NAME))
-        .execute()
-    }
   }
 
   private val String.uids: Select<Record1<String>>

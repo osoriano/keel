@@ -178,8 +178,6 @@ class CheckScheduler(
                       "keel.scheduled.failure",
                       listOf(BasicTag("type",  "environment"))
                     ).safeIncrement()
-                  } finally {
-                    repository.markDeliveryConfigCheckComplete(it)
                   }
                 }
               }
