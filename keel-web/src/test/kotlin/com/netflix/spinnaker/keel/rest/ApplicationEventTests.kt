@@ -42,7 +42,7 @@ internal class ApplicationEventTests
     expectThat(eventThread)
       .isNotEqualTo(testThread)
       .get { name }
-      .startsWith("event-pool-")
+      .startsWith("DefaultDispatcher-worker-")
   }
 }
 
