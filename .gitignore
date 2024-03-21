@@ -16,3 +16,4 @@ out/
 **/dependencies.lock
 /commit-diff.txt
 /.run
+/*/bin
