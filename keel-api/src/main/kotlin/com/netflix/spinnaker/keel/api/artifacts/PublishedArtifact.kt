@@ -43,7 +43,7 @@ data class PublishedArtifact(
     metadata: Map<String, Any?>? = null
   ) : this(
     name = name,
-    type = type.toLowerCase(),
+    type = type.lowercase(),
     reference = reference?: name,
     version = version,
     metadata = (metadata ?: emptyMap()) + mapOf(
@@ -65,7 +65,7 @@ data class PublishedArtifact(
     buildMetadata: BuildMetadata? = null
   ) : this(
     name = name,
-    type = type.toLowerCase(),
+    type = type.lowercase(),
     reference = reference,
     version = version,
     metadata = mapOf(
@@ -109,8 +109,8 @@ data class PublishedArtifact(
     get() = buildMetadata?.number ?: metadata["buildNumber"] as? String
 
   fun normalized() = copy(
-    type = type.toLowerCase(),
+    type = type.lowercase(),
     // FIXME: it's silly that we're prepending the artifact name for Debian only...
-    version = if (type.toLowerCase() == DEBIAN && !version.startsWith(name)) "$name-$version" else version
+    version = if (type.lowercase() == DEBIAN && !version.startsWith(name)) "$name-$version" else version
   )
 }

@@ -9,6 +9,9 @@ dependencies {
 }
 
 test {
+  maxHeapSize = "4096M"
+  jvmArgs "-Dspring.test.context.cache.maxSize=1"
+
   useJUnitPlatform {
     includeEngines("junit-jupiter")
   }
